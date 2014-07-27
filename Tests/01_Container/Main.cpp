@@ -2,13 +2,18 @@
 
 #include "Ptr.h"
 
+#ifdef _MSC_VER
+#include <crtdbg.h>
+#endif
+
 #include <cstdio>
+
+using namespace Turso3D;
 
 class Test
 {
 public:
-    Test() :
-        value(1)
+    Test()
     {
         printf("Test constructed\n");
     }
@@ -17,35 +22,79 @@ public:
     {
         printf("Test destroyed\n");
     }
+};
 
-    void Function()
+class TestShared: public Shared
+{
+public:
+    TestShared()
     {
-        ++value;
+        printf("TestShared constructed\n");
     }
 
-    int value;
+    ~TestShared()
+    {
+        printf("TestShared destroyed\n");
+    }
+};
+
+class TestReferenced : public Referenced
+{
+public:
+    TestReferenced()
+    {
+        printf("TestReferenced constructed\n");
+    }
+
+    ~TestReferenced()
+    {
+        printf("TestReferenced destroyed\n");
+    }
 };
 
 int main()
 {
+    #ifdef _MSC_VER
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+    #endif
+    
     {
-        printf("Testing AutoPtr assignment\n");
+        printf("\nTesting AutoPtr assignment\n");
         AutoPtr<Test> ptr1(new Test);
         AutoPtr<Test> ptr2;
         ptr2 = ptr1;
     }
 
     {
-        printf("Testing AutoPtr copy construction\n");
+        printf("\nTesting AutoPtr copy construction\n");
         AutoPtr<Test> ptr1(new Test);
         AutoPtr<Test> ptr2(ptr1);
     }
 
     {
-        printf("Testing AutoPtr detaching\n");
+        printf("\nTesting AutoPtr detaching\n");
         AutoPtr<Test> ptr1(new Test);
-        // We now have an intentional memory leak
-        ptr1.Detach();
+        // We would now have a memory leak if we don't manually delete the object
+        Test* object = ptr1.Detach();
+        delete object;
+    }
+    
+    {
+        printf("\nTesting SharedPtr\n");
+        SharedPtr<TestShared> ptr1(new TestShared);
+        SharedPtr<TestShared> ptr2(ptr1);
+        printf("Number of refs: %d\n", ptr1.Refs());
+    }
+    
+    {
+        printf("\nTesting WeakPtr\n");
+        TestReferenced* object = new TestReferenced;
+        WeakPtr<TestReferenced> ptr1(object);
+        WeakPtr<TestReferenced> ptr2(ptr1);
+        printf("Number of weak refs: %d Expired: %d\n", ptr1.WeakRefs(), ptr1.IsExpired());
+        ptr2.Reset();
+        delete object;
+        printf("Number of weak refs: %d Expired: %d\n", ptr1.WeakRefs(), ptr1.IsExpired());
     }
 
     return 0;
