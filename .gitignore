@@ -1,0 +1,10 @@
+# Build directory
+Build/
+
+# Output directory
+Bin/*
+!Bin/**/
+
+
+# Generated documentation
+Docs/html/
