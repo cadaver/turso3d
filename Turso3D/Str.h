@@ -194,7 +194,7 @@ public:
     String& operator += (float rhs);
     /// Add-assign a bool.
     String& operator += (bool rhs);
-    /// Add-assign an arbitraty type.
+    /// Add-assign an arbitrary type.
     template <class T> String operator += (const T& rhs) { return *this += rhs.ToString(); }
     
     /// Add a string.

@@ -1052,14 +1052,14 @@ String& String::AppendWithFormatArgs(const char* formatStr, va_list args)
     size_t pos = 0, lastPos = 0;
     size_t length = CStringLength(formatStr);
 
-    while (true)
+    for (;;)
     {
         // Scan the format string and find %a argument where a is one of d, f, s ...
         while (pos < length && formatStr[pos] != '%')
             pos++;
         Append(formatStr + lastPos, pos - lastPos);
         if (pos >= length)
-            return *this;
+            break;
         
         char arg = formatStr[pos + 1];
         pos += 2;
@@ -1167,7 +1167,7 @@ int String::Compare(const char* lhs, const char* rhs, bool caseSensitive)
 
 void String::Replace(size_t pos, size_t numChars, const char* srcStart, size_t srcLength)
 {
-    long long delta = srcLength - numChars;
+    int delta = (int)srcLength - (int)numChars;
     
     if (pos + numChars < length)
     {
