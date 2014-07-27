@@ -1,6 +1,6 @@
 # For conditions of distribution and use, see copyright notice in License.txt
 
-set (TARGET_NAME 01_Container)
+set (TARGET_NAME 01_Base)
 
 file (GLOB SOURCE_FILES *.cpp *.h)
 

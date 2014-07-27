@@ -1,13 +1,17 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
-#include "Container.h"
-#include "Ptr.h"
+#include "AutoPtr.h"
+#include "SharedPtr.h"
+#include "Vector.h"
+#include "WeakPtr.h"
+#include "DebugNew.h"
 
 #ifdef _MSC_VER
 #include <crtdbg.h>
 #endif
 
 #include <cstdio>
+#include <cstdlib>
 
 using namespace Turso3D;
 

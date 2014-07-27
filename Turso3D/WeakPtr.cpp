@@ -1,6 +1,6 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
-#include "Ptr.h"
+#include "WeakPtr.h"
 #include "DebugNew.h"
 
 namespace Turso3D

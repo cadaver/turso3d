@@ -2,20 +2,14 @@
 
 #pragma once
 
+#include "Swap.h"
+
 #include <cassert>
 #include <cstring>
 #include <new>
 
 namespace Turso3D
 {
-
-/// Swap two values.
-template<class T> inline void Swap(T& first, T& second)
-{
-    T temp = first;
-    first = second;
-    second = temp;
-}
 
 /// Random access iterator.
 template <class T> struct RandomAccessIterator
