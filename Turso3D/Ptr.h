@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cassert>
+#include <cstddef>
 
 namespace Turso3D
 {
@@ -150,7 +151,7 @@ public:
     /// Index the array.
     T& operator [] (size_t index) { assert(array); return array[index]; }
     /// Const-index the array.
-    const T& operator [] (size_t index) const { assert(array); return ptr[index]; }
+    const T& operator [] (size_t index) const { assert(array); return array[index]; }
     /// Convert to the array.
     operator T* () const { return array; }
     /// Return the array.
@@ -164,13 +165,19 @@ private:
 };
 
 /// Base class for intrusively reference counted objects that can be pointed to with a SharedPtr. These are not copy-constructible and not assignable.
-class Shared
+class RefCounted
 {
 public:
     /// Construct. Initialize the reference count to zero.
-    Shared() :
+    RefCounted() :
         refCount(0)
     {
+    }
+    
+    /// Destruct. Verify that the reference count is zero.
+    ~RefCounted()
+    {
+        assert(refCount == 0);
     }
     
     /// Add a reference.
@@ -193,15 +200,15 @@ public:
     
 private:
     /// Prevent copy construction.
-    Shared(const Shared& rhs);
+    RefCounted(const RefCounted& rhs);
     /// Prevent assignment.
-    Shared& operator = (const Shared& rhs);
+    RefCounted& operator = (const RefCounted& rhs);
     
     /// Reference count.
     unsigned refCount;
 };
 
-/// Pointer which refers to a Shared subclass and has shared ownership of it.
+/// Pointer which refers to a RefCounted subclass and has shared ownership of it.
 template <class T> class SharedPtr
 {
 public:
@@ -225,7 +232,7 @@ public:
         *this = rhs;
     }
     
-    /// Destruct. Release the object reference and destroy it if was the last reference.
+    /// Destruct. Release the object reference and destroy the object if was the last reference.
     ~SharedPtr()
     {
         Reset();
@@ -251,7 +258,7 @@ public:
         return *this;
     }
     
-    /// Reset to null and release the object reference. Destroy the object if was the last reference.
+    /// Release the object reference and reset to null. Destroy the object if was the last reference.
     void Reset()
     {
         if (object)
@@ -316,17 +323,17 @@ template <class T, class U> SharedPtr<T> DynamicCast(const SharedPtr<U>& rhs)
 }
 
 /// Base class for objects that can be pointed to with a WeakPtr. These are not copy-constructible and not assignable.
-class Referenced
+class WeakRefCounted
 {
 public:
     /// Construct. The reference count is not allocated yet; it will be allocated on demand.
-    Referenced() :
+    WeakRefCounted() :
         weakRefCount(0)
     {
     }
     
     /// Destruct. If no weak references, destroy also the reference count, else mark it expired.
-    ~Referenced()
+    ~WeakRefCounted()
     {
         if (weakRefCount)
         {
@@ -344,15 +351,15 @@ public:
     
 private:
     /// Prevent copy construction.
-    Referenced(const Referenced& rhs);
+    WeakRefCounted(const WeakRefCounted& rhs);
     /// Prevent assignment.
-    Referenced& operator = (const Referenced& rhs);
+    WeakRefCounted& operator = (const WeakRefCounted& rhs);
     
     /// Weak reference count, allocated on demand. The highest bit will be set when expired.
     unsigned* weakRefCount;
 };
 
-/// Pointer which refers to a Referenced subclass to know whether the object exists and its number of weak references. Does not own the object pointed to.
+/// Pointer which refers to a WeakRefCounted subclass to know whether the object exists and its number of weak references. Does not own the object pointed to.
 template <class T> class WeakPtr
 {
 public:
@@ -407,7 +414,7 @@ public:
         return *this;
     }
     
-    /// Reset to null and release the object reference.
+    /// Release the weak reference and reset to null.
     void Reset()
     {
         if (weakRefCount)
@@ -456,11 +463,11 @@ public:
             return 0;
     }
 
-    /// Return the number of weak references.
+    /// Return the number of weak references to the object.
     unsigned WeakRefs() const { return weakRefCount ? *weakRefCount & 0x7fffffff : 0; }
     /// Return whether is a null pointer.
     bool IsNull() const { return object == 0; }
-    /// Return whether is expired. Returns false if is null.
+    /// Return whether is expired. Returns false if the pointer is null.
     bool IsExpired() const { return weakRefCount && *weakRefCount & 0x80000000; }
     
 private:

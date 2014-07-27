@@ -6,7 +6,7 @@
 namespace Turso3D
 {
 
-unsigned* Referenced::WeakRefCountPtr()
+unsigned* WeakRefCounted::WeakRefCountPtr()
 {
     if (!weakRefCount)
     {

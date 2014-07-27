@@ -24,7 +24,7 @@ public:
     }
 };
 
-class TestShared: public Shared
+class TestShared: public RefCounted
 {
 public:
     TestShared()
@@ -38,7 +38,7 @@ public:
     }
 };
 
-class TestReferenced : public Referenced
+class TestReferenced : public WeakRefCounted
 {
 public:
     TestReferenced()
