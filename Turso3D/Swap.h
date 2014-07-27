@@ -5,6 +5,9 @@
 namespace Turso3D
 {
 
+class ListBase;
+class VectorBase;
+
 /// Swap two values.
 template<class T> inline void Swap(T& first, T& second)
 {
@@ -12,5 +15,8 @@ template<class T> inline void Swap(T& first, T& second)
     first = second;
     second = temp;
 }
+
+template<> void Swap<ListBase>(ListBase& first, ListBase& second);
+template<> void Swap<VectorBase>(VectorBase& first, VectorBase& second);
 
 }

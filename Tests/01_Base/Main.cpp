@@ -1,6 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "AutoPtr.h"
+#include "List.h"
 #include "SharedPtr.h"
 #include "Vector.h"
 #include "WeakPtr.h"
@@ -105,12 +106,27 @@ int main()
     {
         printf("\nTesting Vector\n");
         Vector<int> vec;
+        srand(0);
         for (int i = 0; i < 1000000; ++i)
             vec.Push(rand());
         int sum = 0;
         for (Vector<int>::ConstIterator i = vec.Begin(); i != vec.End(); ++i)
             sum += *i;
         printf("After 1000000 pushes size: %d capacity: %d\n", vec.Size(), vec.Capacity());
+        printf("Sum of vector items: %d\n", sum);
+    }
+    
+    {
+        printf("\nTesting List\n");
+        List<int> list;
+        srand(0);
+        for (int i = 0; i < 1000000; ++i)
+            list.Push(rand());
+        int sum = 0;
+        for (List<int>::ConstIterator i = list.Begin(); i != list.End(); ++i)
+            sum += *i;
+        printf("After 1000000 pushes size: %d\n", list.Size());
+        printf("Sum of list items: %d\n", sum);
     }
 
     return 0;

@@ -8,13 +8,14 @@ macro (add_source_group GROUP GROUP_FILES)
 endmacro ()
 
 set (BASE_FILES
+    Allocator.h
     AutoPtr.h
+    Base.cpp
     DebugNew.h
+    List.h
     SharedPtr.h
     Swap.h
-    WeakPtr.cpp
     WeakPtr.h
-    Vector.cpp
     Vector.h
 )
 
