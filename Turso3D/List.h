@@ -85,7 +85,7 @@ public:
     /// Return number of elements.
     size_t Size() const { return size; }
     /// Return whether the list is empty.
-    bool Empty() const { return size == 0; }
+    bool IsEmpty() const { return size == 0; }
     
 protected:
     /// Head node pointer.

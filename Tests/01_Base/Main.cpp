@@ -3,6 +3,7 @@
 #include "AutoPtr.h"
 #include "List.h"
 #include "SharedPtr.h"
+#include "Str.h"
 #include "Vector.h"
 #include "WeakPtr.h"
 #include "DebugNew.h"
@@ -127,6 +128,20 @@ int main()
             sum += *i;
         printf("After 1000000 pushes size: %d\n", list.Size());
         printf("Sum of list items: %d\n", sum);
+    }
+    
+    {
+        printf("\nTesting String\n");
+        String test;
+        for (int i = 0; i < 1000000; ++i)
+            test += "Test";
+        String test2;
+        test2.AppendWithFormat("After 1000000 concatenations size: %d capacity: %d\n", test.Length(), test.Capacity());
+        printf(test2.CString());
+        test2 = test2.ToUpper();
+        printf(test2.CString());
+        test2.Replace("SIZE:", "LENGTH:");
+        printf(test2.CString());
     }
 
     return 0;

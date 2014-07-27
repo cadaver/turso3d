@@ -5,6 +5,7 @@
 #include "Swap.h"
 #include "Vector.h"
 #include "WeakPtr.h"
+
 #include "DebugNew.h"
 
 namespace Turso3D
@@ -50,7 +51,7 @@ AllocatorBlock* AllocatorReserveBlock(AllocatorBlock* allocator, size_t nodeSize
     return newBlock;
 }
 
-AllocatorBlock* AllocatorInitialize(unsigned nodeSize, unsigned initialCapacity)
+AllocatorBlock* AllocatorInitialize(size_t nodeSize, size_t initialCapacity)
 {
     AllocatorBlock* block = AllocatorReserveBlock(0, nodeSize, initialCapacity);
     return block;

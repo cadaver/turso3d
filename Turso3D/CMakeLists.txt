@@ -14,6 +14,8 @@ set (BASE_FILES
     DebugNew.h
     List.h
     SharedPtr.h
+    Str.cpp
+    Str.h
     Swap.h
     WeakPtr.h
     Vector.h
