@@ -14,51 +14,51 @@ template <class T> class AutoPtr
 public:
     /// Construct a null pointer.
     AutoPtr() :
-        object(0)
+        ptr(0)
     {
     }
 
     /// Construct and take ownership of the object.
     AutoPtr(T* rhs) :
-       object(rhs)
+       ptr(rhs)
     {
     }
 
     /// Copy-construct. The ownership is transferred, making the source pointer null.
     AutoPtr(AutoPtr<T>& rhs) :
-        object(rhs.object)
+        ptr(rhs.ptr)
     {
-        rhs.object = 0;
+        rhs.ptr = 0;
     }
 
     /// Destruct. Delete the object pointed to.
     ~AutoPtr()
     {
-        delete object;
+        delete ptr;
     }
 
     /// Assign from a pointer (transfer ownership). The source pointer becomes null.
     AutoPtr<T>& operator = (AutoPtr<T>& rhs)
     {
-        delete object;
-        object = rhs.object;
-        rhs.object = 0;
+        delete ptr;
+        ptr = rhs.ptr;
+        rhs.ptr = 0;
         return *this;
     }
 
     /// Assign a new object and delete the old if any.
     AutoPtr<T>& operator = (T* rhs)
     {
-        delete object;
-        object = rhs;
+        delete ptr;
+        ptr = rhs;
         return *this;
     }
 
     /// Detach the object from the pointer without destroying it and return it. The pointer becomes null.
     T* Detach()
     {
-        T* ret = object;
-        object = 0;
+        T* ret = ptr;
+        ptr = 0;
         return ret;
     }
 
@@ -69,19 +69,19 @@ public:
     }
     
     /// Point to the object.
-    T* operator -> () const { assert(object); return object; }
+    T* operator -> () const { assert(ptr); return ptr; }
     /// Dereference the object.
-    T& operator * () const { assert(object); return *object; }
+    T& operator * () const { assert(ptr); return *ptr; }
     /// Convert to the object.
-    operator T* () const { return object; }
+    operator T* () const { return ptr; }
     /// Return the object.
-    T* Get() const { return object; }
+    T* Get() const { return ptr; }
     /// Return whether is a null pointer.
-    bool IsNull() const { return object == 0; }
+    bool IsNull() const { return ptr == 0; }
     
 private:
     /// Object pointer.
-    T* object;
+    T* ptr;
 };
 
 /// Pointer which takes ownership of an array allocated with new[] and deletes it when the pointer goes out of scope. Ownership can be transferred to another pointer, in which case the source pointer becomes null.
@@ -214,20 +214,20 @@ template <class T> class SharedPtr
 public:
     /// Construct a null pointer.
     SharedPtr() :
-        object(0)
+        ptr(0)
     {
     }
     
     /// Construct with an object pointer.
     SharedPtr(T* rhs) :
-        object(0)
+        ptr(0)
     {
         *this = rhs;
     }
     
     /// Copy-construct.
     SharedPtr(const SharedPtr<T>& rhs) :
-        object(0)
+        ptr(0)
     {
         *this = rhs;
     }
@@ -242,9 +242,9 @@ public:
     SharedPtr<T>& operator = (T* rhs)
     {
         Reset();
-        object = rhs;
-        if (object)
-            object->AddRef();
+        ptr = rhs;
+        if (ptr)
+            ptr->AddRef();
         return *this;
     }
     
@@ -252,58 +252,58 @@ public:
     SharedPtr<T>& operator = (const SharedPtr<T>& rhs)
     {
         Reset();
-        object = rhs.object;
-        if (object)
-            object->AddRef();
+        ptr = rhs.ptr;
+        if (ptr)
+            ptr->AddRef();
         return *this;
     }
     
     /// Release the object reference and reset to null. Destroy the object if was the last reference.
     void Reset()
     {
-        if (object)
+        if (ptr)
         {
-            object->ReleaseRef();
-            object = 0;
+            ptr->ReleaseRef();
+            ptr = 0;
         }
     }
     
     /// Perform a static cast from a SharedPtr of another type.
     template <class U> void StaticCast(const SharedPtr<U>& rhs)
     {
-        *this = static_cast<T*>(rhs.object);
+        *this = static_cast<T*>(rhs.ptr);
     }
 
     /// Perform a dynamic cast from a WeakPtr of another type.
     template <class U> void DynamicCast(const SharedPtr<U>& rhs)
     {
         Reset();
-        T* rhsObject = dynamic_cast<T*>(rhs.object);
+        T* rhsObject = dynamic_cast<T*>(rhs.ptr);
         if (rhsObject)
             *this = rhsObject;
     }
     
     /// Test for equality: points to the same object.
-    bool operator == (const SharedPtr<T>& rhs) const { return object == rhs.object; }
+    bool operator == (const SharedPtr<T>& rhs) const { return ptr == rhs.ptr; }
     /// Test for inequality.
     bool operator != (const SharedPtr<T>& rhs) const { return !(*this == rhs); }
     /// Point to the object.
-    T* operator -> () const { assert(object); return object; }
+    T* operator -> () const { assert(ptr); return ptr; }
     /// Dereference the object.
-    T& operator * () const { assert(object); return object; }
+    T& operator * () const { assert(ptr); return ptr; }
     /// Convert to the object.
-    operator T* () const { return object; }
+    operator T* () const { return ptr; }
     
     /// Return the object.
-    T* Get() const { return object; }
+    T* Get() const { return ptr; }
     /// Return the number of references to the object.
-    unsigned Refs() const { return object ? object->Refs() : 0; }
+    unsigned Refs() const { return ptr ? ptr->Refs() : 0; }
     /// Return whether is a null pointer.
-    bool IsNull() const { return object == 0; }
+    bool IsNull() const { return ptr == 0; }
     
 private:
     /// Object pointer.
-    T* object;
+    T* ptr;
 };
 
 /// Perform a static cast between shared pointers of two types.
@@ -328,24 +328,24 @@ class WeakRefCounted
 public:
     /// Construct. The reference count is not allocated yet; it will be allocated on demand.
     WeakRefCounted() :
-        weakRefCount(0)
+        refCount(0)
     {
     }
     
     /// Destruct. If no weak references, destroy also the reference count, else mark it expired.
     ~WeakRefCounted()
     {
-        if (weakRefCount)
+        if (refCount)
         {
-            if (*weakRefCount == 0)
-                delete weakRefCount;
+            if (*refCount == 0)
+                delete refCount;
             else
-                *weakRefCount |= 0x80000000;
+                *refCount |= 0x80000000;
         }
     }
     
     /// Return the number of weak references.
-    unsigned WeakRefs() const { return weakRefCount ? *weakRefCount : 0; }
+    unsigned WeakRefs() const { return refCount ? *refCount : 0; }
     /// Return pointer to the weak reference count. Allocate if not allocated yet. Called by WeakPtr.
     unsigned* WeakRefCountPtr();
     
@@ -356,7 +356,7 @@ private:
     WeakRefCounted& operator = (const WeakRefCounted& rhs);
     
     /// Weak reference count, allocated on demand. The highest bit will be set when expired.
-    unsigned* weakRefCount;
+    unsigned* refCount;
 };
 
 /// Pointer which refers to a WeakRefCounted subclass to know whether the object exists and its number of weak references. Does not own the object pointed to.
@@ -365,23 +365,23 @@ template <class T> class WeakPtr
 public:
     /// Construct a null pointer.
     WeakPtr() :
-        object(0),
-        weakRefCount(0)
+        ptr(0),
+        refCount(0)
     {
     }
     
     /// Construct with an object pointer.
     WeakPtr(T* rhs) :
-        object(0),
-        weakRefCount(0)
+        ptr(0),
+        refCount(0)
     {
         *this = rhs;
     }
     
     /// Copy-construct.
     WeakPtr(const WeakPtr<T>& rhs) :
-        object(0),
-        weakRefCount(0)
+        ptr(0),
+        refCount(0)
     {
         *this = rhs;
     }
@@ -396,10 +396,10 @@ public:
     WeakPtr<T>& operator = (T* rhs)
     {
         Reset();
-        object = rhs;
-        weakRefCount = rhs ? rhs->WeakRefCountPtr() : 0;
-        if (weakRefCount)
-            ++(*weakRefCount);
+        ptr = rhs;
+        refCount = rhs ? rhs->WeakRefCountPtr() : 0;
+        if (refCount)
+            ++(*refCount);
         return *this;
     }
     
@@ -407,44 +407,44 @@ public:
     WeakPtr<T>& operator = (const WeakPtr<T>& rhs)
     {
         Reset();
-        object = rhs.object;
-        weakRefCount = rhs.weakRefCount;
-        if (weakRefCount)
-            ++(*weakRefCount);
+        ptr = rhs.ptr;
+        refCount = rhs.refCount;
+        if (refCount)
+            ++(*refCount);
         return *this;
     }
     
     /// Release the weak reference and reset to null.
     void Reset()
     {
-        if (weakRefCount)
+        if (refCount)
         {
-            --(*weakRefCount);
+            --(*refCount);
             // If expired and no more weak references, destroy the reference count
-            if (*weakRefCount == 0x80000000)
-                delete weakRefCount;
-            object = 0;
-            weakRefCount = 0;
+            if (*refCount == 0x80000000)
+                delete refCount;
+            ptr = 0;
+            refCount = 0;
         }
     }
     
     /// Perform a static cast from a WeakPtr of another type.
     template <class U> void StaticCast(const WeakPtr<U>& rhs)
     {
-        *this = static_cast<T*>(rhs.object);
+        *this = static_cast<T*>(rhs.ptr);
     }
 
     /// Perform a dynamic cast from a WeakPtr of another type.
     template <class U> void DynamicCast(const WeakPtr<U>& rhs)
     {
         Reset();
-        T* rhsObject = dynamic_cast<T*>(rhs.object);
+        T* rhsObject = dynamic_cast<T*>(rhs.ptr);
         if (rhsObject)
             *this = rhsObject;
     }
     
     /// Test for equality: points to the same object and reference count.
-    bool operator == (const WeakPtr<T>& rhs) const { return object == rhs.object && weakRefCount == rhs.weakRefCount; }
+    bool operator == (const WeakPtr<T>& rhs) const { return ptr == rhs.ptr && refCount == rhs.refCount; }
     /// Test for inequality.
     bool operator != (const WeakPtr<T>& rhs) const { return !(*this == rhs); }
     /// Point to the object.
@@ -457,24 +457,24 @@ public:
     /// Return the object or null if it has been destroyed.
     T* Get() const
     {
-        if (weakRefCount && (*weakRefCount & 0x80000000) == 0)
-            return object;
+        if (refCount && (*refCount & 0x80000000) == 0)
+            return ptr;
         else
             return 0;
     }
 
     /// Return the number of weak references to the object.
-    unsigned WeakRefs() const { return weakRefCount ? *weakRefCount & 0x7fffffff : 0; }
+    unsigned WeakRefs() const { return refCount ? *refCount & 0x7fffffff : 0; }
     /// Return whether is a null pointer.
-    bool IsNull() const { return object == 0; }
-    /// Return whether is expired. Returns false if the pointer is null.
-    bool IsExpired() const { return weakRefCount && *weakRefCount & 0x80000000; }
+    bool IsNull() const { return ptr == 0; }
+    /// Return whether the object has been destroyed. Returns false if the pointer is null.
+    bool IsExpired() const { return refCount && *refCount & 0x80000000; }
     
 private:
     /// Object pointer.
-    T* object;
+    T* ptr;
     /// The object's weak reference count.
-    unsigned* weakRefCount;
+    unsigned* refCount;
 };
 
 /// Perform a static cast between weak pointers of two types.

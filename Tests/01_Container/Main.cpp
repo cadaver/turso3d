@@ -1,5 +1,6 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
+#include "Container.h"
 #include "Ptr.h"
 
 #ifdef _MSC_VER
@@ -91,10 +92,21 @@ int main()
         TestReferenced* object = new TestReferenced;
         WeakPtr<TestReferenced> ptr1(object);
         WeakPtr<TestReferenced> ptr2(ptr1);
-        printf("Number of weak refs: %d Expired: %d\n", ptr1.WeakRefs(), ptr1.IsExpired());
+        printf("Number of weak refs: %d expired: %d\n", ptr1.WeakRefs(), ptr1.IsExpired());
         ptr2.Reset();
         delete object;
-        printf("Number of weak refs: %d Expired: %d\n", ptr1.WeakRefs(), ptr1.IsExpired());
+        printf("Number of weak refs: %d expired: %d\n", ptr1.WeakRefs(), ptr1.IsExpired());
+    }
+
+    {
+        printf("\nTesting Vector\n");
+        Vector<int> vec;
+        for (int i = 0; i < 1000000; ++i)
+            vec.Push(rand());
+        int sum = 0;
+        for (Vector<int>::ConstIterator i = vec.Begin(); i != vec.End(); ++i)
+            sum += *i;
+        printf("After 1000000 pushes size: %d capacity: %d\n", vec.Size(), vec.Capacity());
     }
 
     return 0;
