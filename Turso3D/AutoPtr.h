@@ -84,7 +84,7 @@ private:
     T* ptr;
 };
 
-/// Pointer which takes ownership of an array allocated with new[] and deletes it when the pointer goes out of scope. Ownership can be transferred to another pointer, in which case the source pointer becomes null.
+/// Pointer which takes ownership of an array allocated with new[] and deletes it when the pointer goes out of scope.
 template <class T> class AutoArrayPtr
 {
 public:

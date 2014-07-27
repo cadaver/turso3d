@@ -182,7 +182,7 @@ protected:
     unsigned char* buffer;
 };
 
-/// %Vector template class.
+/// %Vector template class. Implements a dynamic-sized array where the elements are in continuous memory.
 template <class T> class Vector : public VectorBase
 {
 public:
