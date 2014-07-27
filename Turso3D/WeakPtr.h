@@ -11,6 +11,11 @@ namespace Turso3D
 class WeakRefCounted
 {
 public:
+    /// The highest bit of the reference count denotes an expired object.
+    static const unsigned EXPIRED = 0x80000000;
+    /// The rest of the bits are used for the actual reference count.
+    static const unsigned REFCOUNT_MASK = 0x7fffffff;
+    
     /// Construct. The reference count is not allocated yet; it will be allocated on demand.
     WeakRefCounted() :
         refCount(0)
@@ -25,7 +30,7 @@ public:
             if (*refCount == 0)
                 delete refCount;
             else
-                *refCount |= 0x80000000;
+                *refCount |= EXPIRED;
         }
     }
     
@@ -106,7 +111,7 @@ public:
         {
             --(*refCount);
             // If expired and no more weak references, destroy the reference count
-            if (*refCount == 0x80000000)
+            if (*refCount == WeakRefCounted::EXPIRED)
                 delete refCount;
             ptr = 0;
             refCount = 0;
@@ -142,18 +147,18 @@ public:
     /// Return the object or null if it has been destroyed.
     T* Get() const
     {
-        if (refCount && (*refCount & 0x80000000) == 0)
+        if (refCount && *refCount < WeakRefCounted::EXPIRED)
             return ptr;
         else
             return 0;
     }
 
     /// Return the number of weak references to the object.
-    unsigned WeakRefs() const { return refCount ? *refCount & 0x7fffffff : 0; }
+    unsigned WeakRefs() const { return refCount ? *refCount & WeakRefCounted::REFCOUNT_MASK : 0; }
     /// Return whether is a null pointer.
     bool IsNull() const { return ptr == 0; }
     /// Return whether the object has been destroyed. Returns false if the pointer is null.
-    bool IsExpired() const { return refCount && *refCount & 0x80000000; }
+    bool IsExpired() const { return refCount && *refCount >= WeakRefCounted::EXPIRED; }
     
 private:
     /// Object pointer.
