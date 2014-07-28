@@ -198,7 +198,7 @@ public:
         head = tail = ReserveNode();
     }
     
-    /// Construct from another list.
+    /// Copy-construct.
     List(const List<T>& list)
     {
         // Reserve the tail node + initial capacity according to the list's size

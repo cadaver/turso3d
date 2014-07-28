@@ -207,7 +207,7 @@ public:
         Resize(dataSize, data);
     }
 
-    /// Construct from another vector.
+    /// Copy-construct.
     Vector(const Vector<T>& vector)
     {
         *this = vector;
@@ -610,7 +610,7 @@ public:
         CopyElements(Buffer(), data, dataSize);
     }
 
-    /// Construct from another vector.
+    /// Copy-construct.
     PODVector(const PODVector<T>& vector)
     {
         *this = vector;

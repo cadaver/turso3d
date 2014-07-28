@@ -162,6 +162,16 @@ String& String::operator += (short rhs)
     return *this += String(rhs);
 }
 
+String& String::operator += (long rhs)
+{
+    return *this += String(rhs);
+}
+
+String& String::operator += (long long rhs)
+{
+    return *this += String(rhs);
+}
+
 String& String::operator += (unsigned rhs)
 {
     return *this += String(rhs);
@@ -172,7 +182,22 @@ String& String::operator += (unsigned short rhs)
     return *this += String(rhs);
 }
 
+String& String::operator += (unsigned long rhs)
+{
+    return *this += String(rhs);
+}
+
+String& String::operator += (unsigned long long rhs)
+{
+    return *this += String(rhs);
+}
+
 String& String::operator += (float rhs)
+{
+    return *this += String(rhs);
+}
+
+String& String::operator += (double rhs)
 {
     return *this += String(rhs);
 }
