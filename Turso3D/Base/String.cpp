@@ -1,11 +1,11 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
-#include "Str.h"
+#include "String.h"
 #include "Swap.h"
 
 #include <cstdio>
 
-#include "DebugNew.h"
+#include "../Debug/DebugNew.h"
 
 namespace Turso3D
 {

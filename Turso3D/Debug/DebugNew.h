@@ -2,6 +2,9 @@
 
 #pragma once
 
+// In MSVC debug mode, override the global new operator to include file and line logging. This file should be included last in
+// compilation units. Will break using placement new.
+
 #if defined(_MSC_VER) && defined(_DEBUG)
 
 #define _CRTDBG_MAP_ALLOC

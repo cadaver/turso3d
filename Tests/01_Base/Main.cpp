@@ -1,12 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
-#include "AutoPtr.h"
-#include "List.h"
-#include "SharedPtr.h"
-#include "Str.h"
-#include "Vector.h"
-#include "WeakPtr.h"
-#include "DebugNew.h"
+#include "Turso3D.h"
+#include "Debug/DebugNew.h"
 
 #ifdef _MSC_VER
 #include <crtdbg.h>

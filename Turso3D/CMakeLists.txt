@@ -2,25 +2,20 @@
 
 set (TARGET_NAME Turso3D)
 
-macro (add_source_group GROUP GROUP_FILES)
-    source_group (${GROUP} FILES ${GROUP_FILES})
-    list (APPEND SOURCE_FILES ${GROUP_FILES})
+# Macro to add files from a directory grouped to the solution file
+macro (add_engine_directory DIRECTORY)
+    file (GLOB DIR_FILES ${DIRECTORY}/*.h ${DIRECTORY}/*.c ${DIRECTORY}/*.cpp)
+    get_filename_component (GROUP ${DIRECTORY} NAME)
+    source_group ("${GROUP}" FILES ${DIR_FILES})
+    list (APPEND SOURCE_FILES ${DIR_FILES})
 endmacro ()
 
-set (BASE_FILES
-    Allocator.h
-    AutoPtr.h
-    Base.cpp
-    DebugNew.h
-    List.h
-    SharedPtr.h
-    Str.cpp
-    Str.h
-    Swap.h
-    WeakPtr.h
-    Vector.h
-)
+# Add source files from subdirectories
+add_engine_directory (Base)
+add_engine_directory (Debug)
 
-add_source_group (Base "${BASE_FILES}")
+# Add root-level files
+file (GLOB TURSO3D_FILES *.h *.c *.cpp)
+list (APPEND SOURCE_FILES ${TURSO3D_FILES})
 
 add_library (${TARGET_NAME} STATIC ${SOURCE_FILES})

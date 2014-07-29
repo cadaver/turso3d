@@ -6,7 +6,7 @@
 #include "Vector.h"
 #include "WeakPtr.h"
 
-#include "DebugNew.h"
+#include "../Debug/DebugNew.h"
 
 namespace Turso3D
 {
