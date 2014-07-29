@@ -6,6 +6,7 @@
 // so that placement new works as expected.
 
 #include "Base/AutoPtr.h"
+#include "Base/HashMap.h"
 #include "Base/List.h"
 #include "Base/SharedPtr.h"
 #include "Base/String.h"
