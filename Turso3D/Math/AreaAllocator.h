@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Rect.h"
+#include "../Base/Vector.h"
 
 namespace Turso3D
 {

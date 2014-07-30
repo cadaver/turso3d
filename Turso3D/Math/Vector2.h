@@ -3,10 +3,12 @@
 #pragma once
 
 #include "Math.h"
-#include "../Base/String.h"
+#include "../Turso3DConfig.h"
 
 namespace Turso3D
 {
+
+class String;
 
 /// Two-dimensional vector.
 class TURSO3D_API Vector2
