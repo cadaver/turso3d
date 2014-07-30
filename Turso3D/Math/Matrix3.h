@@ -95,7 +95,7 @@ public:
         const float* leftData = Data();
         const float* rightData = rhs.Data();
         
-        for (unsigned i = 0; i < 9; ++i)
+        for (size_t i = 0; i < 9; ++i)
         {
             if (leftData[i] != rightData[i])
                 return false;

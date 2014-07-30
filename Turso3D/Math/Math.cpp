@@ -265,7 +265,7 @@ Rect BoundingBox::Projected(const Matrix4& projection) const
     vertices[7] = projMax;
     
     Rect rect;
-    for (unsigned i = 0; i < 8; ++i)
+    for (size_t i = 0; i < 8; ++i)
     {
         Vector3 projected = projection * vertices[i];
         rect.Merge(Vector2(projected.x, projected.y));
@@ -682,9 +682,9 @@ Frustum::Frustum(const Frustum& frustum)
 
 Frustum& Frustum::operator = (const Frustum& rhs)
 {
-    for (unsigned i = 0; i < NUM_FRUSTUM_PLANES; ++i)
+    for (size_t i = 0; i < NUM_FRUSTUM_PLANES; ++i)
         planes[i] = rhs.planes[i];
-    for (unsigned i = 0; i < NUM_FRUSTUM_VERTICES; ++i)
+    for (size_t i = 0; i < NUM_FRUSTUM_VERTICES; ++i)
         vertices[i] = rhs.vertices[i];
     
     return *this;
@@ -814,7 +814,7 @@ void Frustum::UpdatePlanes()
     // Check if we ended up with inverted planes (reflected transform) and flip in that case
     if (planes[PLANE_NEAR].Distance(vertices[5]) < 0.0f)
     {
-        for (unsigned i = 0; i < NUM_FRUSTUM_PLANES; ++i)
+        for (size_t i = 0; i < NUM_FRUSTUM_PLANES; ++i)
         {
             planes[i].normal = -planes[i].normal;
             planes[i].d = -planes[i].d;

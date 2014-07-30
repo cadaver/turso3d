@@ -68,9 +68,9 @@ public:
     
 private:
     /// Set a triangle face by index.
-    void SetFace(unsigned index, const Vector3& v0, const Vector3& v1, const Vector3& v2);
+    void SetFace(size_t index, const Vector3& v0, const Vector3& v1, const Vector3& v2);
     /// Set a quadrilateral face by index.
-    void SetFace(unsigned index, const Vector3& v0, const Vector3& v1, const Vector3& v2, const Vector3& v3);
+    void SetFace(size_t index, const Vector3& v0, const Vector3& v1, const Vector3& v2, const Vector3& v3);
 };
 
 }

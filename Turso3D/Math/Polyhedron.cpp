@@ -302,7 +302,7 @@ Polyhedron Polyhedron::Transformed(const Matrix3x4& transform) const
     return ret;
 }
 
-void Polyhedron::SetFace(unsigned index, const Vector3& v0, const Vector3& v1, const Vector3& v2)
+void Polyhedron::SetFace(size_t index, const Vector3& v0, const Vector3& v1, const Vector3& v2)
 {
     PODVector<Vector3>& face = faces[index];
     face.Resize(3);
@@ -311,7 +311,7 @@ void Polyhedron::SetFace(unsigned index, const Vector3& v0, const Vector3& v1, c
     face[2] = v2;
 }
 
-void Polyhedron::SetFace(unsigned index, const Vector3& v0, const Vector3& v1, const Vector3& v2, const Vector3& v3)
+void Polyhedron::SetFace(size_t index, const Vector3& v0, const Vector3& v1, const Vector3& v2, const Vector3& v3)
 {
     PODVector<Vector3>& face = faces[index];
     face.Resize(4);
