@@ -122,14 +122,14 @@ inline Vector3 ClipEdgeZ(const Vector3& v0, const Vector3& v1, float clipZ)
 void ProjectAndMergeEdge(Vector3 v0, Vector3 v1, Rect& rect, const Matrix4& projection)
 {
     // Check if both vertices behind near plane
-    if (v0.z < M_MIN_NEARCLIP && v1.z < M_MIN_NEARCLIP)
+    if (v0.z < M_EPSILON && v1.z < M_EPSILON)
         return;
     
     // Check if need to clip one of the vertices
-    if (v1.z < M_MIN_NEARCLIP)
-        v1 = ClipEdgeZ(v1, v0, M_MIN_NEARCLIP);
-    else if (v0.z < M_MIN_NEARCLIP)
-        v0 = ClipEdgeZ(v0, v1, M_MIN_NEARCLIP);
+    if (v1.z < M_EPSILON)
+        v1 = ClipEdgeZ(v1, v0, M_EPSILON);
+    else if (v0.z < M_EPSILON)
+        v0 = ClipEdgeZ(v0, v1, M_EPSILON);
     
     // Project, perspective divide and merge
     Vector3 tV0(projection * v0);
@@ -249,10 +249,10 @@ Rect BoundingBox::Projected(const Matrix4& projection) const
 {
     Vector3 projMin = min;
     Vector3 projMax = max;
-    if (projMin.z < M_MIN_NEARCLIP)
-        projMin.z = M_MIN_NEARCLIP;
-    if (projMax.z < M_MIN_NEARCLIP)
-        projMax.z = M_MIN_NEARCLIP;
+    if (projMin.z < M_EPSILON)
+        projMin.z = M_EPSILON;
+    if (projMax.z < M_EPSILON)
+        projMax.z = M_EPSILON;
     
     Vector3 vertices[8];
     vertices[0] = projMin;
