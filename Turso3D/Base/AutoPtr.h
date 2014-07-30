@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "../Turso3DConfig.h"
+
 #include <cassert>
 #include <cstddef>
 
@@ -18,17 +20,17 @@ public:
     {
     }
 
-    /// Construct with a raw pointer; take ownership of the object.
-    AutoPtr(T* ptr_) :
-       ptr(ptr_)
-    {
-    }
-
-    /// Copy-construct. The ownership is transferred, making the source pointer null.
+    /// Copy-construct. Ownership is transferred, making the source pointer null.
     AutoPtr(AutoPtr<T>& ptr_) :
         ptr(ptr_.ptr)
     {
         ptr_.ptr = 0;
+    }
+
+    /// Construct with a raw pointer; take ownership of the object.
+    AutoPtr(T* ptr_) :
+       ptr(ptr_)
+    {
     }
 
     /// Destruct. Delete the object pointed to.
@@ -37,7 +39,7 @@ public:
         delete ptr;
     }
 
-    /// Assign from a pointer (transfer ownership). The source pointer becomes null.
+    /// Assign from a pointer. Existing object is deleted and ownership is transferred from the source pointer, which becomes null.
     AutoPtr<T>& operator = (AutoPtr<T>& rhs)
     {
         delete ptr;
@@ -46,7 +48,7 @@ public:
         return *this;
     }
 
-    /// Assign a new object and delete the old if any.
+    /// Assign a new object. Existing object is deleted.
     AutoPtr<T>& operator = (T* rhs)
     {
         delete ptr;
@@ -94,17 +96,17 @@ public:
     {
     }
 
-    /// Construct and take ownership of the array.
-    AutoArrayPtr(T* array_) :
-       array(array_)
-    {
-    }
-
-    /// Copy-construct. The ownership is transferred, making the source pointer null.
+    /// Copy-construct. Ownership is transferred, making the source pointer null.
     AutoArrayPtr(AutoArrayPtr<T>& ptr) :
         array(ptr.array)
     {
         ptr.array = 0;
+    }
+    
+    /// Construct and take ownership of the array.
+    AutoArrayPtr(T* array_) :
+       array(array_)
+    {
     }
 
     /// Destruct. Delete the array pointed to.
@@ -113,7 +115,7 @@ public:
         delete[] array;
     }
 
-    /// Assign from a pointer (transfer ownership). The source pointer becomes null.
+    /// Assign from a pointer. Existing array is deleted and ownership is transferred from the source pointer, which becomes null.
     AutoArrayPtr<T>& operator = (AutoArrayPtr<T>& rhs)
     {
         delete array;
@@ -122,7 +124,7 @@ public:
         return *this;
     }
 
-    /// Assign a new array and delete the old if any.
+    /// Assign a new array. Existing array is deleted.
     AutoArrayPtr<T>& operator = (T* rhs)
     {
         delete array;

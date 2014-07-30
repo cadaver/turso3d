@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "../Turso3DConfig.h"
+
 // In MSVC debug mode, override the global new operator to include file and line logging. This file should be included last in
 // compilation units. Will break using placement new.
 

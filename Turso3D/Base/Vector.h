@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "../Turso3DConfig.h"
 #include "Iterator.h"
 #include "Swap.h"
 

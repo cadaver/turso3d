@@ -2,6 +2,7 @@
 
 #include "String.h"
 #include "Swap.h"
+#include "Vector.h"
 
 #include <cstdio>
 

@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "Vector.h"
+#include "Iterator.h"
 
+#include <cassert>
 #include <cstring>
 #include <cstdarg>
 #include <cctype>
@@ -14,6 +15,7 @@ namespace Turso3D
 static const size_t CONVERSION_BUFFER_LENGTH = 128;
 static const size_t MATRIX_CONVERSION_BUFFER_LENGTH = 256;
 
+template <class T> class Vector;
 class WString;
 
 /// %String class.
@@ -341,8 +343,6 @@ public:
     String ToLower() const;
     /// Return substrings split by a separator char.
     Vector<String> Split(char separator) const;
-    /// Join substrings with a 'glue' string.
-    void Join(const Vector<String>& subStrings, String glue);
     /// Return index to the first occurrence of a string, or NPOS if not found.
     size_t Find(const String& str, size_t startPos = 0, bool caseSensitive = true) const;
     /// Return index to the first occurrence of a character, or NPOS if not found.

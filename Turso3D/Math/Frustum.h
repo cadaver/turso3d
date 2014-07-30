@@ -5,7 +5,6 @@
 #include "BoundingBox.h"
 #include "Matrix3x4.h"
 #include "Plane.h"
-#include "Rect.h"
 #include "Sphere.h"
 
 namespace Turso3D

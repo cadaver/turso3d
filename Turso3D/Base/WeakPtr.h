@@ -62,16 +62,16 @@ public:
     {
     }
     
-    /// Construct with an object pointer.
-    WeakPtr(T* ptr_) :
+    /// Copy-construct.
+    WeakPtr(const WeakPtr<T>& ptr_) :
         ptr(0),
         refCount(0)
     {
         *this = ptr_;
     }
-    
-    /// Copy-construct.
-    WeakPtr(const WeakPtr<T>& ptr_) :
+
+    /// Construct with an object pointer.
+    WeakPtr(T* ptr_) :
         ptr(0),
         refCount(0)
     {

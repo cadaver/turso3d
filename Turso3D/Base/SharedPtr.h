@@ -63,15 +63,15 @@ public:
     {
     }
     
-    /// Construct with an object pointer.
-    SharedPtr(T* ptr_) :
+    /// Copy-construct.
+    SharedPtr(const SharedPtr<T>& ptr_) :
         ptr(0)
     {
         *this = ptr_;
     }
-    
-    /// Copy-construct.
-    SharedPtr(const SharedPtr<T>& ptr_) :
+
+    /// Construct with an object pointer.
+    SharedPtr(T* ptr_) :
         ptr(0)
     {
         *this = ptr_;
