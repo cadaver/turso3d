@@ -9,7 +9,7 @@ namespace Turso3D
 {
 
 /// Doubly-linked list node base class.
-struct ListNodeBase
+struct TURSO3D_API ListNodeBase
 {
     /// Construct.
     ListNodeBase() :
@@ -25,7 +25,7 @@ struct ListNodeBase
 };
 
 /// Doubly-linked list iterator base class.
-struct ListIteratorBase
+struct TURSO3D_API ListIteratorBase
 {
     /// Construct.
     ListIteratorBase() :
@@ -63,7 +63,7 @@ struct ListIteratorBase
 };
 
 /// Doubly-linked list base class.
-class ListBase
+class TURSO3D_API ListBase
 {
 public:
     /// Construct.
@@ -84,7 +84,7 @@ public:
 
     /// Return number of elements.
     size_t Size() const { return size; }
-    /// Return whether the list is empty.
+    /// Return whether has no elements.
     bool IsEmpty() const { return size == 0; }
     
 protected:

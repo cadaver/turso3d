@@ -2,13 +2,15 @@
 
 #pragma once
 
+#include "../Turso3DConfig.h"
+
 #include <cassert>
 
 namespace Turso3D
 {
 
 /// Base class for intrusively reference counted objects that can be pointed to with a SharedPtr. These are not copy-constructible and not assignable.
-class RefCounted
+class TURSO3D_API RefCounted
 {
 public:
     /// Construct. Initialize the reference count to zero.
@@ -18,7 +20,7 @@ public:
     }
     
     /// Destruct. Verify that the reference count is zero.
-    ~RefCounted()
+    virtual ~RefCounted()
     {
         assert(refCount == 0);
     }

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "../Turso3DConfig.h"
+
 #include <cstddef>
 #include <new>
 
@@ -34,13 +36,13 @@ struct AllocatorNode
 };
 
 /// Initialize a fixed-size allocator with the node size and initial capacity.
-AllocatorBlock* AllocatorInitialize(size_t nodeSize, size_t initialCapacity = 1);
+TURSO3D_API AllocatorBlock* AllocatorInitialize(size_t nodeSize, size_t initialCapacity = 1);
 /// Uninitialize a fixed-size allocator. Frees all blocks in the chain.
-void AllocatorUninitialize(AllocatorBlock* allocator);
+TURSO3D_API void AllocatorUninitialize(AllocatorBlock* allocator);
 /// Reserve a node. Creates a new block if necessary.
-void* AllocatorReserve(AllocatorBlock* allocator);
+TURSO3D_API void* AllocatorReserve(AllocatorBlock* allocator);
 /// Free a node. Does not free any blocks.
-void AllocatorFree(AllocatorBlock* allocator, void* node);
+TURSO3D_API void AllocatorFree(AllocatorBlock* allocator, void* node);
 
 /// %Allocator template class. Allocates objects of a specific class.
 template <class T> class Allocator

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Base/Vector.h"
+#include "Vector.h"
 
 #include <cstring>
 #include <cstdarg>
@@ -17,7 +17,7 @@ static const size_t MATRIX_CONVERSION_BUFFER_LENGTH = 256;
 class WString;
 
 /// %String class.
-class String
+class TURSO3D_API String
 {
 public:
     typedef RandomAccessIterator<char> Iterator;
@@ -357,7 +357,7 @@ public:
     size_t Length() const { return length; }
     /// Return buffer capacity.
     size_t Capacity() const { return capacity; }
-    /// Return whether the string is empty.
+    /// Return whether the string is zero characters long.
     bool IsEmpty() const { return length == 0; }
     /// Return comparision result with a string.
     int Compare(const String& str, bool caseSensitive = true) const;
@@ -494,7 +494,7 @@ inline String operator + (const char* lhs, const String& rhs)
 }
 
 /// Wide character string. Only meant for converting from String and passing to the operating system where necessary.
-class WString
+class TURSO3D_API WString
 {
 public:
     /// Construct empty.
@@ -514,7 +514,7 @@ public:
     const wchar_t& At(size_t index) const { assert(index < length); return buffer[index]; }
     /// Resize the string.
     void Resize(size_t newLength);
-    /// Return whether the string is empty.
+    /// Return whether the string is zero characters long.
     bool IsEmpty() const { return length == 0; }
     /// Return number of characters.
     size_t Length() const { return length; }

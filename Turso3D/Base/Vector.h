@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "../Turso3DConfig.h"
 #include "Iterator.h"
 #include "Swap.h"
 
@@ -13,7 +14,7 @@ namespace Turso3D
 {
 
 /// %Vector base class.
-class VectorBase
+class TURSO3D_API VectorBase
 {
 public:
     /// Construct.
@@ -36,7 +37,7 @@ public:
     size_t Size() const { return size; }
     /// Return element capacity of the vector.
     size_t Capacity() const { return capacity; }
-    /// Return whether the vector is empty.
+    /// Return whether has no elements.
     bool IsEmpty() const { return size == 0; }
 
 protected:

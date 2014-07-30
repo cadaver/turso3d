@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "../Turso3DConfig.h"
+
 namespace Turso3D
 {
 
@@ -19,15 +21,15 @@ template<class T> inline void Swap(T& first, T& second)
 }
 
 /// Swap two hash sets/maps.
-template<> void Swap<HashBase>(HashBase& first, HashBase& second);
+template<> TURSO3D_API void Swap<HashBase>(HashBase& first, HashBase& second);
 
 /// Swap two lists.
-template<> void Swap<ListBase>(ListBase& first, ListBase& second);
+template<> TURSO3D_API void Swap<ListBase>(ListBase& first, ListBase& second);
 
 /// Swap two vectors.
-template<> void Swap<VectorBase>(VectorBase& first, VectorBase& second);
+template<> TURSO3D_API void Swap<VectorBase>(VectorBase& first, VectorBase& second);
 
 /// Swap two strings.
-template<> void Swap<String>(String& first, String& second);
+template<> TURSO3D_API void Swap<String>(String& first, String& second);
 
 }

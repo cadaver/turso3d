@@ -2,13 +2,15 @@
 
 #pragma once
 
+#include "../Turso3DConfig.h"
+
 #include <cassert>
 
 namespace Turso3D
 {
 
 /// Base class for objects that can be pointed to with a WeakPtr. These are not copy-constructible and not assignable.
-class WeakRefCounted
+class TURSO3D_API WeakRefCounted
 {
 public:
     /// The highest bit of the reference count denotes an expired object.
@@ -23,7 +25,7 @@ public:
     }
     
     /// Destruct. If no weak references, destroy also the reference count, else mark it expired.
-    ~WeakRefCounted()
+    virtual ~WeakRefCounted()
     {
         if (refCount)
         {
