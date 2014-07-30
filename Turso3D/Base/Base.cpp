@@ -10,7 +10,7 @@
 namespace Turso3D
 {
 
-AllocatorBlock* AllocatorReserveBlock(AllocatorBlock* allocator, size_t nodeSize, size_t capacity)
+AllocatorBlock* AllocatorGetBlock(AllocatorBlock* allocator, size_t nodeSize, size_t capacity)
 {
     if (!capacity)
         capacity = 1;
@@ -52,7 +52,7 @@ AllocatorBlock* AllocatorReserveBlock(AllocatorBlock* allocator, size_t nodeSize
 
 AllocatorBlock* AllocatorInitialize(size_t nodeSize, size_t initialCapacity)
 {
-    AllocatorBlock* block = AllocatorReserveBlock(0, nodeSize, initialCapacity);
+    AllocatorBlock* block = AllocatorGetBlock(0, nodeSize, initialCapacity);
     return block;
 }
 
@@ -66,7 +66,7 @@ void AllocatorUninitialize(AllocatorBlock* allocator)
     }
 }
 
-void* AllocatorReserve(AllocatorBlock* allocator)
+void* AllocatorGet(AllocatorBlock* allocator)
 {
     if (!allocator)
         return 0;
@@ -75,7 +75,7 @@ void* AllocatorReserve(AllocatorBlock* allocator)
     {
         // Free nodes have been exhausted. Allocate a new larger block
         size_t newCapacity = (allocator->capacity + 1) >> 1;
-        AllocatorReserveBlock(allocator, allocator->nodeSize, newCapacity);
+        AllocatorGetBlock(allocator, allocator->nodeSize, newCapacity);
         allocator->capacity += newCapacity;
     }
     

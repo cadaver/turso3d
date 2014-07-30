@@ -195,7 +195,7 @@ public:
     List()
     {
         allocator = AllocatorInitialize(sizeof(Node));
-        head = tail = ReserveNode();
+        head = tail = AllocateNode();
     }
     
     /// Copy-construct.
@@ -203,7 +203,7 @@ public:
     {
         // Reserve the tail node + initial capacity according to the list's size
         allocator = AllocatorInitialize(sizeof(Node), list.Size() + 1);
-        head = tail = ReserveNode();
+        head = tail = AllocateNode();
         *this = list;
     }
 
@@ -373,11 +373,11 @@ public:
     bool Contains(const T& value) const { return Find(value) != End(); }
     /// Return iterator to the first element.
     Iterator Begin() { return Iterator(Head()); }
-    /// Return iterator to the first element.
+    /// Return const iterator to the first element.
     ConstIterator Begin() const { return ConstIterator(Head()); }
     /// Return iterator to the end.
     Iterator End() { return Iterator(Tail()); }
-    /// Return iterator to the end.
+    /// Return const iterator to the end.
     ConstIterator End() const { return ConstIterator(Tail()); }
     /// Return first element.
     T& Front() { return *Begin(); }
@@ -400,7 +400,7 @@ private:
         if (!dest)
             return;
         
-        Node* newNode = ReserveNode(value);
+        Node* newNode = AllocateNode(value);
         Node* prev = dest->Prev();
         newNode->next = dest;
         newNode->prev = prev;
@@ -438,19 +438,11 @@ private:
         return next;
     }
     
-    /// Reserve a node.
-    Node* ReserveNode()
+    /// Reserve a node with optionally specified value.
+    Node* AllocateNode(const T& = T())
     {
-        Node* newNode = static_cast<Node*>(AllocatorReserve(allocator));
+        Node* newNode = static_cast<Node*>(AllocatorGet(allocator));
         new(newNode) Node();
-        return newNode;
-    }
-    
-    /// Reserve a node with initial value.
-    Node* ReserveNode(const T& value)
-    {
-        Node* newNode = static_cast<Node*>(AllocatorReserve(allocator));
-        new(newNode) Node(value);
         return newNode;
     }
     

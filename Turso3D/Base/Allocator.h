@@ -39,8 +39,8 @@ struct AllocatorNode
 TURSO3D_API AllocatorBlock* AllocatorInitialize(size_t nodeSize, size_t initialCapacity = 1);
 /// Uninitialize a fixed-size allocator. Frees all blocks in the chain.
 TURSO3D_API void AllocatorUninitialize(AllocatorBlock* allocator);
-/// Reserve a node. Creates a new block if necessary.
-TURSO3D_API void* AllocatorReserve(AllocatorBlock* allocator);
+/// Allocate a node. Creates a new block if necessary.
+TURSO3D_API void* AllocatorGet(AllocatorBlock* allocator);
 /// Free a node. Does not free any blocks.
 TURSO3D_API void AllocatorFree(AllocatorBlock* allocator, void* node);
 
@@ -48,12 +48,12 @@ TURSO3D_API void AllocatorFree(AllocatorBlock* allocator, void* node);
 template <class T> class Allocator
 {
 public:
-    /// Construct.
-    Allocator(size_t initialCapacity = 0) :
+    /// Construct with optional initial capacity.
+    Allocator(size_t capacity = 0) :
         allocator(0)
     {
-        if (initialCapacity)
-            allocator = AllocatorInitialize(sizeof(T), initialCapacity);
+        if (capacity)
+            Reserve(capacity);
     }
     
     /// Destruct. All objects reserved from this allocator should be freed before this is called.
@@ -62,23 +62,30 @@ public:
         AllocatorUninitialize(allocator);
     }
     
-    /// Reserve and default-construct an object.
-    T* Reserve()
+    /// Reserve initial capacity. Only possible before allocating the first object.
+    void Reserve(size_t capacity)
+    {
+        if (allocator)
+            allocator = AllocatorInitialize(sizeof(T), capacity);
+    }
+
+    /// Allocate and default-construct an object.
+    T* Allocate()
     {
         if (!allocator)
-            allocator = AllocatorInitialize(sizeof(T));
-        T* newObject = static_cast<T*>(AllocatorReserve(allocator));
+            allocator = Allocator(sizeof(T));
+        T* newObject = static_cast<T*>(AllocatorGet(allocator));
         new(newObject) T();
         
         return newObject;
     }
     
-    /// Reserve and copy-construct an object.
-    T* Reserve(const T& object)
+    /// Allocate and copy-construct an object.
+    T* Allocate(const T& object)
     {
         if (!allocator)
             allocator = AllocatorInitialize(sizeof(T));
-        T* newObject = static_cast<T*>(AllocatorReserve(allocator));
+        T* newObject = static_cast<T*>(AllocatorGet(allocator));
         new(newObject) T(object);
         
         return newObject;

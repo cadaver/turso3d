@@ -225,7 +225,7 @@ public:
     {
         // Reserve the tail node
         allocator = AllocatorInitialize(sizeof(Node));
-        head = tail = ReserveNode();
+        head = tail = AllocateNode();
     }
     
     /// Construct from another hash set.
@@ -233,7 +233,7 @@ public:
     {
         // Reserve the tail node + initial capacity according to the set's size
         allocator = AllocatorInitialize(sizeof(Node), set.Size() + 1);
-        head = tail = ReserveNode();
+        head = tail = AllocateNode();
         *this = set;
     }
     
@@ -491,18 +491,18 @@ public:
         return FindNode(key, hashKey) != 0;
     }
     
-    /// Return iterator to the beginning.
+    /// Return iterator to the first element. Is not the lowest value unless the set has been sorted.
     Iterator Begin() { return Iterator(Head()); }
-    /// Return iterator to the beginning.
+    /// Return const iterator to the first element. Is not the lowest value unless the set has been sorted.
     ConstIterator Begin() const { return ConstIterator(Head()); }
     /// Return iterator to the end.
     Iterator End() { return Iterator(Tail()); }
-    /// Return iterator to the end.
+    /// Return const iterator to the end.
     ConstIterator End() const { return ConstIterator(Tail()); }
-    /// Return first key.
+    /// Return first key. Is not the lowest value unless the set has been sorted.
     const T& Front() const { return *Begin(); }
     /// Return last key.
-    const T& Back() const { return *(--End()); }
+    const T& Back() const { assert(Size()); return *(--End()); }
     
 private:
     /// Return the head node.
@@ -547,7 +547,7 @@ private:
         if (!dest)
             return 0;
         
-        Node* newNode = ReserveNode(key);
+        Node* newNode = AllocateNode(key);
         Node* prev = dest->Prev();
         newNode->next = dest;
         newNode->prev = prev;
@@ -587,18 +587,10 @@ private:
         return next;
     }
     
-    /// Reserve a node.
-    Node* ReserveNode()
+    /// Allocate a node with optionally specified key.
+    Node* AllocateNode(const T& key = T())
     {
-        Node* newNode = static_cast<Node*>(AllocatorReserve(allocator));
-        new(newNode) Node();
-        return newNode;
-    }
-    
-    /// Reserve a node with specified key.
-    Node* ReserveNode(const T& key)
-    {
-        Node* newNode = static_cast<Node*>(AllocatorReserve(allocator));
+        Node* newNode = static_cast<Node*>(AllocatorGet(allocator));
         new(newNode) Node(key);
         return newNode;
     }
@@ -757,7 +749,7 @@ public:
     {
         // Reserve the tail node
         allocator = AllocatorInitialize(sizeof(Node));
-        head = tail = ReserveNode();
+        head = tail = AllocateNode();
     }
     
     /// Construct from another hash map.
@@ -765,7 +757,7 @@ public:
     {
         // Reserve the tail node + initial capacity according to the map's size
         allocator = AllocatorInitialize(sizeof(Node), map.Size() + 1);
-        head = tail = ReserveNode();
+        head = tail = AllocateNode();
         *this = map;
     }
     
@@ -1033,18 +1025,18 @@ public:
         return result;
     }
 
-    /// Return iterator to the beginning.
+    /// Return iterator to the first element. Is not the lowest key unless the map has been sorted.
     Iterator Begin() { return Iterator(Head()); }
-    /// Return iterator to the beginning.
+    /// Return const iterator to the beginning.
     ConstIterator Begin() const { return ConstIterator(Head()); }
     /// Return iterator to the end.
     Iterator End() { return Iterator(Tail()); }
-    /// Return iterator to the end.
+    /// Return const iterator to the end.
     ConstIterator End() const { return ConstIterator(Tail()); }
-    /// Return first key.
+    /// Return first keyvalue. Is not the lowest key unless the map has been sorted.
     const T& Front() const { return *Begin(); }
-    /// Return last key.
-    const T& Back() const { return *(--End()); }
+    /// Return last keyvalue.
+    const T& Back() const { assert(Size()); return *(--End()); }
     
 private:
     /// Return the head node.
@@ -1126,7 +1118,7 @@ private:
         if (!dest)
             return 0;
         
-        Node* newNode = ReserveNode(key, value);
+        Node* newNode = AllocateNode(key, value);
         Node* prev = dest->Prev();
         newNode->next = dest;
         newNode->prev = prev;
@@ -1166,18 +1158,10 @@ private:
         return next;
     }
     
-    /// Reserve a node.
-    Node* ReserveNode()
+    /// Allocate a node with optionally specified key and value.
+    Node* AllocateNode(const T& key = T(), const U& value = U())
     {
-        Node* newNode = static_cast<Node*>(AllocatorReserve(allocator));
-        new(newNode) Node();
-        return newNode;
-    }
-    
-    /// Reserve a node with specified key and value.
-    Node* ReserveNode(const T& key, const U& value)
-    {
-        Node* newNode = static_cast<Node*>(AllocatorReserve(allocator));
+        Node* newNode = static_cast<Node*>(AllocatorGet(allocator));
         new(newNode) Node(key, value);
         return newNode;
     }
