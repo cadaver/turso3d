@@ -16,10 +16,10 @@ public:
     /// Maximum vector.
     Vector2 max;
     
-    /// Construct with illegal size. This allows the first merge to set the initial size.
+    /// Construct as undefined (negative size.)
     Rect() :
         min(Vector2(M_INFINITY, M_INFINITY)),
-        max(Vector2(M_INFINITY, M_INFINITY))
+        max(Vector2(-M_INFINITY, -M_INFINITY))
     {
     }
     
@@ -94,8 +94,8 @@ public:
     /// Merge a point.
     void Merge(const Vector2& point)
     {
-        // If is illegal, set initial dimensions
-        if (min.x > max.x)
+        // If undefined, set initial dimensions
+        if (!IsDefined())
         {
             min = max = point;
             return;
@@ -131,8 +131,8 @@ public:
             max.y = rect.max.y;
     }
     
-    /// Set illegal to allow the next merge to set initial size.
-    void SetIllegal()
+    /// Set as undefined to allow the next merge to set initial size.
+    void Undefine()
     {
         min = Vector2(M_INFINITY, M_INFINITY);
         max = -min;
@@ -141,6 +141,8 @@ public:
     /// Clip with another rect.
     void Clip(const Rect& rect);
     
+    /// Return whether has non-negative size.
+    bool IsDefined() const { return (min.x <= max.x); }
     /// Return center.
     Vector2 Center() const { return (max + min) * 0.5f; }
     /// Return size.

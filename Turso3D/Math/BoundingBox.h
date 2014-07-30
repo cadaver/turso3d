@@ -24,7 +24,7 @@ public:
     /// Maximum vector.
     Vector3 max;
     
-    /// Construct with illegal size. This allows the first merge to set the initial size.
+    /// Construct as undefined (negative size.)
     BoundingBox() :
         min(Vector3(M_INFINITY, M_INFINITY, M_INFINITY)),
         max(Vector3(-M_INFINITY, -M_INFINITY, -M_INFINITY))
@@ -141,8 +141,8 @@ public:
     /// Merge a point.
     void Merge(const Vector3& point)
     {
-        // If is illegal, set initial dimensions
-        if (min.x > max.x)
+        // If undefined, set initial dimensions
+        if (!IsDefined())
         {
             min = max = point;
             return;
@@ -186,8 +186,8 @@ public:
             max.z = box.max.z;
     }
     
-    /// Set illegal to allow the next merge to set initial size.
-    void SetIllegal()
+    /// Set as undefined (negative size) to allow the next merge to set initial size.
+    void Undefine()
     {
         min = Vector3(M_INFINITY, M_INFINITY, M_INFINITY);
         max = -min;
@@ -216,6 +216,8 @@ public:
     /// Transform with a 3x4 matrix.
     void Transform(const Matrix3x4& transform);
     
+    /// Return whether has non-negative size.
+    bool IsDefined() const { return (min.x <= max.x); }
     /// Return center.
     Vector3 Center() const { return (max + min) * 0.5f; }
     /// Return size.

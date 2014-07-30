@@ -40,7 +40,7 @@ public:
     /// Sphere radius.
     float radius;
     
-    /// Construct with illegal size. This allows the first merge to set the initial size.
+    /// Construct as undefined (negative radius.)
     Sphere() :
         center(Vector3::ZERO),
         radius(-M_INFINITY)
@@ -124,8 +124,8 @@ public:
     /// Merge a point.
     void Merge(const Vector3& point)
     {
-        // If is illegal, set initial dimensions
-        if (radius < 0.0f)
+        // If undefined, set initial dimensions
+        if (!IsDefined())
         {
             center = point;
             radius = 0.0f;
@@ -143,8 +143,8 @@ public:
         }
     }
     
-    /// Set illegal to allow the next merge to set initial size.
-    void SetIllegal()
+    /// Set as undefined to allow the next merge to set initial size.
+    void Undefine()
     {
         radius = -M_INFINITY;
     }
@@ -160,6 +160,9 @@ public:
     /// Merge a sphere.
     void Merge(const Sphere& sphere);
     
+    /// Return whether has non-negative radius.
+    bool IsDefined() const { return radius >= 0.0f; }
+
     /// Test if a point is inside.
     Intersection IsInside(const Vector3& point) const
     {

@@ -140,7 +140,7 @@ void ProjectAndMergeEdge(Vector3 v0, Vector3 v1, Rect& rect, const Matrix4& proj
 
 void BoundingBox::Define(const Vector3* vertices, size_t count)
 {
-    SetIllegal();
+    Undefine();
     Merge(vertices, count);
 }
 
@@ -151,7 +151,7 @@ void BoundingBox::Define(const Frustum& frustum)
 
 void BoundingBox::Define(const Polyhedron& poly)
 {
-    SetIllegal();
+    Undefine();
     Merge(poly);
 }
 
@@ -1339,8 +1339,8 @@ float Ray::HitDistance(const Plane& plane) const
 
 float Ray::HitDistance(const BoundingBox& box) const
 {
-    // If illegal, no hit (infinite distance)
-    if (box.min.x > box.max.x)
+    // If undefined, no hit (infinite distance)
+    if (!box.IsDefined())
         return M_INFINITY;
     
     // Check for ray origin being inside the box
@@ -1446,8 +1446,8 @@ float Ray::HitDistance(const Frustum& frustum, bool solidInside) const
 
 float Ray::HitDistance(const Sphere& sphere) const
 {
-    // If illegal, no hit (infinite distance)
-    if (sphere.radius < 0.0f)
+    // If undefined, no hit (infinite distance)
+    if (!sphere.IsDefined())
         return M_INFINITY;
     
     Vector3 centeredOrigin = origin - sphere.center;
@@ -1698,7 +1698,7 @@ void Rect::Clip(const Rect& rect)
 
 void Sphere::Define(const Vector3* vertices, size_t count)
 {
-    SetIllegal();
+    Undefine();
     Merge(vertices, count);
 }
 
@@ -1707,7 +1707,7 @@ void Sphere::Define(const BoundingBox& box)
     const Vector3& min = box.min;
     const Vector3& max = box.max;
     
-    SetIllegal();
+    Undefine();
     Merge(min);
     Merge(Vector3(max.x, min.y, min.z));
     Merge(Vector3(min.x, max.y, min.z));
@@ -1725,7 +1725,7 @@ void Sphere::Define(const Frustum& frustum)
 
 void Sphere::Define(const Polyhedron& poly)
 {
-    SetIllegal();
+    Undefine();
     Merge(poly);
 }
 
@@ -1768,8 +1768,8 @@ void Sphere::Merge(const Polyhedron& poly)
 
 void Sphere::Merge(const Sphere& sphere)
 {
-    // If is illegal, set initial dimensions
-    if (radius < 0.0f)
+    // If undefined, set initial dimensions
+    if (!IsDefined())
     {
         center = sphere.center;
         radius = sphere.radius;
