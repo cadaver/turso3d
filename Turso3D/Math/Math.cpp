@@ -1339,10 +1339,6 @@ float Ray::HitDistance(const Plane& plane) const
 
 float Ray::HitDistance(const BoundingBox& box) const
 {
-    // If undefined, no hit (infinite distance)
-    if (!box.IsDefined())
-        return M_INFINITY;
-    
     // Check for ray origin being inside the box
     if (box.IsInside(origin))
         return 0.0f;
@@ -1446,10 +1442,6 @@ float Ray::HitDistance(const Frustum& frustum, bool solidInside) const
 
 float Ray::HitDistance(const Sphere& sphere) const
 {
-    // If undefined, no hit (infinite distance)
-    if (!sphere.IsDefined())
-        return M_INFINITY;
-    
     Vector3 centeredOrigin = origin - sphere.center;
     float squaredRadius = sphere.radius * sphere.radius;
     
