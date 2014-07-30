@@ -54,12 +54,21 @@ public:
     }
 };
 
+const size_t NUM_ITEMS = 10000;
+
 int main()
 {
     #ifdef _MSC_VER
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
     #endif
     
+    printf("\nSize of String: %d\n", sizeof(String));
+    printf("Size of Vector: %d\n", sizeof(Vector<int>));
+    printf("Size of List: %d\n", sizeof(List<int>));
+    printf("Size of HashMap: %d\n", sizeof(HashMap<int, int>));
+    printf("Size of RefCounted: %d\n", sizeof(RefCounted));
+    printf("Size of WeakRefCounted: %d\n", sizeof(WeakRefCounted));
+
     {
         printf("\nTesting AutoPtr assignment\n");
         AutoPtr<Test> ptr1(new Test);
@@ -103,12 +112,12 @@ int main()
         printf("\nTesting Vector\n");
         Vector<int> vec;
         srand(0);
-        for (int i = 0; i < 1000000; ++i)
+        for (size_t i = 0; i < NUM_ITEMS; ++i)
             vec.Push(rand());
         int sum = 0;
         for (Vector<int>::ConstIterator i = vec.Begin(); i != vec.End(); ++i)
             sum += *i;
-        printf("After 1000000 pushes size: %d capacity: %d\n", vec.Size(), vec.Capacity());
+        printf("Size: %d capacity: %d\n", vec.Size(), vec.Capacity());
         printf("Sum of vector items: %d\n", sum);
     }
     
@@ -116,27 +125,54 @@ int main()
         printf("\nTesting List\n");
         List<int> list;
         srand(0);
-        for (int i = 0; i < 1000000; ++i)
+        for (size_t i = 0; i < NUM_ITEMS; ++i)
             list.Push(rand());
         int sum = 0;
         for (List<int>::ConstIterator i = list.Begin(); i != list.End(); ++i)
             sum += *i;
-        printf("After 1000000 pushes size: %d\n", list.Size());
+        printf("Size: %d\n", list.Size());
         printf("Sum of list items: %d\n", sum);
     }
     
     {
         printf("\nTesting String\n");
         String test;
-        for (int i = 0; i < 1000000; ++i)
+        for (size_t i = 0; i < NUM_ITEMS; ++i)
             test += "Test";
         String test2;
-        test2.AppendWithFormat("After 1000000 concatenations size: %d capacity: %d\n", test.Length(), test.Capacity());
+        test2.AppendWithFormat("Size: %d capacity: %d\n", test.Length(), test.Capacity());
         printf(test2.CString());
         test2 = test2.ToUpper();
         printf(test2.CString());
         test2.Replace("SIZE:", "LENGTH:");
         printf(test2.CString());
+    }
+    
+    {
+        printf("\nTesting HashSet\n");
+        size_t found = 0;
+        unsigned sum = 0;
+        HashSet<int> testHashSet;
+        srand(0);
+        found = 0;
+        sum = 0;
+        printf("Insert, search and iteration, %d keys\n", NUM_ITEMS);
+        for (size_t i = 0; i < NUM_ITEMS; ++i)
+        {
+            int number = (rand() & 32767);
+            testHashSet.Insert(number);
+        }
+        for (int i = 0; i < 32768; ++i)
+        {
+            if (testHashSet.Find(i) != testHashSet.End())
+                ++found;
+        }
+        for (HashSet<int>::Iterator i = testHashSet.Begin(); i != testHashSet.End(); ++i)
+            sum += *i;
+        printf("Set size and sum: %d %d\n", testHashSet.Size(), sum);
+        for (unsigned i = 0; i < 32768; ++i)
+            testHashSet.Erase(i);
+        printf("Set size after erase: %d\n", testHashSet.Size());
     }
 
     return 0;
