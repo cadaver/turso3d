@@ -18,17 +18,17 @@ public:
     {
     }
 
-    /// Construct and take ownership of the object.
-    AutoPtr(T* rhs) :
-       ptr(rhs)
+    /// Construct with a raw pointer; take ownership of the object.
+    AutoPtr(T* ptr_) :
+       ptr(ptr_)
     {
     }
 
     /// Copy-construct. The ownership is transferred, making the source pointer null.
-    AutoPtr(AutoPtr<T>& rhs) :
-        ptr(rhs.ptr)
+    AutoPtr(AutoPtr<T>& ptr_) :
+        ptr(ptr_.ptr)
     {
-        rhs.ptr = 0;
+        ptr_.ptr = 0;
     }
 
     /// Destruct. Delete the object pointed to.
@@ -95,16 +95,16 @@ public:
     }
 
     /// Construct and take ownership of the array.
-    AutoArrayPtr(T* rhs) :
-       array(rhs)
+    AutoArrayPtr(T* array_) :
+       array(array_)
     {
     }
 
     /// Copy-construct. The ownership is transferred, making the source pointer null.
-    AutoArrayPtr(AutoArrayPtr<T>& rhs) :
-        array(rhs.array)
+    AutoArrayPtr(AutoArrayPtr<T>& ptr) :
+        array(ptr.array)
     {
-        rhs.array = 0;
+        ptr.array = 0;
     }
 
     /// Destruct. Delete the array pointed to.

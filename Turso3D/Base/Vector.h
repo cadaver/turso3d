@@ -26,11 +26,11 @@ public:
     }
 
     /// Swap with another vector.
-    void Swap(VectorBase& rhs)
+    void Swap(VectorBase& vector)
     {
-        Turso3D::Swap(size, rhs.size);
-        Turso3D::Swap(capacity, rhs.capacity);
-        Turso3D::Swap(buffer, rhs.buffer);
+        Turso3D::Swap(size, vector.size);
+        Turso3D::Swap(capacity, vector.capacity);
+        Turso3D::Swap(buffer, vector.buffer);
     }
 
     /// Return number of elements in the vector.
@@ -126,6 +126,30 @@ public:
         ret.Push(rhs);
         return ret;
     }
+
+    /// Test for equality with another vector.
+    bool operator == (const Vector<T>& rhs) const
+    {
+        if (rhs.size != size)
+            return false;
+
+        T* buffer = Buffer();
+        T* rhsBuffer = rhs.Buffer();
+        for (size_t i = 0; i < size; ++i)
+        {
+            if (buffer[i] != rhsBuffer[i])
+                return false;
+        }
+
+        return true;
+    }
+
+    /// Test for inequality with another vector.
+    bool operator != (const Vector<T>& rhs) const { return !(*this == rhs); }
+    /// Return element at index.
+    T& operator [] (size_t index) { assert(index < size); return Buffer()[index]; }
+    /// Return const element at index.
+    const T& operator [] (size_t index) const { assert(index < size); return Buffer()[index]; }
 
     /// Add an element at the end.
     void Push(const T& value) { Resize(size + 1, &value); }
@@ -298,30 +322,6 @@ public:
 
     /// Reallocate so that no extra memory is used.
     void Compact() { Reserve(size); }
-
-    /// Test for equality with another vector.
-    bool operator == (const Vector<T>& rhs) const
-    {
-        if (rhs.size != size)
-            return false;
-
-        T* buffer = Buffer();
-        T* rhsBuffer = rhs.Buffer();
-        for (size_t i = 0; i < size; ++i)
-        {
-            if (buffer[i] != rhsBuffer[i])
-                return false;
-        }
-
-        return true;
-    }
-
-    /// Test for inequality with another vector.
-    bool operator != (const Vector<T>& rhs) const { return !(*this == rhs); }
-    /// Return element at index.
-    T& operator [] (size_t index) { assert(index < size); return Buffer()[index]; }
-    /// Return const element at index.
-    const T& operator [] (size_t index) const { assert(index < size); return Buffer()[index]; }
 
     /// Return element at index.
     T& At(size_t index) { assert(index < size); return Buffer()[index]; }

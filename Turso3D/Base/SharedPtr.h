@@ -64,17 +64,17 @@ public:
     }
     
     /// Construct with an object pointer.
-    SharedPtr(T* rhs) :
+    SharedPtr(T* ptr_) :
         ptr(0)
     {
-        *this = rhs;
+        *this = ptr_;
     }
     
     /// Copy-construct.
-    SharedPtr(const SharedPtr<T>& rhs) :
+    SharedPtr(const SharedPtr<T>& ptr_) :
         ptr(0)
     {
-        *this = rhs;
+        *this = ptr_;
     }
     
     /// Destruct. Release the object reference and destroy the object if was the last reference.
@@ -93,7 +93,7 @@ public:
         return *this;
     }
     
-    /// Assign another shared pointer.
+    /// Assign from another shared pointer.
     SharedPtr<T>& operator = (const SharedPtr<T>& rhs)
     {
         Reset();

@@ -34,8 +34,8 @@ struct TURSO3D_API ListIteratorBase
     }
     
     /// Construct with a node pointer.
-    explicit ListIteratorBase(ListNodeBase* rhs) :
-        ptr(rhs)
+    explicit ListIteratorBase(ListNodeBase* ptr_) :
+        ptr(ptr_)
     {
     }
     
@@ -74,12 +74,12 @@ public:
     }
     
     /// Swap with another linked list.
-    void Swap(ListBase& rhs)
+    void Swap(ListBase& list)
     {
-        Turso3D::Swap(head, rhs.head);
-        Turso3D::Swap(tail, rhs.tail);
-        Turso3D::Swap(allocator, rhs.allocator);
-        Turso3D::Swap(size, rhs.size);
+        Turso3D::Swap(head, list.head);
+        Turso3D::Swap(tail, list.tail);
+        Turso3D::Swap(allocator, list.allocator);
+        Turso3D::Swap(size, list.size);
     }
 
     /// Return number of elements.
@@ -111,8 +111,8 @@ public:
         }
         
         /// Construct with value.
-        Node(const T& rhs) :
-            value(rhs)
+        Node(const T& value_) :
+            value(value_)
         {
         }
         
@@ -134,8 +134,8 @@ public:
         }
         
         /// Construct with a node pointer.
-        explicit Iterator(Node* rhs) :
-            ListIteratorBase(rhs)
+        explicit Iterator(Node* ptr_) :
+            ListIteratorBase(ptr_)
         {
         }
         
@@ -163,14 +163,14 @@ public:
         }
         
         /// Construct with a node pointer.
-        explicit ConstIterator(Node* rhs) :
-            ListIteratorBase(rhs)
+        explicit ConstIterator(Node* ptr_) :
+            ListIteratorBase(ptr_)
         {
         }
         
         /// Construct from a non-const iterator.
-        ConstIterator(const Iterator& rhs) :
-            ListIteratorBase(rhs.ptr)
+        ConstIterator(const Iterator& it) :
+            ListIteratorBase(it.ptr)
         {
         }
         
@@ -237,6 +237,28 @@ public:
         Insert(End(), rhs);
         return *this;
     }
+    
+    /// Test for equality with another list.
+    bool operator == (const List<T>& rhs) const
+    {
+        if (rhs.size != size)
+            return false;
+        
+        ConstIterator i = Begin();
+        ConstIterator j = rhs.Begin();
+        while (i != End())
+        {
+            if (*i != *j)
+                return false;
+            ++i;
+            ++j;
+        }
+        
+        return true;
+    }
+    
+    /// Test for inequality with another list.
+    bool operator != (const List<T>& rhs) const { return !(*this == rhs); }
     
     /// Insert an element to the end.
     void Push(const T& value) { InsertNode(Tail(), value); }
@@ -328,28 +350,6 @@ public:
         while (size < newSize)
             InsertNode(Tail(), T());
     }
-    
-    /// Test for equality with another list.
-    bool operator == (const List<T>& rhs) const
-    {
-        if (rhs.size != size)
-            return false;
-        
-        ConstIterator i = Begin();
-        ConstIterator j = rhs.Begin();
-        while (i != End())
-        {
-            if (*i != *j)
-                return false;
-            ++i;
-            ++j;
-        }
-        
-        return true;
-    }
-    
-    /// Test for inequality with another list.
-    bool operator != (const List<T>& rhs) const { return !(*this == rhs); }
     
     /// Return iterator to value, or to the end if not found.
     Iterator Find(const T& value)

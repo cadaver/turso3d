@@ -17,8 +17,8 @@ template <class T> struct RandomAccessIterator
     }
 
     /// Construct with an object pointer.
-    explicit RandomAccessIterator(T* rhs) :
-        ptr(rhs)
+    explicit RandomAccessIterator(T* ptr_) :
+        ptr(ptr_)
     {
     }
 
@@ -79,14 +79,14 @@ template <class T> struct RandomAccessConstIterator
     }
 
     /// Construct with an object pointer.
-    explicit RandomAccessConstIterator(T* rhs) :
-        ptr(rhs)
+    explicit RandomAccessConstIterator(T* ptr_) :
+        ptr(ptr_)
     {
     }
 
     /// Construct from a non-const iterator.
-    RandomAccessConstIterator(const RandomAccessIterator<T>& rhs) :
-        ptr(rhs.ptr)
+    RandomAccessConstIterator(const RandomAccessIterator<T>& it) :
+        ptr(it.ptr)
     {
     }
 

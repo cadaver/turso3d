@@ -63,19 +63,19 @@ public:
     }
     
     /// Construct with an object pointer.
-    WeakPtr(T* rhs) :
+    WeakPtr(T* ptr_) :
         ptr(0),
         refCount(0)
     {
-        *this = rhs;
+        *this = ptr_;
     }
     
     /// Copy-construct.
-    WeakPtr(const WeakPtr<T>& rhs) :
+    WeakPtr(const WeakPtr<T>& ptr_) :
         ptr(0),
         refCount(0)
     {
-        *this = rhs;
+        *this = ptr_;
     }
     
     /// Destruct. Release the object reference.

@@ -467,6 +467,107 @@ void String::Swap(String& str)
     Turso3D::Swap(buffer, str.buffer);
 }
 
+String& String::AppendWithFormat(const char* formatStr, ... )
+{
+    va_list args;
+    va_start(args, formatStr);
+    AppendWithFormatArgs(formatStr, args);
+    va_end(args);
+    return *this;
+}
+
+String& String::AppendWithFormatArgs(const char* formatStr, va_list args)
+{
+    size_t pos = 0, lastPos = 0;
+    size_t length = CStringLength(formatStr);
+
+    for (;;)
+    {
+        // Scan the format string and find %a argument where a is one of d, f, s ...
+        while (pos < length && formatStr[pos] != '%')
+            pos++;
+        Append(formatStr + lastPos, pos - lastPos);
+        if (pos >= length)
+            break;
+        
+        char arg = formatStr[pos + 1];
+        pos += 2;
+        lastPos = pos;
+        
+        switch (arg)
+        {
+        // Integer
+        case 'd':
+        case 'i':
+            {
+                int arg = va_arg(args, int);
+                Append(String(arg));
+                break;
+            }
+            
+        // Unsigned
+        case 'u':
+            {
+                unsigned arg = va_arg(args, unsigned);
+                Append(String(arg));
+                break;
+            }
+            
+        // Real
+        case 'f':
+            {
+                double arg = va_arg(args, double);
+                Append(String(arg));
+                break;
+            }
+            
+        // Character
+        case 'c':
+            {
+                int arg = va_arg(args, int);
+                Append((char)arg);
+                break;
+            }
+            
+        // C string
+        case 's':
+            {
+                char* arg = va_arg(args, char*);
+                Append(arg);
+                break;
+            }
+            
+        // Hex
+        case 'x':
+            {
+                char buf[CONVERSION_BUFFER_LENGTH];
+                int arg = va_arg(args, int);
+                int arglen = sprintf(buf, "%x", arg);
+                Append(buf, arglen);
+                break;
+            }
+            
+        // Pointer
+        case 'p':
+            {
+                char buf[CONVERSION_BUFFER_LENGTH];
+                int arg = va_arg(args, int);
+                int arglen = sprintf(buf, "%p", reinterpret_cast<void*>(arg));
+                Append(buf, arglen);
+                break;
+            }
+            
+        case '%':
+            {
+                Append("%", 1);
+                break;
+            }
+        }
+    }
+
+    return *this;
+}
+
 String String::Substring(size_t pos) const
 {
     if (pos < length)
@@ -1061,107 +1162,6 @@ Vector<String> String::Split(const char* str, char separator)
     }
     
     return ret;
-}
-
-String& String::AppendWithFormat(const char* formatStr, ... )
-{
-    va_list args;
-    va_start(args, formatStr);
-    AppendWithFormatArgs(formatStr, args);
-    va_end(args);
-    return *this;
-}
-
-String& String::AppendWithFormatArgs(const char* formatStr, va_list args)
-{
-    size_t pos = 0, lastPos = 0;
-    size_t length = CStringLength(formatStr);
-
-    for (;;)
-    {
-        // Scan the format string and find %a argument where a is one of d, f, s ...
-        while (pos < length && formatStr[pos] != '%')
-            pos++;
-        Append(formatStr + lastPos, pos - lastPos);
-        if (pos >= length)
-            break;
-        
-        char arg = formatStr[pos + 1];
-        pos += 2;
-        lastPos = pos;
-        
-        switch (arg)
-        {
-        // Integer
-        case 'd':
-        case 'i':
-            {
-                int arg = va_arg(args, int);
-                Append(String(arg));
-                break;
-            }
-            
-        // Unsigned
-        case 'u':
-            {
-                unsigned arg = va_arg(args, unsigned);
-                Append(String(arg));
-                break;
-            }
-            
-        // Real
-        case 'f':
-            {
-                double arg = va_arg(args, double);
-                Append(String(arg));
-                break;
-            }
-            
-        // Character
-        case 'c':
-            {
-                int arg = va_arg(args, int);
-                Append((char)arg);
-                break;
-            }
-            
-        // C string
-        case 's':
-            {
-                char* arg = va_arg(args, char*);
-                Append(arg);
-                break;
-            }
-            
-        // Hex
-        case 'x':
-            {
-                char buf[CONVERSION_BUFFER_LENGTH];
-                int arg = va_arg(args, int);
-                int arglen = sprintf(buf, "%x", arg);
-                Append(buf, arglen);
-                break;
-            }
-            
-        // Pointer
-        case 'p':
-            {
-                char buf[CONVERSION_BUFFER_LENGTH];
-                int arg = va_arg(args, int);
-                int arglen = sprintf(buf, "%p", reinterpret_cast<void*>(arg));
-                Append(buf, arglen);
-                break;
-            }
-            
-        case '%':
-            {
-                Append("%", 1);
-                break;
-            }
-        }
-    }
-
-    return *this;
 }
 
 int String::Compare(const char* lhs, const char* rhs, bool caseSensitive)

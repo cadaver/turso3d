@@ -39,8 +39,8 @@ struct HashIteratorBase
     }
     
     /// Construct with a node pointer.
-    explicit HashIteratorBase(HashNodeBase* rhs) :
-        ptr(rhs)
+    explicit HashIteratorBase(HashNodeBase* ptr_) :
+        ptr(ptr_)
     {
     }
     
@@ -90,12 +90,12 @@ public:
     }
     
     /// Swap with another hash set or map.
-    void Swap(HashBase& rhs)
+    void Swap(HashBase& hash)
     {
-        Turso3D::Swap(head, rhs.head);
-        Turso3D::Swap(tail, rhs.tail);
-        Turso3D::Swap(ptrs, rhs.ptrs);
-        Turso3D::Swap(allocator, rhs.allocator);
+        Turso3D::Swap(head, hash.head);
+        Turso3D::Swap(tail, hash.tail);
+        Turso3D::Swap(ptrs, hash.ptrs);
+        Turso3D::Swap(allocator, hash.allocator);
     }
     
     /// Return number of elements.
@@ -267,6 +267,26 @@ public:
         return *this;
     }
 
+    /// Test for equality with another hash set.
+    bool operator == (const HashSet<T>& rhs) const
+    {
+        if (rhs.Size() != Size())
+            return false;
+        
+        ConstIterator it = Begin();
+        while (it != End())
+        {
+            if (!rhs.Contains(*it))
+                return false;
+            ++it;
+        }
+        
+        return true;
+    }
+    
+    /// Test for inequality with another hash set.
+    bool operator != (const HashSet<T>& rhs) const { return !(*this == rhs); }
+
     /// Insert a key. Return an iterator to it.
     Iterator Insert(const T& key)
     {
@@ -433,26 +453,6 @@ public:
         return true;
     }
     
-    /// Test for equality with another hash set.
-    bool operator == (const HashSet<T>& rhs) const
-    {
-        if (rhs.Size() != Size())
-            return false;
-        
-        ConstIterator it = Begin();
-        while (it != End())
-        {
-            if (!rhs.Contains(*it))
-                return false;
-            ++it;
-        }
-        
-        return true;
-    }
-    
-    /// Test for inequality with another hash set.
-    bool operator != (const HashSet<T>& rhs) const { return !(*this == rhs); }
-
     /// Return iterator to the key, or end iterator if not found.
     Iterator Find(const T& key)
     {

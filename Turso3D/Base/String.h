@@ -239,6 +239,27 @@ public:
         return ret;
     }
 
+    /// Test for equality with another string.
+    bool operator == (const String& rhs) const { return strcmp(CString(), rhs.CString()) == 0; }
+    /// Test for inequality with another string.
+    bool operator != (const String& rhs) const { return !(*this == rhs); }
+    /// Test if string is less than another string.
+    bool operator < (const String& rhs) const { return strcmp(CString(), rhs.CString()) < 0; }
+    /// Test if string is greater than another string.
+    bool operator > (const String& rhs) const { return strcmp(CString(), rhs.CString()) > 0; }
+    /// Test for equality with a C string.
+    bool operator == (const char* rhs) const { return strcmp(CString(), rhs) == 0; }
+    /// Test for inequality with a C string.
+    bool operator != (const char* rhs) const { return strcmp(CString(), rhs) != 0; }
+    /// Test if string is less than a C string.
+    bool operator < (const char* rhs) const { return strcmp(CString(), rhs) < 0; }
+    /// Test if string is greater than a C string.
+    bool operator > (const char* rhs) const { return strcmp(CString(), rhs) > 0; }
+    /// Return char at index.
+    char& operator [] (size_t index) { assert(index < length); return buffer[index]; }
+    /// Return const char at index.
+    const char& operator [] (size_t index) const { assert(index < length); return buffer[index]; }
+    
     /// Replace all occurrences of a character.
     void Replace(char replaceThis, char replaceWith, bool caseSensitive = true);
     /// Replace all occurrences of a string.
@@ -287,27 +308,10 @@ public:
     void Clear();
     /// Swap with another string.
     void Swap(String& str);
-    
-    /// Test for equality with another string.
-    bool operator == (const String& rhs) const { return strcmp(CString(), rhs.CString()) == 0; }
-    /// Test for inequality with another string.
-    bool operator != (const String& rhs) const { return strcmp(CString(), rhs.CString()) != 0; }
-    /// Test if string is less than another string.
-    bool operator < (const String& rhs) const { return strcmp(CString(), rhs.CString()) < 0; }
-    /// Test if string is greater than another string.
-    bool operator > (const String& rhs) const { return strcmp(CString(), rhs.CString()) > 0; }
-    /// Test for equality with a C string.
-    bool operator == (const char* rhs) const { return strcmp(CString(), rhs) == 0; }
-    /// Test for inequality with a C string.
-    bool operator != (const char* rhs) const { return strcmp(CString(), rhs) != 0; }
-    /// Test if string is less than a C string.
-    bool operator < (const char* rhs) const { return strcmp(CString(), rhs) < 0; }
-    /// Test if string is greater than a C string.
-    bool operator > (const char* rhs) const { return strcmp(CString(), rhs) > 0; }
-    /// Return char at index.
-    char& operator [] (size_t index) { assert(index < length); return buffer[index]; }
-    /// Return const char at index.
-    const char& operator [] (size_t index) const { assert(index < length); return buffer[index]; }
+    /// Append to string using formatting.
+    String& AppendWithFormat(const char* formatStr, ... );
+    /// Append to string using variable arguments.
+    String& AppendWithFormatArgs(const char* formatStr, va_list args);
     
     /// Return char at index.
     char& At(size_t index) { assert(index < length); return buffer[index]; }
@@ -367,6 +371,8 @@ public:
     bool Contains(const String& str, bool caseSensitive = true) const { return Find(str, 0, caseSensitive) != NPOS; }
     /// Return whether contains a specific character.
     bool Contains(char c, bool caseSensitive = true) const { return Find(c, 0, caseSensitive) != NPOS; }
+    /// Return hash value for HashSet & HashMap.
+    unsigned ToHash() const { return CaseSensitiveHash(buffer); }
 
     /// Construct UTF8 content from Latin1.
     void SetUTF8FromLatin1(const char* str);
@@ -388,20 +394,6 @@ public:
     String SubstringUTF8(size_t pos) const;
     /// Return a UTF8 substring with length from position.
     String SubstringUTF8(size_t pos, size_t numChars) const;
-    
-    /// Return hash value for HashSet & HashMap.
-    unsigned ToHash() const
-    {
-        unsigned hash = 0;
-        const char* ptr = buffer;
-        while (*ptr)
-        {
-            hash = *ptr + (hash << 6) + (hash << 16) - hash;
-            ++ptr;
-        }
-        
-        return hash;
-    }
     
     /// Return substrings split by a separator char.
     static Vector<String> Split(const char* str, char separator);
@@ -431,11 +423,31 @@ public:
         #endif
     }
     
-    /// Append to string using formatting.
-    String& AppendWithFormat(const char* formatStr, ... );
-    /// Append to string using variable arguments.
-    String& AppendWithFormatArgs(const char* formatStr, va_list args);
-    
+    /// Calculate a case-sensitive hash for a string.
+    static unsigned CaseSensitiveHash(const char* str)
+    {
+        unsigned hash = 0;
+        while (*str)
+        {
+            hash = *str + (hash << 6) + (hash << 16) - hash;
+            ++str;
+        }
+        
+        return hash;
+    }
+
+    /// Calculate a case-insensitive hash for a string.
+    static unsigned CaseInsensitiveHash(const char* str)
+    {
+        unsigned hash = 0;
+        while (*str)
+        {
+            hash = ((char)tolower(*str)) + (hash << 6) + (hash << 16) - hash;
+            ++str;
+        }
+        
+        return hash;
+    }
     /// Compare two C strings.
     static int Compare(const char* str1, const char* str2, bool caseSensitive);
     

@@ -26,7 +26,7 @@ public:
     /// Test for equality with another pair.
     bool operator == (const Pair<T, U>& rhs) const { return first == rhs.first && second == rhs.second; }
     /// Test for inequality with another pair.
-    bool operator != (const Pair<T, U>& rhs) const { return first != rhs.first || second != rhs.second; }
+    bool operator != (const Pair<T, U>& rhs) const { return !(*this == rhs); }
     
     /// Test for less than with another pair.
     bool operator < (const Pair<T, U>& rhs) const
