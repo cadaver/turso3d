@@ -3,6 +3,8 @@
 #include "Frustum.h"
 #include "Polyhedron.h"
 
+#include "../Debug/DebugNew.h"
+
 namespace Turso3D
 {
 
@@ -179,7 +181,7 @@ void Polyhedron::Clip(const Plane& plane, PODVector<Vector3>& clippedVertices, P
             // Then add the vertex which is closest to the last added
             const Vector3& lastAdded = outFace.Back();
             float bestDistance = M_INFINITY;
-            unsigned bestIndex = 0;
+            size_t bestIndex = 0;
             
             for (size_t i = 0; i < clippedVertices.Size(); ++i)
             {
