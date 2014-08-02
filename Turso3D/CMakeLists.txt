@@ -14,6 +14,7 @@ endmacro ()
 add_engine_directory (Base)
 add_engine_directory (Debug)
 add_engine_directory (Math)
+add_engine_directory (Thread)
 
 # Add root-level files
 file (GLOB TURSO3D_FILES *.h *.c *.cpp)

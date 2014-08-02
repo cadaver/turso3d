@@ -16,3 +16,7 @@
 #include "Math/Polyhedron.h"
 #include "Math/Ray.h"
 #include "Math/StringHash.h"
+#include "Thread/Condition.h"
+#include "Thread/Mutex.h"
+#include "Thread/Thread.h"
+#include "Thread/ThreadLocalValue.h"
