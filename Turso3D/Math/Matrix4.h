@@ -126,6 +126,18 @@ public:
     {
     }
     
+    /// Construct by parsing a string.
+    Matrix4(const String& str)
+    {
+        FromString(str);
+    }
+    
+    /// Construct by parsing a C string.
+    Matrix4(const char* str)
+    {
+        FromString(str);
+    }
+    
     /// Assign from another matrix.
     Matrix4& operator = (const Matrix4& rhs)
     {
@@ -341,6 +353,11 @@ public:
         m22 = scale;
     }
     
+    /// Parse from a string. Return true if successful.
+    bool FromString(const String& str);
+    /// Parse from a C string. Return true if successful.
+    bool FromString(const char* str);
+    
     /// Return the combined rotation and scaling matrix.
     Matrix3 ToMatrix3() const
     {
@@ -441,31 +458,7 @@ public:
     String ToString() const;
     
     /// Bulk transpose matrices.
-    static void BulkTranspose(float* dest, const float* src, size_t count)
-    {
-        for (size_t i = 0; i < count; ++i)
-        {
-            dest[0] = src[0];
-            dest[1] = src[4];
-            dest[2] = src[8];
-            dest[3] = src[12];
-            dest[4] = src[1];
-            dest[5] = src[5];
-            dest[6] = src[9];
-            dest[7] = src[13];
-            dest[8] = src[2];
-            dest[9] = src[6];
-            dest[10] = src[10];
-            dest[11] = src[14];
-            dest[12] = src[3];
-            dest[13] = src[7];
-            dest[14] = src[11];
-            dest[15] = src[15];
-            
-            dest += 16;
-            src += 16;
-        }
-    }
+    static void BulkTranspose(float* dest, const float* src, size_t count);
     
     /// Zero matrix.
     static const Matrix4 ZERO;

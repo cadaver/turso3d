@@ -58,6 +58,18 @@ public:
     {
     }
     
+    /// Construct by parsing a string.
+    Rect(const String& str)
+    {
+        FromString(str);
+    }
+    
+    /// Construct by parsing a C string.
+    Rect(const char* str)
+    {
+        FromString(str);
+    }
+    
     /// Assign from another rect.
     Rect& operator = (const Rect& rhs)
     {
@@ -140,6 +152,10 @@ public:
     
     /// Clip with another rect.
     void Clip(const Rect& rect);
+   /// Parse from a string. Return true if successful.
+    bool FromString(const String& str);
+    /// Parse from a C string. Return true if successful.
+    bool FromString(const char* str);
     
     /// Return whether has non-negative size.
     bool IsDefined() const { return (min.x <= max.x); }
@@ -198,6 +214,15 @@ public:
     {
     }
     
+    /// Copy-construct.
+    IntRect(const IntRect& rect) :
+        left(rect.left),
+        top(rect.top),
+        right(rect.right),
+        bottom(rect.bottom)
+    {
+    }
+    
     /// Construct from coordinates.
     IntRect(int left_, int top_, int right_, int bottom_) :
         left(left_),
@@ -216,10 +241,27 @@ public:
     {
     }
 
+    /// Construct by parsing a string.
+    IntRect(const String& str)
+    {
+        FromString(str);
+    }
+    
+    /// Construct by parsing a C string.
+    IntRect(const char* str)
+    {
+        FromString(str);
+    }
+    
     /// Test for equality with another rect.
     bool operator == (const IntRect& rhs) const { return left == rhs.left && top == rhs.top && right == rhs.right && bottom == rhs.bottom; }
     /// Test for inequality with another rect.
-    bool operator != (const IntRect& rhs) const { return left != rhs.left || top != rhs.top || right != rhs.right || bottom != rhs.bottom; }
+    bool operator != (const IntRect& rhs) const { return !(*this == rhs); }
+    
+    /// Parse from a string. Return true if successful.
+    bool FromString(const String& str);
+    /// Parse from a C string. Return true if successful.
+    bool FromString(const char* str);
     
     /// Return size.
     IntVector2 Size() const { return IntVector2(Width(), Height()); }

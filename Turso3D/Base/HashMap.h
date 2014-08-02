@@ -645,7 +645,7 @@ public:
         /// Test for equality with another pair.
         bool operator == (const KeyValue& rhs) const { return first == rhs.first && second == rhs.second; }
         /// Test for inequality with another pair.
-        bool operator != (const KeyValue& rhs) const { return first != rhs.first || second != rhs.second; }
+        bool operator != (const KeyValue& rhs) const { return !(*this == rhs); }
         
         /// Key.
         const T first;

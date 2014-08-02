@@ -74,11 +74,23 @@ public:
         w = rhs.w;
         return *this;
     }
+   
+    /// Construct by parsing a string.
+    Vector4(const String& str)
+    {
+        FromString(str);
+    }
+    
+    /// Construct by parsing a C string.
+    Vector4(const char* str)
+    {
+        FromString(str);
+    }
     
     /// Test for equality with another vector without epsilon.
     bool operator == (const Vector4& rhs) const { return x == rhs.x && y == rhs.y && z == rhs.z && w == rhs.w; }
     /// Test for inequality with another vector without epsilon.
-    bool operator != (const Vector4& rhs) const { return x != rhs.x || y != rhs.y || z != rhs.z || w != rhs.w; }
+    bool operator != (const Vector4& rhs) const { return !(*this == rhs); }
     /// Add a vector.
     Vector4 operator + (const Vector4& rhs) const { return Vector4(x + rhs.x, y + rhs.y, z + rhs.z, w + rhs.w); }
     /// Return negation.
@@ -154,6 +166,11 @@ public:
         w /= rhs.w;
         return *this;
     }
+    
+    /// Parse from a string. Return true if successful.
+    bool FromString(const String& str);
+    /// Parse from a C string. Return true if successful.
+    bool FromString(const char* str);
     
     /// Calculate dot product.
     float DotProduct(const Vector4& rhs) const { return x * rhs.x + y * rhs.y + z * rhs.z + w * rhs.w; }

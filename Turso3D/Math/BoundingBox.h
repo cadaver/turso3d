@@ -83,6 +83,18 @@ public:
         Define(sphere);
     }
     
+    /// Construct by parsing a string.
+    BoundingBox(const String& str)
+    {
+        FromString(str);
+    }
+    
+    /// Construct by parsing a C string.
+    BoundingBox(const char* str)
+    {
+        FromString(str);
+    }
+    
     /// Assign from another bounding box.
     BoundingBox& operator = (const BoundingBox& rhs)
     {
@@ -215,6 +227,10 @@ public:
     void Transform(const Matrix3& transform);
     /// Transform with a 3x4 matrix.
     void Transform(const Matrix3x4& transform);
+   /// Parse from a string. Return true if successful.
+    bool FromString(const String& str);
+    /// Parse from a C string. Return true if successful.
+    bool FromString(const char* str);
     
     /// Return whether has non-negative size.
     bool IsDefined() const { return (min.x <= max.x); }

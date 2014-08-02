@@ -125,6 +125,18 @@ public:
     /// Construct from translation, rotation and nonuniform scale.
     Matrix3x4(const Vector3& translation, const Quaternion& rotation, const Vector3& scale);
     
+    /// Construct by parsing a string.
+    Matrix3x4(const String& str)
+    {
+        FromString(str);
+    }
+    
+    /// Construct by parsing a C string.
+    Matrix3x4(const char* str)
+    {
+        FromString(str);
+    }
+    
     /// Assign from another matrix.
     Matrix3x4& operator = (const Matrix3x4& rhs)
     {
@@ -353,6 +365,11 @@ public:
         m11 = scale;
         m22 = scale;
     }
+    
+    /// Parse from a string. Return true if successful.
+    bool FromString(const String& str);
+    /// Parse from a C string. Return true if successful.
+    bool FromString(const char* str);
     
     /// Return the combined rotation and scaling matrix.
     Matrix3 ToMatrix3() const

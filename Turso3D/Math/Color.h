@@ -78,7 +78,19 @@ public:
         a(data[3])
     {
     }
-
+    
+    /// Construct by parsing a string.
+    Color(const String& str)
+    {
+        FromString(str);
+    }
+    
+    /// Construct by parsing a C string.
+    Color(const char* str)
+    {
+        FromString(str);
+    }
+    
     /// Add-assign a color.
     Color& operator += (const Color& rhs)
     {
@@ -113,6 +125,10 @@ public:
     void FromHSL(float h, float s, float l, float a = 1.0f);
     /// Set RGBA values from specified HSV values and alpha.
     void FromHSV(float h, float s, float v, float a = 1.0f);
+    /// Parse from a string. Return true if successful.
+    bool FromString(const String& str);
+    /// Parse from a C string. Return true if successful.
+    bool FromString(const char* str);
 
     /// Return RGB as a three-dimensional vector.
     Vector3 ToVector3() const { return Vector3(r, g, b); }

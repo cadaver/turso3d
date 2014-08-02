@@ -83,6 +83,18 @@ public:
         FromRotationMatrix(matrix);
     }
     
+    /// Construct by parsing a string.
+    Quaternion(const String& str)
+    {
+        FromString(str);
+    }
+    
+    /// Construct by parsing a C string.
+    Quaternion(const char* str)
+    {
+        FromString(str);
+    }
+    
     /// Assign from another quaternion.
     Quaternion& operator = (const Quaternion& rhs)
     {
@@ -159,6 +171,10 @@ public:
     void FromRotationMatrix(const Matrix3& matrix);
     /// Define from a direction to look in and an up direction. Return true if successful, or false if would result in a NaN, in which case the current value remains.
     bool FromLookRotation(const Vector3& direction, const Vector3& up = Vector3::UP);
+    /// Parse from a string. Return true if successful.
+    bool FromString(const String& str);
+    /// Parse from a C string. Return true if successful.
+    bool FromString(const char* str);
 
     /// Normalize to unit length.
     void Normalize()

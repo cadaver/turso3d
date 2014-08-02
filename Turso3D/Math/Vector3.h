@@ -74,6 +74,18 @@ public:
     {
     }
     
+    /// Construct by parsing a string.
+    Vector3(const String& str)
+    {
+        FromString(str);
+    }
+    
+    /// Construct by parsing a C string.
+    Vector3(const char* str)
+    {
+        FromString(str);
+    }
+    
     /// Assign from another vector.
     Vector3& operator = (const Vector3& rhs)
     {
@@ -86,7 +98,7 @@ public:
     /// Test for equality with another vector without epsilon.
     bool operator == (const Vector3& rhs) const { return x == rhs.x && y == rhs.y && z == rhs.z; }
     /// Test for inequality with another vector without epsilon.
-    bool operator != (const Vector3& rhs) const { return x != rhs.x || y != rhs.y || z != rhs.z; }
+    bool operator != (const Vector3& rhs) const { return !(*this == rhs); }
     /// Add a vector.
     Vector3 operator + (const Vector3& rhs) const { return Vector3(x + rhs.x, y + rhs.y, z + rhs.z); }
     /// Return negation.
@@ -169,6 +181,11 @@ public:
             z *= invLen;
         }
     }
+    
+    /// Parse from a string. Return true if successful.
+    bool FromString(const String& str);
+    /// Parse from a C string. Return true if successful.
+    bool FromString(const char* str);
     
     /// Return length.
     float Length() const { return sqrtf(x * x + y * y + z * z); }

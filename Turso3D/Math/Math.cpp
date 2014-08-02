@@ -227,6 +227,28 @@ void BoundingBox::Transform(const Matrix3x4& transform)
     *this = Transformed(transform);
 }
 
+bool BoundingBox::FromString(const String& str)
+{
+    return FromString(str.CString());
+}
+
+bool BoundingBox::FromString(const char* str)
+{
+    size_t elements = String::CountElements(str, ' ');
+    if (elements < 6)
+        return false;
+    
+    char* ptr = (char*)str;
+    min.x = (float)strtod(ptr, &ptr);
+    min.y = (float)strtod(ptr, &ptr);
+    min.z = (float)strtod(ptr, &ptr);
+    max.x = (float)strtod(ptr, &ptr);
+    max.y = (float)strtod(ptr, &ptr);
+    max.z = (float)strtod(ptr, &ptr);
+    
+    return true;
+}
+
 BoundingBox BoundingBox::Transformed(const Matrix3& transform) const
 {
     return Transformed(Matrix3x4(transform));
@@ -367,7 +389,7 @@ Intersection BoundingBox::IsInsideFast(const Sphere& sphere) const
 
 String BoundingBox::ToString() const
 {
-    return min.ToString() + " - " + max.ToString();
+    return min.ToString() + " " + max.ToString();
 }
 
 unsigned Color::ToUInt() const
@@ -426,6 +448,27 @@ void Color::FromHSV(float h, float s, float v, float a_)
     FromHCM(h, c, m);
 
     a = a_;
+}
+
+bool Color::FromString(const String& str)
+{
+    return FromString(str.CString());
+}
+
+bool Color::FromString(const char* str)
+{
+    size_t elements = String::CountElements(str, ' ');
+    if (elements < 3)
+        return false;
+    
+    char* ptr = (char*)str;
+    r = (float)strtod(ptr, &ptr);
+    g = (float)strtod(ptr, &ptr);
+    b = (float)strtod(ptr, &ptr);
+    if (elements > 3)
+        a = (float)strtod(ptr, &ptr);
+    
+    return true;
 }
 
 float Color::Chroma() const
@@ -822,6 +865,26 @@ void Frustum::UpdatePlanes()
     }
 }
 
+bool IntRect::FromString(const String& str)
+{
+    return FromString(str.CString());
+}
+
+bool IntRect::FromString(const char* str)
+{
+    size_t elements = String::CountElements(str, ' ');
+    if (elements < 4)
+        return false;
+    
+    char* ptr = (char*)str;
+    left = strtol(ptr, &ptr, 10);
+    top = strtol(ptr, &ptr, 10);
+    right = strtol(ptr, &ptr, 10);
+    bottom = strtol(ptr, &ptr, 10);
+    
+    return true;
+}
+
 String IntRect::ToString() const
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
@@ -829,11 +892,54 @@ String IntRect::ToString() const
     return String(tempBuffer);
 }
 
+bool IntVector2::FromString(const String& str)
+{
+    return FromString(str.CString());
+}
+
+bool IntVector2::FromString(const char* str)
+{
+    size_t elements = String::CountElements(str, ' ');
+    if (elements < 2)
+        return false;
+    
+    char* ptr = (char*)str;
+    x = strtol(ptr, &ptr, 10);
+    y = strtol(ptr, &ptr, 10);
+    
+    return true;
+}
+
 String IntVector2::ToString() const
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%d %d", x, y);
     return String(tempBuffer);
+}
+
+bool Matrix3::FromString(const String& str)
+{
+    return FromString(str.CString());
+}
+
+bool Matrix3::FromString(const char* str)
+{
+    size_t elements = String::CountElements(str, ' ');
+    if (elements < 9)
+        return false;
+    
+    char* ptr = (char*)str;
+    m00 = (float)strtod(ptr, &ptr);
+    m01 = (float)strtod(ptr, &ptr);
+    m02 = (float)strtod(ptr, &ptr);
+    m10 = (float)strtod(ptr, &ptr);
+    m11 = (float)strtod(ptr, &ptr);
+    m12 = (float)strtod(ptr, &ptr);
+    m20 = (float)strtod(ptr, &ptr);
+    m21 = (float)strtod(ptr, &ptr);
+    m22 = (float)strtod(ptr, &ptr);
+    
+    return true;
 }
 
 Matrix3 Matrix3::Inverse() const
@@ -867,6 +973,25 @@ String Matrix3::ToString() const
     return String(tempBuffer);
 }
 
+void Matrix3::BulkTranspose(float* dest, const float* src, size_t count)
+{
+    for (size_t i = 0; i < count; ++i)
+    {
+        dest[0] = src[0];
+        dest[1] = src[3];
+        dest[2] = src[6];
+        dest[3] = src[1];
+        dest[4] = src[4];
+        dest[5] = src[7];
+        dest[6] = src[2];
+        dest[7] = src[5];
+        dest[8] = src[8];
+        
+        dest += 9;
+        src += 9;
+    }
+}
+
 Matrix3x4::Matrix3x4(const Vector3& translation, const Quaternion& rotation, float scale)
 {
     SetRotation(rotation.RotationMatrix() * scale);
@@ -877,6 +1002,34 @@ Matrix3x4::Matrix3x4(const Vector3& translation, const Quaternion& rotation, con
 {
     SetRotation(rotation.RotationMatrix().Scaled(scale));
     SetTranslation(translation);
+}
+
+bool Matrix3x4::FromString(const String& str)
+{
+    return FromString(str.CString());
+}
+
+bool Matrix3x4::FromString(const char* str)
+{
+    size_t elements = String::CountElements(str, ' ');
+    if (elements < 12)
+        return false;
+    
+    char* ptr = (char*)str;
+    m00 = (float)strtod(ptr, &ptr);
+    m01 = (float)strtod(ptr, &ptr);
+    m02 = (float)strtod(ptr, &ptr);
+    m03 = (float)strtod(ptr, &ptr);
+    m10 = (float)strtod(ptr, &ptr);
+    m11 = (float)strtod(ptr, &ptr);
+    m12 = (float)strtod(ptr, &ptr);
+    m13 = (float)strtod(ptr, &ptr);
+    m20 = (float)strtod(ptr, &ptr);
+    m21 = (float)strtod(ptr, &ptr);
+    m22 = (float)strtod(ptr, &ptr);
+    m23 = (float)strtod(ptr, &ptr);
+    
+    return true;
 }
 
 void Matrix3x4::Decompose(Vector3& translation, Quaternion& rotation, Vector3& scale) const
@@ -927,6 +1080,38 @@ String Matrix3x4::ToString() const
     sprintf(tempBuffer, "%g %g %g %g %g %g %g %g %g %g %g %g", m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22,
         m23);
     return String(tempBuffer);
+}
+
+bool Matrix4::FromString(const String& str)
+{
+    return FromString(str.CString());
+}
+
+bool Matrix4::FromString(const char* str)
+{
+    size_t elements = String::CountElements(str, ' ');
+    if (elements < 16)
+        return false;
+    
+    char* ptr = (char*)str;
+    m00 = (float)strtod(ptr, &ptr);
+    m01 = (float)strtod(ptr, &ptr);
+    m02 = (float)strtod(ptr, &ptr);
+    m03 = (float)strtod(ptr, &ptr);
+    m10 = (float)strtod(ptr, &ptr);
+    m11 = (float)strtod(ptr, &ptr);
+    m12 = (float)strtod(ptr, &ptr);
+    m13 = (float)strtod(ptr, &ptr);
+    m20 = (float)strtod(ptr, &ptr);
+    m21 = (float)strtod(ptr, &ptr);
+    m22 = (float)strtod(ptr, &ptr);
+    m23 = (float)strtod(ptr, &ptr);
+    m30 = (float)strtod(ptr, &ptr);
+    m31 = (float)strtod(ptr, &ptr);
+    m32 = (float)strtod(ptr, &ptr);
+    m33 = (float)strtod(ptr, &ptr);
+    
+    return true;
 }
 
 void Matrix4::Decompose(Vector3& translation, Quaternion& rotation, Vector3& scale) const
@@ -1006,6 +1191,32 @@ String Matrix4::ToString() const
     sprintf(tempBuffer, "%g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g", m00, m01, m02, m03, m10, m11, m12, m13, m20,
         m21, m22, m23, m30, m31, m32, m33);
     return String(tempBuffer);
+}
+
+void Matrix4::BulkTranspose(float* dest, const float* src, size_t count)
+{
+    for (size_t i = 0; i < count; ++i)
+    {
+        dest[0] = src[0];
+        dest[1] = src[4];
+        dest[2] = src[8];
+        dest[3] = src[12];
+        dest[4] = src[1];
+        dest[5] = src[5];
+        dest[6] = src[9];
+        dest[7] = src[13];
+        dest[8] = src[2];
+        dest[9] = src[6];
+        dest[10] = src[10];
+        dest[11] = src[14];
+        dest[12] = src[3];
+        dest[13] = src[7];
+        dest[14] = src[11];
+        dest[15] = src[15];
+        
+        dest += 16;
+        src += 16;
+    }
 }
 
 void Plane::Transform(const Matrix3& transform)
@@ -1188,6 +1399,40 @@ bool Quaternion::FromLookRotation(const Vector3& direction, const Vector3& upDir
     }
     else
         return false;
+}
+
+
+bool Quaternion::FromString(const String& str)
+{
+    return FromString(str.CString());
+}
+
+bool Quaternion::FromString(const char* str)
+{
+    size_t elements = String::CountElements(str, ' ');
+    if (elements < 3)
+        return false;
+    
+    char* ptr = (char*)str;
+    if (elements < 4)
+    {
+        // 3 coords specified: conversion from Euler angles
+        float x_, y_, z_;
+        x_ = (float)strtod(ptr, &ptr);
+        y_ = (float)strtod(ptr, &ptr);
+        z_ = (float)strtod(ptr, &ptr);
+        FromEulerAngles(x_, y_, z_);
+    }
+    else
+    {
+        // 4 coords specified: full quaternion
+        w = (float)strtod(ptr, &ptr);
+        x = (float)strtod(ptr, &ptr);
+        y = (float)strtod(ptr, &ptr);
+        z = (float)strtod(ptr, &ptr);
+    }
+    
+    return true;
 }
 
 Vector3 Quaternion::EulerAngles() const
@@ -1664,13 +1909,6 @@ Ray Ray::Transformed(const Matrix3x4& transform) const
     return ret;
 }
 
-String Rect::ToString() const
-{
-    char tempBuffer[CONVERSION_BUFFER_LENGTH];
-    sprintf(tempBuffer, "%g %g %g %g", min.x, min.y, max.x, max.y);
-    return String(tempBuffer);
-}
-
 void Rect::Clip(const Rect& rect)
 {
     if (rect.min.x > min.x)
@@ -1686,6 +1924,31 @@ void Rect::Clip(const Rect& rect)
         Swap(min.x, max.x);
     if (min.y > max.y)
         Swap(min.y, max.y);
+}
+
+bool Rect::FromString(const String& str)
+{
+    return FromString(str.CString());
+}
+
+bool Rect::FromString(const char* str)
+{
+    size_t elements = String::CountElements(str, ' ');
+    if (elements < 4)
+        return false;
+    
+    char* ptr = (char*)str;
+    min.x = (float)strtod(ptr, &ptr);
+    min.y = (float)strtod(ptr, &ptr);
+    max.x = (float)strtod(ptr, &ptr);
+    max.y = (float)strtod(ptr, &ptr);
+    
+    return true;
+}
+
+String Rect::ToString() const
+{
+    return min.ToString() + " " + max.ToString();
 }
 
 void Sphere::Define(const Vector3* vertices, size_t count)
@@ -1917,6 +2180,24 @@ String StringHash::ToString() const
     return String(tempBuffer);
 }
 
+bool Vector2::FromString(const String& str)
+{
+    return FromString(str.CString());
+}
+
+bool Vector2::FromString(const char* str)
+{
+    size_t elements = String::CountElements(str, ' ');
+    if (elements < 2)
+        return false;
+    
+    char* ptr = (char*)str;
+    x = (float)strtod(ptr, &ptr);
+    y = (float)strtod(ptr, &ptr);
+
+    return true;
+}
+
 String Vector2::ToString() const
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
@@ -1924,11 +2205,50 @@ String Vector2::ToString() const
     return String(tempBuffer);
 }
 
+bool Vector3::FromString(const String& str)
+{
+    return FromString(str.CString());
+}
+
+bool Vector3::FromString(const char* str)
+{
+    size_t elements = String::CountElements(str, ' ');
+    if (elements < 3)
+        return false;
+    
+    char* ptr = (char*)str;
+    x = (float)strtod(ptr, &ptr);
+    y = (float)strtod(ptr, &ptr);
+    z = (float)strtod(ptr, &ptr);
+    
+    return true;
+}
+
 String Vector3::ToString() const
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%g %g %g", x, y, z);
     return String(tempBuffer);
+}
+
+bool Vector4::FromString(const String& str)
+{
+    return FromString(str.CString());
+}
+
+bool Vector4::FromString(const char* str)
+{
+    size_t elements = String::CountElements(str, ' ');
+    if (elements < 4)
+        return false;
+    
+    char* ptr = (char*)str;
+    x = (float)strtod(ptr, &ptr);
+    y = (float)strtod(ptr, &ptr);
+    z = (float)strtod(ptr, &ptr);
+    w = (float)strtod(ptr, &ptr);
+    
+    return true;
 }
 
 String Vector4::ToString() const

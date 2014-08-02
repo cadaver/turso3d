@@ -47,6 +47,18 @@ public:
     {
     }
     
+    /// Construct by parsing a string.
+    Vector2(const String& str)
+    {
+        FromString(str);
+    }
+    
+    /// Construct by parsing a C string.
+    Vector2(const char* str)
+    {
+        FromString(str);
+    }
+    
     /// Assign from another vector.
     Vector2& operator = (const Vector2& rhs)
     {
@@ -116,10 +128,15 @@ public:
         }
     }
     
+    /// Parse from a string. Return true if successful.
+    bool FromString(const String& str);
+    /// Parse from a C string. Return true if successful.
+    bool FromString(const char* str);
+    
     /// Test for equality with another vector without epsilon.
     bool operator == (const Vector2& rhs) const { return x == rhs.x && y == rhs.y; }
     /// Test for inequality with another vector without epsilon.
-    bool operator != (const Vector2& rhs) const { return x != rhs.x || y != rhs.y; }
+    bool operator != (const Vector2& rhs) const { return !(*this == rhs); }
     /// Add a vector.
     Vector2 operator + (const Vector2& rhs) const { return Vector2(x + rhs.x, y + rhs.y); }
     /// Return negation.
@@ -203,6 +220,13 @@ public:
     {
     }
     
+    /// Copy-construct.
+    IntVector2(const IntVector2& vector) :
+        x(vector.x),
+        y(vector.y)
+    {
+    }
+    
     /// Construct from coordinates.
     IntVector2(int x_, int y_) :
         x(x_),
@@ -217,27 +241,17 @@ public:
     {
     }
     
-    /// Copy-construct.
-    IntVector2(const IntVector2& rhs) :
-        x(rhs.x),
-        y(rhs.y)
+    /// Construct by parsing a string.
+    IntVector2(const String& str)
     {
+        FromString(str);
     }
     
-    /// Test for equality with another vector.
-    bool operator == (const IntVector2& rhs) const { return x == rhs.x && y == rhs.y; }
-    /// Test for inequality with another vector.
-    bool operator != (const IntVector2& rhs) const { return x != rhs.x || y != rhs.y; }
-    /// Add a vector.
-    IntVector2 operator + (const IntVector2& rhs) const { return IntVector2(x + rhs.x, y + rhs.y); }
-    /// Return negation.
-    IntVector2 operator - () const { return IntVector2(-x, -y); }
-    /// Subtract a vector.
-    IntVector2 operator - (const IntVector2& rhs) const { return IntVector2(x - rhs.x, y - rhs.y); }
-    /// Multiply with a scalar.
-    IntVector2 operator * (int rhs) const { return IntVector2(x * rhs, y * rhs); }
-    /// Divide by a scalar.
-    IntVector2 operator / (int rhs) const { return IntVector2(x / rhs, y / rhs); }
+    /// Construct by parsing a C string.
+    IntVector2(const char* str)
+    {
+        FromString(str);
+    }
     
     /// Add-assign a vector.
     IntVector2& operator += (const IntVector2& rhs)
@@ -270,6 +284,26 @@ public:
         y /= rhs;
         return *this;
     }
+    
+    /// Test for equality with another vector.
+    bool operator == (const IntVector2& rhs) const { return x == rhs.x && y == rhs.y; }
+    /// Test for inequality with another vector.
+    bool operator != (const IntVector2& rhs) const { return !(*this == rhs); }
+    /// Add a vector.
+    IntVector2 operator + (const IntVector2& rhs) const { return IntVector2(x + rhs.x, y + rhs.y); }
+    /// Return negation.
+    IntVector2 operator - () const { return IntVector2(-x, -y); }
+    /// Subtract a vector.
+    IntVector2 operator - (const IntVector2& rhs) const { return IntVector2(x - rhs.x, y - rhs.y); }
+    /// Multiply with a scalar.
+    IntVector2 operator * (int rhs) const { return IntVector2(x * rhs, y * rhs); }
+    /// Divide by a scalar.
+    IntVector2 operator / (int rhs) const { return IntVector2(x / rhs, y / rhs); }
+
+    /// Parse from a string. Return true if successful.
+    bool FromString(const String& str);
+    /// Parse from a C string. Return true if successful.
+    bool FromString(const char* str);
     
     /// Return integer data.
     const int* Data() const { return &x; }

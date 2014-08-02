@@ -74,6 +74,18 @@ public:
     {
     }
     
+    /// Construct by parsing a string.
+    Matrix3(const String& str)
+    {
+        FromString(str);
+    }
+    
+    /// Construct by parsing a C string.
+    Matrix3(const char* str)
+    {
+        FromString(str);
+    }
+    
     /// Assign from another matrix.
     Matrix3& operator = (const Matrix3& rhs)
     {
@@ -197,6 +209,11 @@ public:
         m22 = scale;
     }
     
+    /// Parse from a string. Return true if successful.
+    bool FromString(const String& str);
+    /// Parse from a C string. Return true if successful.
+    bool FromString(const char* str);
+    
     /// Return the scaling part.
     Vector3 Scale() const
     {
@@ -263,24 +280,7 @@ public:
     String ToString() const;
     
     /// Bulk transpose matrices.
-    static void BulkTranspose(float* dest, const float* src, size_t count)
-    {
-        for (size_t i = 0; i < count; ++i)
-        {
-            dest[0] = src[0];
-            dest[1] = src[3];
-            dest[2] = src[6];
-            dest[3] = src[1];
-            dest[4] = src[4];
-            dest[5] = src[7];
-            dest[6] = src[2];
-            dest[7] = src[5];
-            dest[8] = src[8];
-            
-            dest += 9;
-            src += 9;
-        }
-    }
+    static void BulkTranspose(float* dest, const float* src, size_t count);
     
     /// Zero matrix.
     static const Matrix3 ZERO;
