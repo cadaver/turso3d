@@ -5,6 +5,7 @@
 #include "Vector.h"
 
 #include <cstdio>
+#include <cstdlib>
 
 #include "../Debug/DebugNew.h"
 
@@ -807,6 +808,26 @@ int String::Compare(const char* str, bool caseSensitive) const
     return Compare(CString(), str, caseSensitive);
 }
 
+bool String::ToBool() const
+{
+    return ToBool(CString());
+}
+
+int String::ToInt() const
+{
+    return ToInt(CString());
+}
+
+unsigned String::ToUInt() const
+{
+    return ToUInt(CString());
+}
+
+float String::ToFloat() const
+{
+    return ToFloat(CString());
+}
+
 void String::SetUTF8FromLatin1(const char* str)
 {
     char temp[7];
@@ -1116,6 +1137,98 @@ unsigned String::DecodeUTF16(const wchar_t*& src)
     }
 }
 #endif
+
+bool String::ToBool(const char* str)
+{
+    size_t length = CStringLength(str);
+    
+    for (size_t i = 0; i < length; ++i)
+    {
+        char c = Turso3D::ToLower(str[i]);
+        if (c == 't' || c == 'y' || c == '1')
+            return true;
+        else if (c != ' ' && c != '\t')
+            break;
+    }
+    
+    return false;
+}
+
+int String::ToInt(const char* str)
+{
+    if (!str)
+        return 0;
+    
+    // Explicitly ask for base 10 to prevent source starts with '0' or '0x' from being converted to base 8 or base 16, respectively
+    return strtol(str, 0, 10);
+}
+
+unsigned String::ToUInt(const char* str)
+{
+    if (!str)
+        return 0;
+    
+    return strtoul(str, 0, 10);
+}
+
+float String::ToFloat(const char* str)
+{
+    if (!str)
+        return 0;
+    
+    return (float)strtod(str, 0);
+}
+
+size_t String::CountElements(const char* buffer, char separator)
+{
+    if (!buffer)
+        return 0;
+    
+    const char* endPos = buffer + String::CStringLength(buffer);
+    const char* pos = buffer;
+    size_t ret = 0;
+    
+    while (pos < endPos)
+    {
+        if (*pos != separator)
+            break;
+        ++pos;
+    }
+    
+    while (pos < endPos)
+    {
+        const char* start = pos;
+        
+        while (start < endPos)
+        {
+            if (*start == separator)
+                break;
+            
+            ++start;
+        }
+        
+        if (start == endPos)
+        {
+            ++ret;
+            break;
+        }
+        
+        const char* end = start;
+        
+        while (end < endPos)
+        {
+            if (*end != separator)
+                break;
+            
+            ++end;
+        }
+        
+        ++ret;
+        pos = end;
+    }
+    
+    return ret;
+}
 
 Vector<String> String::Split(const char* str, char separator)
 {

@@ -371,6 +371,14 @@ public:
     bool Contains(const String& str, bool caseSensitive = true) const { return Find(str, 0, caseSensitive) != NPOS; }
     /// Return whether contains a specific character.
     bool Contains(char c, bool caseSensitive = true) const { return Find(c, 0, caseSensitive) != NPOS; }
+    /// Parse a bool.
+    bool ToBool() const;
+    /// Parse an integer.
+    int ToInt() const;
+    /// Parse an unsigned integer.
+    unsigned ToUInt() const;
+    /// Parse a float.
+    float ToFloat() const;
     /// Return hash value for HashSet & HashMap.
     unsigned ToHash() const { return CaseSensitiveHash(buffer); }
 
@@ -395,6 +403,16 @@ public:
     /// Return a UTF8 substring with length from position.
     String SubstringUTF8(size_t pos, size_t numChars) const;
     
+    /// Parse a bool from the string. Is considered true if t/y/1 are found case-insensitively.
+    static bool ToBool(const char* str);
+    /// Parse an integer from the string.
+    static int ToInt(const char* str);
+    /// Parse an unsigned integer from the string.
+    static unsigned ToUInt(const char* str);
+    /// parse a float from the string.
+    static float ToFloat(const char* str);
+    /// Return the amount of substrings split by a separator char.
+    static size_t CountElements(const char* str, char separator);
     /// Return substrings split by a separator char.
     static Vector<String> Split(const char* str, char separator);
     /// Encode Unicode character to UTF8. Pointer will be incremented.
