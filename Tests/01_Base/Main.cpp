@@ -175,5 +175,15 @@ int main()
         printf("Set size after erase: %d\n", testHashSet.Size());
     }
 
+    {
+        printf("\nTesting AutoPtr inside a vector\n");
+        Vector<AutoPtr<Test> > vec;
+        printf("Filling vector\n");
+        for (size_t i = 0; i < 16; ++i)
+            vec.Push(new Test());
+        printf("Clearing vector\n");
+        vec.Clear();
+    }
+
     return 0;
 }

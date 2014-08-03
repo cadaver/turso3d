@@ -21,10 +21,11 @@ public:
     }
 
     /// Copy-construct. Ownership is transferred, making the source pointer null.
-    AutoPtr(AutoPtr<T>& ptr_) :
+    AutoPtr(const AutoPtr<T>& ptr_) :
         ptr(ptr_.ptr)
     {
-        ptr_.ptr = 0;
+        // Trick the compiler so that the AutoPtr can be copied to containers; the latest copy stays non-null
+        const_cast<AutoPtr<T>&>(ptr_).ptr = 0;
     }
 
     /// Construct with a raw pointer; take ownership of the object.
@@ -40,11 +41,11 @@ public:
     }
 
     /// Assign from a pointer. Existing object is deleted and ownership is transferred from the source pointer, which becomes null.
-    AutoPtr<T>& operator = (AutoPtr<T>& rhs)
+    AutoPtr<T>& operator = (const AutoPtr<T>& rhs)
     {
         delete ptr;
         ptr = rhs.ptr;
-        rhs.ptr = 0;
+        const_cast<AutoPtr<T>&>(rhs).ptr = 0;
         return *this;
     }
 
