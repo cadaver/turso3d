@@ -40,6 +40,12 @@ public:
         const T first;
         /// Value.
         U second;
+
+    private:
+        /// Prevent copy construction.
+        KeyValue(const KeyValue& rhs);
+        /// Prevent assignment.
+        KeyValue& operator = (const KeyValue& rhs);
     };
     
     /// Hash map node.
@@ -211,7 +217,7 @@ public:
         
         Node* node = FindNode(key, hashKey);
         if (node)
-            return node->pair_.second_;
+            return node->pair.second;
         else
             return InsertNode(key, U(), false)->pair.second;
     }
@@ -305,7 +311,7 @@ public:
             for (Iterator i = Begin(); i != End(); )
             {
                 FreeNode(static_cast<Node*>(i++.ptr));
-                i.ptr->prev_ = 0;
+                i.ptr->prev = 0;
             }
             
             head = tail;

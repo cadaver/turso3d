@@ -112,10 +112,14 @@ public:
             *this = rhsObject;
     }
     
-    /// Test for equality: points to the same object.
+    /// Test for equality with another shared pointer.
     bool operator == (const SharedPtr<T>& rhs) const { return ptr == rhs.ptr; }
-    /// Test for inequality.
+    /// Test for equality with an object pointer.
+    bool operator == (T* rhs) const { return ptr == rhs; }
+    /// Test for inequality with another shared pointer.
     bool operator != (const SharedPtr<T>& rhs) const { return !(*this == rhs); }
+    /// Test for inequality with an object pointer.
+    bool operator != (T* rhs) const { return !(*this == rhs); }
     /// Point to the object.
     T* operator -> () const { assert(ptr); return ptr; }
     /// Dereference the object.

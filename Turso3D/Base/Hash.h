@@ -90,7 +90,7 @@ template<> inline unsigned MakeHash(const unsigned char& value)
 }
 
 /// Hash set/map node base class.
-struct HashNodeBase
+struct TURSO3D_API HashNodeBase
 {
     /// Construct.
     HashNodeBase() :
@@ -109,7 +109,7 @@ struct HashNodeBase
 };
 
 /// Hash set/map iterator base class.
-struct HashIteratorBase
+struct TURSO3D_API HashIteratorBase
 {
     /// Construct.
     HashIteratorBase() :
@@ -147,7 +147,7 @@ struct HashIteratorBase
 };
 
 /// Hash set/map base class.
-class HashBase
+class TURSO3D_API HashBase
 {
 public:
     /// Initial amount of buckets.

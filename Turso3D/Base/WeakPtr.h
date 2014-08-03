@@ -123,10 +123,14 @@ public:
             *this = rhsObject;
     }
     
-    /// Test for equality: points to the same object and reference count.
+    /// Test for equality with another weak pointer.
     bool operator == (const WeakPtr<T>& rhs) const { return ptr == rhs.ptr && refCount == rhs.refCount; }
-    /// Test for inequality.
+    /// Test for equality with an object pointer.
+    bool operator == (T* rhs) const { return ptr == rhs; }
+    /// Test for inequality with another weak pointer.
     bool operator != (const WeakPtr<T>& rhs) const { return !(*this == rhs); }
+    /// Test for inequality with an object pointer.
+    bool operator != (T* rhs) const { return !(*this == rhs); }
     /// Point to the object.
     T* operator -> () const { T* ret = Get(); assert(ret); return ret; }
     /// Dereference the object.
