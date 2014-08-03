@@ -14,32 +14,16 @@ class TURSO3D_API RefCounted
 {
 public:
     /// Construct. Initialize the reference count to zero.
-    RefCounted() :
-        refCount(0)
-    {
-    }
+    RefCounted();
     
     /// Destruct. Verify that the reference count is zero.
-    virtual ~RefCounted()
-    {
-        assert(refCount == 0);
-    }
+    virtual ~RefCounted();
     
     /// Add a reference.
-    void AddRef()
-    {
-        ++refCount;
-    }
-    
+    void AddRef();
     /// Remove a reference. Delete the object if was the last reference.
-    void ReleaseRef()
-    {
-        assert(refCount > 0);
-        --refCount;
-        if (!refCount)
-            delete this;
-    }
-    
+    void ReleaseRef();
+
     /// Return the number of references.
     unsigned Refs() const { return refCount; }
     

@@ -19,14 +19,14 @@ class TURSO3D_API Polyhedron
 {
 public:
     /// Polygon faces.
-    Vector<PODVector<Vector3> > faces;
+    Vector<Vector<Vector3> > faces;
     
     /// Construct empty.
     Polyhedron();
     /// Copy-construct.
     Polyhedron(const Polyhedron& polyhedron);
     /// Construct from a list of faces.
-    Polyhedron(const Vector<PODVector<Vector3> >& faces);
+    Polyhedron(const Vector<Vector<Vector3> >& faces);
     /// Construct from a bounding box.
     Polyhedron(const BoundingBox& box);
     /// Construct from a frustum.
@@ -43,9 +43,9 @@ public:
     /// Add a quadrilateral face.
     void AddFace(const Vector3& v0, const Vector3& v1, const Vector3& v2, const Vector3& v3);
     /// Add an arbitrary face.
-    void AddFace(const PODVector<Vector3>& face);
+    void AddFace(const Vector<Vector3>& face);
     /// Clip with a plane using supplied work vectors. When clipping with several planes in a succession these can be the same to avoid repeated dynamic memory allocation.
-    void Clip(const Plane& plane, PODVector<Vector3>& outFace, PODVector<Vector3>& clippedVertices);
+    void Clip(const Plane& plane, Vector<Vector3>& outFace, Vector<Vector3>& clippedVertices);
     /// Clip with a plane.
     void Clip(const Plane& plane);
     /// Clip with a bounding box.

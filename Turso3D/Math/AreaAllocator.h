@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Rect.h"
+#include "IntRect.h"
 #include "../Base/Vector.h"
 
 namespace Turso3D
@@ -30,7 +30,7 @@ public:
 
 private:
     /// Free rectangles.
-    PODVector<IntRect> freeAreas;
+    Vector<IntRect> freeAreas;
     /// Current size.
     IntVector2 size;
     /// Maximum size allowed to grow to. It is zero when it is not allowed to grow.

@@ -1,16 +1,13 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "Allocator.h"
-#include "HashMap.h"
-#include "List.h"
-#include "WeakPtr.h"
 
 #include "../Debug/DebugNew.h"
 
 namespace Turso3D
 {
 
-AllocatorBlock* AllocatorGetBlock(AllocatorBlock* allocator, size_t nodeSize, size_t capacity)
+static AllocatorBlock* AllocatorGetBlock(AllocatorBlock* allocator, size_t nodeSize, size_t capacity)
 {
     if (!capacity)
         capacity = 1;
@@ -99,57 +96,6 @@ void AllocatorFree(AllocatorBlock* allocator, void* ptr)
     // Chain the node back to free nodes
     node->next = allocator->free;
     allocator->free = node;
-}
-
-template<> void Swap<ListBase>(ListBase& first, ListBase& second)
-{
-    first.Swap(second);
-}
-
-template<> void Swap<VectorBase>(VectorBase& first, VectorBase& second)
-{
-    first.Swap(second);
-}
-
-void HashBase::AllocateBuckets(size_t size, size_t numBuckets)
-{
-    if (ptrs)
-        delete[] ptrs;
-    
-    HashNodeBase** newPtrs = new HashNodeBase*[numBuckets + 2];
-    size_t* data = reinterpret_cast<size_t*>(newPtrs);
-    data[0] = size;
-    data[1] = numBuckets;
-    ptrs = newPtrs;
-    
-    ResetPtrs();
-}
-
-void HashBase::ResetPtrs()
-{
-    if (!ptrs)
-        return;
-    
-    size_t numBuckets = NumBuckets();
-    HashNodeBase** data = Ptrs();
-    for (size_t i = 0; i < numBuckets; ++i)
-        data[i] = 0;
-}
-
-unsigned char* VectorBase::AllocateBuffer(size_t size)
-{
-    return new unsigned char[size];
-}
-
-unsigned* WeakRefCounted::WeakRefCountPtr()
-{
-    if (!refCount)
-    {
-        refCount = new unsigned;
-        *refCount = 0;
-    }
-    
-    return refCount;
 }
 
 }

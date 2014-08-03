@@ -19,23 +19,11 @@ public:
     static const unsigned REFCOUNT_MASK = 0x7fffffff;
     
     /// Construct. The reference count is not allocated yet; it will be allocated on demand.
-    WeakRefCounted() :
-        refCount(0)
-    {
-    }
+    WeakRefCounted();
     
     /// Destruct. If no weak references, destroy also the reference count, else mark it expired.
-    virtual ~WeakRefCounted()
-    {
-        if (refCount)
-        {
-            if (*refCount == 0)
-                delete refCount;
-            else
-                *refCount |= EXPIRED;
-        }
-    }
-    
+    virtual ~WeakRefCounted();
+
     /// Return the number of weak references.
     unsigned WeakRefs() const { return refCount ? *refCount : 0; }
     /// Return pointer to the weak reference count. Allocate if not allocated yet. Called by WeakPtr.

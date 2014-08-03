@@ -18,29 +18,17 @@ public:
 
     /// Construct an identity matrix.
     Matrix3() :
-        m00(1.0f),
-        m01(0.0f),
-        m02(0.0f),
-        m10(0.0f),
-        m11(1.0f),
-        m12(0.0f),
-        m20(0.0f),
-        m21(0.0f),
-        m22(1.0f)
+        m00(1.0f), m01(0.0f), m02(0.0f),
+        m10(0.0f), m11(1.0f), m12(0.0f),
+        m20(0.0f), m21(0.0f), m22(1.0f)
     {
     }
     
     /// Copy-construct.
     Matrix3(const Matrix3& matrix) :
-        m00(matrix.m00),
-        m01(matrix.m01),
-        m02(matrix.m02),
-        m10(matrix.m10),
-        m11(matrix.m11),
-        m12(matrix.m12),
-        m20(matrix.m20),
-        m21(matrix.m21),
-        m22(matrix.m22)
+        m00(matrix.m00), m01(matrix.m01), m02(matrix.m02),
+        m10(matrix.m10), m11(matrix.m11), m12(matrix.m12),
+        m20(matrix.m20), m21(matrix.m21), m22(matrix.m22)
     {
     }
     
@@ -48,29 +36,17 @@ public:
     Matrix3(float v00, float v01, float v02,
             float v10, float v11, float v12,
             float v20, float v21, float v22) :
-        m00(v00),
-        m01(v01),
-        m02(v02),
-        m10(v10),
-        m11(v11),
-        m12(v12),
-        m20(v20),
-        m21(v21),
-        m22(v22)
+        m00(v00), m01(v01), m02(v02),
+        m10(v10), m11(v11), m12(v12),
+        m20(v20), m21(v21), m22(v22)
     {
     }
     
     /// Construct from a float array.
     Matrix3(const float* data) :
-        m00(data[0]),
-        m01(data[1]),
-        m02(data[2]),
-        m10(data[3]),
-        m11(data[4]),
-        m12(data[5]),
-        m20(data[6]),
-        m21(data[7]),
-        m22(data[8])
+        m00(data[0]), m01(data[1]), m02(data[2]),
+        m10(data[3]), m11(data[4]), m12(data[5]),
+        m20(data[6]), m21(data[7]), m22(data[8])
     {
     }
     
@@ -89,15 +65,9 @@ public:
     /// Assign from another matrix.
     Matrix3& operator = (const Matrix3& rhs)
     {
-        m00 = rhs.m00;
-        m01 = rhs.m01;
-        m02 = rhs.m02;
-        m10 = rhs.m10;
-        m11 = rhs.m11;
-        m12 = rhs.m12;
-        m20 = rhs.m20;
-        m21 = rhs.m21;
-        m22 = rhs.m22;
+        m00 = rhs.m00; m01 = rhs.m01; m02 = rhs.m02;
+        m10 = rhs.m10; m11 = rhs.m11; m12 = rhs.m12;
+        m20 = rhs.m20; m21 = rhs.m21; m22 = rhs.m22;
         return *this;
     }
     
@@ -133,15 +103,9 @@ public:
     Matrix3 operator + (const Matrix3& rhs) const
     {
         return Matrix3(
-            m00 + rhs.m00,
-            m01 + rhs.m01,
-            m02 + rhs.m02,
-            m10 + rhs.m10,
-            m11 + rhs.m11,
-            m12 + rhs.m12,
-            m20 + rhs.m20,
-            m21 + rhs.m21,
-            m22 + rhs.m22
+            m00 + rhs.m00, m01 + rhs.m01, m02 + rhs.m02,
+            m10 + rhs.m10, m11 + rhs.m11, m12 + rhs.m12,
+            m20 + rhs.m20, m21 + rhs.m21, m22 + rhs.m22
         );
     }
     
@@ -149,15 +113,9 @@ public:
     Matrix3 operator - (const Matrix3& rhs) const
     {
         return Matrix3(
-            m00 - rhs.m00,
-            m01 - rhs.m01,
-            m02 - rhs.m02,
-            m10 - rhs.m10,
-            m11 - rhs.m11,
-            m12 - rhs.m12,
-            m20 - rhs.m20,
-            m21 - rhs.m21,
-            m22 - rhs.m22
+            m00 - rhs.m00, m01 - rhs.m01, m02 - rhs.m02,
+            m10 - rhs.m10, m11 - rhs.m11, m12 - rhs.m12,
+            m20 - rhs.m20, m21 - rhs.m21, m22 - rhs.m22
         );
     }
     
@@ -165,15 +123,9 @@ public:
     Matrix3 operator * (float rhs) const
     {
         return Matrix3(
-            m00 * rhs,
-            m01 * rhs,
-            m02 * rhs,
-            m10 * rhs,
-            m11 * rhs,
-            m12 * rhs,
-            m20 * rhs,
-            m21 * rhs,
-            m22 * rhs
+            m00 * rhs, m01 * rhs, m02 * rhs,
+            m10 * rhs, m11 * rhs, m12 * rhs,
+            m20 * rhs, m21 * rhs, m22 * rhs
         );
     }
     
@@ -228,15 +180,9 @@ public:
     Matrix3 Transpose() const
     {
         return Matrix3(
-            m00,
-            m10,
-            m20,
-            m01,
-            m11,
-            m21,
-            m02,
-            m12,
-            m22
+            m00, m10, m20,
+            m01, m11, m21,
+            m02, m12, m22
         );
     }
     
@@ -244,15 +190,9 @@ public:
     Matrix3 Scaled(const Vector3& scale) const
     {
         return Matrix3(
-            m00 * scale.x,
-            m01 * scale.y,
-            m02 * scale.z,
-            m10 * scale.x,
-            m11 * scale.y,
-            m12 * scale.z,
-            m20 * scale.x,
-            m21 * scale.y,
-            m22 * scale.z
+            m00 * scale.x, m01 * scale.y, m02 * scale.z,
+            m10 * scale.x, m11 * scale.y, m12 * scale.z,
+            m20 * scale.x, m21 * scale.y, m22 * scale.z
         );
     }
     

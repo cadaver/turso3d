@@ -1,5 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
+#include "../Turso3DConfig.h"
+
 #ifndef WIN32
 #include <pthread.h>
 #endif

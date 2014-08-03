@@ -4,8 +4,12 @@
 
 #include "../Turso3DConfig.h"
 
+#include <cstddef>
+
 namespace Turso3D
 {
+
+struct AllocatorBlock;
 
 /// Pointer hash function.
 template <class T> unsigned MakeHash(T* value)
@@ -84,5 +88,114 @@ template<> inline unsigned MakeHash(const unsigned char& value)
 {
     return value;
 }
+
+/// Hash set/map node base class.
+struct HashNodeBase
+{
+    /// Construct.
+    HashNodeBase() :
+        down(0),
+        prev(0),
+        next(0)
+    {
+    }
+    
+    /// Next node in the bucket.
+    HashNodeBase* down;
+    /// Previous node.
+    HashNodeBase* prev;
+    /// Next node.
+    HashNodeBase* next;
+};
+
+/// Hash set/map iterator base class.
+struct HashIteratorBase
+{
+    /// Construct.
+    HashIteratorBase() :
+        ptr(0)
+    {
+    }
+    
+    /// Construct with a node pointer.
+    explicit HashIteratorBase(HashNodeBase* ptr_) :
+        ptr(ptr_)
+    {
+    }
+    
+    /// Test for equality with another iterator.
+    bool operator == (const HashIteratorBase& rhs) const { return ptr == rhs.ptr; }
+    /// Test for inequality with another iterator.
+    bool operator != (const HashIteratorBase& rhs) const { return ptr != rhs.ptr; }
+    
+    /// Go to the next node.
+    void GotoNext()
+    {
+        if (ptr)
+            ptr = ptr->next;
+    }
+    
+    /// Go to the previous node.
+    void GotoPrev()
+    {
+        if (ptr)
+            ptr = ptr->prev;
+    }
+    
+    /// Node pointer.
+    HashNodeBase* ptr;
+};
+
+/// Hash set/map base class.
+class HashBase
+{
+public:
+    /// Initial amount of buckets.
+    static const size_t MIN_BUCKETS = 8;
+    /// Maximum load factor.
+    static const size_t MAX_LOAD_FACTOR = 4;
+    
+    /// Construct.
+    HashBase() :
+        ptrs(0),
+        allocator(0)
+    {
+    }
+
+    /// Destruct.
+    ~HashBase()
+    {
+        delete[] ptrs;
+    }
+    
+    /// Swap with another hash set or map.
+    void Swap(HashBase& hash);
+
+    /// Return number of elements.
+    size_t Size() const { return ptrs ? (reinterpret_cast<size_t*>(ptrs))[0] : 0; }
+    /// Return number of buckets.
+    size_t NumBuckets() const { return ptrs ? (reinterpret_cast<size_t*>(ptrs))[1] : 0; }
+    /// Return whether has no elements.
+    bool IsEmpty() const { return Size() == 0; }
+    
+protected:
+    /// Allocate bucket head pointers + room for size and bucket count variables.
+    void AllocateBuckets(size_t size, size_t numBuckets);
+    /// Reset bucket head pointers.
+    void ResetPtrs();
+    /// Set new size.
+    void SetSize(size_t size) { if (ptrs) (reinterpret_cast<size_t*>(ptrs))[0] = size; }
+    /// Return bucket head pointers.
+    HashNodeBase** Ptrs() const { return ptrs ? ptrs + 2 : 0; }
+    
+    /// List head node pointer.
+    HashNodeBase* head;
+    /// List tail node pointer.
+    HashNodeBase* tail;
+    /// Bucket head pointers.
+    HashNodeBase** ptrs;
+    /// Node allocator.
+    AllocatorBlock* allocator;
+};
 
 }

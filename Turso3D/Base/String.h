@@ -5,15 +5,12 @@
 #include "Iterator.h"
 
 #include <cassert>
-#include <cstring>
 #include <cstdarg>
-#include <cctype>
 
 namespace Turso3D
 {
 
-static const size_t CONVERSION_BUFFER_LENGTH = 128;
-static const size_t MATRIX_CONVERSION_BUFFER_LENGTH = 256;
+static const size_t CONVERSION_BUFFER_LENGTH = 256;
 
 template <class T> class Vector;
 class WString;
@@ -61,36 +58,13 @@ public:
     }
     
     /// Construct from a char array and length.
-    String(const char* str, size_t numChars) :
-        length(0),
-        capacity(0),
-        buffer(&endZero)
-    {
-        Resize(numChars);
-        CopyChars(buffer, str, numChars);
-    }
-    
+    String(const char* str, size_t numChars);
     /// Construct from a null-terminated wide character array.
-    String(const wchar_t* str) :
-        length(0),
-        capacity(0),
-        buffer(&endZero)
-    {
-        SetUTF8FromWChar(str);
-    }
-    
+    String(const wchar_t* str);
     /// Construct from a null-terminated wide character array.
-    String(wchar_t* str) :
-        length(0),
-        capacity(0),
-        buffer(&endZero)
-    {
-        SetUTF8FromWChar(str);
-    }
-    
+    String(wchar_t* str);
     /// Construct from a wide character string.
     String(const WString& str);
-
     /// Construct from an integer.
     explicit String(int value);
     /// Construct from a short integer.
@@ -128,62 +102,18 @@ public:
     }
     
     /// Destruct.
-    ~String()
-    {
-        if (capacity)
-            delete[] buffer;
-    }
-    
+    ~String();
+
     /// Assign a string.
-    String& operator = (const String& rhs)
-    {
-        Resize(rhs.length);
-        CopyChars(buffer, rhs.buffer, rhs.length);
-        
-        return *this;
-    }
-    
+    String& operator = (const String& rhs);
     /// Assign a C string.
-    String& operator = (const char* rhs)
-    {
-        size_t rhsLength = CStringLength(rhs);
-        Resize(rhsLength);
-        CopyChars(buffer, rhs, rhsLength);
-        
-        return *this;
-    }
-    
+    String& operator = (const char* rhs);
     /// Add-assign a string.
-    String& operator += (const String& rhs)
-    {
-        size_t oldLength = length;
-        Resize(length + rhs.length);
-        CopyChars(buffer + oldLength, rhs.buffer, rhs.length);
-        
-        return *this;
-    }
-    
+    String& operator += (const String& rhs);
     /// Add-assign a C string.
-    String& operator += (const char* rhs)
-    {
-        size_t rhsLength = CStringLength(rhs);
-        size_t oldLength = length;
-        Resize(length + rhsLength);
-        CopyChars(buffer + oldLength, rhs, rhsLength);
-        
-        return *this;
-    }
-    
+    String& operator += (const char* rhs);
     /// Add-assign a character.
-    String& operator += (char rhs)
-    {
-        size_t oldLength = length;
-        Resize(length + 1);
-        buffer[oldLength]  = rhs;
-        
-        return *this;
-    }
-    
+    String& operator += (char rhs);
     /// Add-assign an integer.
     String& operator += (int rhs);
     /// Add-assign a short integer.
@@ -210,53 +140,27 @@ public:
     template <class T> String operator += (const T& rhs) { return *this += rhs.ToString(); }
     
     /// Add a string.
-    String operator + (const String& rhs) const
-    {
-        String ret;
-        ret.Resize(length + rhs.length);
-        CopyChars(ret.buffer, buffer, length);
-        CopyChars(ret.buffer + length, rhs.buffer, rhs.length);
-        
-        return ret;
-    }
-    
+    String operator + (const String& rhs) const;
     /// Add a C string.
-    String operator + (const char* rhs) const
-    {
-        size_t rhsLength = CStringLength(rhs);
-        String ret;
-        ret.Resize(length + rhsLength);
-        CopyChars(ret.buffer, buffer, length);
-        CopyChars(ret.buffer + length, rhs, rhsLength);
-        
-        return ret;
-    }
-    
+    String operator + (const char* rhs) const;
     /// Add a character.
-    String operator + (char rhs) const
-    {
-        String ret(*this);
-        ret += rhs;
-        
-        return ret;
-    }
-
+    String operator + (char rhs) const;
     /// Test for equality with another string.
-    bool operator == (const String& rhs) const { return strcmp(CString(), rhs.CString()) == 0; }
+    bool operator == (const String& rhs) const { return Compare(rhs) == 0; }
     /// Test for inequality with another string.
-    bool operator != (const String& rhs) const { return !(*this == rhs); }
+    bool operator != (const String& rhs) const { return Compare(rhs) != 0; }
     /// Test if string is less than another string.
-    bool operator < (const String& rhs) const { return strcmp(CString(), rhs.CString()) < 0; }
+    bool operator < (const String& rhs) const { return Compare(rhs) < 0; }
     /// Test if string is greater than another string.
-    bool operator > (const String& rhs) const { return strcmp(CString(), rhs.CString()) > 0; }
+    bool operator > (const String& rhs) const { return Compare(rhs) > 0; }
     /// Test for equality with a C string.
-    bool operator == (const char* rhs) const { return strcmp(CString(), rhs) == 0; }
+    bool operator == (const char* rhs) const { return Compare(rhs) == 0; }
     /// Test for inequality with a C string.
-    bool operator != (const char* rhs) const { return strcmp(CString(), rhs) != 0; }
+    bool operator != (const char* rhs) const { return Compare(rhs) != 0; }
     /// Test if string is less than a C string.
-    bool operator < (const char* rhs) const { return strcmp(CString(), rhs) < 0; }
+    bool operator < (const char* rhs) const { return Compare(rhs) < 0; }
     /// Test if string is greater than a C string.
-    bool operator > (const char* rhs) const { return strcmp(CString(), rhs) > 0; }
+    bool operator > (const char* rhs) const { return Compare(rhs) > 0; }
     /// Return char at index.
     char& operator [] (size_t index) { assert(index < length); return buffer[index]; }
     /// Return const char at index.
@@ -364,9 +268,9 @@ public:
     /// Return whether the string is zero characters long.
     bool IsEmpty() const { return length == 0; }
     /// Return comparision result with a string.
-    int Compare(const String& str, bool caseSensitive = true) const;
+    int Compare(const String& str, bool caseSensitive = true) const { return Compare(CString(), str.CString(), caseSensitive); }
     /// Return comparision result with a C string.
-    int Compare(const char* str, bool caseSensitive = true) const;
+    int Compare(const char* str, bool caseSensitive = true) const { return Compare(CString(), str, caseSensitive); }
     /// Return whether contains a specific occurence of a string.
     bool Contains(const String& str, bool caseSensitive = true) const { return Find(str, 0, caseSensitive) != NPOS; }
     /// Return whether contains a specific character.
@@ -402,7 +306,7 @@ public:
     String SubstringUTF8(size_t pos) const;
     /// Return a UTF8 substring with length from position.
     String SubstringUTF8(size_t pos, size_t numChars) const;
-    
+
     /// Parse a bool from the string. Is considered true if t/y/1 are found case-insensitively.
     static bool ToBool(const char* str);
     /// Parse an integer from the string.
@@ -415,6 +319,14 @@ public:
     static size_t CountElements(const char* str, char separator);
     /// Return substrings split by a separator char.
     static Vector<String> Split(const char* str, char separator);
+    /// Return length of a C string.
+    static size_t CStringLength(const char* str);
+    /// Calculate a case-sensitive hash for a string.
+    static unsigned CaseSensitiveHash(const char* str);
+    /// Calculate a case-insensitive hash for a string.
+    static unsigned CaseInsensitiveHash(const char* str);
+    /// Compare two C strings.
+    static int Compare(const char* str1, const char* str2, bool caseSensitive);
     /// Encode Unicode character to UTF8. Pointer will be incremented.
     static void EncodeUTF8(char*& dest, unsigned unicodeChar);
     /// Decode Unicode character from UTF8. Pointer will be incremented.
@@ -425,50 +337,7 @@ public:
     /// Decode Unicode character from UTF16. Pointer will be incremented.
     static unsigned DecodeUTF16(const wchar_t*& src);
     #endif
-    
-    /// Return length of a C string.
-    static size_t CStringLength(const char* str)
-    {
-        if (!str)
-            return 0;
-        #ifdef _MSC_VER
-        return strlen(str);
-        #else
-        const char* ptr = str;
-        while (*ptr)
-            ++ptr;
-        return ptr - str;
-        #endif
-    }
-    
-    /// Calculate a case-sensitive hash for a string.
-    static unsigned CaseSensitiveHash(const char* str)
-    {
-        unsigned hash = 0;
-        while (*str)
-        {
-            hash = *str + (hash << 6) + (hash << 16) - hash;
-            ++str;
-        }
-        
-        return hash;
-    }
 
-    /// Calculate a case-insensitive hash for a string.
-    static unsigned CaseInsensitiveHash(const char* str)
-    {
-        unsigned hash = 0;
-        while (*str)
-        {
-            hash = ((char)tolower(*str)) + (hash << 6) + (hash << 16) - hash;
-            ++str;
-        }
-        
-        return hash;
-    }
-    /// Compare two C strings.
-    static int Compare(const char* str1, const char* str2, bool caseSensitive);
-    
     /// Position for "not found."
     static const size_t NPOS = 0xffffffff;
     /// Initial dynamic allocation size.
@@ -477,33 +346,14 @@ public:
     static const String EMPTY;
     
 private:
-    /// Move a range of characters within the string.
-    void MoveRange(size_t dest, size_t src, size_t numChars)
-    {
-        if (numChars)
-            memmove(buffer + dest, buffer + src, numChars);
-    }
-    
-    /// Copy chars from one buffer to another.
-    static void CopyChars(char* dest, const char* src, size_t numChars)
-    {
-        #ifdef _MSC_VER
-        if (numChars)
-            memcpy(dest, src, numChars);
-        #else
-        char* end = dest + numChars;
-        while (dest != end)
-        {
-            *dest = *src;
-            ++dest;
-            ++src;
-        }
-        #endif
-    }
-    
     /// Replace a substring with another substring.
     void Replace(size_t pos, size_t numChars, const char* srcStart, size_t srcLength);
-    
+    /// Move a range of characters within the string.
+    void MoveRange(size_t dest, size_t src, size_t numChars);
+
+    /// Copy chars from one buffer to another.
+    static void CopyChars(char* dest, const char* src, size_t numChars);
+
     /// String length.
     size_t length;
     /// Capacity, zero if buffer not allocated.
@@ -523,44 +373,9 @@ inline String operator + (const char* lhs, const String& rhs)
     return ret;
 }
 
-/// Wide character string. Only meant for converting from String and passing to the operating system where necessary.
-class TURSO3D_API WString
-{
-public:
-    /// Construct empty.
-    WString();
-    /// Construct from a string.
-    WString(const String& str);
-    /// Destruct.
-    ~WString();
-    
-    /// Return char at index.
-    wchar_t& operator [] (size_t index) { assert(index < length); return buffer[index]; }
-    /// Return const char at index.
-    const wchar_t& operator [] (size_t index) const { assert(index < length); return buffer[index]; }
-    /// Return char at index.
-    wchar_t& At(size_t index) { assert(index < length); return buffer[index]; }
-    /// Return const char at index.
-    const wchar_t& At(size_t index) const { assert(index < length); return buffer[index]; }
-    /// Resize the string.
-    void Resize(size_t newLength);
-    /// Return whether the string is zero characters long.
-    bool IsEmpty() const { return length == 0; }
-    /// Return number of characters.
-    size_t Length() const { return length; }
-    /// Return character data.
-    const wchar_t* CString() const { return buffer; }
-    
-private:
-    /// String length.
-    size_t length;
-    /// String buffer, null if not allocated.
-    wchar_t* buffer;
-};
-
 /// Convert a char to uppercase.
-inline char ToUpper(char c) { return (char)toupper(c); }
+inline char ToUpper(char c) { return (c >= 'a' && c <= 'z') ? c - 0x20 : c; }
 /// Convert a char to lowercase.
-inline char ToLower(char c) { return (char)tolower(c); }
+inline char ToLower(char c) { return (c >= 'A' && c <= 'Z') ? c + 0x20 : c; }
 
 }

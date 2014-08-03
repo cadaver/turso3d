@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "../Turso3DConfig.h"
+
 #include <cstdlib>
 #include <cmath>
 

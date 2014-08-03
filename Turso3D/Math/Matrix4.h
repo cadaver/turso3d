@@ -20,64 +20,28 @@ public:
     
     /// Construct an identity matrix.
     Matrix4() :
-        m00(1.0f),
-        m01(0.0f),
-        m02(0.0f),
-        m03(0.0f),
-        m10(0.0f),
-        m11(1.0f),
-        m12(0.0f),
-        m13(0.0f),
-        m20(0.0f),
-        m21(0.0f),
-        m22(1.0f),
-        m23(0.0f),
-        m30(0.0f),
-        m31(0.0f),
-        m32(0.0f),
-        m33(1.0f)
+        m00(1.0f), m01(0.0f), m02(0.0f), m03(0.0f),
+        m10(0.0f), m11(1.0f), m12(0.0f), m13(0.0f),
+        m20(0.0f), m21(0.0f), m22(1.0f), m23(0.0f),
+        m30(0.0f), m31(0.0f), m32(0.0f), m33(1.0f)
     {
     }
     
     /// Copy-construct.
     Matrix4(const Matrix4& matrix) :
-        m00(matrix.m00),
-        m01(matrix.m01),
-        m02(matrix.m02),
-        m03(matrix.m03),
-        m10(matrix.m10),
-        m11(matrix.m11),
-        m12(matrix.m12),
-        m13(matrix.m13),
-        m20(matrix.m20),
-        m21(matrix.m21),
-        m22(matrix.m22),
-        m23(matrix.m23),
-        m30(matrix.m30),
-        m31(matrix.m31),
-        m32(matrix.m32),
-        m33(matrix.m33)
+        m00(matrix.m00), m01(matrix.m01), m02(matrix.m02), m03(matrix.m03),
+        m10(matrix.m10), m11(matrix.m11), m12(matrix.m12), m13(matrix.m13),
+        m20(matrix.m20), m21(matrix.m21), m22(matrix.m22), m23(matrix.m23),
+        m30(matrix.m30), m31(matrix.m31), m32(matrix.m32), m33(matrix.m33)
     {
     }
     
     /// Copy-cnstruct from a 3x3 matrix and set the extra elements to identity.
     Matrix4(const Matrix3& matrix) :
-        m00(matrix.m00),
-        m01(matrix.m01),
-        m02(matrix.m02),
-        m03(0.0f),
-        m10(matrix.m10),
-        m11(matrix.m11),
-        m12(matrix.m12),
-        m13(0.0f),
-        m20(matrix.m20),
-        m21(matrix.m21),
-        m22(matrix.m22),
-        m23(0.0f),
-        m30(0.0f),
-        m31(0.0f),
-        m32(0.0f),
-        m33(1.0f)
+        m00(matrix.m00), m01(matrix.m01), m02(matrix.m02), m03(0.0f),
+        m10(matrix.m10), m11(matrix.m11), m12(matrix.m12), m13(0.0f),
+        m20(matrix.m20), m21(matrix.m21), m22(matrix.m22), m23(0.0f),
+        m30(0.0f), m31(0.0f), m32(0.0f), m33(1.0f)
     {
     }
     
@@ -86,43 +50,19 @@ public:
             float v10, float v11, float v12, float v13,
             float v20, float v21, float v22, float v23,
             float v30, float v31, float v32, float v33) :
-        m00(v00),
-        m01(v01),
-        m02(v02),
-        m03(v03),
-        m10(v10),
-        m11(v11),
-        m12(v12),
-        m13(v13),
-        m20(v20),
-        m21(v21),
-        m22(v22),
-        m23(v23),
-        m30(v30),
-        m31(v31),
-        m32(v32),
-        m33(v33)
+        m00(v00), m01(v01), m02(v02), m03(v03),
+        m10(v10), m11(v11), m12(v12), m13(v13),
+        m20(v20), m21(v21), m22(v22), m23(v23),
+        m30(v30), m31(v31), m32(v32), m33(v33)
     {
     }
     
     /// Construct from a float array.
     Matrix4(const float* data) :
-        m00(data[0]),
-        m01(data[1]),
-        m02(data[2]),
-        m03(data[3]),
-        m10(data[4]),
-        m11(data[5]),
-        m12(data[6]),
-        m13(data[7]),
-        m20(data[8]),
-        m21(data[9]),
-        m22(data[10]),
-        m23(data[11]),
-        m30(data[12]),
-        m31(data[13]),
-        m32(data[14]),
-        m33(data[15])
+        m00(data[0]), m01(data[1]), m02(data[2]), m03(data[3]),
+        m10(data[4]), m11(data[5]), m12(data[6]), m13(data[7]),
+        m20(data[8]), m21(data[9]), m22(data[10]), m23(data[11]),
+        m30(data[12]), m31(data[13]), m32(data[14]), m33(data[15])
     {
     }
     
@@ -141,44 +81,20 @@ public:
     /// Assign from another matrix.
     Matrix4& operator = (const Matrix4& rhs)
     {
-        m00 = rhs.m00;
-        m01 = rhs.m01;
-        m02 = rhs.m02;
-        m03 = rhs.m03;
-        m10 = rhs.m10;
-        m11 = rhs.m11;
-        m12 = rhs.m12;
-        m13 = rhs.m13;
-        m20 = rhs.m20;
-        m21 = rhs.m21;
-        m22 = rhs.m22;
-        m23 = rhs.m23;
-        m30 = rhs.m30;
-        m31 = rhs.m31;
-        m32 = rhs.m32;
-        m33 = rhs.m33;
+        m00 = rhs.m00; m01 = rhs.m01; m02 = rhs.m02; m03 = rhs.m03;
+        m10 = rhs.m10; m11 = rhs.m11; m12 = rhs.m12; m13 = rhs.m13;
+        m20 = rhs.m20; m21 = rhs.m21; m22 = rhs.m22; m23 = rhs.m23;
+        m30 = rhs.m30; m31 = rhs.m31; m32 = rhs.m32; m33 = rhs.m33;
         return *this;
     }
     
     /// Assign from a 3x3 matrix. Set the extra elements to identity.
     Matrix4& operator = (const Matrix3& rhs)
     {
-        m00 = rhs.m00;
-        m01 = rhs.m01;
-        m02 = rhs.m02;
-        m03 = 0.0f;
-        m10 = rhs.m10;
-        m11 = rhs.m11;
-        m12 = rhs.m12;
-        m13 = 0.0f;
-        m20 = rhs.m20;
-        m21 = rhs.m21;
-        m22 = rhs.m22;
-        m23 = 0.0f;
-        m30 = 0.0f;
-        m31 = 0.0f;
-        m32 = 0.0f;
-        m33 = 1.0f;
+        m00 = rhs.m00; m01 = rhs.m01; m02 = rhs.m02; m03 = 0.0f;
+        m10 = rhs.m10; m11 = rhs.m11; m12 = rhs.m12; m13 = 0.0f;
+        m20 = rhs.m20; m21 = rhs.m21;  m22 = rhs.m22; m23 = 0.0f;
+        m30 = 0.0f; m31 = 0.0f; m32 = 0.0f; m33 = 1.0f;
         return *this;
     }
     
@@ -227,22 +143,10 @@ public:
     Matrix4 operator + (const Matrix4& rhs) const
     {
         return Matrix4(
-            m00 + rhs.m00,
-            m01 + rhs.m01,
-            m02 + rhs.m02,
-            m03 + rhs.m03,
-            m10 + rhs.m10,
-            m11 + rhs.m11,
-            m12 + rhs.m12,
-            m13 + rhs.m13,
-            m20 + rhs.m20,
-            m21 + rhs.m21,
-            m22 + rhs.m22,
-            m23 + rhs.m23,
-            m30 + rhs.m30,
-            m31 + rhs.m31,
-            m32 + rhs.m32,
-            m33 + rhs.m33
+            m00 + rhs.m00, m01 + rhs.m01, m02 + rhs.m02, m03 + rhs.m03,
+            m10 + rhs.m10, m11 + rhs.m11, m12 + rhs.m12, m13 + rhs.m13,
+            m20 + rhs.m20, m21 + rhs.m21, m22 + rhs.m22, m23 + rhs.m23,
+            m30 + rhs.m30, m31 + rhs.m31, m32 + rhs.m32, m33 + rhs.m33
         );
     }
     
@@ -250,22 +154,10 @@ public:
     Matrix4 operator - (const Matrix4& rhs) const
     {
         return Matrix4(
-            m00 - rhs.m00,
-            m01 - rhs.m01,
-            m02 - rhs.m02,
-            m03 - rhs.m03,
-            m10 - rhs.m10,
-            m11 - rhs.m11,
-            m12 - rhs.m12,
-            m13 - rhs.m13,
-            m20 - rhs.m20,
-            m21 - rhs.m21,
-            m22 - rhs.m22,
-            m23 - rhs.m23,
-            m30 - rhs.m30,
-            m31 - rhs.m31,
-            m32 - rhs.m32,
-            m33 - rhs.m33
+            m00 - rhs.m00, m01 - rhs.m01, m02 - rhs.m02, m03 - rhs.m03,
+            m10 - rhs.m10, m11 - rhs.m11, m12 - rhs.m12, m13 - rhs.m13,
+            m20 - rhs.m20, m21 - rhs.m21, m22 - rhs.m22, m23 - rhs.m23,
+            m30 - rhs.m30, m31 - rhs.m31, m32 - rhs.m32, m33 - rhs.m33
         );
     }
     
@@ -273,22 +165,10 @@ public:
     Matrix4 operator * (float rhs) const
     {
         return Matrix4(
-            m00 * rhs,
-            m01 * rhs,
-            m02 * rhs,
-            m03 * rhs,
-            m10 * rhs,
-            m11 * rhs,
-            m12 * rhs,
-            m13 * rhs,
-            m20 * rhs,
-            m21 * rhs,
-            m22 * rhs,
-            m23 * rhs,
-            m30 * rhs,
-            m31 * rhs,
-            m32 * rhs,
-            m33 * rhs
+            m00 * rhs, m01 * rhs, m02 * rhs, m03 * rhs,
+            m10 * rhs, m11 * rhs, m12 * rhs, m13 * rhs,
+            m20 * rhs, m21 * rhs, m22 * rhs, m23 * rhs,
+            m30 * rhs, m31 * rhs, m32 * rhs, m33 * rhs
         );
     }
     
@@ -326,15 +206,9 @@ public:
     /// Set rotation elements from a 3x3 matrix.
     void SetRotation(const Matrix3& rotation)
     {
-        m00 = rotation.m00;
-        m01 = rotation.m01;
-        m02 = rotation.m02;
-        m10 = rotation.m10;
-        m11 = rotation.m11;
-        m12 = rotation.m12;
-        m20 = rotation.m20;
-        m21 = rotation.m21;
-        m22 = rotation.m22;
+        m00 = rotation.m00; m01 = rotation.m01; m02 = rotation.m02;
+        m10 = rotation.m10; m11 = rotation.m11; m12 = rotation.m12;
+        m20 = rotation.m20; m21 = rotation.m21; m22 = rotation.m22;
     }
     
     // Set scaling elements.
@@ -362,15 +236,9 @@ public:
     Matrix3 ToMatrix3() const
     {
         return Matrix3(
-            m00,
-            m01,
-            m02,
-            m10,
-            m11,
-            m12,
-            m20,
-            m21,
-            m22
+            m00, m01, m02,
+            m10, m11, m12,
+            m20, m21, m22
         );
     }
     
@@ -413,22 +281,10 @@ public:
     Matrix4 Transpose() const
     {
         return Matrix4(
-            m00,
-            m10,
-            m20,
-            m30,
-            m01,
-            m11,
-            m21,
-            m31,
-            m02,
-            m12,
-            m22,
-            m32,
-            m03,
-            m13,
-            m23,
-            m33
+            m00, m10, m20, m30,
+            m01, m11, m21, m31,
+            m02, m12, m22, m32,
+            m03, m13, m23, m33
         );
     }
     

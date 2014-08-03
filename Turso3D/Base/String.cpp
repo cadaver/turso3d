@@ -3,9 +3,11 @@
 #include "String.h"
 #include "Swap.h"
 #include "Vector.h"
+#include "WString.h"
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #include "../Debug/DebugNew.h"
 
@@ -15,6 +17,31 @@ namespace Turso3D
 char String::endZero = 0;
 
 const String String::EMPTY;
+
+String::String(const char* str, size_t numChars) :
+    length(0),
+    capacity(0),
+    buffer(&endZero)
+{
+    Resize(numChars);
+    CopyChars(buffer, str, numChars);
+}
+
+String::String(const wchar_t* str) :
+    length(0),
+    capacity(0),
+    buffer(&endZero)
+{
+    SetUTF8FromWChar(str);
+}
+
+String::String(wchar_t* str) :
+    length(0),
+    capacity(0),
+    buffer(&endZero)
+{
+    SetUTF8FromWChar(str);
+}
 
 String::String(const WString& str) :
     length(0),
@@ -154,6 +181,57 @@ String::String(char value, size_t numChars) :
         buffer[i] = value;
 }
 
+String::~String()
+{
+    if (capacity)
+        delete[] buffer;
+}
+
+String& String::operator = (const String& rhs)
+{
+    Resize(rhs.length);
+    CopyChars(buffer, rhs.buffer, rhs.length);
+    
+    return *this;
+}
+
+String& String::operator = (const char* rhs)
+{
+    size_t rhsLength = CStringLength(rhs);
+    Resize(rhsLength);
+    CopyChars(buffer, rhs, rhsLength);
+    
+    return *this;
+}
+
+String& String::operator += (const String& rhs)
+{
+    size_t oldLength = length;
+    Resize(length + rhs.length);
+    CopyChars(buffer + oldLength, rhs.buffer, rhs.length);
+    
+    return *this;
+}
+
+String& String::operator += (const char* rhs)
+{
+    size_t rhsLength = CStringLength(rhs);
+    size_t oldLength = length;
+    Resize(length + rhsLength);
+    CopyChars(buffer + oldLength, rhs, rhsLength);
+    
+    return *this;
+}
+
+String& String::operator += (char rhs)
+{
+    size_t oldLength = length;
+    Resize(length + 1);
+    buffer[oldLength]  = rhs;
+    
+    return *this;
+}
+
 String& String::operator += (int rhs)
 {
     return *this += String(rhs);
@@ -207,6 +285,35 @@ String& String::operator += (double rhs)
 String& String::operator += (bool rhs)
 {
     return *this += String(rhs);
+}
+
+String String::operator + (const String& rhs) const
+{
+    String ret;
+    ret.Resize(length + rhs.length);
+    CopyChars(ret.buffer, buffer, length);
+    CopyChars(ret.buffer + length, rhs.buffer, rhs.length);
+    
+    return ret;
+}
+
+String String::operator + (const char* rhs) const
+{
+    size_t rhsLength = CStringLength(rhs);
+    String ret;
+    ret.Resize(length + rhsLength);
+    CopyChars(ret.buffer, buffer, length);
+    CopyChars(ret.buffer + length, rhs, rhsLength);
+    
+    return ret;
+}
+
+String String::operator + (char rhs) const
+{
+    String ret(*this);
+    ret += rhs;
+    
+    return ret;
 }
 
 void String::Replace(char replaceThis, char replaceWith, bool caseSensitive)
@@ -658,7 +765,7 @@ size_t String::Find(char c, size_t startPos, bool caseSensitive) const
     }
     else
     {
-        c = (char)tolower(c);
+        c = Turso3D::ToLower(c);
         for (size_t i = startPos; i < length; ++i)
         {
             if (Turso3D::ToLower(buffer[i]) == c)
@@ -796,16 +903,6 @@ bool String::EndsWith(const String& str, bool caseSensitive) const
 {
     size_t pos = FindLast(str, length - 1, caseSensitive);
     return pos != NPOS && pos == length - str.length;
-}
-
-int String::Compare(const String& str, bool caseSensitive) const
-{
-    return Compare(CString(), str.CString(), caseSensitive);
-}
-
-int String::Compare(const char* str, bool caseSensitive) const
-{
-    return Compare(CString(), str, caseSensitive);
 }
 
 bool String::ToBool() const
@@ -964,13 +1061,13 @@ String String::SubstringUTF8(size_t pos) const
     size_t utf8Length = LengthUTF8();
     size_t byteOffset = ByteOffsetUTF8(pos);
     String ret;
-    
+
     while (pos < utf8Length)
     {
         ret.AppendUTF8(NextUTF8Char(byteOffset));
         ++pos;
     }
-    
+
     return ret;
 }
 
@@ -980,163 +1077,53 @@ String String::SubstringUTF8(size_t pos, size_t numChars) const
     size_t byteOffset = ByteOffsetUTF8(pos);
     size_t endPos = pos + numChars;
     String ret;
-    
+
     while (pos < endPos && pos < utf8Length)
     {
         ret.AppendUTF8(NextUTF8Char(byteOffset));
         ++pos;
     }
-    
+
     return ret;
 }
 
-void String::EncodeUTF8(char*& dest, unsigned unicodeChar)
+size_t String::CStringLength(const char* str)
 {
-    if (unicodeChar < 0x80)
-        *dest++ = (char)unicodeChar;
-    else if (unicodeChar < 0x800)
-    {
-        dest[0] = 0xc0 | ((unicodeChar >> 6) & 0x1f);
-        dest[1] = 0x80 | (unicodeChar & 0x3f);
-        dest += 2;
-    }
-    else if (unicodeChar < 0x10000)
-    {
-        dest[0] = 0xe0 | ((unicodeChar >> 12) & 0xf);
-        dest[1] = 0x80 | ((unicodeChar >> 6) & 0x3f);
-        dest[2] = 0x80 | (unicodeChar & 0x3f);
-        dest += 3;
-    }
-    else if (unicodeChar < 0x200000)
-    {
-        dest[0] = 0xf0 | ((unicodeChar >> 18) & 0x7);
-        dest[1] = 0x80 | ((unicodeChar >> 12) & 0x3f);
-        dest[2] = 0x80 | ((unicodeChar >> 6) & 0x3f);
-        dest[3] = 0x80 | (unicodeChar & 0x3f);
-        dest += 4;
-    }
-    else if (unicodeChar < 0x4000000)
-    {
-        dest[0] = 0xf8 | ((unicodeChar >> 24) & 0x3);
-        dest[1] = 0x80 | ((unicodeChar >> 18) & 0x3f);
-        dest[2] = 0x80 | ((unicodeChar >> 12) & 0x3f);
-        dest[3] = 0x80 | ((unicodeChar >> 6) & 0x3f);
-        dest[4] = 0x80 | (unicodeChar & 0x3f);
-        dest += 5;
-    }
-    else
-    {
-        dest[0] = 0xfc | ((unicodeChar >> 30) & 0x1);
-        dest[1] = 0x80 | ((unicodeChar >> 24) & 0x3f);
-        dest[2] = 0x80 | ((unicodeChar >> 18) & 0x3f);
-        dest[3] = 0x80 | ((unicodeChar >> 12) & 0x3f);
-        dest[4] = 0x80 | ((unicodeChar >> 6) & 0x3f);
-        dest[5] = 0x80 | (unicodeChar & 0x3f);
-        dest += 6;
-    }
-}
-
-#define GET_NEXT_CONTINUATION_BYTE(ptr) *ptr; if ((unsigned char)*ptr < 0x80 || (unsigned char)*ptr >= 0xc0) return '?'; else ++ptr;
-
-unsigned String::DecodeUTF8(const char*& src)
-{
-    if (src == 0)
+    if (!str)
         return 0;
-    
-    unsigned char char1 = *src++;
-    
-    // Check if we are in the middle of a UTF8 character
-    if (char1 >= 0x80 && char1 < 0xc0)
-    {
-        while ((unsigned char)*src >= 0x80 && (unsigned char)*src < 0xc0)
-            ++src;
-        return '?';
-    }
-    
-    if (char1 < 0x80)
-        return char1;
-    else if (char1 < 0xe0)
-    {
-        unsigned char char2 = GET_NEXT_CONTINUATION_BYTE(src);
-        return (char2 & 0x3f) | ((char1 & 0x1f) << 6);
-    }
-    else if (char1 < 0xf0)
-    {
-        unsigned char char2 = GET_NEXT_CONTINUATION_BYTE(src);
-        unsigned char char3 = GET_NEXT_CONTINUATION_BYTE(src);
-        return (char3 & 0x3f) | ((char2 & 0x3f) << 6) | ((char1 & 0xf) << 12);
-    }
-    else if (char1 < 0xf8)
-    {
-        unsigned char char2 = GET_NEXT_CONTINUATION_BYTE(src);
-        unsigned char char3 = GET_NEXT_CONTINUATION_BYTE(src);
-        unsigned char char4 = GET_NEXT_CONTINUATION_BYTE(src);
-        return (char4 & 0x3f) | ((char3 & 0x3f) << 6) | ((char2 & 0x3f) << 12) | ((char1 & 0x7) << 18);
-    }
-    else if (char1 < 0xfc)
-    {
-        unsigned char char2 = GET_NEXT_CONTINUATION_BYTE(src);
-        unsigned char char3 = GET_NEXT_CONTINUATION_BYTE(src);
-        unsigned char char4 = GET_NEXT_CONTINUATION_BYTE(src);
-        unsigned char char5 = GET_NEXT_CONTINUATION_BYTE(src);
-        return (char5 & 0x3f) | ((char4 & 0x3f) << 6) | ((char3 & 0x3f) << 12) | ((char2 & 0x3f) << 18) | ((char1 & 0x3) << 24);
-    }
-    else
-    {
-        unsigned char char2 = GET_NEXT_CONTINUATION_BYTE(src);
-        unsigned char char3 = GET_NEXT_CONTINUATION_BYTE(src);
-        unsigned char char4 = GET_NEXT_CONTINUATION_BYTE(src);
-        unsigned char char5 = GET_NEXT_CONTINUATION_BYTE(src);
-        unsigned char char6 = GET_NEXT_CONTINUATION_BYTE(src);
-        return (char6 & 0x3f) | ((char5 & 0x3f) << 6) | ((char4 & 0x3f) << 12) | ((char3 & 0x3f) << 18) | ((char2 & 0x3f) << 24) |
-            ((char1 & 0x1) << 30);
-    }
+    #ifdef _MSC_VER
+    return strlen(str);
+    #else
+    const char* ptr = str;
+    while (*ptr)
+        ++ptr;
+    return ptr - str;
+    #endif
 }
 
-#ifdef WIN32
-void String::EncodeUTF16(wchar_t*& dest, unsigned unicodeChar)
+unsigned String::CaseSensitiveHash(const char* str)
 {
-    if (unicodeChar < 0x10000)
-        *dest++ = (wchar_t)unicodeChar;
-    else
+    unsigned hash = 0;
+    while (*str)
     {
-        unicodeChar -= 0x10000;
-        *dest++ = 0xd800 | ((unicodeChar >> 10) & 0x3ff);
-        *dest++ = 0xdc00 | (unicodeChar & 0x3ff);
+        hash = *str + (hash << 6) + (hash << 16) - hash;
+        ++str;
     }
+    
+    return hash;
 }
 
-unsigned String::DecodeUTF16(const wchar_t*& src)
+unsigned String::CaseInsensitiveHash(const char* str)
 {
-    if (src == 0)
-        return 0;
-    
-    unsigned short word1 = *src;
-    
-    // Check if we are at a low surrogate
-    word1 = *src++;
-    if (word1 >= 0xdc00 && word1 < 0xe000)
+    unsigned hash = 0;
+    while (*str)
     {
-        while (*src >= 0xdc00 && *src < 0xe000)
-            ++src;
-        return '?';
+        hash = (Turso3D::ToLower(*str)) + (hash << 6) + (hash << 16) - hash;
+        ++str;
     }
     
-    if (word1 < 0xd800 || word1 >= 0xe00)
-        return word1;
-    else
-    {
-        unsigned short word2 = *src++;
-        if (word2 < 0xdc00 || word2 >= 0xe000)
-        {
-            --src;
-            return '?';
-        }
-        else
-            return ((word1 & 0x3ff) << 10) | (word2 & 0x3ff) | 0x10000;
-    }
+    return hash;
 }
-#endif
 
 bool String::ToBool(const char* str)
 {
@@ -1304,10 +1291,158 @@ int String::Compare(const char* lhs, const char* rhs, bool caseSensitive)
     }
 }
 
+void String::EncodeUTF8(char*& dest, unsigned unicodeChar)
+{
+    if (unicodeChar < 0x80)
+        *dest++ = (char)unicodeChar;
+    else if (unicodeChar < 0x800)
+    {
+        dest[0] = 0xc0 | ((unicodeChar >> 6) & 0x1f);
+        dest[1] = 0x80 | (unicodeChar & 0x3f);
+        dest += 2;
+    }
+    else if (unicodeChar < 0x10000)
+    {
+        dest[0] = 0xe0 | ((unicodeChar >> 12) & 0xf);
+        dest[1] = 0x80 | ((unicodeChar >> 6) & 0x3f);
+        dest[2] = 0x80 | (unicodeChar & 0x3f);
+        dest += 3;
+    }
+    else if (unicodeChar < 0x200000)
+    {
+        dest[0] = 0xf0 | ((unicodeChar >> 18) & 0x7);
+        dest[1] = 0x80 | ((unicodeChar >> 12) & 0x3f);
+        dest[2] = 0x80 | ((unicodeChar >> 6) & 0x3f);
+        dest[3] = 0x80 | (unicodeChar & 0x3f);
+        dest += 4;
+    }
+    else if (unicodeChar < 0x4000000)
+    {
+        dest[0] = 0xf8 | ((unicodeChar >> 24) & 0x3);
+        dest[1] = 0x80 | ((unicodeChar >> 18) & 0x3f);
+        dest[2] = 0x80 | ((unicodeChar >> 12) & 0x3f);
+        dest[3] = 0x80 | ((unicodeChar >> 6) & 0x3f);
+        dest[4] = 0x80 | (unicodeChar & 0x3f);
+        dest += 5;
+    }
+    else
+    {
+        dest[0] = 0xfc | ((unicodeChar >> 30) & 0x1);
+        dest[1] = 0x80 | ((unicodeChar >> 24) & 0x3f);
+        dest[2] = 0x80 | ((unicodeChar >> 18) & 0x3f);
+        dest[3] = 0x80 | ((unicodeChar >> 12) & 0x3f);
+        dest[4] = 0x80 | ((unicodeChar >> 6) & 0x3f);
+        dest[5] = 0x80 | (unicodeChar & 0x3f);
+        dest += 6;
+    }
+}
+
+#define GET_NEXT_CONTINUATION_BYTE(ptr) *ptr; if ((unsigned char)*ptr < 0x80 || (unsigned char)*ptr >= 0xc0) return '?'; else ++ptr;
+
+unsigned String::DecodeUTF8(const char*& src)
+{
+    if (src == 0)
+        return 0;
+    
+    unsigned char char1 = *src++;
+    
+    // Check if we are in the middle of a UTF8 character
+    if (char1 >= 0x80 && char1 < 0xc0)
+    {
+        while ((unsigned char)*src >= 0x80 && (unsigned char)*src < 0xc0)
+            ++src;
+        return '?';
+    }
+    
+    if (char1 < 0x80)
+        return char1;
+    else if (char1 < 0xe0)
+    {
+        unsigned char char2 = GET_NEXT_CONTINUATION_BYTE(src);
+        return (char2 & 0x3f) | ((char1 & 0x1f) << 6);
+    }
+    else if (char1 < 0xf0)
+    {
+        unsigned char char2 = GET_NEXT_CONTINUATION_BYTE(src);
+        unsigned char char3 = GET_NEXT_CONTINUATION_BYTE(src);
+        return (char3 & 0x3f) | ((char2 & 0x3f) << 6) | ((char1 & 0xf) << 12);
+    }
+    else if (char1 < 0xf8)
+    {
+        unsigned char char2 = GET_NEXT_CONTINUATION_BYTE(src);
+        unsigned char char3 = GET_NEXT_CONTINUATION_BYTE(src);
+        unsigned char char4 = GET_NEXT_CONTINUATION_BYTE(src);
+        return (char4 & 0x3f) | ((char3 & 0x3f) << 6) | ((char2 & 0x3f) << 12) | ((char1 & 0x7) << 18);
+    }
+    else if (char1 < 0xfc)
+    {
+        unsigned char char2 = GET_NEXT_CONTINUATION_BYTE(src);
+        unsigned char char3 = GET_NEXT_CONTINUATION_BYTE(src);
+        unsigned char char4 = GET_NEXT_CONTINUATION_BYTE(src);
+        unsigned char char5 = GET_NEXT_CONTINUATION_BYTE(src);
+        return (char5 & 0x3f) | ((char4 & 0x3f) << 6) | ((char3 & 0x3f) << 12) | ((char2 & 0x3f) << 18) | ((char1 & 0x3) << 24);
+    }
+    else
+    {
+        unsigned char char2 = GET_NEXT_CONTINUATION_BYTE(src);
+        unsigned char char3 = GET_NEXT_CONTINUATION_BYTE(src);
+        unsigned char char4 = GET_NEXT_CONTINUATION_BYTE(src);
+        unsigned char char5 = GET_NEXT_CONTINUATION_BYTE(src);
+        unsigned char char6 = GET_NEXT_CONTINUATION_BYTE(src);
+        return (char6 & 0x3f) | ((char5 & 0x3f) << 6) | ((char4 & 0x3f) << 12) | ((char3 & 0x3f) << 18) | ((char2 & 0x3f) << 24) |
+            ((char1 & 0x1) << 30);
+    }
+}
+
+#ifdef WIN32
+void String::EncodeUTF16(wchar_t*& dest, unsigned unicodeChar)
+{
+    if (unicodeChar < 0x10000)
+        *dest++ = (wchar_t)unicodeChar;
+    else
+    {
+        unicodeChar -= 0x10000;
+        *dest++ = 0xd800 | ((unicodeChar >> 10) & 0x3ff);
+        *dest++ = 0xdc00 | (unicodeChar & 0x3ff);
+    }
+}
+
+unsigned String::DecodeUTF16(const wchar_t*& src)
+{
+    if (src == 0)
+        return 0;
+    
+    unsigned short word1 = *src;
+    
+    // Check if we are at a low surrogate
+    word1 = *src++;
+    if (word1 >= 0xdc00 && word1 < 0xe000)
+    {
+        while (*src >= 0xdc00 && *src < 0xe000)
+            ++src;
+        return '?';
+    }
+    
+    if (word1 < 0xd800 || word1 >= 0xe00)
+        return word1;
+    else
+    {
+        unsigned short word2 = *src++;
+        if (word2 < 0xdc00 || word2 >= 0xe000)
+        {
+            --src;
+            return '?';
+        }
+        else
+            return ((word1 & 0x3ff) << 10) | (word2 & 0x3ff) | 0x10000;
+    }
+}
+#endif
+
 void String::Replace(size_t pos, size_t numChars, const char* srcStart, size_t srcLength)
 {
     int delta = (int)srcLength - (int)numChars;
-    
+
     if (pos + numChars < length)
     {
         if (delta < 0)
@@ -1323,74 +1458,30 @@ void String::Replace(size_t pos, size_t numChars, const char* srcStart, size_t s
     }
     else
         Resize(length + delta);
-    
+
     CopyChars(buffer + pos, srcStart, srcLength);
 }
 
-WString::WString() :
-    length(0),
-    buffer(0)
+void String::MoveRange(size_t dest, size_t src, size_t numChars)
 {
+    if (numChars)
+        memmove(buffer + dest, buffer + src, numChars);
 }
 
-WString::WString(const String& str) :
-    length(0),
-    buffer(0)
+void String::CopyChars(char* dest, const char* src, size_t numChars)
 {
-    #ifdef WIN32
-    size_t neededSize = 0;
-    wchar_t temp[3];
-    
-    size_t byteOffset = 0;
-    while (byteOffset < str.Length())
-    {
-        wchar_t* dest = temp;
-        String::EncodeUTF16(dest, str.NextUTF8Char(byteOffset));
-        neededSize += dest - temp;
-    }
-    
-    Resize(neededSize);
-    
-    byteOffset = 0;
-    wchar_t* dest = buffer;
-    while (byteOffset < str.Length())
-        String::EncodeUTF16(dest, str.NextUTF8Char(byteOffset));
+    #ifdef _MSC_VER
+    if (numChars)
+        memcpy(dest, src, numChars);
     #else
-    Resize(str.LengthUTF8());
-    
-    size_t byteOffset = 0;
-    wchar_t* dest = buffer;
-    while (byteOffset < str.Length())
-        *dest++ = str.NextUTF8Char(byteOffset);
+    char* end = dest + numChars;
+    while (dest != end)
+    {
+        *dest = *src;
+        ++dest;
+        ++src;
+    }
     #endif
-}
-
-WString::~WString()
-{
-    delete[] buffer;
-}
-
-void WString::Resize(size_t newLength)
-{
-    if (!newLength)
-    {
-        delete[] buffer;
-        buffer = 0;
-        length = 0;
-    }
-    else
-    {
-        wchar_t* newBuffer = new wchar_t[newLength + 1];
-        if (buffer)
-        {
-            size_t copyLength = length < newLength ? length : newLength;
-            memcpy(newBuffer, buffer, copyLength * sizeof(wchar_t));
-            delete[] buffer;
-        }
-        newBuffer[newLength] = 0;
-        buffer = newBuffer;
-        length = newLength;
-    }
 }
 
 template<> void Swap<String>(String& first, String& second)
