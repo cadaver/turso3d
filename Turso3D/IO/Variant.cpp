@@ -222,7 +222,7 @@ void Variant::FromString(VariantType type_, const char* value_)
         {
             SetType(VAR_BUFFER);
             Vector<unsigned char>& buffer = *(reinterpret_cast<Vector<unsigned char>*>(&value));
-            String::StringToBuffer(buffer, value_);
+            StringToBuffer(buffer, value_);
         }
         break;
 
@@ -341,7 +341,7 @@ String Variant::ToString() const
         {
             const Vector<unsigned char>& buffer = *(reinterpret_cast<const Vector<unsigned char>*>(&value));
             String ret;
-            String::BufferToString(ret, buffer.Begin().ptr, buffer.Size());
+            BufferToString(ret, buffer.Begin().ptr, buffer.Size());
             return ret;
         }
 
@@ -741,7 +741,7 @@ VariantType Variant::TypeFromName(const String& typeName)
 
 VariantType Variant::TypeFromName(const char* typeName)
 {
-    return (VariantType)String::StringListIndex(typeName, typeNames, VAR_NONE);
+    return (VariantType)StringListIndex(typeName, typeNames, VAR_NONE);
 }
 
 }

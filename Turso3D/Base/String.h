@@ -327,18 +327,6 @@ public:
     static unsigned CaseInsensitiveHash(const char* str);
     /// Compare two C strings.
     static int Compare(const char* str1, const char* str2, bool caseSensitive);
-    /// Return an index to a string list corresponding to the given string, or a default value if not found. The string list must be empty-terminated.
-    static size_t StringListIndex(const String& value, const String* strings, size_t defaultIndex, bool caseSensitive = false);
-    /// Return an index to a string list corresponding to the given C string, or a default value if not found. The string list must be empty-terminated.
-    static size_t StringListIndex(const char* value, const String* strings, size_t defaultIndex, bool caseSensitive = false);
-    /// Return an index to a C string list corresponding to the given C string, or a default value if not found. The string list must be empty-terminated.
-    static size_t StringListIndex(const char* value, const char** strings, size_t defaultIndex, bool caseSensitive = false);
-    /// Convert a byte buffer to a string.
-    static void BufferToString(String& dest, const void* data, size_t size);
-    /// Convert a string to a byte buffer.
-    static void StringToBuffer(Vector<unsigned char>& dest, const String& source);
-    /// Convert a C string to a byte buffer.
-    static void StringToBuffer(Vector<unsigned char>& dest, const char* source);
     /// Encode Unicode character to UTF8. Pointer will be incremented.
     static void EncodeUTF8(char*& dest, unsigned unicodeChar);
     /// Decode Unicode character from UTF8. Pointer will be incremented.
@@ -384,6 +372,21 @@ inline String operator + (const char* lhs, const String& rhs)
     ret += rhs;
     return ret;
 }
+
+/// Return an index to a string list corresponding to the given string, or a default value if not found. The string list must be empty-terminated.
+TURSO3D_API size_t StringListIndex(const String& value, const String* strings, size_t defaultIndex, bool caseSensitive = false);
+/// Return an index to a string list corresponding to the given C string, or a default value if not found. The string list must be empty-terminated.
+TURSO3D_API size_t StringListIndex(const char* value, const String* strings, size_t defaultIndex, bool caseSensitive = false);
+/// Return an index to a C string list corresponding to the given C string, or a default value if not found. The string list must be empty-terminated.
+TURSO3D_API size_t StringListIndex(const char* value, const char** strings, size_t defaultIndex, bool caseSensitive = false);
+/// Convert a byte buffer to a string.
+TURSO3D_API void BufferToString(String& dest, const void* data, size_t size);
+/// Convert a string to a byte buffer.
+TURSO3D_API void StringToBuffer(Vector<unsigned char>& dest, const String& source);
+/// Convert a C string to a byte buffer.
+TURSO3D_API void StringToBuffer(Vector<unsigned char>& dest, const char* source);
+/// Return a formatted string.
+TURSO3D_API String FormatString(const char* formatString, ...);
 
 /// Convert a char to uppercase.
 inline char ToUpper(char c) { return (c >= 'a' && c <= 'z') ? c - 0x20 : c; }

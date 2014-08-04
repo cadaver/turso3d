@@ -1291,134 +1291,6 @@ int String::Compare(const char* lhs, const char* rhs, bool caseSensitive)
     }
 }
 
-size_t String::StringListIndex(const String& value, const String* strings, size_t defaultIndex, bool caseSensitive)
-{
-    return StringListIndex(value.CString(), strings, defaultIndex, caseSensitive);
-}
-
-size_t String::StringListIndex(const char* value, const String* strings, size_t defaultIndex, bool caseSensitive)
-{
-    size_t i = 0;
-
-    while (!strings[i].IsEmpty())
-    {
-        if (!strings[i].Compare(value, caseSensitive))
-            return i;
-        ++i;
-    }
-
-    return defaultIndex;
-}
-
-size_t String::StringListIndex(const char* value, const char** strings, size_t defaultIndex, bool caseSensitive)
-{
-    size_t i = 0;
-
-    while (strings[i])
-    {
-        if (!String::Compare(value, strings[i], caseSensitive))
-            return i;
-        ++i;
-    }
-
-    return defaultIndex;
-}
-
-void String::BufferToString(String& dest, const void* data, size_t size)
-{
-    // Precalculate needed string size
-    const unsigned char* bytes = (const unsigned char*)data;
-    size_t length = 0;
-    for (unsigned i = 0; i < size; ++i)
-    {
-        // Room for separator
-        if (i)
-            ++length;
-
-        // Room for the value
-        if (bytes[i] < 10)
-            ++length;
-        else if (bytes[i] < 100)
-            length += 2;
-        else
-            length += 3;
-    }
-
-    dest.Resize(length);
-    size_t index = 0;
-
-    // Convert values
-    for (size_t i = 0; i < size; ++i)
-    {
-        if (i)
-            dest[index++] = ' ';
-
-        if (bytes[i] < 10)
-        {
-            dest[index++] = '0' + bytes[i];
-        }
-        else if (bytes[i] < 100)
-        {
-            dest[index++] = '0' + bytes[i] / 10;
-            dest[index++] = '0' + bytes[i] % 10;
-        }
-        else
-        {
-            dest[index++] = '0' + bytes[i] / 100;
-            dest[index++] = '0' + bytes[i] % 100 / 10;
-            dest[index++] = '0' + bytes[i] % 10;
-        }
-    }
-}
-
-void String::StringToBuffer(Vector<unsigned char>& dest, const String& source)
-{
-    StringToBuffer(dest, source.CString());
-}
-
-void String::StringToBuffer(Vector<unsigned char>& dest, const char* source)
-{
-    if (!source)
-    {
-        dest.Clear();
-        return;
-    }
-
-    size_t size = CountElements(source, ' ');
-    dest.Resize(size);
-
-    bool inSpace = true;
-    size_t index = 0;
-    unsigned char value = 0;
-
-    // Parse values
-    const char* ptr = source;
-    while (*ptr)
-    {
-        if (inSpace && *ptr != ' ')
-        {
-            inSpace = false;
-            value = *ptr - '0';
-        }
-        else if (!inSpace && *ptr != ' ')
-        {
-            value *= 10;
-            value += *ptr - '0';
-        }
-        else if (!inSpace && *ptr == ' ')
-        {
-            dest[index++] = value;
-            inSpace = true;
-        }
-
-        ++ptr;
-    }
-
-    // Write the final value
-    if (!inSpace && index < size)
-        dest[index] = value;
-}
-
 void String::EncodeUTF8(char*& dest, unsigned unicodeChar)
 {
     if (unicodeChar < 0x80)
@@ -1610,6 +1482,144 @@ void String::CopyChars(char* dest, const char* src, size_t numChars)
         ++src;
     }
     #endif
+}
+
+size_t StringListIndex(const String& value, const String* strings, size_t defaultIndex, bool caseSensitive)
+{
+    return StringListIndex(value.CString(), strings, defaultIndex, caseSensitive);
+}
+
+size_t StringListIndex(const char* value, const String* strings, size_t defaultIndex, bool caseSensitive)
+{
+    size_t i = 0;
+
+    while (!strings[i].IsEmpty())
+    {
+        if (!strings[i].Compare(value, caseSensitive))
+            return i;
+        ++i;
+    }
+
+    return defaultIndex;
+}
+
+size_t StringListIndex(const char* value, const char** strings, size_t defaultIndex, bool caseSensitive)
+{
+    size_t i = 0;
+
+    while (strings[i])
+    {
+        if (!String::Compare(value, strings[i], caseSensitive))
+            return i;
+        ++i;
+    }
+
+    return defaultIndex;
+}
+
+void BufferToString(String& dest, const void* data, size_t size)
+{
+    // Precalculate needed string size
+    const unsigned char* bytes = (const unsigned char*)data;
+    size_t length = 0;
+    for (unsigned i = 0; i < size; ++i)
+    {
+        // Room for separator
+        if (i)
+            ++length;
+
+        // Room for the value
+        if (bytes[i] < 10)
+            ++length;
+        else if (bytes[i] < 100)
+            length += 2;
+        else
+            length += 3;
+    }
+
+    dest.Resize(length);
+    size_t index = 0;
+
+    // Convert values
+    for (size_t i = 0; i < size; ++i)
+    {
+        if (i)
+            dest[index++] = ' ';
+
+        if (bytes[i] < 10)
+        {
+            dest[index++] = '0' + bytes[i];
+        }
+        else if (bytes[i] < 100)
+        {
+            dest[index++] = '0' + bytes[i] / 10;
+            dest[index++] = '0' + bytes[i] % 10;
+        }
+        else
+        {
+            dest[index++] = '0' + bytes[i] / 100;
+            dest[index++] = '0' + bytes[i] % 100 / 10;
+            dest[index++] = '0' + bytes[i] % 10;
+        }
+    }
+}
+
+void StringToBuffer(Vector<unsigned char>& dest, const String& source)
+{
+    StringToBuffer(dest, source.CString());
+}
+
+void StringToBuffer(Vector<unsigned char>& dest, const char* source)
+{
+    if (!source)
+    {
+        dest.Clear();
+        return;
+    }
+
+    size_t size = String::CountElements(source, ' ');
+    dest.Resize(size);
+
+    bool inSpace = true;
+    size_t index = 0;
+    unsigned char value = 0;
+
+    // Parse values
+    const char* ptr = source;
+    while (*ptr)
+    {
+        if (inSpace && *ptr != ' ')
+        {
+            inSpace = false;
+            value = *ptr - '0';
+        }
+        else if (!inSpace && *ptr != ' ')
+        {
+            value *= 10;
+            value += *ptr - '0';
+        }
+        else if (!inSpace && *ptr == ' ')
+        {
+            dest[index++] = value;
+            inSpace = true;
+        }
+
+        ++ptr;
+    }
+
+    // Write the final value
+    if (!inSpace && index < size)
+        dest[index] = value;
+}
+
+String FormatString(const char* formatString, ...)
+{
+    String ret;
+    va_list args;
+    va_start(args, formatString);
+    ret.AppendWithFormatArgs(formatString, args);
+    va_end(args);
+    return ret;
 }
 
 template<> void Swap<String>(String& first, String& second)

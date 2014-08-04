@@ -11,7 +11,7 @@ namespace Turso3D
 class Event;
 
 /// Internal helper class for invoking event handler functions.
-class EventHandler
+class TURSO3D_API EventHandler
 {
 public:
     /// Construct with receiver object pointer.
@@ -62,7 +62,7 @@ private:
 };
 
 /// An event to which objects can subscribe by specifying an event handler function to be called.
-class Event
+class TURSO3D_API Event
 {
 public:
     /// Construct without name.
@@ -107,6 +107,6 @@ private:
 
 #define HANDLER(className, function) (new Turso3D::EventHandlerImpl<className>(this, &className::function))
 #define HANDLER_THISPTR(thisPtr, className, function) (new Turso3D::EventHandlerImpl<className>(thisPtr, &className::function))
-#define EVENTPARAM(eventName, paramName) namespace eventName { static const Turso3D::ShortStringHash paramName(#paramName); }
+#define EVENTPARAM(eventName, paramName) namespace eventName { static const Turso3D::StringHash paramName(#paramName); }
 
 }

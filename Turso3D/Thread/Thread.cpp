@@ -30,7 +30,7 @@ void* ThreadFunctionStatic(void* data)
 }
 #endif
 
-ThreadID Thread::mainThreadID;
+ThreadID Thread::mainThreadID = Thread::CurrentThreadID();
 
 Thread::Thread() :
     handle(0),

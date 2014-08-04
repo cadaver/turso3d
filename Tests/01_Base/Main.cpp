@@ -227,10 +227,14 @@ int main()
     }
     
     {
-        printf("\nTesting events\n");
-        TestEventSender* sender = new TestEventSender;
-        TestEventReceiver* receiver1 = new TestEventReceiver;
-        TestEventReceiver* receiver2 = new TestEventReceiver;
+        printf("\nTesting objects & events\n");
+        RegisterFactory<TestEventSender>();
+        RegisterFactory<TestEventReceiver>();
+        
+        TestEventSender* sender = CreateObject<TestEventSender>();
+        TestEventReceiver* receiver1 = CreateObject<TestEventReceiver>();
+        TestEventReceiver* receiver2 = CreateObject<TestEventReceiver>();
+        printf("Type of sender is %s\n", sender->TypeName().CString());
         receiver1->SubscribeToTestEvent(sender);
         receiver2->SubscribeToTestEvent(sender);
         sender->SendTestEvent();
@@ -238,6 +242,16 @@ int main()
         sender->SendTestEvent();
         delete receiver1;
         delete sender;
+    }
+    
+    {
+        printf("\nTesting logging\n");
+        Log log;
+        log.Open("01_Base.log");
+        LOGDEBUG("Debug message");
+        LOGINFO("Info message");
+        LOGERROR("Error message");
+        LOGINFOF("Formatted message: %d", 100);
     }
 
     return 0;
