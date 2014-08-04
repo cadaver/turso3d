@@ -3,7 +3,7 @@
 #include "ThreadLocalValue.h"
 
 #ifdef WIN32
-#include <windows.h>
+#include <Windows.h>
 #endif
 
 #include "../Debug/DebugNew.h"

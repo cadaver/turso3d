@@ -3,7 +3,7 @@
 #include "Condition.h"
 
 #ifdef WIN32
-#include <windows.h>
+#include <Windows.h>
 #else
 #include <pthread.h>
 #endif

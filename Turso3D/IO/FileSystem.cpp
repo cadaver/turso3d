@@ -11,13 +11,7 @@
 #include <cstring>
 
 #ifdef WIN32
-#ifndef _MSC_VER
-#define _WIN32_IE 0x501
-#endif
-#include <windows.h>
-#include <shellapi.h>
-#include <direct.h>
-#include <shlobj.h>
+#include <Windows.h>
 #else
 #include <dirent.h>
 #include <errno.h>
@@ -268,20 +262,20 @@ String ExecutableDir()
     wchar_t exeName[MAX_PATH];
     exeName[0] = 0;
     GetModuleFileNameW(0, exeName, MAX_PATH);
-    ret = ExtractPath(String(exeName));
+    ret = Path(String(exeName));
     #elif defined(__APPLE__)
     char exeName[MAX_PATH];
     memset(exeName, 0, MAX_PATH);
     unsigned size = MAX_PATH;
     _NSGetExecutablePath(exeName, &size);
-    ret = ExtractPath(String(exeName));
+    ret = Path(String(exeName));
     #elif defined(__linux__)
     char exeName[MAX_PATH];
     memset(exeName, 0, MAX_PATH);
     pid_t pid = getpid();
     String link = "/proc/" + String(pid) + "/exe";
     readlink(link.CString(), exeName, MAX_PATH);
-    ret = ExtractPath(String(exeName));
+    ret = Path(String(exeName));
     #endif
     
     // Sanitate /./ construct away
@@ -319,28 +313,28 @@ void SplitPath(const String& fullPath, String& pathName, String& fileName, Strin
     }
 }
 
-String ExtractPath(const String& fullPath)
+String Path(const String& fullPath)
 {
     String path, file, extension;
     SplitPath(fullPath, path, file, extension);
     return path;
 }
 
-String ExtractFileName(const String& fullPath)
+String FileName(const String& fullPath)
 {
     String path, file, extension;
     SplitPath(fullPath, path, file, extension);
     return file;
 }
 
-String ExtractExtension(const String& fullPath, bool lowercaseExtension)
+String Extension(const String& fullPath, bool lowercaseExtension)
 {
     String path, file, extension;
     SplitPath(fullPath, path, file, extension, lowercaseExtension);
     return extension;
 }
 
-String ExtractFileNameAndExtension(const String& fileName, bool lowercaseExtension)
+String FileNameAndExtension(const String& fileName, bool lowercaseExtension)
 {
     String path, file, extension;
     SplitPath(fileName, path, file, extension, lowercaseExtension);

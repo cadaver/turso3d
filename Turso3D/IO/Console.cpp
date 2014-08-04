@@ -7,7 +7,7 @@
 #include <fcntl.h>
 
 #ifdef WIN32
-#include <windows.h>
+#include <Windows.h>
 #include <io.h>
 #else
 #include <unistd.h>

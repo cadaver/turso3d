@@ -10,8 +10,6 @@
 namespace Turso3D
 {
 
-class String;
-
 /// Exit the application with an error message to the console.
 TURSO3D_API void ErrorExit(const String& message = String::EMPTY, int exitCode = EXIT_FAILURE);
 /// Open a console window.

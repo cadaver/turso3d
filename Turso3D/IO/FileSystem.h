@@ -41,13 +41,13 @@ TURSO3D_API String ExecutableDir();
 /// Split a full path to path, filename and extension. The extension will be converted to lowercase by default.
 TURSO3D_API void SplitPath(const String& fullPath, String& pathName, String& fileName, String& extension, bool lowercaseExtension = true);
 /// Return the path from a full path.
-TURSO3D_API String ExtractPath(const String& fullPath);
+TURSO3D_API String Path(const String& fullPath);
 /// Return the filename from a full path.
-TURSO3D_API String ExtractFileName(const String& fullPath);
+TURSO3D_API String FileName(const String& fullPath);
 /// Return the extension from a full path, converted to lowercase by default.
-TURSO3D_API String ExtractExtension(const String& fullPath, bool lowercaseExtension = true);
+TURSO3D_API String Extension(const String& fullPath, bool lowercaseExtension = true);
 /// Return the filename and extension from a full path. The case of the extension is preserved by default, so that the file can be opened in case-sensitive operating systems.
-TURSO3D_API String ExtractFileNameAndExtension(const String& fullPath, bool lowercaseExtension = false);
+TURSO3D_API String FileNameAndExtension(const String& fullPath, bool lowercaseExtension = false);
 /// Replace the extension of a file name with another.
 TURSO3D_API String ReplaceExtension(const String& fullPath, const String& newExtension);
 /// Add a slash at the end of the path if missing and convert to normalized format (use slashes.)
