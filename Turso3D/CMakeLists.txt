@@ -15,6 +15,7 @@ add_engine_directory (Base)
 add_engine_directory (Debug)
 add_engine_directory (IO)
 add_engine_directory (Math)
+add_engine_directory (Object)
 add_engine_directory (Thread)
 
 # Add root-level files

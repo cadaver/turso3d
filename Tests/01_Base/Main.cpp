@@ -54,6 +54,35 @@ public:
     }
 };
 
+class TestEventSender : public Object
+{
+    OBJECT(TestEventSender);
+    
+public:
+    void SendTestEvent()
+    {
+        SendEvent(testEvent);
+    }
+    
+    Event testEvent;
+};
+
+class TestEventReceiver : public Object
+{
+    OBJECT(TestEventReceiver);
+    
+public:
+    void SubscribeToTestEvent(TestEventSender* sender)
+    {
+        SubscribeToEvent(sender->testEvent, HANDLER(TestEventReceiver, HandleTestEvent));
+    }
+    
+    void HandleTestEvent(Event& event, VariantMap& /* eventData */)
+    {
+        printf("Receiver %08x got event %08x from %08x\n", (int)this, (int)&event, (int)event.Sender());
+    }
+};
+
 const size_t NUM_ITEMS = 10000;
 
 int main()
@@ -195,6 +224,20 @@ int main()
         printf("Variant 2 type %s Value %d\n", var2.TypeName().CString(), var2.GetInt());
         printf("Variant 3 type %s Value %s\n", var3.TypeName().CString(), var3.GetString().CString());
         printf("Variant 4 type %s Value %s\n", var4.TypeName().CString(), var4.GetVector3().ToString().CString());
+    }
+    
+    {
+        printf("\nTesting events\n");
+        TestEventSender* sender = new TestEventSender;
+        TestEventReceiver* receiver1 = new TestEventReceiver;
+        TestEventReceiver* receiver2 = new TestEventReceiver;
+        receiver1->SubscribeToTestEvent(sender);
+        receiver2->SubscribeToTestEvent(sender);
+        sender->SendTestEvent();
+        delete receiver2;
+        sender->SendTestEvent();
+        delete receiver1;
+        delete sender;
     }
 
     return 0;
