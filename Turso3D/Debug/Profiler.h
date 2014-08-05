@@ -20,54 +20,13 @@ public:
     ~ProfilerBlock();
 
     /// Start time measurement and increment call count.
-    void Begin()
-    {
-        timer.Reset();
-        ++count;
-    }
-
+    void Begin();
     /// End time measurement.
-    void End()
-    {
-        long long currentTime = timer.ElapsedUSec(false);
-        if (currentTime > maxTime)
-            maxTime = currentTime;
-        time += currentTime;
-    }
-
+    void End();
     /// Process stats at the end of frame.
-    void EndFrame()
-    {
-        frameTime = time;
-        frameMaxTime = maxTime;
-        frameCount = count;
-        intervalTime += time;
-        if (maxTime > intervalMaxTime)
-            intervalMaxTime = maxTime;
-        intervalCount += count;
-        totalTime += time;
-        if (maxTime > totalMaxTime)
-            totalMaxTime = maxTime;
-        totalCount += count;
-        time = 0;
-        maxTime = 0;
-        count = 0;
-
-        for (Vector<AutoPtr<ProfilerBlock> >::Iterator i = children.Begin(); i != children.End(); ++i)
-            (*i)->EndFrame();
-    }
-
+    void EndFrame();
     /// Begin an interval lasting several frames.
-    void BeginInterval()
-    {
-        intervalTime = 0;
-        intervalMaxTime = 0;
-        intervalCount = 0;
-
-        for (Vector<AutoPtr<ProfilerBlock> >::Iterator i = children.Begin(); i != children.End(); ++i)
-            (*i)->BeginInterval();
-    }
-
+    void BeginInterval();
     /// Return a child block; create if necessary.
     ProfilerBlock* FindOrCreateChild(const char* name);
 
@@ -117,22 +76,9 @@ public:
     virtual ~Profiler();
 
     /// Begin a profiling block. The name must be persistent; string literals are recommended.
-    void BeginBlock(const char* name)
-    {
-        current = current->FindOrCreateChild(name);
-        current->Begin();
-    }
-
+    void BeginBlock(const char* name);
     /// End the current profiling block.
-    void EndBlock()
-    {
-        if (current != root)
-        {
-            current->End();
-            current = current->parent;
-        }
-    }
-
+    void EndBlock();
     /// Begin the next profiling frame.
     void BeginFrame();
     /// End the current profiling frame.

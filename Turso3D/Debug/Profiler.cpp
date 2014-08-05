@@ -1,5 +1,6 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
+#include "../Thread/Thread.h"
 #include "Profiler.h"
 
 #include <cstdio>
@@ -35,6 +36,51 @@ ProfilerBlock::~ProfilerBlock()
 {
 }
 
+void ProfilerBlock::Begin()
+{
+    timer.Reset();
+    ++count;
+}
+
+void ProfilerBlock::End()
+{
+    long long currentTime = timer.ElapsedUSec(false);
+    if (currentTime > maxTime)
+        maxTime = currentTime;
+    time += currentTime;
+}
+
+void ProfilerBlock::EndFrame()
+{
+    frameTime = time;
+    frameMaxTime = maxTime;
+    frameCount = count;
+    intervalTime += time;
+    if (maxTime > intervalMaxTime)
+        intervalMaxTime = maxTime;
+    intervalCount += count;
+    totalTime += time;
+    if (maxTime > totalMaxTime)
+        totalMaxTime = maxTime;
+    totalCount += count;
+    time = 0;
+    maxTime = 0;
+    count = 0;
+
+    for (Vector<AutoPtr<ProfilerBlock> >::Iterator i = children.Begin(); i != children.End(); ++i)
+        (*i)->EndFrame();
+}
+
+void ProfilerBlock::BeginInterval()
+{
+    intervalTime = 0;
+    intervalMaxTime = 0;
+    intervalCount = 0;
+
+    for (Vector<AutoPtr<ProfilerBlock> >::Iterator i = children.Begin(); i != children.End(); ++i)
+        (*i)->BeginInterval();
+}
+
 ProfilerBlock* ProfilerBlock::FindOrCreateChild(const char* name_)
 {
     // First check using string pointers only, then resort to actual strcmp
@@ -68,6 +114,28 @@ Profiler::Profiler() :
 Profiler::~Profiler()
 {
     RemoveSubsystem(this);
+}
+
+void Profiler::BeginBlock(const char* name)
+{
+    // Currently profiling is a no-op if attempted from outside main thread
+    if (!Thread::IsMainThread())
+        return;
+    
+    current = current->FindOrCreateChild(name);
+    current->Begin();
+}
+
+void Profiler::EndBlock()
+{
+    if (!Thread::IsMainThread())
+        return;
+    
+    if (current != root)
+    {
+        current->End();
+        current = current->parent;
+    }
 }
 
 void Profiler::BeginFrame()

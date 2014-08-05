@@ -37,7 +37,7 @@ public:
     /// Reset the timer.
     void Reset();
 
-    /// Perform one-time initialization to check support and frequency.
+    /// Perform one-time initialization to check support and frequency. Is called automatically at program start.
     static void Initialize();
     /// Return if high-resolution timer is supported.
     static bool IsSupported() { return supported; }

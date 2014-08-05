@@ -245,15 +245,28 @@ int main()
     }
     
     {
-        HiresTimer timer;
-        printf("\nTesting logging and timer\n");
+        printf("\nTesting logging and profiling\n");
         Log log;
-        log.Open("01_Base.log");
-        LOGDEBUG("Debug message");
-        LOGINFO("Info message");
-        LOGERROR("Error message");
-        LOGINFOF("Formatted message: %d", 100);
-        printf("Opening log and writing messages took %d usec\n", (int)timer.ElapsedUSec());
+        Profiler profiler;
+        
+        profiler.BeginFrame();
+        
+        {
+            PROFILE(OpenLog);
+            log.Open("01_Base.log");
+        }
+        
+        {
+            PROFILE(WriteMessages);
+            LOGDEBUG("Debug message");
+            LOGINFO("Info message");
+            LOGERROR("Error message");
+            LOGINFOF("Formatted message: %d", 100);
+        }
+        
+        profiler.EndFrame();
+        
+        printf("%s\n", profiler.OutputResults().CString());
     }
 
     return 0;
