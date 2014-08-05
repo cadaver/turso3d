@@ -23,3 +23,5 @@
 #include "Thread/Condition.h"
 #include "Thread/Mutex.h"
 #include "Thread/Thread.h"
+#include "Thread/Timer.h"
+

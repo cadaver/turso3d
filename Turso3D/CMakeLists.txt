@@ -23,3 +23,7 @@ file (GLOB TURSO3D_FILES *.h *.c *.cpp)
 list (APPEND SOURCE_FILES ${TURSO3D_FILES})
 
 add_library (${TARGET_NAME} STATIC ${SOURCE_FILES})
+
+if (WIN32)
+    target_link_libraries (${TARGET_NAME} winmm)
+endif ()

@@ -65,10 +65,8 @@ private:
 class TURSO3D_API Event
 {
 public:
-    /// Construct without name.
+    /// Construct.
     Event();
-    /// Construct with name.
-    Event(const char* name);
     /// Destruct.
     ~Event();
     
@@ -80,10 +78,7 @@ public:
     void Subscribe(EventHandler* handler);
     /// Unsubscribe from the event.
     void Unsubscribe(WeakRefCounted* receiver);
-    
-    /// Return the event name.
-    const char* Name() const { return name; }
-    
+
     /// Return whether has at least one valid receiver.
     bool HasReceivers() const;
     /// Return whether has a specific receiver.
@@ -101,8 +96,6 @@ private:
     Vector<AutoPtr<EventHandler> > handlers;
     /// Current sender.
     WeakPtr<WeakRefCounted> currentSender;
-    /// Event name.
-    const char* name;
 };
 
 #define HANDLER(className, function) (new Turso3D::EventHandlerImpl<className>(this, &className::function))

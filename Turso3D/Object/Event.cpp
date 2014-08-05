@@ -9,13 +9,7 @@ namespace Turso3D
 
 static VariantMap emptyEventData;
 
-Event::Event() :
-    name(String::EMPTY.CString())
-{
-}
-
-Event::Event(const char* name_) :
-    name(name_)
+Event::Event()
 {
 }
 

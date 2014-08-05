@@ -81,9 +81,9 @@ public:
     String LastMessage() const { return lastMessage; }
 
     /// Write to the log. If logging level is higher than the level of the message, the message is ignored.
-    static void Write(int msgLevel, const String& message);
+    void Write(int msgLevel, const String& message);
     /// Write raw output to the log.
-    static void WriteRaw(const String& message, bool error = false);
+    void WriteRaw(const String& message, bool error = false);
 
     /// Log message event.
     Event logMessage;
@@ -107,18 +107,40 @@ private:
     bool quiet;
 };
 
+/// Write to the log if the log subsystem exists.
+TURSO3D_API void WriteToLog(int msgLevel, const String& message);
+/// Write a raw message to the log if the log subsystem exists.
+TURSO3D_API void WriteToLogRaw(const String& message, bool error = false);
+
 }
 
 EVENTPARAM(LogMessage, MESSAGE);        // String
 EVENTPARAM(LogMessage, LEVEL);          // int
 
-#define LOGDEBUG(message) Turso3D::Log::Write(Turso3D::LOG_DEBUG, message)
-#define LOGINFO(message) Turso3D::Log::Write(Turso3D::LOG_INFO, message)
-#define LOGWARNING(message) Turso3D::Log::Write(Turso3D::LOG_WARNING, message)
-#define LOGERROR(message) Turso3D::Log::Write(Turso3D::LOG_ERROR, message)
-#define LOGRAW(message) Turso3D::Log::WriteRaw(message)
-#define LOGDEBUGF(format, ...) Turso3D::Log::Write(Turso3D::LOG_DEBUG, Turso3D::FormatString(format, ##__VA_ARGS__))
-#define LOGINFOF(format, ...) Turso3D::Log::Write(Turso3D::LOG_INFO, Turso3D::FormatString(format, ##__VA_ARGS__))
-#define LOGWARNINGF(format, ...) Turso3D::Log::Write(Turso3D::LOG_WARNING, Turso3D::FormatString(format, ##__VA_ARGS__))
-#define LOGERRORF(format, ...) Turso3D::Log::Write(Turso3D::LOG_ERROR, Turso3D::FormatString(format, ##__VA_ARGS__))
-#define LOGRAWF(format, ...) Turso3D::Log::WriteRaw(ToString(format, ##__VA_ARGS__))
+#ifdef TURSO3D_LOGGING
+
+#define LOGDEBUG(message) Turso3D::WriteToLog(Turso3D::LOG_DEBUG, message)
+#define LOGINFO(message) Turso3D::WriteToLog(Turso3D::LOG_INFO, message)
+#define LOGWARNING(message) Turso3D::WriteToLog(Turso3D::LOG_WARNING, message)
+#define LOGERROR(message) Turso3D::WriteToLog(Turso3D::LOG_ERROR, message)
+#define LOGRAW(message) Turso3D::WriteToLogRaw(message)
+#define LOGDEBUGF(format, ...) Turso3D::WriteToLog(Turso3D::LOG_DEBUG, Turso3D::FormatString(format, ##__VA_ARGS__))
+#define LOGINFOF(format, ...) Turso3D::WriteToLog(Turso3D::LOG_INFO, Turso3D::FormatString(format, ##__VA_ARGS__))
+#define LOGWARNINGF(format, ...) Turso3D::WriteToLog(Turso3D::LOG_WARNING, Turso3D::FormatString(format, ##__VA_ARGS__))
+#define LOGERRORF(format, ...) Turso3D::WriteToLog(Turso3D::LOG_ERROR, Turso3D::FormatString(format, ##__VA_ARGS__))
+#define LOGRAWF(format, ...) Turso3D::WriteToLogRaw(ToString(format, ##__VA_ARGS__))
+
+#else
+
+#define LOGDEBUG(message)
+#define LOGINFO(message)
+#define LOGWARNING(message)
+#define LOGERROR(message)
+#define LOGRAW(message)
+#define LOGDEBUGF(format, ...)
+#define LOGINFOF(format, ...)
+#define LOGWARNINGF(format, ...)
+#define LOGERRORF(format, ...)
+#define LOGRAWF(format, ...)
+
+#endif

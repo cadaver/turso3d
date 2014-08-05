@@ -245,13 +245,15 @@ int main()
     }
     
     {
-        printf("\nTesting logging\n");
+        HiresTimer timer;
+        printf("\nTesting logging and timer\n");
         Log log;
         log.Open("01_Base.log");
         LOGDEBUG("Debug message");
         LOGINFO("Info message");
         LOGERROR("Error message");
         LOGINFOF("Formatted message: %d", 100);
+        printf("Opening log and writing messages took %d usec\n", (int)timer.ElapsedUSec());
     }
 
     return 0;
