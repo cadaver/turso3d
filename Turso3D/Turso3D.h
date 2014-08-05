@@ -10,6 +10,7 @@
 #include "Base/List.h"
 #include "Base/SharedPtr.h"
 #include "Debug/Log.h"
+#include "Debug/Profiler.h"
 #include "IO/CommandLine.h"
 #include "IO/Console.h"
 #include "IO/File.h"

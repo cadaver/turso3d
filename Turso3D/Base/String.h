@@ -326,7 +326,7 @@ public:
     /// Calculate a case-insensitive hash for a string.
     static unsigned CaseInsensitiveHash(const char* str);
     /// Compare two C strings.
-    static int Compare(const char* str1, const char* str2, bool caseSensitive);
+    static int Compare(const char* str1, const char* str2, bool caseSensitive = true);
     /// Encode Unicode character to UTF8. Pointer will be incremented.
     static void EncodeUTF8(char*& dest, unsigned unicodeChar);
     /// Decode Unicode character from UTF8. Pointer will be incremented.
