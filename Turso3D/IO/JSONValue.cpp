@@ -192,6 +192,9 @@ void JSONValue::SetType(JSONType newType)
     case JSON_OBJECT:
         (reinterpret_cast<JSONObject*>(&data))->~JSONObject();
         break;
+        
+    default:
+        break;
     }
     
     type = newType;
@@ -208,6 +211,9 @@ void JSONValue::SetType(JSONType newType)
         
     case JSON_OBJECT:
         new(reinterpret_cast<JSONObject*>(&data)) JSONObject();
+        break;
+        
+    default:
         break;
     }
 }

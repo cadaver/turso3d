@@ -273,7 +273,7 @@ int main()
         printf("Testing JSONValue\n");
         JSONValue org;
         org["name"] = "S.C.E.P.T.R.E";
-        org["longName"] = "Sectarian Chosen Elite Privileged To Rule And Exterminate";
+        org["longName"] = "Sectarian Chosen Elite Privileged To Rule & Exterminate";
         org["isEvil"] = true;
         org["members"] = 218;
         JSONValue officers;
