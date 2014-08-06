@@ -214,34 +214,34 @@ bool Serializer::WriteVariantData(const Variant& value)
         return true;
         
     case VAR_INT:
-        return WriteInt(value.GetInt());
+        return WriteInt(value.AsInt());
         
     case VAR_BOOL:
-        return WriteBool(value.GetBool());
+        return WriteBool(value.AsBool());
         
     case VAR_FLOAT:
-        return WriteFloat(value.GetFloat());
+        return WriteFloat(value.AsFloat());
         
     case VAR_VECTOR2:
-        return WriteVector2(value.GetVector2());
+        return WriteVector2(value.AsVector2());
         
     case VAR_VECTOR3:
-        return WriteVector3(value.GetVector3());
+        return WriteVector3(value.AsVector3());
         
     case VAR_VECTOR4:
-        return WriteVector4(value.GetVector4());
+        return WriteVector4(value.AsVector4());
         
     case VAR_QUATERNION:
-        return WriteQuaternion(value.GetQuaternion());
+        return WriteQuaternion(value.AsQuaternion());
         
     case VAR_COLOR:
-        return WriteColor(value.GetColor());
+        return WriteColor(value.AsColor());
         
     case VAR_STRING:
-        return WriteString(value.GetString());
+        return WriteString(value.AsString());
         
     case VAR_BUFFER:
-        return WriteBuffer(value.GetBuffer());
+        return WriteBuffer(value.AsBuffer());
         
         // Serializing pointers is not supported. Write null
     case VAR_VOIDPTR:
@@ -249,31 +249,31 @@ bool Serializer::WriteVariantData(const Variant& value)
         return WriteUInt(0);
         
     case VAR_RESOURCEREF:
-        return WriteResourceRef(value.GetResourceRef());
+        return WriteResourceRef(value.AsResourceRef());
         
     case VAR_RESOURCEREFLIST:
-        return WriteResourceRefList(value.GetResourceRefList());
+        return WriteResourceRefList(value.AsResourceRefList());
         
     case VAR_VARIANTVECTOR:
-        return WriteVariantVector(value.GetVariantVector());
+        return WriteVariantVector(value.AsVariantVector());
         
     case VAR_VARIANTMAP:
-        return WriteVariantMap(value.GetVariantMap());
+        return WriteVariantMap(value.AsVariantMap());
         
     case VAR_INTRECT:
-        return WriteIntRect(value.GetIntRect());
+        return WriteIntRect(value.AsIntRect());
         
     case VAR_INTVECTOR2:
-        return WriteIntVector2(value.GetIntVector2());
+        return WriteIntVector2(value.AsIntVector2());
         
     case VAR_MATRIX3:
-        return WriteMatrix3(value.GetMatrix3());
+        return WriteMatrix3(value.AsMatrix3());
         
     case VAR_MATRIX3X4:
-        return WriteMatrix3x4(value.GetMatrix3x4());
+        return WriteMatrix3x4(value.AsMatrix3x4());
         
     case VAR_MATRIX4:
-        return WriteMatrix4(value.GetMatrix4());
+        return WriteMatrix4(value.AsMatrix4());
         
     default:
         return false;

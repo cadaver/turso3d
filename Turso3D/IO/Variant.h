@@ -72,12 +72,18 @@ struct TURSO3D_API ResourceRef
     {
     }
 
-    /// Construct with type only and empty name.
-    ResourceRef(StringHash type) :
-        type(type)
+    /// Construct from a string.
+    ResourceRef(const String& str)
     {
+        FromString(str);
     }
-
+    
+    /// Construct from a C string.
+    ResourceRef(const char* str)
+    {
+        FromString(str);
+    }
+    
     /// Construct with type and resource name.
     ResourceRef(StringHash type, const String& name_) :
         type(type),
@@ -85,6 +91,14 @@ struct TURSO3D_API ResourceRef
     {
     }
 
+    /// Set from a string that contains the type and name separated by a semicolon. Return true if successful.
+    bool FromString(const String& str);
+    /// Set from a C string that contains the type and name separated by a semicolon. Return true if successful.
+    bool FromString(const char* str);
+    
+    /// Return as a string.
+    String ToString() const;
+    
     /// Object type.
     StringHash type;
     /// Object name.
@@ -111,10 +125,16 @@ struct TURSO3D_API ResourceRefList
     {
     }
 
-    /// Construct with type only.
-    ResourceRefList(StringHash type) :
-        type(type)
+    /// Construct from a string.
+    ResourceRefList(const String& str)
     {
+        FromString(str);
+    }
+    
+    /// Construct from a C string.
+    ResourceRefList(const char* str)
+    {
+        FromString(str);
     }
 
     /// Construct with type and name list.
@@ -124,6 +144,14 @@ struct TURSO3D_API ResourceRefList
     {
     }
 
+    /// Set from a string that contains the type and names separated by semicolons. Return true if successful.
+    bool FromString(const String& str);
+    /// Set from a C string that contains the type and names separated by semicolons. Return true if successful.
+    bool FromString(const char* str);
+    
+    /// Return as a string.
+    String ToString() const;
+    
     /// Object type.
     StringHash type;
     /// List of object names.
@@ -375,7 +403,7 @@ public:
     Variant& operator = (int rhs)
     {
         SetType(VAR_INT);
-        value.intValue = rhs;
+        data.intValue = rhs;
         return *this;
     }
 
@@ -383,7 +411,7 @@ public:
     Variant& operator = (unsigned rhs)
     {
         SetType(VAR_INT);
-        value.intValue = (int)rhs;
+        data.intValue = (int)rhs;
         return *this;
     }
 
@@ -391,7 +419,7 @@ public:
     Variant& operator = (const StringHash& rhs)
     {
         SetType(VAR_INT);
-        value.intValue = (int)rhs.Value();
+        data.intValue = (int)rhs.Value();
         return *this;
     }
 
@@ -399,7 +427,7 @@ public:
     Variant& operator = (bool rhs)
     {
         SetType(VAR_BOOL);
-        value.boolValue = rhs;
+        data.boolValue = rhs;
         return *this;
     }
 
@@ -407,7 +435,7 @@ public:
     Variant& operator = (float rhs)
     {
         SetType(VAR_FLOAT);
-        value.floatValue = rhs;
+        data.floatValue = rhs;
         return *this;
     }
 
@@ -415,7 +443,7 @@ public:
     Variant& operator = (const Vector2& rhs)
     {
         SetType(VAR_VECTOR2);
-        *(reinterpret_cast<Vector2*>(&value)) = rhs;
+        *(reinterpret_cast<Vector2*>(&data)) = rhs;
         return *this;
     }
 
@@ -423,7 +451,7 @@ public:
     Variant& operator = (const Vector3& rhs)
     {
         SetType(VAR_VECTOR3);
-        *(reinterpret_cast<Vector3*>(&value)) = rhs;
+        *(reinterpret_cast<Vector3*>(&data)) = rhs;
         return *this;
     }
 
@@ -431,7 +459,7 @@ public:
     Variant& operator = (const Vector4& rhs)
     {
         SetType(VAR_VECTOR4);
-        *(reinterpret_cast<Vector4*>(&value)) = rhs;
+        *(reinterpret_cast<Vector4*>(&data)) = rhs;
         return *this;
     }
 
@@ -439,7 +467,7 @@ public:
     Variant& operator = (const Quaternion& rhs)
     {
         SetType(VAR_QUATERNION);
-        *(reinterpret_cast<Quaternion*>(&value)) = rhs;
+        *(reinterpret_cast<Quaternion*>(&data)) = rhs;
         return *this;
     }
 
@@ -447,7 +475,7 @@ public:
     Variant& operator = (const Color& rhs)
     {
         SetType(VAR_COLOR);
-        *(reinterpret_cast<Color*>(&value)) = rhs;
+        *(reinterpret_cast<Color*>(&data)) = rhs;
         return *this;
     }
 
@@ -455,7 +483,7 @@ public:
     Variant& operator = (const String& rhs)
     {
         SetType(VAR_STRING);
-        *(reinterpret_cast<String*>(&value)) = rhs;
+        *(reinterpret_cast<String*>(&data)) = rhs;
         return *this;
     }
 
@@ -463,7 +491,7 @@ public:
     Variant& operator = (const char* rhs)
     {
         SetType(VAR_STRING);
-        *(reinterpret_cast<String*>(&value)) = String(rhs);
+        *(reinterpret_cast<String*>(&data)) = String(rhs);
         return *this;
     }
 
@@ -471,7 +499,7 @@ public:
     Variant& operator = (const Vector<unsigned char>& rhs)
     {
         SetType(VAR_BUFFER);
-        *(reinterpret_cast<Vector<unsigned char>*>(&value)) = rhs;
+        *(reinterpret_cast<Vector<unsigned char>*>(&data)) = rhs;
         return *this;
     }
 
@@ -479,7 +507,7 @@ public:
     Variant& operator = (void* rhs)
     {
         SetType(VAR_VOIDPTR);
-        value.ptrValue = rhs;
+        data.ptrValue = rhs;
         return *this;
     }
 
@@ -487,7 +515,7 @@ public:
     Variant& operator = (const ResourceRef& rhs)
     {
         SetType(VAR_RESOURCEREF);
-        *(reinterpret_cast<ResourceRef*>(&value)) = rhs;
+        *(reinterpret_cast<ResourceRef*>(&data)) = rhs;
         return *this;
     }
 
@@ -495,7 +523,7 @@ public:
     Variant& operator = (const ResourceRefList& rhs)
     {
         SetType(VAR_RESOURCEREFLIST);
-        *(reinterpret_cast<ResourceRefList*>(&value)) = rhs;
+        *(reinterpret_cast<ResourceRefList*>(&data)) = rhs;
         return *this;
     }
 
@@ -503,7 +531,7 @@ public:
     Variant& operator = (const VariantVector& rhs)
     {
         SetType(VAR_VARIANTVECTOR);
-        *(reinterpret_cast<VariantVector*>(&value)) = rhs;
+        *(reinterpret_cast<VariantVector*>(&data)) = rhs;
         return *this;
     }
 
@@ -511,7 +539,7 @@ public:
     Variant& operator = (const VariantMap& rhs)
     {
         SetType(VAR_VARIANTMAP);
-        *(reinterpret_cast<VariantMap*>(&value)) = rhs;
+        *(reinterpret_cast<VariantMap*>(&data)) = rhs;
         return *this;
     }
 
@@ -519,7 +547,7 @@ public:
     Variant& operator = (const IntRect& rhs)
     {
         SetType(VAR_INTRECT);
-        *(reinterpret_cast<IntRect*>(&value)) = rhs;
+        *(reinterpret_cast<IntRect*>(&data)) = rhs;
         return *this;
     }
 
@@ -527,7 +555,7 @@ public:
     Variant& operator = (const IntVector2& rhs)
     {
         SetType(VAR_INTVECTOR2);
-        *(reinterpret_cast<IntVector2*>(&value)) = rhs;
+        *(reinterpret_cast<IntVector2*>(&data)) = rhs;
         return *this;
     }
     
@@ -535,7 +563,7 @@ public:
     Variant& operator = (WeakRefCounted* rhs)
     {
         SetType(VAR_PTR);
-        *(reinterpret_cast<WeakPtr<WeakRefCounted>*>(&value)) = rhs;
+        *(reinterpret_cast<WeakPtr<WeakRefCounted>*>(&data)) = rhs;
         return *this;
     }
     
@@ -543,7 +571,7 @@ public:
     Variant& operator = (const Matrix3& rhs)
     {
         SetType(VAR_MATRIX3);
-        *(reinterpret_cast<Matrix3*>(value.ptrValue)) = rhs;
+        *(reinterpret_cast<Matrix3*>(data.ptrValue)) = rhs;
         return *this;
     }
     
@@ -551,7 +579,7 @@ public:
     Variant& operator = (const Matrix3x4& rhs)
     {
         SetType(VAR_MATRIX3X4);
-        *(reinterpret_cast<Matrix3x4*>(value.ptrValue)) = rhs;
+        *(reinterpret_cast<Matrix3x4*>(data.ptrValue)) = rhs;
         return *this;
     }
     
@@ -559,125 +587,14 @@ public:
     Variant& operator = (const Matrix4& rhs)
     {
         SetType(VAR_MATRIX4);
-        *(reinterpret_cast<Matrix4*>(value.ptrValue)) = rhs;
+        *(reinterpret_cast<Matrix4*>(data.ptrValue)) = rhs;
         return *this;
     }
     
     /// Test for equality with another variant.
     bool operator == (const Variant& rhs) const;
-    /// Test for equality with an integer. To return true, both the type and value must match.
-    bool operator == (int rhs) const { return type == VAR_INT ? value.intValue == rhs : false; }
-    /// Test for equality with an unsigned integer. To return true, both the type and value must match.
-    bool operator == (unsigned rhs) const { return type == VAR_INT ? value.intValue == (int)rhs : false; }
-    /// Test for equality with a bool. To return true, both the type and value must match.
-    bool operator == (bool rhs) const { return type == VAR_BOOL ? value.boolValue == rhs : false; }
-    /// Test for equality with a float. To return true, both the type and value must match.
-    bool operator == (float rhs) const { return type == VAR_FLOAT ? value.floatValue == rhs : false; }
-    /// Test for equality with a Vector2. To return true, both the type and value must match.
-    bool operator == (const Vector2& rhs) const { return type == VAR_VECTOR2 ? *(reinterpret_cast<const Vector2*>(&value)) == rhs : false; }
-    /// Test for equality with a Vector3. To return true, both the type and value must match.
-    bool operator == (const Vector3& rhs) const { return type == VAR_VECTOR3 ? *(reinterpret_cast<const Vector3*>(&value)) == rhs : false; }
-    /// Test for equality with a Vector4. To return true, both the type and value must match.
-    bool operator == (const Vector4& rhs) const { return type == VAR_VECTOR4 ? *(reinterpret_cast<const Vector4*>(&value)) == rhs : false; }
-    /// Test for equality with a quaternion. To return true, both the type and value must match.
-    bool operator == (const Quaternion& rhs) const { return type == VAR_QUATERNION ? *(reinterpret_cast<const Quaternion*>(&value)) == rhs : false; }
-    /// Test for equality with a color. To return true, both the type and value must match.
-    bool operator == (const Color& rhs) const { return type == VAR_COLOR ? *(reinterpret_cast<const Color*>(&value)) == rhs : false; }
-    /// Test for equality with a string. To return true, both the type and value must match.
-    bool operator == (const String& rhs) const { return type == VAR_STRING ? *(reinterpret_cast<const String*>(&value)) == rhs : false; }
-    /// Test for equality with a buffer. To return true, both the type and value must match.
-    bool operator == (const Vector<unsigned char>& rhs) const { return type == VAR_BUFFER ? *(reinterpret_cast<const Vector<unsigned char>*>(&value)) == rhs : false; }
-    
-    /// Test for equality with a void pointer. To return true, both the type and value must match, with the exception that a RefCounted pointer is also allowed.
-    bool operator == (void* rhs) const
-    {
-        if (type == VAR_VOIDPTR)
-            return value.ptrValue == rhs;
-        else if (type == VAR_PTR)
-            return *(reinterpret_cast<const WeakPtr<WeakRefCounted>*>(&value)) == rhs;
-        else
-            return false;
-    }
-    
-    /// Test for equality with a resource reference. To return true, both the type and value must match.
-    bool operator == (const ResourceRef& rhs) const { return type == VAR_RESOURCEREF ? *(reinterpret_cast<const ResourceRef*>(&value)) == rhs : false; }
-    /// Test for equality with a resource reference list. To return true, both the type and value must match.
-    bool operator == (const ResourceRefList& rhs) const { return type == VAR_RESOURCEREFLIST ? *(reinterpret_cast<const ResourceRefList*>(&value)) == rhs : false; }
-    /// Test for equality with a variant vector. To return true, both the type and value must match.
-    bool operator == (const VariantVector& rhs) const { return type == VAR_VARIANTVECTOR ? *(reinterpret_cast<const VariantVector*>(&value)) == rhs : false; }
-    /// Test for equality with a variant map. To return true, both the type and value must match.
-    bool operator == (const VariantMap& rhs) const { return type == VAR_VARIANTMAP ? *(reinterpret_cast<const VariantMap*>(&value)) == rhs : false; }
-    /// Test for equality with an integer rect. To return true, both the type and value must match.
-    bool operator == (const IntRect& rhs) const { return type == VAR_INTRECT ? *(reinterpret_cast<const IntRect*>(&value)) == rhs : false; }
-    /// Test for equality with an IntVector2. To return true, both the type and value must match.
-    bool operator == (const IntVector2& rhs) const { return type == VAR_INTVECTOR2 ? *(reinterpret_cast<const IntVector2*>(&value)) == rhs : false; }
-    /// Test for equality with a StringHash. To return true, both the type and value must match.
-    bool operator == (const StringHash& rhs) const { return type == VAR_INT ? (unsigned)value.intValue == rhs.Value() : false; }
-    
-    /// Test for equality with a WeakRefCounted pointer. To return true, both the type and value must match, with the exception that void pointer is also allowed.
-    bool operator == (WeakRefCounted* rhs) const
-    {
-        if (type == VAR_PTR)
-            return *(reinterpret_cast<const WeakPtr<WeakRefCounted>*>(&value)) == rhs;
-        else if (type == VAR_VOIDPTR)
-            return value.ptrValue == rhs;
-        else
-            return false;
-    }
-    
-    /// Test for equality with a Matrix3. To return true, both the type and value must match.
-    bool operator == (const Matrix3& rhs) const { return type == VAR_MATRIX3 ? *(reinterpret_cast<const Matrix3*>(value.ptrValue)) == rhs : false; }
-    /// Test for equality with a Matrix3x4. To return true, both the type and value must match.
-    bool operator == (const Matrix3x4& rhs) const { return type == VAR_MATRIX3X4 ? *(reinterpret_cast<const Matrix3x4*>(value.ptrValue)) == rhs : false; }
-    /// Test for equality with a Matrix4. To return true, both the type and value must match.
-    bool operator == (const Matrix4& rhs) const { return type == VAR_MATRIX4 ? *(reinterpret_cast<const Matrix4*>(value.ptrValue)) == rhs : false; }
-    
     /// Test for inequality with another variant.
     bool operator != (const Variant& rhs) const { return !(*this == rhs); }
-    /// Test for inequality with an integer.
-    bool operator != (int rhs) const { return !(*this == rhs); }
-    /// Test for inequality with an unsigned integer.
-    bool operator != (unsigned rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a bool.
-    bool operator != (bool rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a float.
-    bool operator != (float rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a Vector2.
-    bool operator != (const Vector2& rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a Vector3.
-    bool operator != (const Vector3& rhs) const { return !(*this == rhs); }
-    /// Test for inequality with an Vector4.
-    bool operator != (const Vector4& rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a Quaternion.
-    bool operator != (const Quaternion& rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a string.
-    bool operator != (const String& rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a buffer.
-    bool operator != (const Vector<unsigned char>& rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a pointer.
-    bool operator != (void* rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a resource reference.
-    bool operator != (const ResourceRef& rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a resource reference list.
-    bool operator != (const ResourceRefList& rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a variant vector.
-    bool operator != (const VariantVector& rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a variant map.
-    bool operator != (const VariantMap& rhs) const { return !(*this == rhs); }
-    /// Test for inequality with an integer rect.
-    bool operator != (const IntRect& rhs) const { return !(*this == rhs); }
-    /// Test for inequality with an IntVector2.
-    bool operator != (const IntVector2& rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a StringHash.
-    bool operator != (const StringHash& rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a WeakRefCounted pointer.
-    bool operator != (WeakRefCounted* rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a Matrix3.
-    bool operator != (const Matrix3& rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a Matrix3x4.
-    bool operator != (const Matrix3x4& rhs) const { return !(*this == rhs); }
-    /// Test for inequality with a Matrix4.
-    bool operator != (const Matrix4& rhs) const { return !(*this == rhs); }
     
     /// Set from typename and value strings. Pointers will be set to null, and VariantBuffer or VariantMap types are not supported.
     void FromString(const String& type, const String& value);
@@ -688,64 +605,64 @@ public:
     /// Set from type and value string. Pointers will be set to null, and VariantBuffer or VariantMap types are not supported.
     void FromString(VariantType type, const char* value);
     /// Set as a buffer from a memory area.
-    void SetBuffer(const void* data, size_t size);
+    void SetBuffer(const void* bytes, size_t size);
 
     /// Return int or zero on type mismatch.
-    int GetInt() const { return type == VAR_INT ? value.intValue : 0; }
+    int AsInt() const { return type == VAR_INT ? data.intValue : 0; }
     /// Return unsigned int or zero on type mismatch.
-    int GetUInt() const { return type == VAR_INT ? (unsigned)value.intValue : 0; }
+    int AsUInt() const { return type == VAR_INT ? (unsigned)data.intValue : 0; }
     /// Return StringHash or zero on type mismatch.
-    StringHash GetStringHash() const { return StringHash(GetUInt()); }
+    StringHash AsStringHash() const { return StringHash(AsUInt()); }
     /// Return bool or false on type mismatch.
-    bool GetBool() const { return type == VAR_BOOL ? value.boolValue : false; }
+    bool AsBool() const { return type == VAR_BOOL ? data.boolValue : false; }
     /// Return float or zero on type mismatch.
-    float GetFloat() const { return type == VAR_FLOAT ? value.floatValue : 0.0f; }
+    float AsFloat() const { return type == VAR_FLOAT ? data.floatValue : 0.0f; }
     /// Return Vector2 or zero on type mismatch.
-    const Vector2& GetVector2() const { return type == VAR_VECTOR2 ? *reinterpret_cast<const Vector2*>(&value) : Vector2::ZERO; }
+    const Vector2& AsVector2() const { return type == VAR_VECTOR2 ? *reinterpret_cast<const Vector2*>(&data) : Vector2::ZERO; }
     /// Return Vector3 or zero on type mismatch.
-    const Vector3& GetVector3() const { return type == VAR_VECTOR3 ? *reinterpret_cast<const Vector3*>(&value) : Vector3::ZERO; }
+    const Vector3& AsVector3() const { return type == VAR_VECTOR3 ? *reinterpret_cast<const Vector3*>(&data) : Vector3::ZERO; }
     /// Return Vector4 or zero on type mismatch.
-    const Vector4& GetVector4() const { return type == VAR_VECTOR4 ? *reinterpret_cast<const Vector4*>(&value) : Vector4::ZERO; }
+    const Vector4& AsVector4() const { return type == VAR_VECTOR4 ? *reinterpret_cast<const Vector4*>(&data) : Vector4::ZERO; }
     /// Return quaternion or identity on type mismatch.
-    const Quaternion& GetQuaternion() const { return type == VAR_QUATERNION ? *reinterpret_cast<const Quaternion*>(&value) : Quaternion::IDENTITY; }
+    const Quaternion& AsQuaternion() const { return type == VAR_QUATERNION ? *reinterpret_cast<const Quaternion*>(&data) : Quaternion::IDENTITY; }
     /// Return color or default on type mismatch.
-    const Color& GetColor() const { return type == VAR_COLOR ? *reinterpret_cast<const Color*>(&value) : Color::WHITE; }
+    const Color& AsColor() const { return type == VAR_COLOR ? *reinterpret_cast<const Color*>(&data) : Color::WHITE; }
     /// Return string or empty on type mismatch.
-    const String& GetString() const { return type == VAR_STRING ? *reinterpret_cast<const String*>(&value) : String::EMPTY; }
+    const String& AsString() const { return type == VAR_STRING ? *reinterpret_cast<const String*>(&data) : String::EMPTY; }
     /// Return buffer or empty on type mismatch.
-    const Vector<unsigned char>& GetBuffer() const { return type == VAR_BUFFER ? *reinterpret_cast<const Vector<unsigned char>*>(&value) : emptyBuffer; }
+    const Vector<unsigned char>& AsBuffer() const { return type == VAR_BUFFER ? *reinterpret_cast<const Vector<unsigned char>*>(&data) : emptyBuffer; }
     
     /// Return void pointer or null on type mismatch. RefCounted pointer will be converted.
-    void* GetVoidPtr() const
+    void* AsVoidPtr() const
     {
         if (type == VAR_VOIDPTR)
-            return value.ptrValue;
+            return data.ptrValue;
         else if (type == VAR_PTR)
-            return *reinterpret_cast<const WeakPtr<WeakRefCounted>*>(&value);
+            return *reinterpret_cast<const WeakPtr<WeakRefCounted>*>(&data);
         else
             return 0;
     }
     
     /// Return a resource reference or empty on type mismatch.
-    const ResourceRef& GetResourceRef() const { return type == VAR_RESOURCEREF ? *reinterpret_cast<const ResourceRef*>(&value) : emptyResourceRef; }
+    const ResourceRef& AsResourceRef() const { return type == VAR_RESOURCEREF ? *reinterpret_cast<const ResourceRef*>(&data) : emptyResourceRef; }
     /// Return a resource reference list or empty on type mismatch.
-    const ResourceRefList& GetResourceRefList() const { return type == VAR_RESOURCEREFLIST ? *reinterpret_cast<const ResourceRefList*>(&value) : emptyResourceRefList; }
+    const ResourceRefList& AsResourceRefList() const { return type == VAR_RESOURCEREFLIST ? *reinterpret_cast<const ResourceRefList*>(&data) : emptyResourceRefList; }
     /// Return a variant vector or empty on type mismatch.
-    const VariantVector& GetVariantVector() const { return type == VAR_VARIANTVECTOR ? *reinterpret_cast<const VariantVector*>(&value) : emptyVariantVector; }
+    const VariantVector& AsVariantVector() const { return type == VAR_VARIANTVECTOR ? *reinterpret_cast<const VariantVector*>(&data) : emptyVariantVector; }
     /// Return a variant map or empty on type mismatch.
-    const VariantMap& GetVariantMap() const { return type == VAR_VARIANTMAP ? *reinterpret_cast<const VariantMap*>(&value) : emptyVariantMap; }
+    const VariantMap& AsVariantMap() const { return type == VAR_VARIANTMAP ? *reinterpret_cast<const VariantMap*>(&data) : emptyVariantMap; }
     /// Return an integer rect or empty on type mismatch.
-    const IntRect& GetIntRect() const { return type == VAR_INTRECT ? *reinterpret_cast<const IntRect*>(&value) : IntRect::ZERO; }
+    const IntRect& AsIntRect() const { return type == VAR_INTRECT ? *reinterpret_cast<const IntRect*>(&data) : IntRect::ZERO; }
     /// Return an IntVector2 or empty on type mismatch.
-    const IntVector2& GetIntVector2() const { return type == VAR_INTVECTOR2 ? *reinterpret_cast<const IntVector2*>(&value) : IntVector2::ZERO; }
+    const IntVector2& AsIntVector2() const { return type == VAR_INTVECTOR2 ? *reinterpret_cast<const IntVector2*>(&data) : IntVector2::ZERO; }
     /// Return a WeakRefCounted pointer or null on type mismatch. Will return null if holding a void pointer, as it can not be safely verified that the object is a WeakRefCounted.
-    WeakRefCounted* GetPtr() const { return type == VAR_PTR ? reinterpret_cast<const WeakPtr<WeakRefCounted>*>(&value)->Get() : (WeakRefCounted*)0; }
+    WeakRefCounted* AsPtr() const { return type == VAR_PTR ? reinterpret_cast<const WeakPtr<WeakRefCounted>*>(&data)->Get() : (WeakRefCounted*)0; }
     /// Return a Matrix3 or identity on type mismatch.
-    const Matrix3& GetMatrix3() const { return type == VAR_MATRIX3 ? *(reinterpret_cast<const Matrix3*>(value.ptrValue)) : Matrix3::IDENTITY; }
+    const Matrix3& AsMatrix3() const { return type == VAR_MATRIX3 ? *(reinterpret_cast<const Matrix3*>(data.ptrValue)) : Matrix3::IDENTITY; }
     /// Return a Matrix3x4 or identity on type mismatch.
-    const Matrix3x4& GetMatrix3x4() const { return type == VAR_MATRIX3X4 ? *(reinterpret_cast<const Matrix3x4*>(value.ptrValue)) : Matrix3x4::IDENTITY; }
+    const Matrix3x4& AsMatrix3x4() const { return type == VAR_MATRIX3X4 ? *(reinterpret_cast<const Matrix3x4*>(data.ptrValue)) : Matrix3x4::IDENTITY; }
     /// Return a Matrix4 or identity on type mismatch.
-    const Matrix4& GetMatrix4() const { return type == VAR_MATRIX4 ? *(reinterpret_cast<const Matrix4*>(value.ptrValue)) : Matrix4::IDENTITY; }
+    const Matrix4& AsMatrix4() const { return type == VAR_MATRIX4 ? *(reinterpret_cast<const Matrix4*>(data.ptrValue)) : Matrix4::IDENTITY; }
     /// Return value's type.
     VariantType Type() const { return type; }
     /// Return value's type name.
@@ -757,14 +674,14 @@ public:
     /// Return true when the variant is empty (i.e. not initialized yet).
     bool IsEmpty() const { return type == VAR_NONE; }
     /// Return the value, template version.
-    template <class T> T Get() const;
+    template <class T> T As() const;
     
     /// Return a pointer to a modifiable buffer or null on type mismatch.
-    Vector<unsigned char>* GetBufferPtr() { return type == VAR_BUFFER ? reinterpret_cast<Vector<unsigned char>*>(&value) : 0; }
+    Vector<unsigned char>* AsBufferPtr() { return type == VAR_BUFFER ? reinterpret_cast<Vector<unsigned char>*>(&data) : 0; }
     /// Return a pointer to a modifiable variant vector or null on type mismatch.
-    VariantVector* GetVariantVectorPtr() { return type == VAR_VARIANTVECTOR ? reinterpret_cast<VariantVector*>(&value) : 0; }
+    VariantVector* AsVariantVectorPtr() { return type == VAR_VARIANTVECTOR ? reinterpret_cast<VariantVector*>(&data) : 0; }
     /// Return a pointer to a modifiable variant map or null on type mismatch.
-    VariantMap* GetVariantMapPtr() { return type == VAR_VARIANTMAP ? reinterpret_cast<VariantMap*>(&value) : 0; }
+    VariantMap* AsVariantMapPtr() { return type == VAR_VARIANTMAP ? reinterpret_cast<VariantMap*>(&data) : 0; }
 
     /// Return name for variant type.
     static String TypeName(VariantType type);
@@ -792,8 +709,8 @@ private:
 
     /// Variant type.
     VariantType type;
-    /// Variant value.
-    VariantValue value;
+    /// Variant value data.
+    VariantValue data;
 };
 
 }

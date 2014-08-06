@@ -44,7 +44,7 @@ public:
     /// Return non-const data.
     unsigned char* GetModifiableData() { return buffer.Begin().ptr; }
     /// Return the buffer.
-    const Vector<unsigned char>& GetBuffer() const { return buffer; }
+    const Vector<unsigned char>& AsBuffer() const { return buffer; }
     
 private:
     /// Dynamic data buffer.
