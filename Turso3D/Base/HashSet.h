@@ -318,7 +318,7 @@ public:
         delete[] ptrs;
     }
     
-    /// Rehash to a specific bucket count, which must be a power of two. Return true if successful.
+    /// Rehash to a specific bucket count, which must be a power of two. Return true on success.
     bool Rehash(size_t numBuckets)
     {
         if (numBuckets == NumBuckets())

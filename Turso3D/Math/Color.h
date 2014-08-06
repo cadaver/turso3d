@@ -125,9 +125,9 @@ public:
     void FromHSL(float h, float s, float l, float a = 1.0f);
     /// Set RGBA values from specified HSV values and alpha.
     void FromHSV(float h, float s, float v, float a = 1.0f);
-    /// Parse from a string. Return true if successful.
+    /// Parse from a string. Return true on success.
     bool FromString(const String& str);
-    /// Parse from a C string. Return true if successful.
+    /// Parse from a C string. Return true on success.
     bool FromString(const char* str);
 
     /// Return RGB as a three-dimensional vector.

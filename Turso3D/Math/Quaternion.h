@@ -169,11 +169,11 @@ public:
     void FromAxes(const Vector3& xAxis, const Vector3& yAxis, const Vector3& zAxis);
     /// Define from a rotation matrix.
     void FromRotationMatrix(const Matrix3& matrix);
-    /// Define from a direction to look in and an up direction. Return true if successful, or false if would result in a NaN, in which case the current value remains.
+    /// Define from a direction to look in and an up direction. Return true on success, or false if would result in a NaN, in which case the current value remains.
     bool FromLookRotation(const Vector3& direction, const Vector3& up = Vector3::UP);
-    /// Parse from a string. Return true if successful.
+    /// Parse from a string. Return true on success.
     bool FromString(const String& str);
-    /// Parse from a C string. Return true if successful.
+    /// Parse from a C string. Return true on success.
     bool FromString(const char* str);
 
     /// Normalize to unit length.

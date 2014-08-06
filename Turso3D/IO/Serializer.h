@@ -7,9 +7,13 @@
 namespace Turso3D
 {
 
+class BoundingBox;
 class Color;
 class IntRect;
 class IntVector2;
+class Matrix3;
+class Matrix3x4;
+class Matrix4;
 class Quaternion;
 class Rect;
 class String;
@@ -81,8 +85,10 @@ public:
     bool WriteColor(const Color& value);
     /// Write a bounding box.
     bool WriteBoundingBox(const BoundingBox& value);
-    /// Write a null-terminated string.
-    bool WriteString(const String& value);
+    /// Write a string.
+    bool WriteString(const String& value, bool nullTerminate = true);
+    /// Write a C string.
+    bool WriteString(const char* value, bool nullTerminate = true);
     /// Write a four-letter file ID. If the string is not long enough, spaces will be appended.
     bool WriteFileID(const String& value);
     /// Write a 32-bit StringHash.

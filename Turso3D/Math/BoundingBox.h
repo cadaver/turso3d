@@ -227,9 +227,9 @@ public:
     void Transform(const Matrix3& transform);
     /// Transform with a 3x4 matrix.
     void Transform(const Matrix3x4& transform);
-   /// Parse from a string. Return true if successful.
+   /// Parse from a string. Return true on success.
     bool FromString(const String& str);
-    /// Parse from a C string. Return true if successful.
+    /// Parse from a C string. Return true on success.
     bool FromString(const char* str);
     
     /// Return whether has non-negative size.

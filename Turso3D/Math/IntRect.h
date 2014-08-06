@@ -75,9 +75,9 @@ public:
     /// Test for inequality with another rect.
     bool operator != (const IntRect& rhs) const { return !(*this == rhs); }
     
-    /// Parse from a string. Return true if successful.
+    /// Parse from a string. Return true on success.
     bool FromString(const String& str);
-    /// Parse from a C string. Return true if successful.
+    /// Parse from a C string. Return true on success.
     bool FromString(const char* str);
     
     /// Return size.

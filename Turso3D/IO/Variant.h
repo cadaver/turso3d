@@ -91,9 +91,9 @@ struct TURSO3D_API ResourceRef
     {
     }
 
-    /// Set from a string that contains the type and name separated by a semicolon. Return true if successful.
+    /// Set from a string that contains the type and name separated by a semicolon. Return true on success.
     bool FromString(const String& str);
-    /// Set from a C string that contains the type and name separated by a semicolon. Return true if successful.
+    /// Set from a C string that contains the type and name separated by a semicolon. Return true on success.
     bool FromString(const char* str);
     
     /// Return as a string.
@@ -144,9 +144,9 @@ struct TURSO3D_API ResourceRefList
     {
     }
 
-    /// Set from a string that contains the type and names separated by semicolons. Return true if successful.
+    /// Set from a string that contains the type and names separated by semicolons. Return true on success.
     bool FromString(const String& str);
-    /// Set from a C string that contains the type and names separated by semicolons. Return true if successful.
+    /// Set from a C string that contains the type and names separated by semicolons. Return true on success.
     bool FromString(const char* str);
     
     /// Return as a string.

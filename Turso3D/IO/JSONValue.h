@@ -116,6 +116,7 @@ public:
     {
         SetType(JSON_BOOL);
         data.boolValue = rhs;
+        return *this;
     }
     
     /// Assign an integer number.
@@ -123,6 +124,7 @@ public:
     {
         SetType(JSON_NUMBER);
         data.numberValue = (double)rhs;
+        return *this;
     }
     
     /// Assign an unsigned integer number.
@@ -130,6 +132,7 @@ public:
     {
         SetType(JSON_NUMBER);
         data.numberValue = (double)rhs;
+        return *this;
     }
     
     /// Assign a floating point number.
@@ -137,6 +140,7 @@ public:
     {
         SetType(JSON_NUMBER);
         data.numberValue = (double)rhs;
+        return *this;
     }
     
     /// Assign a floating point number.
@@ -144,6 +148,7 @@ public:
     {
         SetType(JSON_NUMBER);
         data.numberValue = rhs;
+        return *this;
     }
     
     /// Assign a string.
@@ -151,12 +156,36 @@ public:
     {
         SetType(JSON_STRING);
         *(reinterpret_cast<String*>(&data)) = value;
+        return *this;
     }
+    
     /// Assign a C string.
     JSONValue& operator = (const char* value)
     {
         SetType(JSON_STRING);
         *(reinterpret_cast<String*>(&data)) = value;
+        return *this;
+    }
+    
+    /// Index as an array. Becomes an array if was not before.
+    JSONValue& operator [] (size_t index)
+    {
+        if (type != JSON_ARRAY)
+            SetType(JSON_ARRAY);
+        
+        return const_cast<JSONArray&>(AsArray())[index];
+    }
+    
+    /// Const index as an array. Return a null value if not an array.
+    const JSONValue& operator [] (size_t index) const
+    {
+        if (type == JSON_OBJECT)
+        {
+            const JSONArray& array = AsArray();
+            return array[index];
+        }
+        else
+            return EMPTY;
     }
     
     /// Index as an object. Becomes an object if was not before.
@@ -168,7 +197,7 @@ public:
         return const_cast<JSONObject&>(AsObject())[key];
     }
     
-    /// Index as an object. Return a null value if not an object.
+    /// Const index as an object. Return a null value if not an object.
     const JSONValue& operator [] (const String& key) const
     {
         if (type == JSON_OBJECT)
@@ -181,42 +210,58 @@ public:
             return EMPTY;
     }
     
-    /// Index as an array. Becomes an array if was not before.
-    JSONValue& operator [] (size_t index)
-    {
-        if (type != JSON_ARRAY)
-            SetType(JSON_ARRAY);
-        
-        return const_cast<JSONArray&>(AsArray())[index];
-    }
-    
-    /// Index as an array. Return a null value if not an array.
-    const JSONValue& operator [] (size_t index) const
-    {
-        if (type == JSON_OBJECT)
-        {
-            const JSONArray& array = AsArray();
-            return array[index];
-        }
-        else
-            return EMPTY;
-    }
-    
     /// Test for equality with another JSON value.
     bool operator == (const JSONValue& rhs) const;
     /// Test for inequality.
     bool operator != (const JSONValue& rhs) const { return !(*this == rhs); }
     
-    /// Set an associative value. Becomes an object if was not before.
-    void SetValue(const String& key, const JSONValue& value) { (*this)[key] = value; }
-    /// Set an indexed value. Becomes an array if was not before.
-    void SetValue(size_t index, const JSONValue& value) { (*this)[index] = value; }
+    /// Push a value at the end. Becomes an array if was not before.
+    void Push(const JSONValue& value)
+    {
+        SetType(JSON_ARRAY);
+        const_cast<JSONArray&>(AsArray()).Push(value);
+    }
+    
+    /// Insert a value at position. Becomes an array if was not before.
+    void Insert(size_t index, const JSONValue& value)
+    {
+        SetType(JSON_ARRAY);
+        const_cast<JSONArray&>(AsArray()).Insert(index, value);
+    }
+    
+    /// Remove the last value. No-op if not an array.
+    void Pop()
+    {
+        if (type == JSON_ARRAY)
+            const_cast<JSONArray&>(AsArray()).Pop();
+    }
+    
+    /// Remove indexed value(s). No-op if not an array.
+    void Erase(size_t pos, size_t length = 1)
+    {
+        if (type == JSON_ARRAY)
+            const_cast<JSONArray&>(AsArray()).Erase(pos, length);
+    }
     
     /// Resize array. Becomes an array if was not before.
     void Resize(size_t newSize)
     {
         SetType(JSON_ARRAY);
         const_cast<JSONArray&>(AsArray()).Resize(newSize);
+    }
+    
+    /// Insert an associative value. Becomes an object if was not before.
+    void Insert(const Pair<String, JSONValue>& pair)
+    {
+        SetType(JSON_OBJECT);
+        const_cast<JSONObject&>(AsObject()).Insert(pair);
+    }
+    
+    /// Remove an associative value. No-op if not an object.
+    void Erase(const String& key)
+    {
+        if (type == JSON_OBJECT)
+            const_cast<JSONObject&>(AsObject()).Erase(key);
     }
     
     /// Clear array or object. No-op otherwise.
@@ -231,6 +276,11 @@ public:
     /// Set to null value.
     void SetNull() { SetType(JSON_NULL); }
     
+    /// Write to a stream. Return true on success.
+    bool Write(Serializer& dest, int spacing = 2, int indent = 0) const;
+    /// Serialize to a string.
+    String ToString(int spacing = 2) const;
+    
     /// Return value as a bool, or false on type mismatch.
     bool AsBool() const { return type == JSON_BOOL ? data.boolValue : false; }
     /// Return value as a number, or zero on type mismatch.
@@ -244,7 +294,7 @@ public:
     /// Return an associative value, or null if not an object.
     const JSONValue& Value(const String& key) const { return (*this)[key]; }
     /// Return an indexed value, or null if not an array.
-    const JSONValue& Value(size_t index) const { return (*this)[index]; }
+    const JSONValue& At(size_t index) const { return (*this)[index]; }
     
     /// Return number of values for objects or arrays, or 0 otherwise.
     size_t Size() const
@@ -282,6 +332,9 @@ public:
 private:
     /// Assign a new type and perform the necessary dynamic allocation / deletion.
     void SetType(JSONType newType);
+    
+    /// Write a string in JSON format into a stream. Return true on success.
+    static bool WriteJSONString(Serializer& dest, const String& str);
 
     /// Type.
     JSONType type;

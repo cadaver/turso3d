@@ -84,7 +84,7 @@ size_t VectorBuffer::Write(const void* data, size_t numBytes)
     unsigned char* destPtr = &buffer[position];
     position += numBytes;
     
-    size_t copySize = size;
+    size_t copySize = numBytes;
     while (copySize >= sizeof(unsigned))
     {
         *((unsigned*)destPtr) = *((unsigned*)srcPtr);

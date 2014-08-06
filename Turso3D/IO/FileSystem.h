@@ -20,11 +20,11 @@ static const unsigned SCAN_HIDDEN = 0x4;
 TURSO3D_API bool SetCurrentDir(const String& pathName);
 /// Create a directory.
 TURSO3D_API bool CreateDir(const String& pathName);
-/// Copy a file. Return true if successful.
+/// Copy a file. Return true on success.
 TURSO3D_API bool CopyFile(const String& srcFileName, const String& destFileName);
-/// Rename a file. Return true if successful.
+/// Rename a file. Return true on success.
 TURSO3D_API bool RenameFile(const String& srcFileName, const String& destFileName);
-/// Delete a file. Return true if successful.
+/// Delete a file. Return true on success.
 TURSO3D_API bool DeleteFile(const String& fileName);
 /// Return the absolute current working directory.
 TURSO3D_API String CurrentDir();

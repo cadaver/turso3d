@@ -21,7 +21,7 @@ public:
     
     /// Reset to given width and height and remove all previous allocations.
     void Reset(int width, int height);
-    /// Try to allocate an area. Return true if successful, with x & y coordinates filled.
+    /// Try to allocate an area. Return true on success, with x & y coordinates filled.
     bool Allocate(int width, int height, int& x, int& y);
     /// Return the current width.
     int GetWidth() const { return size.x; }

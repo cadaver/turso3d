@@ -268,6 +268,21 @@ int main()
         
         printf("%s\n", profiler.OutputResults().CString());
     }
+    
+    {
+        printf("Testing JSONValue\n");
+        JSONValue org;
+        org["name"] = "S.C.E.P.T.R.E";
+        org["longName"] = "Sectarian Chosen Elite Privileged To Rule And Exterminate";
+        org["isEvil"] = true;
+        org["members"] = 218;
+        JSONValue officers;
+        officers.Push("Ahriman");
+        officers.Push("Lilith");
+        officers.Push("Suhrim");
+        org["officers"] = officers;
+        printf("%s\n", org.ToString().CString());
+    }
 
     return 0;
 }

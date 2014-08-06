@@ -40,11 +40,11 @@ public:
     void Resize(size_t newSize);
     
     /// Return data.
-    const unsigned char* GetData() const { return buffer.Begin().ptr; }
+    const unsigned char* Data() const { return buffer.Begin().ptr; }
     /// Return non-const data.
-    unsigned char* GetModifiableData() { return buffer.Begin().ptr; }
+    unsigned char* ModifiableData() { return buffer.Begin().ptr; }
     /// Return the buffer.
-    const Vector<unsigned char>& AsBuffer() const { return buffer; }
+    const Vector<unsigned char>& Buffer() const { return buffer; }
     
 private:
     /// Dynamic data buffer.

@@ -38,7 +38,7 @@ public:
     /// Return the file path and name.
     virtual const String& Name() const { return name; }
     
-    /// Open a file. Return true if successful.
+    /// Open a file. Return true on success.
     bool Open(const String& fileName, FileMode fileMode = FILE_READ);
     /// Close the file.
     void Close();

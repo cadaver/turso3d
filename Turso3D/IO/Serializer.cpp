@@ -141,12 +141,19 @@ bool Serializer::WriteBoundingBox(const BoundingBox& value)
     return success;
 }
 
-bool Serializer::WriteString(const String& value)
+bool Serializer::WriteString(const String& value, bool nullTerminate)
 {
-    const char* chars = value.CString();
+    return WriteString(value.CString(), nullTerminate);
+}
+
+bool Serializer::WriteString(const char* value, bool nullTerminate)
+{
     // Count length to the first zero, because ReadString() does the same
-    size_t length = String::CStringLength(chars);
-    return Write(chars, length + 1) == length + 1;
+    size_t length = String::CStringLength(value);
+    if (nullTerminate)
+        return Write(value, length + 1) == length + 1;
+    else
+        return Write(value, length) == length;
 }
 
 bool Serializer::WriteFileID(const String& value)
