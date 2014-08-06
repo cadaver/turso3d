@@ -4,7 +4,7 @@
 
 #include "../Turso3DConfig.h"
 #include <cassert>
-#include <cstdarg>
+#include <cstddef>
 
 namespace Turso3D
 {
