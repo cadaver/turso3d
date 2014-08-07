@@ -129,70 +129,58 @@ bool JSONValue::Read(Deserializer& source)
     else if (c == '[')
     {
         SetType(JSON_ARRAY);
+        // Check for empty first
+        if (!NextChar(c, source, true))
+            return false;
+        if (c == ']')
+            return true;
+        else
+            source.Seek(source.Position() - 1);
+        
         for (;;)
         {
             JSONValue arrayValue;
-            if (arrayValue.Read(source))
-            {
-                Push(arrayValue);
-                if (!NextChar(c, source, true))
-                    return false;
-                if (c == ']')
-                    break;
-                else if (c != ',')
-                    return false;
-            }
-            else
-            {
-                // If failed to read the first value, may have been an empty array, which is OK.
-                // Otherwise fail
-                if (IsEmpty())
-                    break;
-                else
-                    return false;
-            }
+            if (!arrayValue.Read(source))
+                return false;
+            Push(arrayValue);
+            if (!NextChar(c, source, true))
+                return false;
+            if (c == ']')
+                break;
+            else if (c != ',')
+                return false;
         }
         return true;
     }
     else if (c == '{')
     {
         SetType(JSON_OBJECT);
+        if (!NextChar(c, source, true))
+            return false;
+        if (c == '}')
+            return true;
+        else
+            source.Seek(source.Position() - 1);
         for (;;)
         {
             String key;
             if (!ReadJSONString(key, source, false))
-            {
-                // If failed to read the first key, may have been an empty object, which is OK.
-                // Otherwise fail
-                if (IsEmpty())
-                    break;
-                else
-                    return false;
-            }
+                return false;
             if (!NextChar(c, source, true))
                 return false;
             if (c != ':')
                 return false;
+            
             JSONValue objectValue;
-            if (objectValue.Read(source))
-            {
-                (*this)[key] = objectValue;
-                if (!NextChar(c, source, true))
-                    return false;
-                if (c == '}')
-                    break;
-                else if (c != ',')
-                    return false;
-            }
-            else
-            {
-                // If failed to read the first value, may have been an empty object, which is OK.
-                // Otherwise fail
-                if (IsEmpty())
-                    break;
-                else
-                    return false;
-            }
+            if (!objectValue.Read(source))
+                return false;
+            (*this)[key] = objectValue;
+            if (!NextChar(c, source, true))
+                return false;
+            if (c == '}')
+                break;
+            else if (c != ',')
+                return false;
         }
         return true;
     }
