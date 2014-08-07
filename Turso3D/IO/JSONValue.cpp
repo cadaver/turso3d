@@ -479,7 +479,7 @@ bool JSONValue::ReadJSONString(String& dest, Deserializer& source, bool inQuote)
             case 'u':
                 {
                     char buffer[5];
-                    unsigned short code;
+                    unsigned code;
                     if (source.Read(buffer, 4) != 4)
                         return false;
                     buffer[4] = 0;

@@ -49,7 +49,6 @@ struct VariantData
 {
     union
     {
-        char charValue;
         int intValue;
         bool boolValue;
         float floatValue;
@@ -604,7 +603,7 @@ private:
 
     /// Variant type.
     VariantType type;
-    /// Variant value data.
+    /// Value data.
     VariantData data;
 };
 

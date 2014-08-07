@@ -24,7 +24,8 @@ enum JSONType
     JSON_NUMBER,
     JSON_STRING,
     JSON_ARRAY,
-    JSON_OBJECT
+    JSON_OBJECT,
+    MAX_JSON_TYPES
 };
 
 /// JSON data union.
