@@ -97,7 +97,9 @@ int main()
     printf("Size of HashMap: %d\n", sizeof(HashMap<int, int>));
     printf("Size of RefCounted: %d\n", sizeof(RefCounted));
     printf("Size of WeakRefCounted: %d\n", sizeof(WeakRefCounted));
-
+    printf("Size of Variant: %d\n", sizeof(Variant));
+    printf("Size of JSONValue: %d\n", sizeof(JSONValue));
+    
     {
         printf("\nTesting AutoPtr assignment\n");
         AutoPtr<Test> ptr1(new Test);
@@ -276,12 +278,20 @@ int main()
         org["longName"] = "Sectarian Chosen Elite Privileged To Rule & Exterminate";
         org["isEvil"] = true;
         org["members"] = 218;
+        org["honor"] = JSONValue();
         JSONValue officers;
         officers.Push("Ahriman");
         officers.Push("Lilith");
         officers.Push("Suhrim");
         org["officers"] = officers;
-        printf("%s\n", org.ToString().CString());
+        org["allies"] = JSONArray();
+        org["sightings"] = JSONObject();
+        String jsonString = org.ToString();
+        printf("%s\n", jsonString.CString());
+        JSONValue parsed;
+        bool success = parsed.FromString(jsonString);
+        printf("JSON parsing result: %d\n", success);
+        printf("Parsed JSON: %s\n", parsed.ToString().CString());
     }
 
     return 0;

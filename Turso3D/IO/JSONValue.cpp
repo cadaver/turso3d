@@ -2,11 +2,14 @@
 
 #include "../Base/Vector.h"
 #include "../Base/HashMap.h"
+#include "Deserializer.h"
+#include "MemoryBuffer.h"
 #include "JSONValue.h"
 #include "Serializer.h"
 #include "VectorBuffer.h"
 
 #include <cstdio>
+#include <cstdlib>
 
 namespace Turso3D
 {
@@ -73,6 +76,128 @@ bool JSONValue::operator == (const JSONValue& rhs) const
     default:
         return true;
     }
+}
+
+bool JSONValue::Read(Deserializer& source)
+{
+    char c;
+    if (!NextChar(c, source, true))
+        return false;
+    
+    if (c == '}' || c == ']')
+        return false;
+    else if (c == 'n')
+    {
+        SetNull();
+        return MatchString(source, "ull");
+    }
+    else if (c == 'f')
+    {
+        *this = false;
+        return MatchString(source, "alse");
+    }
+    else if (c == 't')
+    {
+        *this = true;
+        return MatchString(source, "rue");
+    }
+    else if (IsDigit(c) || c == '-')
+    {
+        String numberStr;
+        numberStr += c;
+        for (;;)
+        {
+            if (!NextChar(c, source, false))
+                return false;
+            if (!IsDigit(c) && c != 'e' && c != 'E' && c != '+' && c != '-' && c != '.')
+            {
+                source.Seek(source.Position() - 1);
+                break;
+            }
+            else
+                numberStr += c;
+        }
+        char* ptr = (char*)numberStr.CString();
+        *this = strtod(ptr, &ptr);
+        return true;
+    }
+    else if (c == '\"')
+    {
+        SetType(JSON_STRING);
+        return ReadJSONString(*(reinterpret_cast<String*>(&data)), source, true);
+    }
+    else if (c == '[')
+    {
+        SetType(JSON_ARRAY);
+        for (;;)
+        {
+            JSONValue arrayValue;
+            if (arrayValue.Read(source))
+            {
+                Push(arrayValue);
+                if (!NextChar(c, source, true))
+                    return false;
+                if (c == ']')
+                    break;
+                else if (c != ',')
+                    return false;
+            }
+            else
+            {
+                // If failed to read the first value, may have been an empty array, which is OK.
+                // Otherwise fail
+                if (IsEmpty())
+                    break;
+                else
+                    return false;
+            }
+        }
+        return true;
+    }
+    else if (c == '{')
+    {
+        SetType(JSON_OBJECT);
+        for (;;)
+        {
+            String key;
+            if (!ReadJSONString(key, source, false))
+            {
+                // If failed to read the first key, may have been an empty object, which is OK.
+                // Otherwise fail
+                if (IsEmpty())
+                    break;
+                else
+                    return false;
+            }
+            if (!NextChar(c, source, true))
+                return false;
+            if (c != ':')
+                return false;
+            JSONValue objectValue;
+            if (objectValue.Read(source))
+            {
+                (*this)[key] = objectValue;
+                if (!NextChar(c, source, true))
+                    return false;
+                if (c == '}')
+                    break;
+                else if (c != ',')
+                    return false;
+            }
+            else
+            {
+                // If failed to read the first value, may have been an empty object, which is OK.
+                // Otherwise fail
+                if (IsEmpty())
+                    break;
+                else
+                    return false;
+            }
+        }
+        return true;
+    }
+    
+    return false;
 }
 
 bool JSONValue::Write(Serializer& dest, int spacing, int indent) const
@@ -165,6 +290,18 @@ bool JSONValue::Write(Serializer& dest, int spacing, int indent) const
     }
     
     return true;
+}
+
+bool JSONValue::FromString(const String& str)
+{
+    MemoryBuffer buffer(str.CString(), str.Length());
+    return Read(buffer);
+}
+
+bool JSONValue::FromString(const char* str)
+{
+    MemoryBuffer buffer(str, String::CStringLength(str));
+    return Read(buffer);
 }
 
 String JSONValue::ToString(int spacing) const
@@ -284,6 +421,103 @@ bool JSONValue::WriteJSONString(Serializer& dest, const String& str)
     }
     
     return dest.WriteByte('\"');
+}
+
+bool JSONValue::ReadJSONString(String& dest, Deserializer& source, bool inQuote)
+{
+    char c;
+    
+    if (!inQuote)
+    {
+        if (!NextChar(c, source, true) || c != '\"')
+            return false;
+    }
+    
+    dest.Clear();
+    for (;;)
+    {
+        if (!NextChar(c, source, false))
+            return false;
+        if (c == '\"')
+            break;
+        else if (c != '\\')
+            dest += c;
+        else
+        {
+            if (!NextChar(c, source, false))
+                return false;
+            switch (c)
+            {
+            case '\\':
+                dest += '\\';
+                break;
+                
+            case '\"':
+                dest += '\"';
+                break;
+                
+            case 'b':
+                dest += '\b';
+                break;
+                
+            case 'f':
+                dest += '\f';
+                break;
+                
+            case 'n':
+                dest += '\n';
+                break;
+            
+            case 'r':
+                dest += '\r';
+                break;
+                
+            case 't':
+                dest += '\t';
+                break;
+                
+            case 'u':
+                {
+                    char buffer[5];
+                    unsigned short code;
+                    if (source.Read(buffer, 4) != 4)
+                        return false;
+                    buffer[4] = 0;
+                    /// \todo Doesn't handle unicode surrogate pairs
+                    sscanf(buffer, "%x", &code);
+                    dest.AppendUTF8(code);
+                }
+                break;
+            }
+        }
+    }
+    
+    return true;
+}
+
+bool JSONValue::NextChar(char& dest, Deserializer& source, bool skipWhiteSpace)
+{
+    while (!source.IsEof())
+    {
+        dest = source.ReadByte();
+        if (!skipWhiteSpace || dest > 0x20)
+            return true;
+    }
+    
+    return false;
+}
+
+bool JSONValue::MatchString(Deserializer& source, const char* str)
+{
+    while (*str)
+    {
+        if (source.IsEof() || source.ReadByte() != *str)
+            return false;
+        else
+            ++str;
+    }
+    
+    return true;
 }
 
 }

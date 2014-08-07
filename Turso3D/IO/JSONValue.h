@@ -39,7 +39,7 @@ struct JSONData
 };
 
 /// JSON value used in human-readable serialization.
-class JSONValue
+class TURSO3D_API JSONValue
 {
 public:
     /// Construct a null value.
@@ -95,8 +95,23 @@ public:
     {
         *this = value;
     }
+    
     /// Construct from a C string.
     JSONValue(const char* value) :
+        type(JSON_NULL)
+    {
+        *this = value;
+    }
+    
+    /// Construct from a JSON object.
+    JSONValue(const JSONArray& value) :
+        type(JSON_NULL)
+    {
+        *this = value;
+    }
+    
+    /// Construct from a JSON object.
+    JSONValue(const JSONObject& value) :
         type(JSON_NULL)
     {
         *this = value;
@@ -167,6 +182,22 @@ public:
         return *this;
     }
     
+    /// Assign a JSON array.
+    JSONValue& operator = (const JSONArray& value)
+    {
+        SetType(JSON_ARRAY);
+        *(reinterpret_cast<JSONArray*>(&data)) = value;
+        return *this;
+    }
+    
+    /// Assign a JSON object.
+    JSONValue& operator = (const JSONObject& value)
+    {
+        SetType(JSON_OBJECT);
+        *(reinterpret_cast<JSONObject*>(&data)) = value;
+        return *this;
+    }
+    
     /// Index as an array. Becomes an array if was not before.
     JSONValue& operator [] (size_t index)
     {
@@ -214,6 +245,15 @@ public:
     bool operator == (const JSONValue& rhs) const;
     /// Test for inequality.
     bool operator != (const JSONValue& rhs) const { return !(*this == rhs); }
+    
+    /// Read from a stream. Return true on success.
+    bool Read(Deserializer& source);
+    /// Write to a stream. Return true on success.
+    bool Write(Serializer& dest, int spacing = 2, int indent = 0) const;
+    /// Set from a string. Return true on success.
+    bool FromString(const String& str);
+    /// Set from a C string. Return true on success.
+    bool FromString(const char* str);
     
     /// Push a value at the end. Becomes an array if was not before.
     void Push(const JSONValue& value)
@@ -276,8 +316,6 @@ public:
     /// Set to null value.
     void SetNull() { SetType(JSON_NULL); }
     
-    /// Write to a stream. Return true on success.
-    bool Write(Serializer& dest, int spacing = 2, int indent = 0) const;
     /// Serialize to a string.
     String ToString(int spacing = 2) const;
     
@@ -305,6 +343,17 @@ public:
             AsObject().Size();
         else
             return 0;
+    }
+    
+    /// Return whether an object or array is empty. Return false if not an object or array.
+    bool IsEmpty() const
+    {
+        if (type == JSON_ARRAY)
+            return AsArray().IsEmpty();
+        else if (type == JSON_OBJECT)
+            return AsObject().IsEmpty();
+        else
+            return false;
     }
     
     /// Return type.
@@ -335,7 +384,13 @@ private:
     
     /// Write a string in JSON format into a stream. Return true on success.
     static bool WriteJSONString(Serializer& dest, const String& str);
-
+    /// Read a string in JSON format from a stream. Return true on success.
+    static bool ReadJSONString(String& dest, Deserializer& source, bool inQuote);
+    /// Get the next char from a stream. Return true on success or false if the stream ended.
+    static bool NextChar(char& dest, Deserializer& source, bool skipWhiteSpace);
+    /// Match until the end of a string. Return true if successfully matched.
+    static bool MatchString(Deserializer& source, const char* str);
+    
     /// Type.
     JSONType type;
     /// Value data.

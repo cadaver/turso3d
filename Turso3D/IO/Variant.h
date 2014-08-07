@@ -45,7 +45,7 @@ enum VariantType
 };
 
 /// Union for the possible variant values. Also stores non-POD objects such as String which must not exceed 16 bytes in size.
-struct VariantValue
+struct VariantData
 {
     union
     {
@@ -605,7 +605,7 @@ private:
     /// Variant type.
     VariantType type;
     /// Variant value data.
-    VariantValue data;
+    VariantData data;
 };
 
 }
