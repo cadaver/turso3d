@@ -104,9 +104,9 @@ bool JSONValue::Read(Deserializer& source)
     else if (IsDigit(c) || c == '-')
     {
         String numberStr;
-        numberStr += c;
         for (;;)
         {
+            numberStr += c;
             if (!NextChar(c, source, false))
                 return false;
             if (!IsDigit(c) && c != 'e' && c != 'E' && c != '+' && c != '-' && c != '.')
@@ -114,8 +114,6 @@ bool JSONValue::Read(Deserializer& source)
                 source.Seek(source.Position() - 1);
                 break;
             }
-            else
-                numberStr += c;
         }
         char* ptr = (char*)numberStr.CString();
         *this = strtod(ptr, &ptr);
