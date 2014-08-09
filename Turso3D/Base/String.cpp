@@ -234,57 +234,80 @@ String& String::operator += (char rhs)
 
 String& String::operator += (int rhs)
 {
-    return *this += String(rhs);
+    char tempBuffer[CONVERSION_BUFFER_LENGTH];
+    sprintf(tempBuffer, "%d", rhs);
+    return *this += tempBuffer;
 }
 
 String& String::operator += (short rhs)
 {
-    return *this += String(rhs);
+    char tempBuffer[CONVERSION_BUFFER_LENGTH];
+    sprintf(tempBuffer, "%d", rhs);
+    return *this += tempBuffer;
 }
 
 String& String::operator += (long rhs)
 {
-    return *this += String(rhs);
+    char tempBuffer[CONVERSION_BUFFER_LENGTH];
+    sprintf(tempBuffer, "%ld", rhs);
+    return *this += tempBuffer;
 }
 
 String& String::operator += (long long rhs)
 {
-    return *this += String(rhs);
+    char tempBuffer[CONVERSION_BUFFER_LENGTH];
+    sprintf(tempBuffer, "%lld", rhs);
+    return *this += tempBuffer;
 }
 
 String& String::operator += (unsigned rhs)
 {
-    return *this += String(rhs);
+    char tempBuffer[CONVERSION_BUFFER_LENGTH];
+    sprintf(tempBuffer, "%u", rhs);
+    return *this += tempBuffer;
 }
 
 String& String::operator += (unsigned short rhs)
 {
-    return *this += String(rhs);
+    char tempBuffer[CONVERSION_BUFFER_LENGTH];
+    sprintf(tempBuffer, "%u", rhs);
+    return *this += tempBuffer;
 }
 
 String& String::operator += (unsigned long rhs)
 {
-    return *this += String(rhs);
+    char tempBuffer[CONVERSION_BUFFER_LENGTH];
+    sprintf(tempBuffer, "%lu", rhs);
+    return *this += tempBuffer;
 }
 
 String& String::operator += (unsigned long long rhs)
 {
-    return *this += String(rhs);
+    char tempBuffer[CONVERSION_BUFFER_LENGTH];
+    sprintf(tempBuffer, "%llu", rhs);
+    return *this += tempBuffer;
 }
 
 String& String::operator += (float rhs)
 {
-    return *this += String(rhs);
+    char tempBuffer[CONVERSION_BUFFER_LENGTH];
+    sprintf(tempBuffer, "%g", rhs);
+    return *this += tempBuffer;
 }
 
 String& String::operator += (double rhs)
 {
-    return *this += String(rhs);
+    char tempBuffer[CONVERSION_BUFFER_LENGTH];
+    sprintf(tempBuffer, "%g", rhs);
+    return *this += tempBuffer;
 }
 
 String& String::operator += (bool rhs)
 {
-    return *this += String(rhs);
+    if (rhs)
+        return *this += "true";
+    else
+        return *this += "false";
 }
 
 String String::operator + (const String& rhs) const

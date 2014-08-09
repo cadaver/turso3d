@@ -101,7 +101,7 @@ public:
     /// Test for inequality.
     bool operator != (const JSONValue& rhs) const { return !(*this == rhs); }
     
-    /// Read from a stream. Return true on success.
+    /// Read from a stream. Return true on success. Note: will read the stream to the end.
     bool Read(Deserializer& source);
     /// Set from a string. Return true on success.
     bool FromString(const String& str);
@@ -126,10 +126,10 @@ public:
     /// Set to null value.
     void SetNull();
     
-    /// Write to a stream. Return true on success.
-    bool Write(Serializer& dest, int spacing = 2, int indent = 0) const;
-    /// Serialize to a string.
-    String ToString(int spacing = 2) const;
+    /// Write to a stream. Return true on success. Does not null-terminate the output.
+    bool Write(Serializer& dest) const;
+    /// Output as a string.
+    String ToString() const;
     /// Return number of values for objects or arrays, or 0 otherwise.
     size_t Size() const;
     /// Return whether an object or array is empty. Return false if not an object or array.
@@ -172,17 +172,35 @@ public:
     static const JSONObject emptyJSONObject;
     
 private:
+    /// Read from a buffer. Return true on success.
+    bool Read(const char*&pos, const char*& end);
+    /// Write to a string.
+    void Write(String& dest, int indent = 0) const;
     /// Assign a new type and perform the necessary dynamic allocation / deletion.
     void SetType(JSONType newType);
     
-    /// Write a string in JSON format into a stream. Return true on success.
-    static bool WriteJSONString(Serializer& dest, const String& str);
+    /// Append a string in JSON format into the destination.
+    static void WriteJSONString(String& dest, const String& str);
+    /// Append indent spaces to the destination.
+    static void WriteIndent(String& dest, int indent);
     /// Read a string in JSON format from a stream. Return true on success.
-    static bool ReadJSONString(String& dest, Deserializer& source, bool inQuote);
-    /// Get the next char from a stream. Return true on success or false if the stream ended.
-    static bool NextChar(char& dest, Deserializer& source, bool skipWhiteSpace);
+    static bool ReadJSONString(String& dest, const char*& pos, const char*& end, bool inQuote);
     /// Match until the end of a string. Return true if successfully matched.
-    static bool MatchString(Deserializer& source, const char* str);
+    static bool MatchString(const char* str, const char*& pos, const char*& end);
+    
+    /// Get the next char from a stream. Return true on success or false if the stream ended.
+    static bool NextChar(char& dest, const char*& pos, const char*& end, bool skipWhiteSpace)
+    {
+        while (pos < end)
+        {
+            dest = *pos;
+            ++pos;
+            if (!skipWhiteSpace || dest > 0x20)
+                return true;
+        }
+        
+        return false;
+    }
     
     /// Type.
     JSONType type;
