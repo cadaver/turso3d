@@ -44,204 +44,58 @@ class TURSO3D_API JSONValue
 {
 public:
     /// Construct a null value.
-    JSONValue() :
-        type(JSON_NULL)
-    {
-    }
-    
+    JSONValue();
     /// Copy-construct.
-    JSONValue(const JSONValue& value) :
-        type(JSON_NULL)
-    {
-        *this = value;
-    }
-    
+    JSONValue(const JSONValue& value);
     /// Construct from a boolean.
-    JSONValue(bool value) :
-        type(JSON_NULL)
-    {
-        *this = value;
-    }
-    
+    JSONValue(bool value);
     /// Construct from an integer number.
-    JSONValue(int value) :
-        type(JSON_NULL)
-    {
-        *this = value;
-    }
+    JSONValue(int value);
     /// Construct from an unsigned integer number.
-    JSONValue(unsigned value) :
-        type(JSON_NULL)
-    {
-        *this = value;
-    }
-    
+    JSONValue(unsigned value);
     /// Construct from a floating point number.
-    JSONValue(float value) :
-        type(JSON_NULL)
-    {
-        *this = value;
-    }
-    
+    JSONValue(float value);
     /// Construct from a floating point number.
-    JSONValue(double value) :
-        type(JSON_NULL)
-    {
-        *this = value;
-    }
-    
+    JSONValue(double value);
     /// Construct from a string.
-    JSONValue(const String& value) :
-        type(JSON_NULL)
-    {
-        *this = value;
-    }
-    
+    JSONValue(const String& value);
     /// Construct from a C string.
-    JSONValue(const char* value) :
-        type(JSON_NULL)
-    {
-        *this = value;
-    }
-    
+    JSONValue(const char* value);
     /// Construct from a JSON object.
-    JSONValue(const JSONArray& value) :
-        type(JSON_NULL)
-    {
-        *this = value;
-    }
-    
+    JSONValue(const JSONArray& value);
     /// Construct from a JSON object.
-    JSONValue(const JSONObject& value) :
-        type(JSON_NULL)
-    {
-        *this = value;
-    }
-    
+    JSONValue(const JSONObject& value);
     /// Destruct.
-    ~JSONValue()
-    {
-        SetType(JSON_NULL);
-    }
+    ~JSONValue();
     
     /// Assign a JSON value.
     JSONValue& operator = (const JSONValue& rhs);
-    
     /// Assign a boolean.
-    JSONValue& operator = (bool rhs)
-    {
-        SetType(JSON_BOOL);
-        data.boolValue = rhs;
-        return *this;
-    }
-    
+    JSONValue& operator = (bool rhs);
     /// Assign an integer number.
-    JSONValue& operator = (int rhs)
-    {
-        SetType(JSON_NUMBER);
-        data.numberValue = (double)rhs;
-        return *this;
-    }
-    
+    JSONValue& operator = (int rhs);
     /// Assign an unsigned integer number.
-    JSONValue& operator = (unsigned rhs)
-    {
-        SetType(JSON_NUMBER);
-        data.numberValue = (double)rhs;
-        return *this;
-    }
-    
+    JSONValue& operator = (unsigned rhs);
     /// Assign a floating point number.
-    JSONValue& operator = (float rhs)
-    {
-        SetType(JSON_NUMBER);
-        data.numberValue = (double)rhs;
-        return *this;
-    }
-    
+    JSONValue& operator = (float rhs);
     /// Assign a floating point number.
-    JSONValue& operator = (double rhs)
-    {
-        SetType(JSON_NUMBER);
-        data.numberValue = rhs;
-        return *this;
-    }
-    
+    JSONValue& operator = (double rhs);
     /// Assign a string.
-    JSONValue& operator = (const String& value)
-    {
-        SetType(JSON_STRING);
-        *(reinterpret_cast<String*>(&data)) = value;
-        return *this;
-    }
-    
+    JSONValue& operator = (const String& value);
     /// Assign a C string.
-    JSONValue& operator = (const char* value)
-    {
-        SetType(JSON_STRING);
-        *(reinterpret_cast<String*>(&data)) = value;
-        return *this;
-    }
-    
+    JSONValue& operator = (const char* value);
     /// Assign a JSON array.
-    JSONValue& operator = (const JSONArray& value)
-    {
-        SetType(JSON_ARRAY);
-        *(reinterpret_cast<JSONArray*>(&data)) = value;
-        return *this;
-    }
-    
+    JSONValue& operator = (const JSONArray& value);
     /// Assign a JSON object.
-    JSONValue& operator = (const JSONObject& value)
-    {
-        SetType(JSON_OBJECT);
-        *(reinterpret_cast<JSONObject*>(&data)) = value;
-        return *this;
-    }
-    
+    JSONValue& operator = (const JSONObject& value);
     /// Index as an array. Becomes an array if was not before.
-    JSONValue& operator [] (size_t index)
-    {
-        if (type != JSON_ARRAY)
-            SetType(JSON_ARRAY);
-        
-        return const_cast<JSONArray&>(AsArray())[index];
-    }
-    
+    JSONValue& operator [] (size_t index);
     /// Const index as an array. Return a null value if not an array.
-    const JSONValue& operator [] (size_t index) const
-    {
-        if (type == JSON_OBJECT)
-        {
-            const JSONArray& array = AsArray();
-            return array[index];
-        }
-        else
-            return EMPTY;
-    }
-    
+    const JSONValue& operator [] (size_t index) const;
     /// Index as an object. Becomes an object if was not before.
-    JSONValue& operator [] (const String& key)
-    {
-        if (type != JSON_OBJECT)
-            SetType(JSON_OBJECT);
-        
-        return const_cast<JSONObject&>(AsObject())[key];
-    }
-    
+    JSONValue& operator [] (const String& key);
     /// Const index as an object. Return a null value if not an object.
-    const JSONValue& operator [] (const String& key) const
-    {
-        if (type == JSON_OBJECT)
-        {
-            const JSONObject& object = AsObject();
-            JSONObject::ConstIterator it = object.Find(key);
-            return it != object.End() ? it->second : EMPTY;
-        }
-        else
-            return EMPTY;
-    }
-    
+    const JSONValue& operator [] (const String& key) const;
     /// Test for equality with another JSON value.
     bool operator == (const JSONValue& rhs) const;
     /// Test for inequality.
@@ -249,113 +103,37 @@ public:
     
     /// Read from a stream. Return true on success.
     bool Read(Deserializer& source);
-    /// Write to a stream. Return true on success.
-    bool Write(Serializer& dest, int spacing = 2, int indent = 0) const;
     /// Set from a string. Return true on success.
     bool FromString(const String& str);
     /// Set from a C string. Return true on success.
     bool FromString(const char* str);
-    
     /// Push a value at the end. Becomes an array if was not before.
-    void Push(const JSONValue& value)
-    {
-        SetType(JSON_ARRAY);
-        const_cast<JSONArray&>(AsArray()).Push(value);
-    }
-    
+    void Push(const JSONValue& value);
     /// Insert a value at position. Becomes an array if was not before.
-    void Insert(size_t index, const JSONValue& value)
-    {
-        SetType(JSON_ARRAY);
-        const_cast<JSONArray&>(AsArray()).Insert(index, value);
-    }
-    
+    void Insert(size_t index, const JSONValue& value);
     /// Remove the last value. No-op if not an array.
-    void Pop()
-    {
-        if (type == JSON_ARRAY)
-            const_cast<JSONArray&>(AsArray()).Pop();
-    }
-    
+    void Pop();
     /// Remove indexed value(s). No-op if not an array.
-    void Erase(size_t pos, size_t length = 1)
-    {
-        if (type == JSON_ARRAY)
-            const_cast<JSONArray&>(AsArray()).Erase(pos, length);
-    }
-    
+    void Erase(size_t pos, size_t length = 1);
     /// Resize array. Becomes an array if was not before.
-    void Resize(size_t newSize)
-    {
-        SetType(JSON_ARRAY);
-        const_cast<JSONArray&>(AsArray()).Resize(newSize);
-    }
-    
+    void Resize(size_t newSize);
     /// Insert an associative value. Becomes an object if was not before.
-    void Insert(const Pair<String, JSONValue>& pair)
-    {
-        SetType(JSON_OBJECT);
-        const_cast<JSONObject&>(AsObject()).Insert(pair);
-    }
-    
+    void Insert(const Pair<String, JSONValue>& pair);
     /// Remove an associative value. No-op if not an object.
-    void Erase(const String& key)
-    {
-        if (type == JSON_OBJECT)
-            const_cast<JSONObject&>(AsObject()).Erase(key);
-    }
-    
+    void Erase(const String& key);
     /// Clear array or object. No-op otherwise.
-    void Clear()
-    {
-        if (type == JSON_ARRAY)
-            const_cast<JSONArray&>(AsArray()).Clear();
-        else if (type == JSON_OBJECT)
-            const_cast<JSONObject&>(AsObject()).Clear();
-    }
-    
+    void Clear();
     /// Set to null value.
-    void SetNull() { SetType(JSON_NULL); }
+    void SetNull();
     
+    /// Write to a stream. Return true on success.
+    bool Write(Serializer& dest, int spacing = 2, int indent = 0) const;
     /// Serialize to a string.
     String ToString(int spacing = 2) const;
-    
-    /// Return value as a bool, or false on type mismatch.
-    bool AsBool() const { return type == JSON_BOOL ? data.boolValue : false; }
-    /// Return value as a number, or zero on type mismatch.
-    double AsNumber() const { return type == JSON_NUMBER ? data.numberValue : 0.0; }
-    /// Return value as a string, or empty string on type mismatch.
-    const String& AsString() const { return type == JSON_STRING ? *(reinterpret_cast<const String*>(&data)) : String::EMPTY; }
-    /// Return value as an array, or empty on type mismatch
-    const JSONArray& AsArray() const { return type == JSON_ARRAY ? *(reinterpret_cast<const JSONArray*>(&data)) : emptyJSONArray; }
-    /// Return value as an object, or empty on type mismatch
-    const JSONObject& AsObject() const { return type == JSON_OBJECT ? *(reinterpret_cast<const JSONObject*>(&data)) : emptyJSONObject; }
-    /// Return an associative value, or null if not an object.
-    const JSONValue& Value(const String& key) const { return (*this)[key]; }
-    /// Return an indexed value, or null if not an array.
-    const JSONValue& At(size_t index) const { return (*this)[index]; }
-    
     /// Return number of values for objects or arrays, or 0 otherwise.
-    size_t Size() const
-    {
-        if (type == JSON_ARRAY)
-            return AsArray().Size();
-        else if (type == JSON_OBJECT)
-            AsObject().Size();
-        else
-            return 0;
-    }
-    
+    size_t Size() const;
     /// Return whether an object or array is empty. Return false if not an object or array.
-    bool IsEmpty() const
-    {
-        if (type == JSON_ARRAY)
-            return AsArray().IsEmpty();
-        else if (type == JSON_OBJECT)
-            return AsObject().IsEmpty();
-        else
-            return false;
-    }
+    bool IsEmpty() const;
     
     /// Return type.
     JSONType Type() const { return type; }
@@ -371,6 +149,20 @@ public:
     bool IsArray() const { return type == JSON_ARRAY; }
     /// Return whether is an object.
     bool IsObject() const { return type == JSON_OBJECT; }
+    /// Return value as a bool, or false on type mismatch.
+    bool AsBool() const { return type == JSON_BOOL ? data.boolValue : false; }
+    /// Return value as a number, or zero on type mismatch.
+    double AsNumber() const { return type == JSON_NUMBER ? data.numberValue : 0.0; }
+    /// Return value as a string, or empty string on type mismatch.
+    const String& AsString() const { return type == JSON_STRING ? *(reinterpret_cast<const String*>(&data)) : String::EMPTY; }
+    /// Return value as an array, or empty on type mismatch
+    const JSONArray& AsArray() const { return type == JSON_ARRAY ? *(reinterpret_cast<const JSONArray*>(&data)) : emptyJSONArray; }
+    /// Return value as an object, or empty on type mismatch
+    const JSONObject& AsObject() const { return type == JSON_OBJECT ? *(reinterpret_cast<const JSONObject*>(&data)) : emptyJSONObject; }
+    /// Return an associative value, or null if not an object.
+    const JSONValue& Value(const String& key) const { return (*this)[key]; }
+    /// Return an indexed value, or null if not an array.
+    const JSONValue& At(size_t index) const { return (*this)[index]; }
     
     /// Empty (null) value.
     static const JSONValue EMPTY;

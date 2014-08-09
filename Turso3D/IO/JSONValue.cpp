@@ -18,6 +18,76 @@ const JSONValue JSONValue::EMPTY;
 const JSONArray JSONValue::emptyJSONArray;
 const JSONObject JSONValue::emptyJSONObject;
 
+JSONValue::JSONValue() :
+    type(JSON_NULL)
+{
+}
+
+JSONValue::JSONValue(const JSONValue& value) :
+    type(JSON_NULL)
+{
+    *this = value;
+}
+
+JSONValue::JSONValue(bool value) :
+    type(JSON_NULL)
+{
+    *this = value;
+}
+
+JSONValue::JSONValue(int value) :
+    type(JSON_NULL)
+{
+    *this = value;
+}
+
+JSONValue::JSONValue(unsigned value) :
+    type(JSON_NULL)
+{
+    *this = value;
+}
+
+JSONValue::JSONValue(float value) :
+    type(JSON_NULL)
+{
+    *this = value;
+}
+
+JSONValue::JSONValue(double value) :
+    type(JSON_NULL)
+{
+    *this = value;
+}
+
+JSONValue::JSONValue(const String& value) :
+    type(JSON_NULL)
+{
+    *this = value;
+}
+
+JSONValue::JSONValue(const char* value) :
+    type(JSON_NULL)
+{
+    *this = value;
+}
+
+JSONValue::JSONValue(const JSONArray& value) :
+    type(JSON_NULL)
+{
+    *this = value;
+}
+
+JSONValue::JSONValue(const JSONObject& value) :
+    type(JSON_NULL)
+{
+    *this = value;
+}
+
+JSONValue::~JSONValue()
+{
+    SetType(JSON_NULL);
+}
+
 JSONValue& JSONValue::operator = (const JSONValue& rhs)
 {
     SetType(rhs.type);
@@ -49,6 +119,108 @@ JSONValue& JSONValue::operator = (const JSONValue& rhs)
     }
     
     return *this;
+}
+
+JSONValue& JSONValue::operator = (bool rhs)
+{
+    SetType(JSON_BOOL);
+    data.boolValue = rhs;
+    return *this;
+}
+
+JSONValue& JSONValue::operator = (int rhs)
+{
+    SetType(JSON_NUMBER);
+    data.numberValue = (double)rhs;
+    return *this;
+}
+
+JSONValue& JSONValue::operator = (unsigned rhs)
+{
+    SetType(JSON_NUMBER);
+    data.numberValue = (double)rhs;
+    return *this;
+}
+
+JSONValue& JSONValue::operator = (float rhs)
+{
+    SetType(JSON_NUMBER);
+    data.numberValue = (double)rhs;
+    return *this;
+}
+
+JSONValue& JSONValue::operator = (double rhs)
+{
+    SetType(JSON_NUMBER);
+    data.numberValue = rhs;
+    return *this;
+}
+
+JSONValue& JSONValue::operator = (const String& value)
+{
+    SetType(JSON_STRING);
+    *(reinterpret_cast<String*>(&data)) = value;
+    return *this;
+}
+
+JSONValue& JSONValue::operator = (const char* value)
+{
+    SetType(JSON_STRING);
+    *(reinterpret_cast<String*>(&data)) = value;
+    return *this;
+}
+
+JSONValue& JSONValue::operator = (const JSONArray& value)
+{
+    SetType(JSON_ARRAY);
+    *(reinterpret_cast<JSONArray*>(&data)) = value;
+    return *this;
+}
+
+JSONValue& JSONValue::operator = (const JSONObject& value)
+{
+    SetType(JSON_OBJECT);
+    *(reinterpret_cast<JSONObject*>(&data)) = value;
+    return *this;
+}
+
+JSONValue& JSONValue::operator [] (size_t index)
+{
+    if (type != JSON_ARRAY)
+        SetType(JSON_ARRAY);
+    
+    return const_cast<JSONArray&>(AsArray())[index];
+}
+
+const JSONValue& JSONValue::operator [] (size_t index) const
+{
+    if (type == JSON_OBJECT)
+    {
+        const JSONArray& array = AsArray();
+        return array[index];
+    }
+    else
+        return EMPTY;
+}
+
+JSONValue& JSONValue::operator [] (const String& key)
+{
+    if (type != JSON_OBJECT)
+        SetType(JSON_OBJECT);
+    
+    return const_cast<JSONObject&>(AsObject())[key];
+}
+
+const JSONValue& JSONValue::operator [] (const String& key) const
+{
+    if (type == JSON_OBJECT)
+    {
+        const JSONObject& object = AsObject();
+        JSONObject::ConstIterator it = object.Find(key);
+        return it != object.End() ? it->second : EMPTY;
+    }
+    else
+        return EMPTY;
 }
 
 bool JSONValue::operator == (const JSONValue& rhs) const
@@ -186,6 +358,94 @@ bool JSONValue::Read(Deserializer& source)
     return false;
 }
 
+bool JSONValue::FromString(const String& str)
+{
+    MemoryBuffer buffer(str.CString(), str.Length());
+    return Read(buffer);
+}
+
+bool JSONValue::FromString(const char* str)
+{
+    MemoryBuffer buffer(str, String::CStringLength(str));
+    return Read(buffer);
+}
+
+void JSONValue::Push(const JSONValue& value)
+{
+    SetType(JSON_ARRAY);
+    const_cast<JSONArray&>(AsArray()).Push(value);
+}
+
+void JSONValue::Insert(size_t index, const JSONValue& value)
+{
+    SetType(JSON_ARRAY);
+    const_cast<JSONArray&>(AsArray()).Insert(index, value);
+}
+
+void JSONValue::Pop()
+{
+    if (type == JSON_ARRAY)
+        const_cast<JSONArray&>(AsArray()).Pop();
+}
+
+void JSONValue::Erase(size_t pos, size_t length)
+{
+    if (type == JSON_ARRAY)
+        const_cast<JSONArray&>(AsArray()).Erase(pos, length);
+}
+
+void JSONValue::Resize(size_t newSize)
+{
+    SetType(JSON_ARRAY);
+    const_cast<JSONArray&>(AsArray()).Resize(newSize);
+}
+
+void JSONValue::Insert(const Pair<String, JSONValue>& pair)
+{
+    SetType(JSON_OBJECT);
+    const_cast<JSONObject&>(AsObject()).Insert(pair);
+}
+
+void JSONValue::Erase(const String& key)
+{
+    if (type == JSON_OBJECT)
+        const_cast<JSONObject&>(AsObject()).Erase(key);
+}
+
+void JSONValue::Clear()
+{
+    if (type == JSON_ARRAY)
+        const_cast<JSONArray&>(AsArray()).Clear();
+    else if (type == JSON_OBJECT)
+        const_cast<JSONObject&>(AsObject()).Clear();
+}
+
+void JSONValue::SetNull()
+{
+    SetType(JSON_NULL);
+}
+
+size_t JSONValue::Size() const
+{
+    if (type == JSON_ARRAY)
+        return AsArray().Size();
+    else if (type == JSON_OBJECT)
+        return AsObject().Size();
+    else
+        return 0;
+}
+
+bool JSONValue::IsEmpty() const
+{
+    if (type == JSON_ARRAY)
+        return AsArray().IsEmpty();
+    else if (type == JSON_OBJECT)
+        return AsObject().IsEmpty();
+    else
+        return false;
+}
+
+
 bool JSONValue::Write(Serializer& dest, int spacing, int indent) const
 {
     switch (type)
@@ -276,18 +536,6 @@ bool JSONValue::Write(Serializer& dest, int spacing, int indent) const
     }
     
     return true;
-}
-
-bool JSONValue::FromString(const String& str)
-{
-    MemoryBuffer buffer(str.CString(), str.Length());
-    return Read(buffer);
-}
-
-bool JSONValue::FromString(const char* str)
-{
-    MemoryBuffer buffer(str, String::CStringLength(str));
-    return Read(buffer);
 }
 
 String JSONValue::ToString(int spacing) const
