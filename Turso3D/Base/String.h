@@ -108,10 +108,14 @@ public:
     String& operator = (const String& rhs);
     /// Assign a C string.
     String& operator = (const char* rhs);
+    /// Assign a C string.
+    String& operator = (char* rhs);
     /// Add-assign a string.
     String& operator += (const String& rhs);
     /// Add-assign a C string.
     String& operator += (const char* rhs);
+    /// Add-assign a C string.
+    String& operator += (char* rhs);
     /// Add-assign a character.
     String& operator += (char rhs);
     /// Add-assign an integer.

@@ -204,6 +204,15 @@ String& String::operator = (const char* rhs)
     return *this;
 }
 
+String& String::operator = (char* rhs)
+{
+    size_t rhsLength = CStringLength(rhs);
+    Resize(rhsLength);
+    CopyChars(buffer, rhs, rhsLength);
+    
+    return *this;
+}
+
 String& String::operator += (const String& rhs)
 {
     size_t oldLength = length;
@@ -214,6 +223,16 @@ String& String::operator += (const String& rhs)
 }
 
 String& String::operator += (const char* rhs)
+{
+    size_t rhsLength = CStringLength(rhs);
+    size_t oldLength = length;
+    Resize(length + rhsLength);
+    CopyChars(buffer + oldLength, rhs, rhsLength);
+    
+    return *this;
+}
+
+String& String::operator += (char* rhs)
 {
     size_t rhsLength = CStringLength(rhs);
     size_t oldLength = length;
@@ -236,78 +255,100 @@ String& String::operator += (int rhs)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%d", rhs);
-    return *this += tempBuffer;
+    *this += tempBuffer;
+    
+    return *this;
 }
 
 String& String::operator += (short rhs)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%d", rhs);
-    return *this += tempBuffer;
+    *this += tempBuffer;
+    
+    return *this;
 }
 
 String& String::operator += (long rhs)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%ld", rhs);
-    return *this += tempBuffer;
+    *this += tempBuffer;
+    
+    return *this;
 }
 
 String& String::operator += (long long rhs)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%lld", rhs);
-    return *this += tempBuffer;
+    *this += tempBuffer;
+    
+    return *this;
 }
 
 String& String::operator += (unsigned rhs)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%u", rhs);
-    return *this += tempBuffer;
+    *this += tempBuffer;
+    
+    return *this;
 }
 
 String& String::operator += (unsigned short rhs)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%u", rhs);
-    return *this += tempBuffer;
+    *this += tempBuffer;
+    
+    return *this;
 }
 
 String& String::operator += (unsigned long rhs)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%lu", rhs);
-    return *this += tempBuffer;
+    *this += tempBuffer;
+    
+    return *this;
 }
 
 String& String::operator += (unsigned long long rhs)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%llu", rhs);
-    return *this += tempBuffer;
+    *this += tempBuffer;
+    
+    return *this;
 }
 
 String& String::operator += (float rhs)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%g", rhs);
-    return *this += tempBuffer;
+    *this += tempBuffer;
+    
+    return *this;
 }
 
 String& String::operator += (double rhs)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%g", rhs);
-    return *this += tempBuffer;
+    *this += tempBuffer;
+    
+    return *this;
 }
 
 String& String::operator += (bool rhs)
 {
     if (rhs)
-        return *this += "true";
+        *this += "true";
     else
-        return *this += "false";
+         *this += "false";
+    
+    return *this;
 }
 
 String String::operator + (const String& rhs) const
