@@ -172,9 +172,9 @@ public:
     static const JSONObject emptyJSONObject;
     
 private:
-    /// Read from a buffer. Return true on success.
+    /// Read from a buffer. Return true on success. Called internally.
     bool Read(const char*&pos, const char*& end);
-    /// Write to a string.
+    /// Write to a string. Called recursively to write nested values.
     void Write(String& dest, int indent = 0) const;
     /// Assign a new type and perform the necessary dynamic allocation / deletion.
     void SetType(JSONType newType);
