@@ -11,6 +11,7 @@ class BoundingBox;
 class Color;
 class IntRect;
 class IntVector2;
+class JSONValue;
 class Matrix3;
 class Matrix3x4;
 class Matrix4;
@@ -57,6 +58,8 @@ public:
     bool WriteBool(bool value);
     /// Write a float.
     bool WriteFloat(float value);
+    /// Write a double.
+    bool WriteDouble(double value);
     /// Write an IntRect.
     bool WriteIntRect(const IntRect& value);
     /// Write an IntVector2.
@@ -107,6 +110,8 @@ public:
     bool WriteVariantVector(const VariantVector& value);
     /// Write a variant map.
     bool WriteVariantMap(const VariantMap& value);
+    /// Write a binary-encoded JSON value.
+    bool WriteJSONValue(const JSONValue& value);
     /// Write a variable-length encoded unsigned integer, which can use 29 bits maximum.
     bool WriteVLE(unsigned value);
     /// Write a text line. Char codes 13 & 10 will be automatically appended.

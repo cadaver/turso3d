@@ -15,7 +15,7 @@
 #include "IO/Console.h"
 #include "IO/File.h"
 #include "IO/FileSystem.h"
-#include "IO/JSONValue.h"
+#include "IO/JSONFile.h"
 #include "IO/MemoryBuffer.h"
 #include "IO/VectorBuffer.h"
 #include "Math/Frustum.h"

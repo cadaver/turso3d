@@ -98,7 +98,7 @@ Variant& Variant::operator = (const Variant& rhs)
 bool Variant::operator == (const Variant& rhs) const
 {
     if (type == VAR_VOIDPTR || type == VAR_PTR)
-        return AsVoidPtr() == rhs.AsVoidPtr();
+        return GetVoidPtr() == rhs.GetVoidPtr();
     else if (type != rhs.type)
         return false;
     
@@ -539,179 +539,179 @@ void Variant::SetType(VariantType newType)
     }
 }
 
-template<> int Variant::As<int>() const
+template<> int Variant::Get<int>() const
 {
-    return AsInt();
+    return GetInt();
 }
 
-template<> unsigned Variant::As<unsigned>() const
+template<> unsigned Variant::Get<unsigned>() const
 {
-    return AsUInt();
+    return GetUInt();
 }
 
-template<> StringHash Variant::As<StringHash>() const
+template<> StringHash Variant::Get<StringHash>() const
 {
-    return AsStringHash();
+    return GetStringHash();
 }
 
-template<> bool Variant::As<bool>() const
+template<> bool Variant::Get<bool>() const
 {
-    return AsBool();
+    return GetBool();
 }
 
-template<> float Variant::As<float>() const
+template<> float Variant::Get<float>() const
 {
-    return AsFloat();
+    return GetFloat();
 }
 
-template<> const Vector2& Variant::As<const Vector2&>() const
+template<> const Vector2& Variant::Get<const Vector2&>() const
 {
-    return AsVector2();
+    return GetVector2();
 }
 
-template<> const Vector3& Variant::As<const Vector3&>() const
+template<> const Vector3& Variant::Get<const Vector3&>() const
 {
-    return AsVector3();
+    return GetVector3();
 }
 
-template<> const Vector4& Variant::As<const Vector4&>() const
+template<> const Vector4& Variant::Get<const Vector4&>() const
 {
-    return AsVector4();
+    return GetVector4();
 }
 
-template<> const Quaternion& Variant::As<const Quaternion&>() const
+template<> const Quaternion& Variant::Get<const Quaternion&>() const
 {
-    return AsQuaternion();
+    return GetQuaternion();
 }
 
-template<> const Color& Variant::As<const Color&>() const
+template<> const Color& Variant::Get<const Color&>() const
 {
-    return AsColor();
+    return GetColor();
 }
 
-template<> const String& Variant::As<const String&>() const
+template<> const String& Variant::Get<const String&>() const
 {
-    return AsString();
+    return GetString();
 }
 
-template<> const IntRect& Variant::As<const IntRect&>() const
+template<> const IntRect& Variant::Get<const IntRect&>() const
 {
-    return AsIntRect();
+    return GetIntRect();
 }
 
-template<> const IntVector2& Variant::As<const IntVector2&>() const
+template<> const IntVector2& Variant::Get<const IntVector2&>() const
 {
-    return AsIntVector2();
+    return GetIntVector2();
 }
 
-template<> const Vector<unsigned char>& Variant::As<const Vector<unsigned char>& >() const
+template<> const Vector<unsigned char>& Variant::Get<const Vector<unsigned char>& >() const
 {
     return AsBuffer();
 }
 
-template<> void* Variant::As<void*>() const
+template<> void* Variant::Get<void*>() const
 {
-    return AsVoidPtr();
+    return GetVoidPtr();
 }
 
-template<> WeakRefCounted* Variant::As<WeakRefCounted*>() const
+template<> WeakRefCounted* Variant::Get<WeakRefCounted*>() const
 {
-    return AsPtr();
+    return GetPtr();
 }
 
-template<> const Matrix3& Variant::As<const Matrix3&>() const
+template<> const Matrix3& Variant::Get<const Matrix3&>() const
 {
-    return AsMatrix3();
+    return GetMatrix3();
 }
 
-template<> const Matrix3x4& Variant::As<const Matrix3x4&>() const
+template<> const Matrix3x4& Variant::Get<const Matrix3x4&>() const
 {
-    return AsMatrix3x4();
+    return GetMatrix3x4();
 }
 
-template<> const Matrix4& Variant::As<const Matrix4&>() const
+template<> const Matrix4& Variant::Get<const Matrix4&>() const
 {
-    return AsMatrix4();
+    return GetMatrix4();
 }
 
-template<> ResourceRef Variant::As<ResourceRef>() const
+template<> ResourceRef Variant::Get<ResourceRef>() const
 {
-    return AsResourceRef();
+    return GetResourceRef();
 }
 
-template<> ResourceRefList Variant::As<ResourceRefList>() const
+template<> ResourceRefList Variant::Get<ResourceRefList>() const
 {
-    return AsResourceRefList();
+    return GetResourceRefList();
 }
 
-template<> VariantVector Variant::As<VariantVector>() const
+template<> VariantVector Variant::Get<VariantVector>() const
 {
-    return AsVariantVector();
+    return GetVariantVector();
 }
 
-template<> VariantMap Variant::As<VariantMap>() const
+template<> VariantMap Variant::Get<VariantMap>() const
 {
-    return AsVariantMap();
+    return GetVariantMap();
 }
 
-template<> Vector2 Variant::As<Vector2>() const
+template<> Vector2 Variant::Get<Vector2>() const
 {
-    return AsVector2();
+    return GetVector2();
 }
 
-template<> Vector3 Variant::As<Vector3>() const
+template<> Vector3 Variant::Get<Vector3>() const
 {
-    return AsVector3();
+    return GetVector3();
 }
 
-template<> Vector4 Variant::As<Vector4>() const
+template<> Vector4 Variant::Get<Vector4>() const
 {
-    return AsVector4();
+    return GetVector4();
 }
 
-template<> Quaternion Variant::As<Quaternion>() const
+template<> Quaternion Variant::Get<Quaternion>() const
 {
-    return AsQuaternion();
+    return GetQuaternion();
 }
 
-template<> Color Variant::As<Color>() const
+template<> Color Variant::Get<Color>() const
 {
-    return AsColor();
+    return GetColor();
 }
 
-template<> String Variant::As<String>() const
+template<> String Variant::Get<String>() const
 {
-    return AsString();
+    return GetString();
 }
 
-template<> IntRect Variant::As<IntRect>() const
+template<> IntRect Variant::Get<IntRect>() const
 {
-    return AsIntRect();
+    return GetIntRect();
 }
 
-template<> IntVector2 Variant::As<IntVector2>() const
+template<> IntVector2 Variant::Get<IntVector2>() const
 {
-    return AsIntVector2();
+    return GetIntVector2();
 }
 
-template<> Vector<unsigned char> Variant::As<Vector<unsigned char> >() const
+template<> Vector<unsigned char> Variant::Get<Vector<unsigned char> >() const
 {
     return AsBuffer();
 }
 
-template<> Matrix3 Variant::As<Matrix3>() const
+template<> Matrix3 Variant::Get<Matrix3>() const
 {
-    return AsMatrix3();
+    return GetMatrix3();
 }
 
-template<> Matrix3x4 Variant::As<Matrix3x4>() const
+template<> Matrix3x4 Variant::Get<Matrix3x4>() const
 {
-    return AsMatrix3x4();
+    return GetMatrix3x4();
 }
 
-template<> Matrix4 Variant::As<Matrix4>() const
+template<> Matrix4 Variant::Get<Matrix4>() const
 {
-    return AsMatrix4();
+    return GetMatrix4();
 }
 
 String Variant::TypeName(VariantType type)

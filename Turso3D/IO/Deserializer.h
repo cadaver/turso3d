@@ -3,6 +3,7 @@
 #pragma once
 
 #include "../Math/BoundingBox.h"
+#include "JSONValue.h"
 #include "Variant.h"
 
 namespace Turso3D
@@ -48,6 +49,8 @@ public:
     bool ReadBool();
     /// Read a float.
     float ReadFloat();
+    /// Read a double.
+    double ReadDouble();
     /// Read an IntRect.
     IntRect ReadIntRect();
     /// Read an IntVector2.
@@ -96,6 +99,8 @@ public:
     VariantVector ReadVariantVector();
     /// Read a variant map.
     VariantMap ReadVariantMap();
+    /// Read a binary-encoded JSON value.
+    JSONValue ReadJSONValue();
     /// Read a variable-length encoded unsigned integer, which can use 29 bits maximum.
     unsigned ReadVLE();
     /// Read a text line.

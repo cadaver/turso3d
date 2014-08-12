@@ -39,9 +39,11 @@ struct JSONData
     };
 };
 
-/// JSON value used in human-readable serialization.
+/// JSON value. Stores a boolean, string or number, or either an array or dictionary-like collection of nested values.
 class TURSO3D_API JSONValue
 {
+    friend class JSONFile;
+    
 public:
     /// Construct a null value.
     JSONValue();
@@ -101,8 +103,6 @@ public:
     /// Test for inequality.
     bool operator != (const JSONValue& rhs) const { return !(*this == rhs); }
     
-    /// Read from a stream. Return true on success. Note: will read the stream to the end.
-    bool Read(Deserializer& source);
     /// Set from a string. Return true on success.
     bool FromString(const String& str);
     /// Set from a C string. Return true on success.
@@ -126,8 +126,6 @@ public:
     /// Set to null value.
     void SetNull();
     
-    /// Write to a stream. Return true on success. Does not null-terminate the output.
-    bool Write(Serializer& dest) const;
     /// Output as a string.
     String ToString() const;
     /// Return number of values for objects or arrays, or 0 otherwise.
@@ -150,15 +148,15 @@ public:
     /// Return whether is an object.
     bool IsObject() const { return type == JSON_OBJECT; }
     /// Return value as a bool, or false on type mismatch.
-    bool AsBool() const { return type == JSON_BOOL ? data.boolValue : false; }
+    bool GetBool() const { return type == JSON_BOOL ? data.boolValue : false; }
     /// Return value as a number, or zero on type mismatch.
-    double AsNumber() const { return type == JSON_NUMBER ? data.numberValue : 0.0; }
+    double GetNumber() const { return type == JSON_NUMBER ? data.numberValue : 0.0; }
     /// Return value as a string, or empty string on type mismatch.
-    const String& AsString() const { return type == JSON_STRING ? *(reinterpret_cast<const String*>(&data)) : String::EMPTY; }
+    const String& GetString() const { return type == JSON_STRING ? *(reinterpret_cast<const String*>(&data)) : String::EMPTY; }
     /// Return value as an array, or empty on type mismatch
-    const JSONArray& AsArray() const { return type == JSON_ARRAY ? *(reinterpret_cast<const JSONArray*>(&data)) : emptyJSONArray; }
+    const JSONArray& GetArray() const { return type == JSON_ARRAY ? *(reinterpret_cast<const JSONArray*>(&data)) : emptyJSONArray; }
     /// Return value as an object, or empty on type mismatch
-    const JSONObject& AsObject() const { return type == JSON_OBJECT ? *(reinterpret_cast<const JSONObject*>(&data)) : emptyJSONObject; }
+    const JSONObject& GetObject() const { return type == JSON_OBJECT ? *(reinterpret_cast<const JSONObject*>(&data)) : emptyJSONObject; }
     /// Return an associative value, or null if not an object.
     const JSONValue& Value(const String& key) const { return (*this)[key]; }
     /// Return an indexed value, or null if not an array.
@@ -173,7 +171,7 @@ public:
     
 private:
     /// Read from a buffer. Return true on success. Called internally.
-    bool Read(const char*&pos, const char*& end);
+    bool Parse(const char*&pos, const char*& end);
     /// Write to a string. Called recursively to write nested values.
     void Write(String& dest, int indent = 0) const;
     /// Assign a new type and perform the necessary dynamic allocation / deletion.

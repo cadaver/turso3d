@@ -189,14 +189,14 @@ JSONValue& JSONValue::operator [] (size_t index)
     if (type != JSON_ARRAY)
         SetType(JSON_ARRAY);
     
-    return const_cast<JSONArray&>(AsArray())[index];
+    return const_cast<JSONArray&>(GetArray())[index];
 }
 
 const JSONValue& JSONValue::operator [] (size_t index) const
 {
     if (type == JSON_OBJECT)
     {
-        const JSONArray& array = AsArray();
+        const JSONArray& array = GetArray();
         return array[index];
     }
     else
@@ -208,14 +208,14 @@ JSONValue& JSONValue::operator [] (const String& key)
     if (type != JSON_OBJECT)
         SetType(JSON_OBJECT);
     
-    return const_cast<JSONObject&>(AsObject())[key];
+    return const_cast<JSONObject&>(GetObject())[key];
 }
 
 const JSONValue& JSONValue::operator [] (const String& key) const
 {
     if (type == JSON_OBJECT)
     {
-        const JSONObject& object = AsObject();
+        const JSONObject& object = GetObject();
         JSONObject::ConstIterator it = object.Find(key);
         return it != object.End() ? it->second : EMPTY;
     }
@@ -250,94 +250,73 @@ bool JSONValue::operator == (const JSONValue& rhs) const
     }
 }
 
-bool JSONValue::Read(Deserializer& source)
-{
-    String buffer;
-    size_t numChars = source.Size() - source.Position();
-    buffer.Resize(numChars);
-    const char* pos = &buffer[0];
-    const char* end = pos + numChars;
-    
-    if (source.Read(const_cast<char*>(pos), numChars) != numChars)
-        return false;
-    
-    return Read(pos, end);
-}
-
 bool JSONValue::FromString(const String& str)
 {
     const char* pos = str.CString();
     const char* end = pos + str.Length();
-    return Read(pos, end);
+    return Parse(pos, end);
 }
 
 bool JSONValue::FromString(const char* str)
 {
     const char* pos = str;
     const char* end = pos + String::CStringLength(str);
-    return Read(pos, end);
+    return Parse(pos, end);
 }
 
 void JSONValue::Push(const JSONValue& value)
 {
     SetType(JSON_ARRAY);
-    const_cast<JSONArray&>(AsArray()).Push(value);
+    const_cast<JSONArray&>(GetArray()).Push(value);
 }
 
 void JSONValue::Insert(size_t index, const JSONValue& value)
 {
     SetType(JSON_ARRAY);
-    const_cast<JSONArray&>(AsArray()).Insert(index, value);
+    const_cast<JSONArray&>(GetArray()).Insert(index, value);
 }
 
 void JSONValue::Pop()
 {
     if (type == JSON_ARRAY)
-        const_cast<JSONArray&>(AsArray()).Pop();
+        const_cast<JSONArray&>(GetArray()).Pop();
 }
 
 void JSONValue::Erase(size_t pos, size_t length)
 {
     if (type == JSON_ARRAY)
-        const_cast<JSONArray&>(AsArray()).Erase(pos, length);
+        const_cast<JSONArray&>(GetArray()).Erase(pos, length);
 }
 
 void JSONValue::Resize(size_t newSize)
 {
     SetType(JSON_ARRAY);
-    const_cast<JSONArray&>(AsArray()).Resize(newSize);
+    const_cast<JSONArray&>(GetArray()).Resize(newSize);
 }
 
 void JSONValue::Insert(const Pair<String, JSONValue>& pair)
 {
     SetType(JSON_OBJECT);
-    const_cast<JSONObject&>(AsObject()).Insert(pair);
+    const_cast<JSONObject&>(GetObject()).Insert(pair);
 }
 
 void JSONValue::Erase(const String& key)
 {
     if (type == JSON_OBJECT)
-        const_cast<JSONObject&>(AsObject()).Erase(key);
+        const_cast<JSONObject&>(GetObject()).Erase(key);
 }
 
 void JSONValue::Clear()
 {
     if (type == JSON_ARRAY)
-        const_cast<JSONArray&>(AsArray()).Clear();
+        const_cast<JSONArray&>(GetArray()).Clear();
     else if (type == JSON_OBJECT)
-        const_cast<JSONObject&>(AsObject()).Clear();
+        const_cast<JSONObject&>(GetObject()).Clear();
 }
 
 void JSONValue::SetNull()
 {
     SetType(JSON_NULL);
-}
-
-bool JSONValue::Write(Serializer& dest) const
-{
-    String buffer;
-    Write(buffer, 0);
-    return dest.WriteString(buffer, false);
 }
 
 String JSONValue::ToString() const
@@ -350,9 +329,9 @@ String JSONValue::ToString() const
 size_t JSONValue::Size() const
 {
     if (type == JSON_ARRAY)
-        return AsArray().Size();
+        return GetArray().Size();
     else if (type == JSON_OBJECT)
-        return AsObject().Size();
+        return GetObject().Size();
     else
         return 0;
 }
@@ -360,14 +339,14 @@ size_t JSONValue::Size() const
 bool JSONValue::IsEmpty() const
 {
     if (type == JSON_ARRAY)
-        return AsArray().IsEmpty();
+        return GetArray().IsEmpty();
     else if (type == JSON_OBJECT)
-        return AsObject().IsEmpty();
+        return GetObject().IsEmpty();
     else
         return false;
 }
 
-bool JSONValue::Read(const char*& pos, const char*& end)
+bool JSONValue::Parse(const char*& pos, const char*& end)
 {
     char c;
     if (!NextChar(c, pos, end, true))
@@ -415,7 +394,7 @@ bool JSONValue::Read(const char*& pos, const char*& end)
         for (;;)
         {
             JSONValue arrayValue;
-            if (!arrayValue.Read(pos, end))
+            if (!arrayValue.Parse(pos, end))
                 return false;
             Push(arrayValue);
             if (!NextChar(c, pos, end, true))
@@ -448,7 +427,7 @@ bool JSONValue::Read(const char*& pos, const char*& end)
                 return false;
             
             JSONValue objectValue;
-            if (!objectValue.Read(pos, end))
+            if (!objectValue.Parse(pos, end))
                 return false;
             (*this)[key] = objectValue;
             if (!NextChar(c, pos, end, true))
@@ -482,7 +461,7 @@ void JSONValue::Write(String& dest, int indent) const
         
     case JSON_ARRAY:
         {
-            const JSONArray& array = AsArray();
+            const JSONArray& array = GetArray();
             dest += '[';
             
             if (array.Size())
@@ -507,7 +486,7 @@ void JSONValue::Write(String& dest, int indent) const
         
     case JSON_OBJECT:
         {
-            const JSONObject& object = AsObject();
+            const JSONObject& object = GetObject();
             dest += '{';
             
             if (object.Size())

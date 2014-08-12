@@ -87,6 +87,13 @@ float Deserializer::ReadFloat()
     return ret;
 }
 
+double Deserializer::ReadDouble()
+{
+    double ret;
+    Read(&ret, sizeof ret);
+    return ret;
+}
+
 IntRect Deserializer::ReadIntRect()
 {
     int data[4];
@@ -325,7 +332,7 @@ Variant Deserializer::ReadVariant(VariantType type)
 VariantVector Deserializer::ReadVariantVector()
 {
     VariantVector ret(ReadVLE());
-    for (unsigned i = 0; i < ret.Size(); ++i)
+    for (size_t i = 0; i < ret.Size(); ++i)
         ret[i] = ReadVariant();
     return ret;
 }
@@ -333,12 +340,57 @@ VariantVector Deserializer::ReadVariantVector()
 VariantMap Deserializer::ReadVariantMap()
 {
     VariantMap ret;
-    unsigned num = ReadVLE();
+    size_t num = ReadVLE();
     
-    for (unsigned i = 0; i < num; ++i)
+    for (size_t i = 0; i < num; ++i)
     {
         StringHash key = ReadStringHash();
         ret[key] = ReadVariant();
+    }
+    
+    return ret;
+}
+
+JSONValue Deserializer::ReadJSONValue()
+{
+    JSONValue ret;
+    
+    JSONType type = (JSONType)ReadUByte();
+    switch (type)
+    {
+    case JSON_BOOL:
+        ret = ReadBool();
+        break;
+        
+    case JSON_NUMBER:
+        ret = ReadDouble();
+        break;
+        
+    case JSON_STRING:
+        ret = ReadString();
+        break;
+        
+    case JSON_ARRAY:
+        {
+            size_t num = ReadVLE();
+            for (size_t i = 0; i < num; ++i)
+                ret.Push(ReadJSONValue());
+        }
+        break;
+        
+    case JSON_OBJECT:
+        {
+            size_t num = ReadVLE();
+            for (size_t i = 0; i < num; ++i)
+            {
+                String key = ReadString();
+                ret[key] = ReadJSONValue();
+            }
+        }
+        break;
+        
+    default:
+        break;
     }
     
     return ret;

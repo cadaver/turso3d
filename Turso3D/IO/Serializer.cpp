@@ -1,6 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../Math/BoundingBox.h"
+#include "JSONValue.h"
 #include "Serializer.h"
 #include "Variant.h"
 
@@ -51,6 +52,11 @@ bool Serializer::WriteBool(bool value)
 }
 
 bool Serializer::WriteFloat(float value)
+{
+    return Write(&value, sizeof value) == sizeof value;
+}
+
+bool Serializer::WriteDouble(double value)
 {
     return Write(&value, sizeof value) == sizeof value;
 }
@@ -221,31 +227,31 @@ bool Serializer::WriteVariantData(const Variant& value)
         return true;
         
     case VAR_INT:
-        return WriteInt(value.AsInt());
+        return WriteInt(value.GetInt());
         
     case VAR_BOOL:
-        return WriteBool(value.AsBool());
+        return WriteBool(value.GetBool());
         
     case VAR_FLOAT:
-        return WriteFloat(value.AsFloat());
+        return WriteFloat(value.GetFloat());
         
     case VAR_VECTOR2:
-        return WriteVector2(value.AsVector2());
+        return WriteVector2(value.GetVector2());
         
     case VAR_VECTOR3:
-        return WriteVector3(value.AsVector3());
+        return WriteVector3(value.GetVector3());
         
     case VAR_VECTOR4:
-        return WriteVector4(value.AsVector4());
+        return WriteVector4(value.GetVector4());
         
     case VAR_QUATERNION:
-        return WriteQuaternion(value.AsQuaternion());
+        return WriteQuaternion(value.GetQuaternion());
         
     case VAR_COLOR:
-        return WriteColor(value.AsColor());
+        return WriteColor(value.GetColor());
         
     case VAR_STRING:
-        return WriteString(value.AsString());
+        return WriteString(value.GetString());
         
     case VAR_BUFFER:
         return WriteBuffer(value.AsBuffer());
@@ -256,31 +262,31 @@ bool Serializer::WriteVariantData(const Variant& value)
         return WriteUInt(0);
         
     case VAR_RESOURCEREF:
-        return WriteResourceRef(value.AsResourceRef());
+        return WriteResourceRef(value.GetResourceRef());
         
     case VAR_RESOURCEREFLIST:
-        return WriteResourceRefList(value.AsResourceRefList());
+        return WriteResourceRefList(value.GetResourceRefList());
         
     case VAR_VARIANTVECTOR:
-        return WriteVariantVector(value.AsVariantVector());
+        return WriteVariantVector(value.GetVariantVector());
         
     case VAR_VARIANTMAP:
-        return WriteVariantMap(value.AsVariantMap());
+        return WriteVariantMap(value.GetVariantMap());
         
     case VAR_INTRECT:
-        return WriteIntRect(value.AsIntRect());
+        return WriteIntRect(value.GetIntRect());
         
     case VAR_INTVECTOR2:
-        return WriteIntVector2(value.AsIntVector2());
+        return WriteIntVector2(value.GetIntVector2());
         
     case VAR_MATRIX3:
-        return WriteMatrix3(value.AsMatrix3());
+        return WriteMatrix3(value.GetMatrix3());
         
     case VAR_MATRIX3X4:
-        return WriteMatrix3x4(value.AsMatrix3x4());
+        return WriteMatrix3x4(value.GetMatrix3x4());
         
     case VAR_MATRIX4:
-        return WriteMatrix4(value.AsMatrix4());
+        return WriteMatrix4(value.GetMatrix4());
         
     default:
         return false;
@@ -306,6 +312,54 @@ bool Serializer::WriteVariantMap(const VariantMap& value)
         WriteVariant(i->second);
     }
     return success;
+}
+
+bool Serializer::WriteJSONValue(const JSONValue& value)
+{
+    WriteUByte((unsigned char)value.Type());
+    
+    switch (value.Type())
+    {
+    case JSON_BOOL:
+        return WriteBool(value.GetBool());
+        
+    case JSON_NUMBER:
+        return WriteDouble(value.GetNumber());
+        
+    case JSON_STRING:
+        return WriteString(value.GetString());
+        
+    case JSON_ARRAY:
+        {
+            const JSONArray& array = value.GetArray();
+            if (!WriteVLE(array.Size()))
+                return false;
+            for (JSONArray::ConstIterator i = array.Begin(); i != array.End(); ++i)
+            {
+                if (!WriteJSONValue(*i))
+                    return false;
+            }
+        }
+        return true;
+        
+    case JSON_OBJECT:
+        {
+            const JSONObject& object = value.GetObject();
+            if (!WriteVLE(object.Size()))
+                return false;
+            for (JSONObject::ConstIterator i = object.Begin(); i != object.End(); ++i)
+            {
+                if (!WriteString(i->first))
+                    return false;
+                if (!WriteJSONValue(i->second))
+                    return false;
+            }
+        }
+        return true;
+        
+    default:
+        return true;
+    }
 }
 
 bool Serializer::WriteVLE(unsigned value)

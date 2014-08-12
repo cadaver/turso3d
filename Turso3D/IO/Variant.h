@@ -502,32 +502,32 @@ public:
     void SetBuffer(const void* bytes, size_t size);
 
     /// Return int or zero on type mismatch.
-    int AsInt() const { return type == VAR_INT ? data.intValue : 0; }
+    int GetInt() const { return type == VAR_INT ? data.intValue : 0; }
     /// Return unsigned int or zero on type mismatch.
-    int AsUInt() const { return type == VAR_INT ? (unsigned)data.intValue : 0; }
+    int GetUInt() const { return type == VAR_INT ? (unsigned)data.intValue : 0; }
     /// Return StringHash or zero on type mismatch.
-    StringHash AsStringHash() const { return StringHash(AsUInt()); }
+    StringHash GetStringHash() const { return StringHash(GetUInt()); }
     /// Return bool or false on type mismatch.
-    bool AsBool() const { return type == VAR_BOOL ? data.boolValue : false; }
+    bool GetBool() const { return type == VAR_BOOL ? data.boolValue : false; }
     /// Return float or zero on type mismatch.
-    float AsFloat() const { return type == VAR_FLOAT ? data.floatValue : 0.0f; }
+    float GetFloat() const { return type == VAR_FLOAT ? data.floatValue : 0.0f; }
     /// Return Vector2 or zero on type mismatch.
-    const Vector2& AsVector2() const { return type == VAR_VECTOR2 ? *reinterpret_cast<const Vector2*>(&data) : Vector2::ZERO; }
+    const Vector2& GetVector2() const { return type == VAR_VECTOR2 ? *reinterpret_cast<const Vector2*>(&data) : Vector2::ZERO; }
     /// Return Vector3 or zero on type mismatch.
-    const Vector3& AsVector3() const { return type == VAR_VECTOR3 ? *reinterpret_cast<const Vector3*>(&data) : Vector3::ZERO; }
+    const Vector3& GetVector3() const { return type == VAR_VECTOR3 ? *reinterpret_cast<const Vector3*>(&data) : Vector3::ZERO; }
     /// Return Vector4 or zero on type mismatch.
-    const Vector4& AsVector4() const { return type == VAR_VECTOR4 ? *reinterpret_cast<const Vector4*>(&data) : Vector4::ZERO; }
+    const Vector4& GetVector4() const { return type == VAR_VECTOR4 ? *reinterpret_cast<const Vector4*>(&data) : Vector4::ZERO; }
     /// Return quaternion or identity on type mismatch.
-    const Quaternion& AsQuaternion() const { return type == VAR_QUATERNION ? *reinterpret_cast<const Quaternion*>(&data) : Quaternion::IDENTITY; }
+    const Quaternion& GetQuaternion() const { return type == VAR_QUATERNION ? *reinterpret_cast<const Quaternion*>(&data) : Quaternion::IDENTITY; }
     /// Return color or default on type mismatch.
-    const Color& AsColor() const { return type == VAR_COLOR ? *reinterpret_cast<const Color*>(&data) : Color::WHITE; }
+    const Color& GetColor() const { return type == VAR_COLOR ? *reinterpret_cast<const Color*>(&data) : Color::WHITE; }
     /// Return string or empty on type mismatch.
-    const String& AsString() const { return type == VAR_STRING ? *reinterpret_cast<const String*>(&data) : String::EMPTY; }
+    const String& GetString() const { return type == VAR_STRING ? *reinterpret_cast<const String*>(&data) : String::EMPTY; }
     /// Return buffer or empty on type mismatch.
     const Vector<unsigned char>& AsBuffer() const { return type == VAR_BUFFER ? *reinterpret_cast<const Vector<unsigned char>*>(&data) : emptyBuffer; }
     
     /// Return void pointer or null on type mismatch. RefCounted pointer will be converted.
-    void* AsVoidPtr() const
+    void* GetVoidPtr() const
     {
         if (type == VAR_VOIDPTR)
             return data.ptrValue;
@@ -538,25 +538,25 @@ public:
     }
     
     /// Return a resource reference or empty on type mismatch.
-    const ResourceRef& AsResourceRef() const { return type == VAR_RESOURCEREF ? *reinterpret_cast<const ResourceRef*>(&data) : emptyResourceRef; }
+    const ResourceRef& GetResourceRef() const { return type == VAR_RESOURCEREF ? *reinterpret_cast<const ResourceRef*>(&data) : emptyResourceRef; }
     /// Return a resource reference list or empty on type mismatch.
-    const ResourceRefList& AsResourceRefList() const { return type == VAR_RESOURCEREFLIST ? *reinterpret_cast<const ResourceRefList*>(&data) : emptyResourceRefList; }
+    const ResourceRefList& GetResourceRefList() const { return type == VAR_RESOURCEREFLIST ? *reinterpret_cast<const ResourceRefList*>(&data) : emptyResourceRefList; }
     /// Return a variant vector or empty on type mismatch.
-    const VariantVector& AsVariantVector() const { return type == VAR_VARIANTVECTOR ? *reinterpret_cast<const VariantVector*>(&data) : emptyVariantVector; }
+    const VariantVector& GetVariantVector() const { return type == VAR_VARIANTVECTOR ? *reinterpret_cast<const VariantVector*>(&data) : emptyVariantVector; }
     /// Return a variant map or empty on type mismatch.
-    const VariantMap& AsVariantMap() const { return type == VAR_VARIANTMAP ? *reinterpret_cast<const VariantMap*>(&data) : emptyVariantMap; }
+    const VariantMap& GetVariantMap() const { return type == VAR_VARIANTMAP ? *reinterpret_cast<const VariantMap*>(&data) : emptyVariantMap; }
     /// Return an integer rect or empty on type mismatch.
-    const IntRect& AsIntRect() const { return type == VAR_INTRECT ? *reinterpret_cast<const IntRect*>(&data) : IntRect::ZERO; }
+    const IntRect& GetIntRect() const { return type == VAR_INTRECT ? *reinterpret_cast<const IntRect*>(&data) : IntRect::ZERO; }
     /// Return an IntVector2 or empty on type mismatch.
-    const IntVector2& AsIntVector2() const { return type == VAR_INTVECTOR2 ? *reinterpret_cast<const IntVector2*>(&data) : IntVector2::ZERO; }
+    const IntVector2& GetIntVector2() const { return type == VAR_INTVECTOR2 ? *reinterpret_cast<const IntVector2*>(&data) : IntVector2::ZERO; }
     /// Return a WeakRefCounted pointer or null on type mismatch. Will return null if holding a void pointer, as it can not be safely verified that the object is a WeakRefCounted.
-    WeakRefCounted* AsPtr() const { return type == VAR_PTR ? reinterpret_cast<const WeakPtr<WeakRefCounted>*>(&data)->Get() : (WeakRefCounted*)0; }
+    WeakRefCounted* GetPtr() const { return type == VAR_PTR ? reinterpret_cast<const WeakPtr<WeakRefCounted>*>(&data)->Get() : (WeakRefCounted*)0; }
     /// Return a Matrix3 or identity on type mismatch.
-    const Matrix3& AsMatrix3() const { return type == VAR_MATRIX3 ? *(reinterpret_cast<const Matrix3*>(data.ptrValue)) : Matrix3::IDENTITY; }
+    const Matrix3& GetMatrix3() const { return type == VAR_MATRIX3 ? *(reinterpret_cast<const Matrix3*>(data.ptrValue)) : Matrix3::IDENTITY; }
     /// Return a Matrix3x4 or identity on type mismatch.
-    const Matrix3x4& AsMatrix3x4() const { return type == VAR_MATRIX3X4 ? *(reinterpret_cast<const Matrix3x4*>(data.ptrValue)) : Matrix3x4::IDENTITY; }
+    const Matrix3x4& GetMatrix3x4() const { return type == VAR_MATRIX3X4 ? *(reinterpret_cast<const Matrix3x4*>(data.ptrValue)) : Matrix3x4::IDENTITY; }
     /// Return a Matrix4 or identity on type mismatch.
-    const Matrix4& AsMatrix4() const { return type == VAR_MATRIX4 ? *(reinterpret_cast<const Matrix4*>(data.ptrValue)) : Matrix4::IDENTITY; }
+    const Matrix4& GetMatrix4() const { return type == VAR_MATRIX4 ? *(reinterpret_cast<const Matrix4*>(data.ptrValue)) : Matrix4::IDENTITY; }
     /// Return value's type.
     VariantType Type() const { return type; }
     /// Return value's type name.
@@ -568,14 +568,14 @@ public:
     /// Return true when the variant is empty (i.e. not initialized yet).
     bool IsEmpty() const { return type == VAR_NONE; }
     /// Return the value, template version.
-    template <class T> T As() const;
+    template <class T> T Get() const;
     
     /// Return a pointer to a modifiable buffer or null on type mismatch.
     Vector<unsigned char>* AsBufferPtr() { return type == VAR_BUFFER ? reinterpret_cast<Vector<unsigned char>*>(&data) : 0; }
     /// Return a pointer to a modifiable variant vector or null on type mismatch.
-    VariantVector* AsVariantVectorPtr() { return type == VAR_VARIANTVECTOR ? reinterpret_cast<VariantVector*>(&data) : 0; }
+    VariantVector* GetVariantVectorPtr() { return type == VAR_VARIANTVECTOR ? reinterpret_cast<VariantVector*>(&data) : 0; }
     /// Return a pointer to a modifiable variant map or null on type mismatch.
-    VariantMap* AsVariantMapPtr() { return type == VAR_VARIANTMAP ? reinterpret_cast<VariantMap*>(&data) : 0; }
+    VariantMap* GetVariantMapPtr() { return type == VAR_VARIANTMAP ? reinterpret_cast<VariantMap*>(&data) : 0; }
 
     /// Return name for variant type.
     static String TypeName(VariantType type);
