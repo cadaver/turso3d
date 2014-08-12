@@ -373,19 +373,29 @@ JSONValue Deserializer::ReadJSONValue()
     case JSON_ARRAY:
         {
             size_t num = ReadVLE();
-            for (size_t i = 0; i < num; ++i)
-                ret.Push(ReadJSONValue());
+            if (num)
+            {
+                for (size_t i = 0; i < num; ++i)
+                    ret.Push(ReadJSONValue());
+            }
+            else
+                ret = JSONValue::emptyJSONArray;
         }
         break;
         
     case JSON_OBJECT:
         {
             size_t num = ReadVLE();
-            for (size_t i = 0; i < num; ++i)
+            if (num)
             {
-                String key = ReadString();
-                ret[key] = ReadJSONValue();
+                for (size_t i = 0; i < num; ++i)
+                {
+                    String key = ReadString();
+                    ret[key] = ReadJSONValue();
+                }
             }
+            else
+                ret = JSONValue::emptyJSONObject;
         }
         break;
         
