@@ -32,6 +32,8 @@ template <class T, class U> class HashMap;
 typedef Vector<Variant> VariantVector;
 typedef HashMap<StringHash, Variant> VariantMap;
 
+static const size_t MAX_VLE = 0x1fffffff;
+
 /// Abstract stream for writing.
 class TURSO3D_API Serializer
 {
@@ -113,7 +115,7 @@ public:
     /// Write a binary-encoded JSON value.
     bool WriteJSONValue(const JSONValue& value);
     /// Write a variable-length encoded unsigned integer, which can use 29 bits maximum.
-    bool WriteVLE(unsigned value);
+    bool WriteVLE(size_t value);
     /// Write a text line. Char codes 13 & 10 will be automatically appended.
     bool WriteLine(const String& value);
 };

@@ -183,7 +183,7 @@ bool Serializer::WriteBuffer(const Vector<unsigned char>& value)
     bool success = true;
     size_t numBytes = value.Size();
     
-    success &= WriteVLE((unsigned)numBytes);
+    success &= WriteVLE(numBytes);
     if (numBytes)
         success &= Write(&value[0], numBytes) == numBytes;
     return success;
@@ -202,7 +202,7 @@ bool Serializer::WriteResourceRefList(const ResourceRefList& value)
     bool success = true;
     
     success &= WriteStringHash(value.type);
-    success &= WriteVLE((unsigned)value.names.Size());
+    success &= WriteVLE(value.names.Size());
     for (size_t i = 0; i < value.names.Size(); ++i)
         success &= WriteString(value.names[i]);
     
@@ -305,7 +305,7 @@ bool Serializer::WriteVariantVector(const VariantVector& value)
 bool Serializer::WriteVariantMap(const VariantMap& value)
 {
     bool success = true;
-    success &= WriteVLE((unsigned)value.Size());
+    success &= WriteVLE(value.Size());
     for (VariantMap::ConstIterator i = value.Begin(); i != value.End(); ++i)
     {
         WriteStringHash(i->first);
@@ -316,54 +316,55 @@ bool Serializer::WriteVariantMap(const VariantMap& value)
 
 bool Serializer::WriteJSONValue(const JSONValue& value)
 {
-    WriteUByte((unsigned char)value.Type());
+    bool success = WriteUByte((unsigned char)value.Type());
     
     switch (value.Type())
     {
     case JSON_BOOL:
-        return WriteBool(value.GetBool());
+        success &= WriteBool(value.GetBool());
+        break;
         
     case JSON_NUMBER:
-        return WriteDouble(value.GetNumber());
-        
+        success &= WriteDouble(value.GetNumber());
+        break;
+
     case JSON_STRING:
-        return WriteString(value.GetString());
-        
+        success &= WriteString(value.GetString());
+        break;
+
     case JSON_ARRAY:
         {
             const JSONArray& array = value.GetArray();
-            if (!WriteVLE(array.Size()))
-                return false;
+            success &= WriteVLE(array.Size());
             for (JSONArray::ConstIterator i = array.Begin(); i != array.End(); ++i)
-            {
-                if (!WriteJSONValue(*i))
-                    return false;
-            }
+                success &= WriteJSONValue(*i);
         }
-        return true;
+        break;
         
     case JSON_OBJECT:
         {
             const JSONObject& object = value.GetObject();
-            if (!WriteVLE(object.Size()))
-                return false;
+            success &= WriteVLE(object.Size());
             for (JSONObject::ConstIterator i = object.Begin(); i != object.End(); ++i)
             {
-                if (!WriteString(i->first))
-                    return false;
-                if (!WriteJSONValue(i->second))
-                    return false;
+                success &= WriteString(i->first);
+                success &= WriteJSONValue(i->second);
             }
         }
-        return true;
+        break;
         
     default:
-        return true;
+        break;
     }
+
+    return success;
 }
 
-bool Serializer::WriteVLE(unsigned value)
+bool Serializer::WriteVLE(size_t value)
 {
+    if (value > MAX_VLE)
+        return false;
+    
     unsigned char data[4];
     
     if (value < 0x80)

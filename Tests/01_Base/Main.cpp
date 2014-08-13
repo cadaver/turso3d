@@ -222,10 +222,10 @@ int main()
         Variant var2 = 100;
         Variant var3 = "Test";
         Variant var4 = Vector3::UP;
-        printf("Variant 1 type %s Value %d\n", var1.TypeName().CString(), var1.AsBool());
-        printf("Variant 2 type %s Value %d\n", var2.TypeName().CString(), var2.AsInt());
-        printf("Variant 3 type %s Value %s\n", var3.TypeName().CString(), var3.AsString().CString());
-        printf("Variant 4 type %s Value %s\n", var4.TypeName().CString(), var4.AsVector3().ToString().CString());
+        printf("Variant 1 type %s Value %d\n", var1.TypeName().CString(), var1.GetBool());
+        printf("Variant 2 type %s Value %d\n", var2.TypeName().CString(), var2.GetInt());
+        printf("Variant 3 type %s Value %s\n", var3.TypeName().CString(), var3.GetString().CString());
+        printf("Variant 4 type %s Value %s\n", var4.TypeName().CString(), var4.GetVector3().ToString().CString());
     }
     
     {
@@ -288,10 +288,20 @@ int main()
         org["sightings"] = JSONObject();
         String jsonString = org.ToString();
         printf("%s\n", jsonString.CString());
+        printf("JSON text size: %d\n", jsonString.Length());
+        
         JSONValue parsed;
-        bool success = parsed.FromString(jsonString);
-        printf("JSON parsing result: %d\n", success);
-        printf("Parsed JSON: %s\n", parsed.ToString().CString());
+        if (parsed.FromString(jsonString))
+            printf("Parsed JSON: %s\n", parsed.ToString().CString());
+        else
+            printf("Failed to parse JSON from text");
+        
+        VectorBuffer buffer;
+        buffer.WriteJSONValue(org);
+        printf("JSON binary size: %d\n", buffer.Size());
+        buffer.Seek(0);
+        JSONValue binaryParsed = buffer.ReadJSONValue();
+        printf("Binary-parsed JSON: %s\n", binaryParsed.ToString().CString());
     }
 
     return 0;
