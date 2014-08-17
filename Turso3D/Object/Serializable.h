@@ -29,23 +29,23 @@ public:
     /// Set attribute value, template version.
     template <class T> void SetAttributeValue(const Attribute* attr, const T& source)
     {
-        const AttributeImpl<T>* typedAttr = dynamic_cast<AttributeImpl<T>*>(attr);
+        const AttributeImpl<T>* typedAttr = dynamic_cast<const AttributeImpl<T>*>(attr);
         if (typedAttr)
             typedAttr->SetValue(this, source);
     }
     
-    /// Copy current attribute value, template version.
+    /// Copy attribute value, template version.
     template <class T> void AttributeValue(const Attribute* attr, T& dest)
     {
-        const AttributeImpl<T>* typedAttr = dynamic_cast<AttributeImpl<T>*>(attr);
+        const AttributeImpl<T>* typedAttr = dynamic_cast<const AttributeImpl<T>*>(attr);
         if (typedAttr)
             typedAttr->Value(this, dest);
     }
     
-    /// Return current attribute value, template version.
+    /// Return attribute value, template version.
     template <class T> T AttributeValue(const Attribute* attr)
     {
-        const AttributeImpl<T>* typedAttr = dynamic_cast<AttributeImpl<T>*>(attr);
+        const AttributeImpl<T>* typedAttr = dynamic_cast<const AttributeImpl<T>*>(attr);
         return typedAttr ? typedAttr->Value(this) : T();
     }
     
