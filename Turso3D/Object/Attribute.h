@@ -118,7 +118,7 @@ public:
     }
     
     /// Return whether is default value.
-    virtual bool IsDefault(Serializable* instance) const { return Value() == defaultValue; }
+    virtual bool IsDefault(Serializable* instance) const { return Value(instance) == defaultValue; }
     
     /// Deserialize from JSON.
     virtual void FromJSON(Serializable* instance, const JSONValue& source) const;

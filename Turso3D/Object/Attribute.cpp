@@ -18,6 +18,31 @@ void Attribute::ToValue(Serializable* instance, void* dest) const
     accessor->Get(instance, dest);
 }
 
+void Attribute::Skip(AttributeType type, Deserializer& source)
+{
+    switch (type)
+    {
+    case ATTR_BOOL:
+        source.Read<bool>();
+        break;
+
+    case ATTR_INT:
+        source.Read<int>();
+        break;
+
+    case ATTR_FLOAT:
+        source.Read<float>();
+        break;
+
+    case ATTR_STRING:
+        source.Read<String>();
+        break;
+
+    default:
+        break;
+    }
+}
+
 template<> void AttributeImpl<bool>::FromJSON(Serializable* instance, const JSONValue& source) const
 {
     SetValue(instance, source.GetBool());
