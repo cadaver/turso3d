@@ -33,6 +33,9 @@ public:
     /// Return whether buffer is read-only.
     bool IsReadOnly() { return readOnly; }
     
+    using Deserializer::Read;
+    using Serializer::Write;
+    
 private:
     /// Pointer to the memory area.
     unsigned char* buffer;

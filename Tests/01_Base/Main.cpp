@@ -54,17 +54,24 @@ public:
     }
 };
 
+class TestEvent : public Event
+{
+public:
+    int data;
+};
+
 class TestEventSender : public Object
 {
     OBJECT(TestEventSender);
     
 public:
-    void SendTestEvent()
+    void SendTestEvent(int value)
     {
+        testEvent.data = value;
         SendEvent(testEvent);
     }
     
-    Event testEvent;
+    TestEvent testEvent;
 };
 
 class TestEventReceiver : public Object
@@ -74,12 +81,12 @@ class TestEventReceiver : public Object
 public:
     void SubscribeToTestEvent(TestEventSender* sender)
     {
-        SubscribeToEvent(sender->testEvent, HANDLER(TestEventReceiver, HandleTestEvent));
+        SubscribeToEvent(sender->testEvent, HANDLER(TestEventReceiver, TestEvent, HandleTestEvent));
     }
     
-    void HandleTestEvent(Event& event, VariantMap& /* eventData */)
+    void HandleTestEvent(TestEvent& event)
     {
-        printf("Receiver %08x got event %08x from %08x\n", (int)this, (int)&event, (int)event.Sender());
+        printf("Receiver %08x got TestEvent from %08x with data %d\n", (int)this, (int)event.Sender(), event.data);
     }
 };
 
@@ -97,7 +104,6 @@ int main()
     printf("Size of HashMap: %d\n", sizeof(HashMap<int, int>));
     printf("Size of RefCounted: %d\n", sizeof(RefCounted));
     printf("Size of WeakRefCounted: %d\n", sizeof(WeakRefCounted));
-    printf("Size of Variant: %d\n", sizeof(Variant));
     printf("Size of JSONValue: %d\n", sizeof(JSONValue));
     
     {
@@ -210,38 +216,26 @@ int main()
         printf("\nTesting AutoPtr inside a vector\n");
         Vector<AutoPtr<Test> > vec;
         printf("Filling vector\n");
-        for (size_t i = 0; i < 16; ++i)
+        for (size_t i = 0; i < 4; ++i)
             vec.Push(new Test());
         printf("Clearing vector\n");
         vec.Clear();
     }
 
     {
-        printf("\nTesting Variant\n");
-        Variant var1 = true;
-        Variant var2 = 100;
-        Variant var3 = "Test";
-        Variant var4 = Vector3::UP;
-        printf("Variant 1 type %s Value %d\n", var1.TypeName().CString(), var1.GetBool());
-        printf("Variant 2 type %s Value %d\n", var2.TypeName().CString(), var2.GetInt());
-        printf("Variant 3 type %s Value %s\n", var3.TypeName().CString(), var3.GetString().CString());
-        printf("Variant 4 type %s Value %s\n", var4.TypeName().CString(), var4.GetVector3().ToString().CString());
-    }
-    
-    {
         printf("\nTesting objects & events\n");
-        RegisterFactory<TestEventSender>();
-        RegisterFactory<TestEventReceiver>();
+        Object::RegisterFactory<TestEventSender>();
+        Object::RegisterFactory<TestEventReceiver>();
         
-        TestEventSender* sender = CreateObject<TestEventSender>();
-        TestEventReceiver* receiver1 = CreateObject<TestEventReceiver>();
-        TestEventReceiver* receiver2 = CreateObject<TestEventReceiver>();
+        TestEventSender* sender = Object::Create<TestEventSender>();
+        TestEventReceiver* receiver1 = Object::Create<TestEventReceiver>();
+        TestEventReceiver* receiver2 = Object::Create<TestEventReceiver>();
         printf("Type of sender is %s\n", sender->TypeName().CString());
         receiver1->SubscribeToTestEvent(sender);
         receiver2->SubscribeToTestEvent(sender);
-        sender->SendTestEvent();
+        sender->SendTestEvent(1);
         delete receiver2;
-        sender->SendTestEvent();
+        sender->SendTestEvent(2);
         delete receiver1;
         delete sender;
     }
@@ -297,10 +291,10 @@ int main()
             printf("Failed to parse JSON from text");
         
         VectorBuffer buffer;
-        buffer.WriteJSONValue(org);
+        buffer.Write(org);
         printf("JSON binary size: %d\n", buffer.Size());
         buffer.Seek(0);
-        JSONValue binaryParsed = buffer.ReadJSONValue();
+        JSONValue binaryParsed = buffer.Read<JSONValue>();
         printf("Binary-parsed JSON: %s\n", binaryParsed.ToString().CString());
     }
 

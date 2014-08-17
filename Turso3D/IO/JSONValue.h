@@ -157,6 +157,8 @@ public:
     const JSONArray& GetArray() const { return type == JSON_ARRAY ? *(reinterpret_cast<const JSONArray*>(&data)) : emptyJSONArray; }
     /// Return value as an object, or empty on type mismatch
     const JSONObject& GetObject() const { return type == JSON_OBJECT ? *(reinterpret_cast<const JSONObject*>(&data)) : emptyJSONObject; }
+    /// Return whether has an associative value.
+    bool HasValue(const String& key) const;
     /// Return an associative value, or null if not an object.
     const JSONValue& Value(const String& key) const { return (*this)[key]; }
     /// Return an indexed value, or null if not an array.

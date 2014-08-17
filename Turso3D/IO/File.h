@@ -51,7 +51,10 @@ public:
     bool IsOpen() const;
     /// Return the file handle.
     void* Handle() const { return handle; }
-
+    
+    using Deserializer::Read;
+    using Serializer::Write;
+    
 private:
     /// File path and name.
     String name;

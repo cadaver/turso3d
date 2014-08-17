@@ -28,7 +28,7 @@ bool ResourceRef::FromString(const char* str)
 
 String ResourceRef::ToString() const
 {
-    return TypeNameFromType(type) + ";" + name;
+    return Object::TypeNameFromType(type) + ";" + name;
 }
 
 bool ResourceRefList::FromString(const String& str)
@@ -53,7 +53,7 @@ bool ResourceRefList::FromString(const char* str)
 
 String ResourceRefList::ToString() const
 {
-    String ret(TypeNameFromType(type));
+    String ret(Object::TypeNameFromType(type));
     for (size_t i = 0; i < names.Size(); ++i)
     {
         ret += ";";

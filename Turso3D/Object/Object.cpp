@@ -8,8 +8,8 @@
 namespace Turso3D
 {
 
-static HashMap<StringHash, Object*> subsystems;
-static HashMap<StringHash, AutoPtr<ObjectFactory> > factories;
+HashMap<StringHash, Object*> Object::subsystems;
+HashMap<StringHash, AutoPtr<ObjectFactory> > Object::factories;
 
 void Object::SubscribeToEvent(Event& event, EventHandler* handler)
 {
@@ -26,17 +26,12 @@ void Object::SendEvent(Event& event)
     event.Send(this);
 }
 
-void Object::SendEvent(Event& event, VariantMap& eventData)
-{
-    event.Send(this, eventData);
-}
-
 bool Object::IsSubscribedToEvent(const Event& event) const
 {
     return event.HasReceiver(this);
 }
 
-void RegisterSubsystem(Object* subsystem)
+void Object::RegisterSubsystem(Object* subsystem)
 {
     if (!subsystem)
         return;
@@ -44,7 +39,7 @@ void RegisterSubsystem(Object* subsystem)
     subsystems[subsystem->Type()] = subsystem;
 }
 
-void RemoveSubsystem(Object* subsystem)
+void Object::RemoveSubsystem(Object* subsystem)
 {
     if (!subsystem)
         return;
@@ -54,18 +49,18 @@ void RemoveSubsystem(Object* subsystem)
         subsystems.Erase(i);
 }
 
-void RemoveSubsystem(StringHash type)
+void Object::RemoveSubsystem(StringHash type)
 {
     subsystems.Erase(type);
 }
 
-Object* Subsystem(StringHash type)
+Object* Object::Subsystem(StringHash type)
 {
     HashMap<StringHash, Object*>::Iterator i = subsystems.Find(type);
     return i != subsystems.End() ? i->second : (Object*)0;
 }
 
-void RegisterFactory(ObjectFactory* factory)
+void Object::RegisterFactory(ObjectFactory* factory)
 {
     if (!factory)
         return;
@@ -73,13 +68,13 @@ void RegisterFactory(ObjectFactory* factory)
     factories[factory->Type()] = factory;
 }
 
-Object* CreateObject(StringHash type)
+Object* Object::Create(StringHash type)
 {
     HashMap<StringHash, AutoPtr<ObjectFactory> >::Iterator i = factories.Find(type);
-    return i != factories.End() ? i->second->CreateObject() : (Object*)0;
+    return i != factories.End() ? i->second->Create() : (Object*)0;
 }
 
-const String& TypeNameFromType(StringHash type)
+const String& Object::TypeNameFromType(StringHash type)
 {
     HashMap<StringHash, AutoPtr<ObjectFactory> >::Iterator i = factories.Find(type);
     return i != factories.End() ? i->second->TypeName() : String::EMPTY;

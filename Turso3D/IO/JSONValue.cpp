@@ -346,6 +346,17 @@ bool JSONValue::IsEmpty() const
         return false;
 }
 
+bool JSONValue::HasValue(const String& key) const
+{
+    if (type == JSON_OBJECT)
+    {
+        const JSONObject& object = GetObject();
+        return object.Contains(key);
+    }
+    else
+        return false;
+}
+
 bool JSONValue::Parse(const char*& pos, const char*& end)
 {
     char c;

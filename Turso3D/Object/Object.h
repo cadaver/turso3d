@@ -2,10 +2,14 @@
 
 #pragma once
 
+#include "../Base/StringHash.h"
 #include "Event.h"
 
 namespace Turso3D
 {
+
+class ObjectFactory;
+template <class T> class ObjectFactoryImpl;
 
 /// Base class for objects with type identification and possibility to create through a factory.
 class TURSO3D_API Object : public WeakRefCounted
@@ -20,13 +24,38 @@ public:
     void SubscribeToEvent(Event& event, EventHandler* handler);
     /// Unsubscribe from an event.
     void UnsubscribeFromEvent(Event& event);
-    /// Send an event without parameters.
+    /// Send an event.
     void SendEvent(Event& event);
-    /// Send an event with parameter data.
-    void SendEvent(Event& event, VariantMap& eventData);
 
     /// Return whether is subscribed to an event.
     bool IsSubscribedToEvent(const Event& event) const;
+    
+    /// Register an object as a subsystem that can be accessed globally. Note that the subsystems container does not own the objects.
+    static void RegisterSubsystem(Object* subsystem);
+    /// Remove a subsystem by object pointer.
+    static void RemoveSubsystem(Object* subsystem);
+    /// Remove a subsystem by type.
+    static void RemoveSubsystem(StringHash type);
+    /// Return a subsystem by type, or null if not registered.
+    static Object* Subsystem(StringHash type);
+    /// Register an object factory.
+    static void RegisterFactory(ObjectFactory* factory);
+    /// Create and return an object through a factory. Return null if no factory registered.
+    static Object* Create(StringHash type);
+    /// Return a type name from hash, or empty if not known. Requires a registered object factory.
+    static const String& TypeNameFromType(StringHash type);
+    /// Tempate version of returning a subsystem.
+    template <class T> static T* Subsystem() { return static_cast<T*>(Subsystem(T::TypeStatic())); }
+    /// Template version of registering an object factory.
+    template <class T> static void RegisterFactory() { RegisterFactory(new ObjectFactoryImpl<T>()); }
+    /// Template version of creating and returning an object through a factory.
+    template <class T> static T* Create() { return static_cast<T*>(Create(T::TypeStatic())); }
+    
+private:
+    /// Registered subsystems.
+    static HashMap<StringHash, Object*> subsystems;
+    /// Registered object factories.
+    static HashMap<StringHash, AutoPtr<ObjectFactory> > factories;
 };
 
 /// Base class for object factories.
@@ -37,7 +66,7 @@ public:
     virtual ~ObjectFactory() {}
     
     /// Create and return an object.
-    virtual Object* CreateObject() = 0;
+    virtual Object* Create() = 0;
 
     /// Return type name hash of the objects created by this factory.
     StringHash Type() const { return type; }
@@ -63,29 +92,8 @@ public:
     }
 
     /// Create and return an object of the specific type.
-    virtual Object* CreateObject() { return new T(); }
+    virtual Object* Create() { return new T(); }
 };
-
-/// Register an object as a subsystem that can be accessed globally. Note that the subsystems container does not own the objects.
-TURSO3D_API void RegisterSubsystem(Object* subsystem);
-/// Remove a subsystem by object pointer.
-TURSO3D_API void RemoveSubsystem(Object* subsystem);
-/// Remove a subsystem by type.
-TURSO3D_API void RemoveSubsystem(StringHash type);
-/// Return a subsystem by type, or null if not registered.
-TURSO3D_API Object* Subsystem(StringHash type);
-/// Register an object factory.
-TURSO3D_API void RegisterFactory(ObjectFactory* factory);
-/// Create and return an object through a factory. Return null if no factory registered.
-TURSO3D_API Object* CreateObject(StringHash type);
-/// Return a type name from hash, or empty if not known. Requires a registered object factory.
-TURSO3D_API const String& TypeNameFromType(StringHash type);
-/// Tempate version of returning a subsystem.
-template <class T> T* Subsystem() { return static_cast<T*>(Subsystem(T::TypeStatic())); }
-/// Template version of registering an object factory.
-template <class T> void RegisterFactory() { RegisterFactory(new ObjectFactoryImpl<T>()); }
-/// Template version of creating and returning an object through a factory.
-template <class T> T* CreateObject() { return static_cast<T*>(CreateObject(T::TypeStatic())); }
 
 }
 

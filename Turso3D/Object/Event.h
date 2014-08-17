@@ -3,7 +3,8 @@
 #pragma once
 
 #include "../Base/AutoPtr.h"
-#include "../IO/Variant.h"
+#include "../Base/WeakPtr.h"
+#include "../IO/JSONValue.h"
 
 namespace Turso3D
 {
@@ -25,7 +26,7 @@ public:
     virtual ~EventHandler() {}
 
     /// Invoke the handler function. Implemented by subclasses.
-    virtual void Invoke(Event& event, VariantMap& eventData) = 0;
+    virtual void Invoke(Event& event) = 0;
 
     /// Return the receiver object.
     WeakRefCounted* Receiver() const { return receiver.Get(); }
@@ -36,10 +37,10 @@ protected:
 };
 
 /// Template implementation of the event handler invoke helper, stores a function pointer of specific class.
-template <class T> class EventHandlerImpl : public EventHandler
+template <class T, class U> class EventHandlerImpl : public EventHandler
 {
 public:
-    typedef void (T::*HandlerFunctionPtr)(Event&, VariantMap&);
+    typedef void (T::*HandlerFunctionPtr)(U&);
 
     /// Construct with receiver and function pointers.
     EventHandlerImpl(T* receiver_, HandlerFunctionPtr function_) :
@@ -50,10 +51,11 @@ public:
     }
 
     /// Invoke the handler function.
-    virtual void Invoke(Event& event, VariantMap& eventData)
+    virtual void Invoke(Event& event)
     {
-        T* receiver_ = static_cast<T*>(receiver.Get());
-        (receiver_->*function)(event, eventData);
+        T* typedReceiver = static_cast<T*>(receiver.Get());
+        U& typedEvent = static_cast<U&>(event);
+        (typedReceiver->*function)(typedEvent);
     }
 
 private:
@@ -61,19 +63,17 @@ private:
     HandlerFunctionPtr function;
 };
 
-/// An event to which objects can subscribe by specifying an event handler function to be called.
+/// An event to which objects can subscribe by specifying a handler function. Can be subclassed to include event-specific data.
 class TURSO3D_API Event
 {
 public:
     /// Construct.
     Event();
     /// Destruct.
-    ~Event();
+    virtual ~Event();
     
-    /// Send the event without parameters.
+    /// Send the event.
     void Send(WeakRefCounted* sender);
-    /// Send the event with parameter data.
-    void Send(WeakRefCounted* sender, VariantMap& eventData);
     /// Subscribe to the event. The event takes ownership of the handler data. If there is already handler data for the same receiver, it is overwritten.
     void Subscribe(EventHandler* handler);
     /// Unsubscribe from the event.
@@ -98,8 +98,6 @@ private:
     WeakPtr<WeakRefCounted> currentSender;
 };
 
-#define HANDLER(className, function) (new Turso3D::EventHandlerImpl<className>(this, &className::function))
-#define HANDLER_THISPTR(thisPtr, className, function) (new Turso3D::EventHandlerImpl<className>(thisPtr, &className::function))
-#define EVENTPARAM(eventName, paramName) namespace eventName { static const Turso3D::StringHash paramName(#paramName); }
+#define HANDLER(className, eventClassName, function) (new Turso3D::EventHandlerImpl<className, eventClassName>(this, &className::function))
 
 }

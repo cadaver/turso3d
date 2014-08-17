@@ -4,6 +4,7 @@
 
 #include "../Base/AutoPtr.h"
 #include "../Base/String.h"
+#include "../Math/Math.h"
 #include "../Object/Object.h"
 #include "../Thread/Timer.h"
 
@@ -114,7 +115,7 @@ public:
     /// Construct and begin a profiling block. The name must be persistent; string literals are recommended.
     AutoProfileBlock(const char* name)
     {
-        profiler = Subsystem<Profiler>();
+        profiler = Object::Subsystem<Profiler>();
         if (profiler)
             profiler->BeginBlock(name);
     }

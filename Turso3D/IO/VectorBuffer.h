@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "../Base/Vector.h"
 #include "Deserializer.h"
 #include "Serializer.h"
 
@@ -45,6 +46,9 @@ public:
     unsigned char* ModifiableData() { return buffer.Begin().ptr; }
     /// Return the buffer.
     const Vector<unsigned char>& Buffer() const { return buffer; }
+    
+    using Deserializer::Read;
+    using Serializer::Write;
     
 private:
     /// Dynamic data buffer.

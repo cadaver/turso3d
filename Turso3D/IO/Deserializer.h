@@ -2,12 +2,15 @@
 
 #pragma once
 
-#include "../Math/BoundingBox.h"
-#include "JSONValue.h"
-#include "Variant.h"
+#include "../Base/String.h"
 
 namespace Turso3D
 {
+
+class JSONValue;
+class StringHash;
+struct ResourceRef;
+struct ResourceRefList;
 
 /// Abstract stream for reading.
 class TURSO3D_API Deserializer
@@ -33,78 +36,22 @@ public:
     /// Return whether the end of stream has been reached.
     bool IsEof() const { return position >= size; }
     
-    /// Read a 32-bit integer.
-    int ReadInt();
-    /// Read a 16-bit integer.
-    short ReadShort();
-    /// Read an 8-bit integer.
-    signed char ReadByte();
-    /// Read a 32-bit unsigned integer.
-    unsigned ReadUInt();
-    /// Read a 16-bit unsigned integer.
-    unsigned short ReadUShort();
-    /// Read an 8-bit unsigned integer.
-    unsigned char ReadUByte();
-    /// Read a bool.
-    bool ReadBool();
-    /// Read a float.
-    float ReadFloat();
-    /// Read a double.
-    double ReadDouble();
-    /// Read an IntRect.
-    IntRect ReadIntRect();
-    /// Read an IntVector2.
-    IntVector2 ReadIntVector2();
-    /// Read a Rect.
-    Rect ReadRect();
-    /// Read a Vector2.
-    Vector2 ReadVector2();
-    /// Read a Vector3.
-    Vector3 ReadVector3();
-    /// Read a Vector3 packed into 3 x 16 bits with the specified maximum absolute range.
-    Vector3 ReadPackedVector3(float maxAbsCoord);
-    /// Read a Vector4.
-    Vector4 ReadVector4();
-    /// Read a quaternion.
-    Quaternion ReadQuaternion();
-    /// Read a quaternion with each component packed in 16 bits.
-    Quaternion ReadPackedQuaternion();
-    /// Read a Matrix3.
-    Matrix3 ReadMatrix3();
-    /// Read a Matrix3x4.
-    Matrix3x4 ReadMatrix3x4();
-    /// Read a Matrix4.
-    Matrix4 ReadMatrix4();
-    /// Read a color.
-    Color ReadColor();
-    /// Read a bounding box.
-    BoundingBox ReadBoundingBox();
-    /// Read a null-terminated string.
-    String ReadString();
-    /// Read a four-letter file ID.
-    String ReadFileID();
-    /// Read a 32-bit StringHash.
-    StringHash ReadStringHash();
-    /// Read a buffer with size encoded as VLE.
-    Vector<unsigned char> ReadBuffer();
-    /// Read a resource reference.
-    ResourceRef ReadResourceRef();
-    /// Read a resource reference list.
-    ResourceRefList ReadResourceRefList();
-    /// Read a variant.
-    Variant ReadVariant();
-    /// Read a variant whose type is already known.
-    Variant ReadVariant(VariantType type);
-    /// Read a variant vector.
-    VariantVector ReadVariantVector();
-    /// Read a variant map.
-    VariantMap ReadVariantMap();
-    /// Read a binary-encoded JSON value.
-    JSONValue ReadJSONValue();
     /// Read a variable-length encoded unsigned integer, which can use 29 bits maximum.
     unsigned ReadVLE();
     /// Read a text line.
     String ReadLine();
+    /// Read a 4-character file ID.
+    String ReadFileID();
+    /// Read a byte buffer, with size prepended as a VLE value.
+    Vector<unsigned char> ReadBuffer();
+    
+    /// Read a value, template version.
+    template <class T> T Read()
+    {
+        T ret;
+        Read(&ret, sizeof ret);
+        return ret;
+    }
     
 protected:
     /// Stream position.
@@ -112,5 +59,12 @@ protected:
     /// Stream size.
     size_t  size;
 };
+
+template<> bool Deserializer::Read();
+template<> String Deserializer::Read();
+template<> StringHash Deserializer::Read();
+template<> ResourceRef Deserializer::Read();
+template<> ResourceRefList Deserializer::Read();
+template<> JSONValue Deserializer::Read();
 
 }

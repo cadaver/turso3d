@@ -7,8 +7,6 @@
 namespace Turso3D
 {
 
-static VariantMap emptyEventData;
-
 Event::Event()
 {
 }
@@ -18,13 +16,6 @@ Event::~Event()
 }
 
 void Event::Send(WeakRefCounted* sender)
-{
-    // Clear the "empty data" map in case it has been mistakenly filled with data by eg. handler functions
-    emptyEventData.Clear();
-    Send(sender, emptyEventData);
-}
-
-void Event::Send(WeakRefCounted* sender, VariantMap& eventData)
 {
     // Retain a weak pointer to the sender on the stack for safety, in case it is destroyed
     // as a result of event handling, in which case the current event may also be destroyed
@@ -42,7 +33,7 @@ void Event::Send(WeakRefCounted* sender, VariantMap& eventData)
             if (receiver)
             {
                 remove = false;
-                handler->Invoke(*this, eventData);
+                handler->Invoke(*this);
                 // If the sender has been destroyed, abort processing immediately
                 if (safeCurrentSender.IsExpired())
                     return;
