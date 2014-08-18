@@ -294,7 +294,7 @@ int main()
     }
     
     {
-        printf("Testing JSONValue\n");
+        printf("\nTesting JSONValue\n");
         JSONValue org;
         org["name"] = "S.C.E.P.T.R.E";
         org["longName"] = "Sectarian Chosen Elite Privileged To Rule & Exterminate";
@@ -306,8 +306,9 @@ int main()
         officers.Push("Lilith");
         officers.Push("Suhrim");
         org["officers"] = officers;
-        org["allies"] = JSONArray();
-        org["sightings"] = JSONObject();
+        org["allies"].SetEmptyArray();
+        org["sightings"].SetEmptyObject();
+        
         String jsonString = org.ToString();
         printf("%s\n", jsonString.CString());
         printf("JSON text size: %d\n", jsonString.Length());
