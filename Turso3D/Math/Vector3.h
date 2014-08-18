@@ -212,7 +212,7 @@ public:
     Vector3 Lerp(const Vector3& rhs, float t) const { return *this * (1.0f - t) + rhs * t; }
     /// Test for equality with another vector with epsilon.
     bool Equals(const Vector3& rhs) const { return Turso3D::Equals(x, rhs.x) && Turso3D::Equals(y, rhs.y) && Turso3D::Equals(z, rhs.z); }
-    /// Returns the angle between this vector and another vector in degrees.
+    /// Return the angle between this vector and another vector in degrees.
     float Angle(const Vector3& rhs) const { return Turso3D::Acos(DotProduct(rhs) / (Length() * rhs.Length() ) ); }
     /// Return whether is NaN.
     bool IsNaN() const { return Turso3D::IsNaN(x) || Turso3D::IsNaN(y) || Turso3D::IsNaN(z); }

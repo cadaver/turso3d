@@ -63,7 +63,7 @@ class ObjectFactory
 {
 public:
     /// Destruct.
-    virtual ~ObjectFactory() {}
+    virtual ~ObjectFactory();
     
     /// Create and return an object.
     virtual Object* Create() = 0;

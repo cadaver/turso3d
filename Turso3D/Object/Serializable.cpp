@@ -121,7 +121,7 @@ const Attribute* Serializable::FindAttribute(const char* name) const
     for (size_t i = 0; i < attributes->Size(); ++i)
     {
         Attribute* attr = attributes->At(i);
-        if (!String::Compare(attr->Name().CString(), name, false))
+        if (!String::Compare(attr->Name().CString(), name))
             return attr;
     }
     

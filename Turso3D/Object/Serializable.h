@@ -51,9 +51,9 @@ public:
     
     /// Return the attribute descriptions. Default implementation uses per-class registration.
     virtual const Vector<AutoPtr<Attribute> >* Attributes() const;
-    /// Return an attribute description by name, or null if does not exist. Names are compared case-insensitive.
+    /// Return an attribute description by name, or null if does not exist.
     const Attribute* FindAttribute(const String& name) const;
-    /// Return an attribute description by name, or null if does not exist. Names are compared case-insensitive.
+    /// Return an attribute description by name, or null if does not exist.
     const Attribute* FindAttribute(const char* name) const;
     
     /// Register a per-class attribute.

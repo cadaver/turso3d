@@ -9,6 +9,10 @@
 namespace Turso3D
 {
 
+AttributeAccessor::~AttributeAccessor()
+{
+}
+
 Attribute::Attribute(const char* name_, AttributeAccessor* accessor_, const char** enumNames_) :
     name(name_),
     accessor(accessor_),

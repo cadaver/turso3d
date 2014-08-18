@@ -31,7 +31,7 @@ class AttributeAccessor
 {
 public:
     /// Destruct.
-    virtual ~AttributeAccessor() {}
+    virtual ~AttributeAccessor();
     
     /// Get the current value of the variable.
     virtual void Get(const Serializable* instance, void* dest) const = 0;

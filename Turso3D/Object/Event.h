@@ -16,14 +16,9 @@ class TURSO3D_API EventHandler
 {
 public:
     /// Construct with receiver object pointer.
-    EventHandler(WeakRefCounted* receiver_) :
-        receiver(receiver_)
-    {
-        assert(receiver);
-    }
-
+    EventHandler(WeakRefCounted* receiver);
     /// Destruct.
-    virtual ~EventHandler() {}
+    virtual ~EventHandler();
 
     /// Invoke the handler function. Implemented by subclasses.
     virtual void Invoke(Event& event) = 0;

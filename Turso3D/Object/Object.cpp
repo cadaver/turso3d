@@ -11,6 +11,10 @@ namespace Turso3D
 HashMap<StringHash, Object*> Object::subsystems;
 HashMap<StringHash, AutoPtr<ObjectFactory> > Object::factories;
 
+ObjectFactory::~ObjectFactory()
+{
+}
+
 void Object::SubscribeToEvent(Event& event, EventHandler* handler)
 {
     event.Subscribe(handler);

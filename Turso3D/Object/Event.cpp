@@ -7,6 +7,15 @@
 namespace Turso3D
 {
 
+EventHandler::EventHandler(WeakRefCounted* receiver_) :
+    receiver(receiver_)
+{
+}
+
+EventHandler::~EventHandler()
+{
+}
+
 Event::Event()
 {
 }
