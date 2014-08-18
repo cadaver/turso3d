@@ -345,9 +345,13 @@ int main()
         printf("Object binary size: %d\n", binarySaveData.Size());
 
         AutoPtr<TestSerializable> instance2(new TestSerializable());
+        instance2->LoadJSON(saveData);
+        printf("Loaded variables (JSON): int %d string: %s\n", instance2->IntVariable(), instance2->StringVariable().CString());
+        
+        AutoPtr<TestSerializable> instance3(new TestSerializable());
         binarySaveData.Seek(0);
-        instance2->Load(binarySaveData);
-        printf("Loaded variables: int %d string: %s\n", instance2->IntVariable(), instance2->StringVariable().CString());
+        instance3->Load(binarySaveData);
+        printf("Loaded variables (binary): int %d string: %s\n", instance3->IntVariable(), instance3->StringVariable().CString());
     }
 
     return 0;
