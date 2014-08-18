@@ -21,7 +21,9 @@ enum AttributeType
     ATTR_BOOL,
     ATTR_INT,
     ATTR_FLOAT,
-    ATTR_STRING
+    ATTR_STRING,
+    ATTR_VECTOR3,
+    ATTR_QUATERNION
 };
 
 /// Helper class for accessing serializable variables via getter and setter functions.

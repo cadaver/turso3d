@@ -1,6 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/JSONValue.h"
+#include "../Math/Quaternion.h"
 #include "Attribute.h"
 
 #include "../Debug/DebugNew.h"
@@ -49,6 +50,14 @@ void Attribute::Skip(AttributeType type, Deserializer& source)
         source.Read<String>();
         break;
 
+    case ATTR_VECTOR3:
+        source.Read<Vector3>();
+        break;
+        
+    case ATTR_QUATERNION:
+        source.Read<Quaternion>();
+        break;
+        
     default:
         break;
     }
@@ -74,6 +83,16 @@ template<> void AttributeImpl<String>::FromJSON(Serializable* instance, const JS
     SetValue(instance, source.GetString());
 }
 
+template<> void AttributeImpl<Vector3>::FromJSON(Serializable* instance, const JSONValue& source) const
+{
+    SetValue(instance, Vector3(source.GetString()));
+}
+
+template<> void AttributeImpl<Quaternion>::FromJSON(Serializable* instance, const JSONValue& source) const
+{
+    SetValue(instance, Quaternion(source.GetString()));
+}
+
 template<> void AttributeImpl<bool>::ToJSON(Serializable* instance, JSONValue& dest) const
 {
     dest = Value(instance);
@@ -94,6 +113,16 @@ template<> void AttributeImpl<String>::ToJSON(Serializable* instance, JSONValue&
     dest = Value(instance);
 }
 
+template<> void AttributeImpl<Vector3>::ToJSON(Serializable* instance, JSONValue& dest) const
+{
+    dest = Value(instance).ToString();
+}
+
+template<> void AttributeImpl<Quaternion>::ToJSON(Serializable* instance, JSONValue& dest) const
+{
+    dest = Value(instance).ToString();
+}
+
 template<> AttributeType AttributeImpl<bool>::Type() const
 {
     return ATTR_BOOL;
@@ -112,6 +141,16 @@ template<> AttributeType AttributeImpl<float>::Type() const
 template<> AttributeType AttributeImpl<String>::Type() const
 {
     return ATTR_STRING;
+}
+
+template<> AttributeType AttributeImpl<Vector3>::Type() const
+{
+    return ATTR_VECTOR3;
+}
+
+template<> AttributeType AttributeImpl<Quaternion>::Type() const
+{
+    return ATTR_QUATERNION;
 }
 
 }
