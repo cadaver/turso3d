@@ -150,7 +150,7 @@ private:
 template <class T, class U> class AttributeAccessorImpl : public AttributeAccessor
 {
 public:
-    typedef U(T::*GetFunctionPtr)() const;
+    typedef U (T::*GetFunctionPtr)() const;
     typedef void (T::*SetFunctionPtr)(U);
 
     /// Construct with function pointers.

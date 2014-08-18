@@ -59,18 +59,21 @@ public:
     /// Register a per-class attribute.
     static void RegisterAttribute(StringHash type, Attribute* attr);
     
+    /// Register a per-class attribute, template version.
+    template <class T, class U> static void RegisterAttribute(const char* name, U (T::*getFunction)() const, void (T::*setFunction)(U), const U& defaultValue = U(), const char** enumNames = 0)
+    {
+        RegisterAttribute(T::TypeStatic(), new AttributeImpl<U>(name, new AttributeAccessorImpl<T, U>(getFunction, setFunction), defaultValue, enumNames));
+    }
+    
+    /// Register a per-class attribute with reference access, template version.
+    template <class T, class U> static void RegisterAttribute(const char* name, const U& (T::*getFunction)() const, void (T::*setFunction)(const U&), const U& defaultValue = U(), const char** enumNames = 0)
+    {
+        RegisterAttribute(T::TypeStatic(), new AttributeImpl<U>(name, new RefAttributeAccessorImpl<T, U>(getFunction, setFunction), defaultValue, enumNames));
+    }
+    
 private:
     /// Per-class attributes.
     static HashMap<StringHash, Vector<AutoPtr<Attribute> > > classAttributes;
 };
 
 }
-
-#define ATTRIBUTE(className, type, name, getFunction, setFunction, defaultValue) \
-    Turso3D::Serializable::RegisterAttribute(className::TypeStatic(), new Turso3D::AttributeImpl<type>(name, new Turso3D::AttributeAccessorImpl<className, type>(&className::getFunction, &className::setFunction), defaultValue));
-#define REF_ATTRIBUTE(className, type, name, getFunction, setFunction, defaultValue) \
-    Turso3D::Serializable::RegisterAttribute(className::TypeStatic(), new Turso3D::AttributeImpl<type>(name, new Turso3D::RefAttributeAccessorImpl<className, type>(&className::getFunction, &className::setFunction), defaultValue));
-#define ENUM_ATTRIBUTE(className, type, name, getFunction, setFunction, defaultValue, enumNames) \
-    Turso3D::Serializable::RegisterAttribute(className::TypeStatic(), new Turso3D::AttributeImpl<type>(name, new Turso3D::AttributeAccessorImpl<className, type>(&className::getFunction, &className::setFunction), defaultValue, enumNames));
-#define REF_ENUM_ATTRIBUTE(className, type, name, getFunction, setFunction, defaultValue, enumNmes) \
-    Turso3D::Serializable::RegisterAttribute(className::TypeStatic(), new Turso3D::AttributeImpl<type>(name, new Turso3D::RefAttributeAccessorImpl<className, type>(&className::getFunction, &className::setFunction), defaultValue, enumNames));

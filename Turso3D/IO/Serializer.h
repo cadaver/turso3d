@@ -38,10 +38,7 @@ public:
     void WriteLine(const String& value);
     
     /// Write a value, template version.
-    template <class T> void Write(const T& value)
-    {
-        Write(&value, sizeof value);
-    }
+    template <class T> void Write(const T& value) { Write(&value, sizeof value); }
 };
 
 template<> void Serializer::Write(const bool& value);

@@ -38,7 +38,7 @@ public:
     typedef void (T::*HandlerFunctionPtr)(U&);
 
     /// Construct with receiver and function pointers.
-    EventHandlerImpl(T* receiver_, HandlerFunctionPtr function_) :
+    EventHandlerImpl(WeakRefCounted* receiver_, HandlerFunctionPtr function_) :
         EventHandler(receiver_),
         function(function_)
     {
@@ -92,7 +92,5 @@ private:
     /// Current sender.
     WeakPtr<WeakRefCounted> currentSender;
 };
-
-#define HANDLER(className, eventClassName, function) (new Turso3D::EventHandlerImpl<className, eventClassName>(this, &className::function))
 
 }

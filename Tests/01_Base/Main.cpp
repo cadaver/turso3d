@@ -81,7 +81,7 @@ class TestEventReceiver : public Object
 public:
     void SubscribeToTestEvent(TestEventSender* sender)
     {
-        SubscribeToEvent(sender->testEvent, HANDLER(TestEventReceiver, TestEvent, HandleTestEvent));
+        SubscribeToEvent(sender->testEvent, &TestEventReceiver::HandleTestEvent);
     }
     
     void HandleTestEvent(TestEvent& event)
@@ -102,10 +102,9 @@ public:
 
     static void RegisterObject()
     {
-        Object::RegisterFactory<TestSerializable>();
-
-        ATTRIBUTE(TestSerializable, int, "intVariable", IntVariable, SetIntVariable, 0);
-        REF_ATTRIBUTE(TestSerializable, String, "stringVariable", StringVariable, SetStringVariable, "");
+        RegisterFactory<TestSerializable>();
+        RegisterAttribute("intVariable", &TestSerializable::IntVariable, &TestSerializable::SetIntVariable);
+        RegisterAttribute("stringVariable", &TestSerializable::StringVariable, &TestSerializable::SetStringVariable);
     }
 
     void SetIntVariable(int newValue) { intVariable = newValue; }

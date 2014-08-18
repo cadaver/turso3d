@@ -27,6 +27,12 @@ public:
     /// Send an event.
     void SendEvent(Event& event);
 
+    /// Subscribe to an event, template version.
+    template <class T, class U> void SubscribeToEvent(U& event, void (T::*handlerFunction)(U&))
+    {
+        SubscribeToEvent(event, new EventHandlerImpl<T, U>(this, handlerFunction));
+    }
+
     /// Return whether is subscribed to an event.
     bool IsSubscribedToEvent(const Event& event) const;
     
@@ -44,11 +50,12 @@ public:
     static Object* Create(StringHash type);
     /// Return a type name from hash, or empty if not known. Requires a registered object factory.
     static const String& TypeNameFromType(StringHash type);
-    /// Tempate version of returning a subsystem.
+    
+    /// Return a subsystem, template version.
     template <class T> static T* Subsystem() { return static_cast<T*>(Subsystem(T::TypeStatic())); }
-    /// Template version of registering an object factory.
+    /// Register an object factory, template version.
     template <class T> static void RegisterFactory() { RegisterFactory(new ObjectFactoryImpl<T>()); }
-    /// Template version of creating and returning an object through a factory.
+    /// Create and return an object through a factory, template version.
     template <class T> static T* Create() { return static_cast<T*>(Create(T::TypeStatic())); }
     
 private:
