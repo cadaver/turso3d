@@ -32,9 +32,9 @@ public:
     virtual ~AttributeAccessor() {}
     
     /// Get the current value of the variable.
-    virtual void Get(Serializable* instance, void* dest) const = 0;
+    virtual void Get(const Serializable* instance, void* dest) const = 0;
     /// Set new value for the variable.
-    virtual void Set(const Serializable* instance, const void* source) const = 0;
+    virtual void Set(Serializable* instance, const void* source) const = 0;
 };
 
 /// Description of an automatically serializable variable.
@@ -42,7 +42,7 @@ class TURSO3D_API Attribute
 {
 public:
     /// Construct.
-    Attribute(const char* name, const char* description, AttributeAccessor* accessor, const char** enumNames = 0);
+    Attribute(const char* name, AttributeAccessor* accessor, const char** enumNames = 0);
     /// Destruct.
     virtual ~Attribute();
     
@@ -66,8 +66,6 @@ public:
     
     /// Return variable name.
     const String& Name() const { return name; }
-    /// Return human-readable description.1
-    const String& Description() const { return description; }
     /// Return zero-based enum names, or null if none.
     const char** EnumNames() const { return enumNames; }
     
@@ -77,8 +75,6 @@ public:
 protected:
     /// Variable name.
     String name;
-    /// Human-readable description.
-    String description;
     /// Attribute accessor.
     AutoPtr<AttributeAccessor> accessor;
     /// Enum names.
@@ -96,8 +92,8 @@ template <class T> class AttributeImpl : public Attribute
 {
 public:
     /// Construct.
-    AttributeImpl(const char* name, const char* description, AttributeAccessor* accessor, const T& defaultValue_, const char** enumNames = 0) :
-        Attribute(name, description, accessor, enumNames),
+    AttributeImpl(const char* name, AttributeAccessor* accessor, const T& defaultValue_, const char** enumNames = 0) :
+        Attribute(name, accessor, enumNames),
         defaultValue(defaultValue_)
     {
     }
@@ -167,9 +163,8 @@ public:
     /// Get current value of the variable.
     virtual void Get(const Serializable* instance, void* dest) const
     {
-        if (!instance)
-            return;
-        
+        assert(instance);
+
         U& value = *(reinterpret_cast<U*>(dest));
         const T* classInstance = static_cast<const T*>(instance);
         value = (classInstance->*get)();
@@ -178,9 +173,8 @@ public:
     /// Set new value for the variable.
     virtual void Set(Serializable* instance, const void* source) const
     {
-        if (!instance)
-            return;
-        
+        assert(instance);
+
         const U& value = *(reinterpret_cast<const U*>(source));
         T* classInstance = static_cast<T*>(instance);
         (classInstance->*set)(value);
@@ -212,9 +206,8 @@ public:
     /// Get current value of the variable.
     virtual void Get(const Serializable* instance, void* dest) const
     {
-        if (!instance)
-            return;
-        
+        assert(instance);
+
         U& value = *(reinterpret_cast<U*>(dest));
         const T* classPtr = static_cast<const T*>(instance);
         value = (classPtr->*get)();
@@ -223,9 +216,8 @@ public:
     /// Set new value for the variable.
     virtual void Set(Serializable* instance, const void* source) const
     {
-        if (!instance)
-            return;
-        
+        assert(instance);
+
         const U& value = *(reinterpret_cast<const U*>(source));
         T* classPtr = static_cast<T*>(instance);
         (classPtr->*set)(value);

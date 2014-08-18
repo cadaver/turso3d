@@ -21,7 +21,7 @@
 #include "Math/Frustum.h"
 #include "Math/Polyhedron.h"
 #include "Math/Ray.h"
-#include "Object/Object.h"
+#include "Object/Serializable.h"
 #include "Thread/Condition.h"
 #include "Thread/Mutex.h"
 #include "Thread/Condition.h"

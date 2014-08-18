@@ -90,6 +90,35 @@ public:
     }
 };
 
+class TestSerializable : public Serializable
+{
+    OBJECT(TestSerializable);
+
+public:
+    TestSerializable() :
+        intVariable(0)
+    {
+    }
+
+    static void RegisterObject()
+    {
+        Object::RegisterFactory<TestSerializable>();
+
+        ATTRIBUTE(TestSerializable, int, "intVariable", IntVariable, SetIntVariable, 0);
+        REF_ATTRIBUTE(TestSerializable, String, "stringVariable", StringVariable, SetStringVariable, "");
+    }
+
+    void SetIntVariable(int newValue) { intVariable = newValue; }
+    int IntVariable() const { return intVariable; }
+
+    void SetStringVariable(const String& newValue) { stringVariable = newValue; }
+    const String& StringVariable() const { return stringVariable; }
+
+private:
+    int intVariable;
+    String stringVariable;
+};
+
 const size_t NUM_ITEMS = 10000;
 
 int main()
@@ -296,6 +325,29 @@ int main()
         buffer.Seek(0);
         JSONValue binaryParsed = buffer.Read<JSONValue>();
         printf("Binary-parsed JSON: %s\n", binaryParsed.ToString().CString());
+    }
+
+    {
+        printf("\nTesting Serializable\n");
+
+        TestSerializable::RegisterObject();
+
+        AutoPtr<TestSerializable> instance(new TestSerializable());
+        instance->SetIntVariable(100);
+        instance->SetStringVariable("Test!");
+
+        JSONValue saveData;
+        instance->SaveJSON(saveData);
+        printf("Object JSON data: %s\n", saveData.ToString().CString());
+
+        VectorBuffer binarySaveData;
+        instance->Save(binarySaveData);
+        printf("Object binary size: %d\n", binarySaveData.Size());
+
+        AutoPtr<TestSerializable> instance2(new TestSerializable());
+        binarySaveData.Seek(0);
+        instance2->Load(binarySaveData);
+        printf("Loaded variables: int %d string: %s\n", instance2->IntVariable(), instance2->StringVariable().CString());
     }
 
     return 0;
