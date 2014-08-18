@@ -34,10 +34,10 @@ bool JSONFile::Read(Deserializer& source)
     return root.Parse(pos, end);
 }
 
-bool JSONFile::Write(Serializer& dest) const
+bool JSONFile::Write(Serializer& dest, int spacing) const
 {
     String buffer;
-    root.Write(buffer, 0);
+    root.ToString(buffer, spacing);
     return dest.Write(buffer.Begin().ptr, buffer.Length()) == buffer.Length();
 }
 

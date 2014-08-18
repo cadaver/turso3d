@@ -23,7 +23,7 @@ public:
     /// Read from a stream as text. Return true on success. Will contain partial data on failure.
     bool Read(Deserializer& source);
     /// Write to a stream as text. Return true on success.
-    bool Write(Serializer& dest) const;
+    bool Write(Serializer& dest, int spacing = 2) const;
     
     /// Return the root value.
     JSONValue& Root() { return root; }

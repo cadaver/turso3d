@@ -165,29 +165,21 @@ template<> JSONValue Deserializer::Read<JSONValue>()
     case JSON_ARRAY:
         {
             size_t num = ReadVLE();
-            if (num)
-            {
-                for (size_t i = 0; i < num; ++i)
-                    ret.Push(Read<JSONValue>());
-            }
-            else
-                ret = JSONValue::emptyJSONArray;
+            ret.SetEmptyArray();
+            for (size_t i = 0; i < num; ++i)
+                ret.Push(Read<JSONValue>());
         }
         break;
         
     case JSON_OBJECT:
         {
             size_t num = ReadVLE();
-            if (num)
+            ret.SetEmptyObject();
+            for (size_t i = 0; i < num; ++i)
             {
-                for (size_t i = 0; i < num; ++i)
-                {
-                    String key = Read<String>();
-                    ret[key] = Read<JSONValue>();
-                }
+                String key = Read<String>();
+                ret[key] = Read<JSONValue>();
             }
-            else
-                ret = JSONValue::emptyJSONObject;
         }
         break;
         

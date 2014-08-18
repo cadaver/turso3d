@@ -103,10 +103,15 @@ public:
     /// Test for inequality.
     bool operator != (const JSONValue& rhs) const { return !(*this == rhs); }
     
-    /// Set from a string. Return true on success.
+    /// Parse from a string. Return true on success.
     bool FromString(const String& str);
-    /// Set from a C string. Return true on success.
+    /// Parse from a C string. Return true on success.
     bool FromString(const char* str);
+    /// Write to a string. Called recursively to write nested values.
+    void ToString(String& dest, int spacing = 2, int indent = 0) const;
+    /// Return as string.
+    String ToString(int spacing = 2) const;
+    
     /// Push a value at the end. Becomes an array if was not before.
     void Push(const JSONValue& value);
     /// Insert a value at position. Becomes an array if was not before.
@@ -123,11 +128,13 @@ public:
     void Erase(const String& key);
     /// Clear array or object. No-op otherwise.
     void Clear();
+    /// Set to an empty array.
+    void SetEmptyArray();
+    /// Set to an empty object.
+    void SetEmptyObject();
     /// Set to null value.
     void SetNull();
     
-    /// Output as a string.
-    String ToString() const;
     /// Return number of values for objects or arrays, or 0 otherwise.
     size_t Size() const;
     /// Return whether an object or array is empty. Return false if not an object or array.
@@ -153,16 +160,12 @@ public:
     double GetNumber() const { return type == JSON_NUMBER ? data.numberValue : 0.0; }
     /// Return value as a string, or empty string on type mismatch.
     const String& GetString() const { return type == JSON_STRING ? *(reinterpret_cast<const String*>(&data)) : String::EMPTY; }
-    /// Return value as an array, or empty on type mismatch
+    /// Return value as an array, or empty on type mismatch.
     const JSONArray& GetArray() const { return type == JSON_ARRAY ? *(reinterpret_cast<const JSONArray*>(&data)) : emptyJSONArray; }
-    /// Return value as an object, or empty on type mismatch
+    /// Return value as an object, or empty on type mismatch.
     const JSONObject& GetObject() const { return type == JSON_OBJECT ? *(reinterpret_cast<const JSONObject*>(&data)) : emptyJSONObject; }
     /// Return whether has an associative value.
-    bool HasValue(const String& key) const;
-    /// Return an associative value, or null if not an object.
-    const JSONValue& Value(const String& key) const { return (*this)[key]; }
-    /// Return an indexed value, or null if not an array.
-    const JSONValue& At(size_t index) const { return (*this)[index]; }
+    bool Contains(const String& key) const;
     
     /// Empty (null) value.
     static const JSONValue EMPTY;
@@ -172,10 +175,8 @@ public:
     static const JSONObject emptyJSONObject;
     
 private:
-    /// Read from a buffer. Return true on success. Called internally.
+    /// Parse from a char buffer. Return true on success.
     bool Parse(const char*&pos, const char*& end);
-    /// Write to a string. Called recursively to write nested values.
-    void Write(String& dest, int indent = 0) const;
     /// Assign a new type and perform the necessary dynamic allocation / deletion.
     void SetType(JSONType newType);
     
