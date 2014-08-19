@@ -104,7 +104,7 @@ public:
     {
         RegisterFactory<TestSerializable>();
         RegisterAttribute("intVariable", &TestSerializable::IntVariable, &TestSerializable::SetIntVariable);
-        RegisterAttribute("stringVariable", &TestSerializable::StringVariable, &TestSerializable::SetStringVariable);
+        RegisterRefAttribute("stringVariable", &TestSerializable::StringVariable, &TestSerializable::SetStringVariable);
     }
 
     void SetIntVariable(int newValue) { intVariable = newValue; }
