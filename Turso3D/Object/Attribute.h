@@ -27,7 +27,7 @@ enum AttributeType
 };
 
 /// Helper class for accessing serializable variables via getter and setter functions.
-class AttributeAccessor
+class TURSO3D_API AttributeAccessor
 {
 public:
     /// Destruct.

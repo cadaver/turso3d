@@ -56,7 +56,7 @@ public:
     /// Return an attribute description by name, or null if does not exist.
     const Attribute* FindAttribute(const char* name) const;
     
-    /// Register a per-class attribute.
+    /// Register a per-class attribute. If an attribute with the same name already exists, it will be replaced.
     static void RegisterAttribute(StringHash type, Attribute* attr);
     
     /// Register a per-class attribute, template version.

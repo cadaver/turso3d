@@ -130,7 +130,17 @@ const Attribute* Serializable::FindAttribute(const char* name) const
 
 void Serializable::RegisterAttribute(StringHash type, Attribute* attr)
 {
-    classAttributes[type].Push(attr);
+    Vector<AutoPtr<Attribute> >& attributes = classAttributes[type];
+    for (size_t i = 0; i < attributes.Size(); ++i)
+    {
+        if (attributes[i]->Name() == attr->Name())
+        {
+            attributes.Insert(i, attr);
+            return;
+        }
+    }
+    
+    attributes.Push(attr);
 }
 
 }

@@ -3,7 +3,7 @@
 #include "../Base/String.h"
 #include "../Base/Vector.h"
 #include "../Base/WString.h"
-#include "CommandLine.h"
+#include "Arguments.h"
 
 #include "../Debug/DebugNew.h"
 
