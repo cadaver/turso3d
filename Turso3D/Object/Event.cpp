@@ -1,5 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
+#include "../Debug/Log.h"
+#include "../Thread/Thread.h"
 #include "Event.h"
 
 #include "../Debug/DebugNew.h"
@@ -26,6 +28,12 @@ Event::~Event()
 
 void Event::Send(WeakRefCounted* sender)
 {
+    if (!Thread::IsMainThread())
+    {
+        LOGERROR("Attempted to send an event from outside the main thread");
+        return;
+    }
+
     // Retain a weak pointer to the sender on the stack for safety, in case it is destroyed
     // as a result of event handling, in which case the current event may also be destroyed
     WeakPtr<WeakRefCounted> safeCurrentSender = sender;

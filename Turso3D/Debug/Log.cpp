@@ -57,11 +57,11 @@ void Log::Open(const String& fileName)
 
     logFile = new File();
     if (logFile->Open(fileName, FILE_WRITE))
-        Write(LOG_INFO, "Opened log file " + fileName);
+        LOGINFO("Opened log file " + fileName);
     else
     {
         logFile.Reset();
-        Write(LOG_ERROR, "Failed to create log file " + fileName);
+        LOGERROR("Failed to create log file " + fileName);
     }
 }
 
