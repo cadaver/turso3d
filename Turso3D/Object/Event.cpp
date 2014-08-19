@@ -39,9 +39,9 @@ void Event::Send(WeakRefCounted* sender)
     WeakPtr<WeakRefCounted> safeCurrentSender = sender;
     currentSender = sender;
     
-    for (Vector<AutoPtr<EventHandler> >::Iterator i = handlers.Begin(); i != handlers.End();)
+    for (Vector<AutoPtr<EventHandler> >::Iterator it = handlers.Begin(); it != handlers.End();)
     {
-        EventHandler* handler = *i;
+        EventHandler* handler = *it;
         bool remove = true;
         
         if (handler)
@@ -58,9 +58,9 @@ void Event::Send(WeakRefCounted* sender)
         }
         
         if (remove)
-            i = handlers.Erase(i);
+            it = handlers.Erase(it);
         else
-            ++i;
+            ++it;
     }
     
     currentSender.Reset();
@@ -72,12 +72,12 @@ void Event::Subscribe(EventHandler* handler)
         return;
     
     // Check if the same receiver already exists; in that case replace the handler data
-    for (Vector<AutoPtr<EventHandler> >::Iterator i = handlers.Begin(); i != handlers.End(); ++i)
+    for (Vector<AutoPtr<EventHandler> >::Iterator it = handlers.Begin(); it != handlers.End(); ++it)
     {
-        EventHandler* existing = *i;
+        EventHandler* existing = *it;
         if (existing && existing->Receiver() == handler->Receiver())
         {
-            *i = handler;
+            *it = handler;
             return;
         }
     }
@@ -87,17 +87,17 @@ void Event::Subscribe(EventHandler* handler)
 
 void Event::Unsubscribe(WeakRefCounted* receiver)
 {
-    for (Vector<AutoPtr<EventHandler> >::Iterator i = handlers.Begin(); i != handlers.End(); ++i)
+    for (Vector<AutoPtr<EventHandler> >::Iterator it = handlers.Begin(); it != handlers.End(); ++it)
     {
-        EventHandler* handler = *i;
+        EventHandler* handler = *it;
         if (handler && handler->Receiver() == receiver)
         {
             // If event sending is going on, only clear the pointer but do not remove the element from the handler vector
             // to not confuse the event sending iteration; the element will eventually be cleared by the next SendEvent().
             if (currentSender)
-                *i = (EventHandler*)0;
+                *it = (EventHandler*)0;
             else
-                handlers.Erase(i);
+                handlers.Erase(it);
             return;
         }
     }
@@ -105,9 +105,9 @@ void Event::Unsubscribe(WeakRefCounted* receiver)
 
 bool Event::HasReceivers() const
 {
-    for (Vector<AutoPtr<EventHandler> >::ConstIterator i = handlers.Begin(); i != handlers.End(); ++i)
+    for (Vector<AutoPtr<EventHandler> >::ConstIterator it = handlers.Begin(); it != handlers.End(); ++it)
     {
-        EventHandler* handler = *i;
+        EventHandler* handler = *it;
         if (handler && handler->Receiver())
             return true;
     }
@@ -117,9 +117,9 @@ bool Event::HasReceivers() const
 
 bool Event::HasReceiver(const WeakRefCounted* receiver) const
 {
-    for (Vector<AutoPtr<EventHandler> >::ConstIterator i = handlers.Begin(); i != handlers.End(); ++i)
+    for (Vector<AutoPtr<EventHandler> >::ConstIterator it = handlers.Begin(); it != handlers.End(); ++it)
     {
-        EventHandler* handler = *i;
+        EventHandler* handler = *it;
         if (handler && handler->Receiver() == receiver)
             return true;
     }

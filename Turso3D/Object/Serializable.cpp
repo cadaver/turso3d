@@ -103,8 +103,8 @@ void Serializable::AttributeValue(const Attribute* attr, void* dest)
 
 const Vector<AutoPtr<Attribute> >* Serializable::Attributes() const
 {
-    HashMap<StringHash, Vector<AutoPtr<Attribute> > >::ConstIterator i = classAttributes.Find(Type());
-    return i != classAttributes.End() ? &i->second : (Vector<AutoPtr<Attribute> >*)0;
+    HashMap<StringHash, Vector<AutoPtr<Attribute> > >::ConstIterator it = classAttributes.Find(Type());
+    return it != classAttributes.End() ? &it->second : (Vector<AutoPtr<Attribute> >*)0;
 }
 
 const Attribute* Serializable::FindAttribute(const String& name) const

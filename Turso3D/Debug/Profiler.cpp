@@ -67,8 +67,8 @@ void ProfilerBlock::EndFrame()
     maxTime = 0;
     count = 0;
 
-    for (Vector<AutoPtr<ProfilerBlock> >::Iterator i = children.Begin(); i != children.End(); ++i)
-        (*i)->EndFrame();
+    for (Vector<AutoPtr<ProfilerBlock> >::Iterator it = children.Begin(); it != children.End(); ++it)
+        (*it)->EndFrame();
 }
 
 void ProfilerBlock::BeginInterval()
@@ -77,23 +77,23 @@ void ProfilerBlock::BeginInterval()
     intervalMaxTime = 0;
     intervalCount = 0;
 
-    for (Vector<AutoPtr<ProfilerBlock> >::Iterator i = children.Begin(); i != children.End(); ++i)
-        (*i)->BeginInterval();
+    for (Vector<AutoPtr<ProfilerBlock> >::Iterator it = children.Begin(); it != children.End(); ++it)
+        (*it)->BeginInterval();
 }
 
 ProfilerBlock* ProfilerBlock::FindOrCreateChild(const char* name_)
 {
     // First check using string pointers only, then resort to actual strcmp
-    for (Vector<AutoPtr<ProfilerBlock> >::Iterator i = children.Begin(); i != children.End(); ++i)
+    for (Vector<AutoPtr<ProfilerBlock> >::Iterator it = children.Begin(); it != children.End(); ++it)
     {
-        if ((*i)->name == name_)
-            return *i;
+        if ((*it)->name == name_)
+            return *it;
     }
 
-    for (Vector<AutoPtr<ProfilerBlock> >::Iterator i = children.Begin(); i != children.End(); ++i)
+    for (Vector<AutoPtr<ProfilerBlock> >::Iterator it = children.Begin(); it != children.End(); ++it)
     {
-        if (!String::Compare((*i)->name, name_))
-            return *i;
+        if (!String::Compare((*it)->name, name_))
+            return *it;
     }
 
     ProfilerBlock* newBlock = new ProfilerBlock(this, name_);
@@ -237,8 +237,8 @@ void Profiler::OutputResults(ProfilerBlock* block, String& output, size_t depth,
         ++depth;
     }
 
-    for (Vector<AutoPtr<ProfilerBlock> >::ConstIterator i = block->children.Begin(); i != block->children.End(); ++i)
-        OutputResults(*i, output, depth, maxDepth, showUnused, showTotal);
+    for (Vector<AutoPtr<ProfilerBlock> >::ConstIterator it = block->children.Begin(); it != block->children.End(); ++it)
+        OutputResults(*it, output, depth, maxDepth, showUnused, showTotal);
 }
 
 }

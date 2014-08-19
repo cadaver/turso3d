@@ -244,14 +244,14 @@ public:
         if (rhs.size != size)
             return false;
         
-        ConstIterator i = Begin();
-        ConstIterator j = rhs.Begin();
+        ConstIterator it = Begin();
+        ConstIterator rhsIt = rhs.Begin();
         while (i != End())
         {
-            if (*i != *j)
+            if (*it != *rhsIt)
                 return false;
-            ++i;
-            ++j;
+            ++it;
+            ++rhsIt;
         }
         
         return true;
@@ -271,10 +271,8 @@ public:
     void Insert(const Iterator& dest, const List<T>& list)
     {
         Node* destNode = static_cast<Node*>(dest.ptr);
-        ConstIterator it = list.Begin();
-        ConstIterator end = list.End();
-        while (it != end)
-            InsertNode(destNode, *it++);
+        for (ConstIterator it = list.Begin(); it != list.End(); ++it)
+            InsertNode(destNode, *it);
     }
     
     /// Insert elements by iterators.
@@ -330,10 +328,10 @@ public:
     {
         if (Size())
         {
-            for (Iterator i = Begin(); i != End(); )
+            for (Iterator it = Begin(); it != End(); )
             {
-                FreeNode(static_cast<Node*>(i++.ptr));
-                i.ptr->prev = 0;
+                FreeNode(static_cast<Node*>(it++.ptr));
+                it.ptr->prev = 0;
             }
             
             head = tail;
@@ -357,7 +355,7 @@ public:
         Iterator it = Begin();
         while (it != End() && *it != value)
             ++it;
-        return it;
+        return i;
     }
     
     /// Return const iterator to value, or to the end if not found.
@@ -439,10 +437,10 @@ private:
     }
     
     /// Reserve a node with optionally specified value.
-    Node* AllocateNode(const T& = T())
+    Node* AllocateNode(const T& value = T())
     {
         Node* newNode = static_cast<Node*>(AllocatorGet(allocator));
-        new(newNode) Node();
+        new(newNode) Node(value);
         return newNode;
     }
     

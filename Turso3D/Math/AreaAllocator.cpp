@@ -51,10 +51,10 @@ bool AreaAllocator::Allocate(int width, int height, int& x, int& y)
     
     for(;;)
     {
-        for (Vector<IntRect>::Iterator i = freeAreas.Begin(); i != freeAreas.End(); ++i)
+        for (Vector<IntRect>::Iterator it = freeAreas.Begin(); it != freeAreas.End(); ++it)
         {
-            int freeWidth = i->Width();
-            int freeHeight = i->Height();
+            int freeWidth = it->Width();
+            int freeHeight = it->Height();
             
             if (freeWidth >= width && freeHeight >= height)
             {
@@ -63,7 +63,7 @@ bool AreaAllocator::Allocate(int width, int height, int& x, int& y)
                 
                 if (freeArea < bestFreeArea)
                 {
-                    best = i;
+                    best = it;
                     bestFreeArea = freeArea;
                 }
             }

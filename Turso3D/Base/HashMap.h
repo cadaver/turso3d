@@ -192,13 +192,11 @@ public:
         if (rhs.Size() != Size())
             return false;
         
-        ConstIterator i = Begin();
-        while (i != End())
+        for (ConstIterator it = Begin(); it != End(); ++it)
         {
-            ConstIterator j = rhs.Find(i->first);
-            if (j == rhs.End() || j->second != i->second)
+            ConstIterator rhsIt = rhs.Find(it->first);
+            if (rhsIt == rhs.End() || rhsIt->second != it->second)
                 return false;
-            ++i;
         }
         
         return true;
@@ -231,13 +229,8 @@ public:
     /// Insert a map.
     void Insert(const HashMap<T, U>& map)
     {
-        ConstIterator it = map.Begin();
-        ConstIterator end = map.End();
-        while (it != end)
-        {
+        for (ConstIterator it = map.Begin(); it != map.End(); ++it)
             InsertNode(it->first, it->second);
-            ++it;
-        }
     }
     
     /// Insert a pair by iterator. Return iterator to the value.
@@ -246,9 +239,9 @@ public:
     /// Insert a range by iterators.
     void Insert(const ConstIterator& start, const ConstIterator& end)
     {
-        ConstIterator it = start;
-        while (it != end)
-            InsertNode(*it++);
+        ConstIterator i = start;
+        while (i != end)
+            InsertNode(*i++);
     }
     
     /// Erase a pair by key. Return true if was found.
@@ -308,10 +301,10 @@ public:
     {
         if (Size())
         {
-            for (Iterator i = Begin(); i != End(); )
+            for (Iterator it = Begin(); it != End(); )
             {
-                FreeNode(static_cast<Node*>(i++.ptr));
-                i.ptr->prev = 0;
+                FreeNode(static_cast<Node*>(it++.ptr));
+                it.ptr->prev = 0;
             }
             
             head = tail;
@@ -415,8 +408,8 @@ public:
     {
         Vector<T> result;
         result.Reserve(Size());
-        for (ConstIterator i = Begin(); i != End(); ++i)
-            result.Push(i->first);
+        for (ConstIterator it = Begin(); it != End(); ++it)
+            result.Push(it->first);
         return result;
     }
 
@@ -571,10 +564,10 @@ private:
     /// Rehash the buckets.
     void Rehash()
     {
-        for (Iterator i = Begin(); i != End(); ++i)
+        for (Iterator it = Begin(); it != End(); ++it)
         {
-            Node* node = static_cast<Node*>(i.ptr);
-            unsigned hashKey = Hash(i->first);
+            Node* node = static_cast<Node*>(it.ptr);
+            unsigned hashKey = Hash(it->first);
             node->down = Ptrs()[hashKey];
             Ptrs()[hashKey] = node;
         }

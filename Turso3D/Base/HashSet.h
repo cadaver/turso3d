@@ -158,12 +158,10 @@ public:
         if (rhs.Size() != Size())
             return false;
         
-        ConstIterator it = Begin();
-        while (it != End())
+        for (ConstIterator it = Begin(); it != End(); ++it)
         {
             if (!rhs.Contains(*it))
                 return false;
-            ++it;
         }
         
         return true;
@@ -205,10 +203,8 @@ public:
     /// Insert a set.
     void Insert(const HashSet<T>& set)
     {
-        ConstIterator it = set.Begin();
-        ConstIterator end = set.End();
-        while (it != end)
-            Insert(*it++);
+        for (ConstIterator it = set.Begin(); it != set.End(); ++it)
+            Insert(*it);
     }
     
     /// Insert a key by iterator. Return iterator to the value.
@@ -274,10 +270,10 @@ public:
     {
         if (Size())
         {
-            for (Iterator i = Begin(); i != End(); )
+            for (Iterator it = Begin(); it != End(); )
             {
-                FreeNode(static_cast<Node*>(i++.ptr));
-                i.ptr->prev = 0;
+                FreeNode(static_cast<Node*>(it++.ptr));
+                it.ptr->prev = 0;
             }
             
             head = tail;

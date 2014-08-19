@@ -132,8 +132,8 @@ template<> void Serializer::Write<JSONValue>(const JSONValue& value)
         {
             const JSONArray& array = value.GetArray();
             WriteVLE(array.Size());
-            for (JSONArray::ConstIterator i = array.Begin(); i != array.End(); ++i)
-                Write(*i);
+            for (JSONArray::ConstIterator it = array.Begin(); it != array.End(); ++it)
+                Write(*it);
         }
         break;
         
@@ -141,10 +141,10 @@ template<> void Serializer::Write<JSONValue>(const JSONValue& value)
         {
             const JSONObject& object = value.GetObject();
             WriteVLE(object.Size());
-            for (JSONObject::ConstIterator i = object.Begin(); i != object.End(); ++i)
+            for (JSONObject::ConstIterator it = object.Begin(); it != object.End(); ++it)
             {
-                Write(i->first);
-                Write(i->second);
+                Write(it->first);
+                Write(it->second);
             }
         }
         break;

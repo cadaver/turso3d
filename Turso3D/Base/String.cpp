@@ -177,8 +177,8 @@ String::String(char value, size_t numChars) :
     buffer(&endZero)
 {
     Resize(numChars);
-    for (size_t i = 0; i < numChars; ++i)
-        buffer[i] = value;
+    for (Iterator it = Begin(); it != End(); ++it)
+        *it = value;
 }
 
 String::~String()
@@ -384,19 +384,19 @@ void String::Replace(char replaceThis, char replaceWith, bool caseSensitive)
 {
     if (caseSensitive)
     {
-        for (size_t i = 0; i < length; ++i)
+        for (Iterator it = Begin(); it != End(); ++it)
         {
-            if (buffer[i] == replaceThis)
-                buffer[i] = replaceWith;
+            if (*it == replaceThis)
+                *it = replaceWith;
         }
     }
     else
     {
         replaceThis = Turso3D::ToLower(replaceThis);
-        for (size_t i = 0; i < length; ++i)
+        for (Iterator it = Begin(); it != End(); ++it)
         {
-            if (Turso3D::ToLower(buffer[i]) == replaceThis)
-                buffer[i] = replaceWith;
+            if (Turso3D::ToLower(*it) == replaceThis)
+                *it = replaceWith;
         }
     }
 }
@@ -797,8 +797,9 @@ String String::Trimmed() const
 String String::ToLower() const
 {
     String ret(*this);
-    for (size_t i = 0; i < ret.length; ++i)
-        ret[i] = Turso3D::ToLower(buffer[i]);
+
+    for (Iterator it = ret.Begin(); it != ret.End(); ++it)
+        *it = Turso3D::ToLower(*it);
     
     return ret;
 }
@@ -806,8 +807,9 @@ String String::ToLower() const
 String String::ToUpper() const
 {
     String ret(*this);
-    for (size_t i = 0; i < ret.length; ++i)
-        ret[i] = Turso3D::ToUpper(buffer[i]);
+
+    for (Iterator it = ret.Begin(); it != ret.End(); ++it)
+        *it = Turso3D::ToUpper(*it);
     
     return ret;
 }

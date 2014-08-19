@@ -129,6 +129,7 @@ public:
 
         T* buffer = Buffer();
         T* rhsBuffer = rhs.Buffer();
+
         for (size_t i = 0; i < size; ++i)
         {
             if (buffer[i] != rhsBuffer[i])
@@ -274,10 +275,10 @@ public:
     /// Erase an element if found.
     bool Remove(const T& value)
     {
-        Iterator i = Find(value);
-        if (i != End())
+        Iterator it = Find(value);
+        if (it != End())
         {
-            Erase(i);
+            Erase(it);
             return true;
         }
         else
@@ -322,7 +323,7 @@ public:
     /// Return const element at index.
     const T& At(size_t index) const { assert(index < size); return Buffer()[index]; }
 
-    /// Return iterator to value, or to the end if not found.
+    /// Return iterator to first occurrence of value, or to the end if not found.
     Iterator Find(const T& value)
     {
         Iterator it = Begin();
@@ -331,7 +332,7 @@ public:
         return it;
     }
 
-    /// Return const iterator to value, or to the end if not found.
+    /// Return const iterator to first occurrence of value, or to the end if not found.
     ConstIterator Find(const T& value) const
     {
         ConstIterator it = Begin();

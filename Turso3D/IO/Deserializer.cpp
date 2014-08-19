@@ -137,8 +137,8 @@ template<> ResourceRefList Deserializer::Read<ResourceRefList>()
     ResourceRefList ret;
     ret.type = Read<StringHash>();
     ret.names.Resize(ReadVLE());
-    for (size_t i = 0; i < ret.names.Size(); ++i)
-        ret.names[i] = Read<String>();
+    for (Vector<String>::Iterator it = ret.names.Begin(); it != ret.names.End(); ++it)
+        *it = Read<String>();
     return ret;
 }
 

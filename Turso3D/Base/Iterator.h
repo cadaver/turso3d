@@ -31,11 +31,11 @@ template <class T> struct RandomAccessIterator
     /// Preincrement the pointer.
     RandomAccessIterator<T>& operator ++ () { ++ptr; return *this; }
     /// Postincrement the pointer.
-    RandomAccessIterator<T> operator ++ (int) { RandomAccessIterator<T> it = *this; ++ptr; return it; }
+    RandomAccessIterator<T> operator ++ (int) { RandomAccessIterator<T> i = *this; ++ptr; return i; }
     /// Predecrement the pointer.
     RandomAccessIterator<T>& operator -- () { --ptr; return *this; }
     /// Postdecrement the pointer.
-    RandomAccessIterator<T> operator -- (int) { RandomAccessIterator<T> it = *this; --ptr; return it; }
+    RandomAccessIterator<T> operator -- (int) { RandomAccessIterator<T> i = *this; --ptr; return i; }
     /// Add an offset to the pointer.
     RandomAccessIterator<T>& operator += (int value) { ptr += value; return *this; }
     /// Subtract an offset from the pointer.
@@ -101,11 +101,11 @@ template <class T> struct RandomAccessConstIterator
     /// Preincrement the pointer.
     RandomAccessConstIterator<T>& operator ++ () { ++ptr; return *this; }
     /// Postincrement the pointer.
-    RandomAccessConstIterator<T> operator ++ (int) { RandomAccessConstIterator<T> it = *this; ++ptr; return it; }
+    RandomAccessConstIterator<T> operator ++ (int) { RandomAccessConstIterator<T> i = *this; ++ptr; return i; }
     /// Predecrement the pointer.
     RandomAccessConstIterator<T>& operator -- () { --ptr; return *this; }
     /// Postdecrement the pointer.
-    RandomAccessConstIterator<T> operator -- (int) { RandomAccessConstIterator<T> it = *this; --ptr; return it; }
+    RandomAccessConstIterator<T> operator -- (int) { RandomAccessConstIterator<T> i = *this; --ptr; return i; }
     /// Add an offset to the pointer.
     RandomAccessConstIterator<T>& operator += (int value) { ptr += value; return *this; }
     /// Subtract an offset from the pointer.

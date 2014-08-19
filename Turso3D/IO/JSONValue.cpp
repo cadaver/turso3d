@@ -310,15 +310,15 @@ void JSONValue::ToString(String& dest, int spacing, int indent) const
             if (object.Size())
             {
                 indent += spacing;
-                for (JSONObject::ConstIterator i = object.Begin(); i != object.End(); ++i)
+                for (JSONObject::ConstIterator it = object.Begin(); it != object.End(); ++it)
                 {
-                    if (i != object.Begin())
+                    if (it != object.Begin())
                         dest += ',';
                     dest += '\n';
                     WriteIndent(dest, indent);
-                    WriteJSONString(dest, i->first);
+                    WriteJSONString(dest, it->first);
                     dest += ": ";
-                    i->second.ToString(dest, spacing, indent);
+                    it->second.ToString(dest, spacing, indent);
                 }
                 indent -= spacing;
                 dest += '\n';
