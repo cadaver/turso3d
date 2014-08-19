@@ -26,20 +26,30 @@ public:
     /// Copy attribute value to memory.
     void AttributeValue(const Attribute* attr, void* dest);
     
-    /// Set attribute value, template version.
-    template <class T> void SetAttributeValue(const Attribute* attr, const T& source)
+    /// Set attribute value, template version. Return true if value was right type.
+    template <class T> bool SetAttributeValue(const Attribute* attr, const T& source)
     {
         const AttributeImpl<T>* typedAttr = dynamic_cast<const AttributeImpl<T>*>(attr);
         if (typedAttr)
+        {
             typedAttr->SetValue(this, source);
+            return true;
+        }
+        else
+            return false;
     }
     
-    /// Copy attribute value, template version.
-    template <class T> void AttributeValue(const Attribute* attr, T& dest)
+    /// Copy attribute value, template version. Return true if value was right type.
+    template <class T> bool AttributeValue(const Attribute* attr, T& dest)
     {
         const AttributeImpl<T>* typedAttr = dynamic_cast<const AttributeImpl<T>*>(attr);
         if (typedAttr)
+        {
             typedAttr->Value(this, dest);
+            return true;
+        }
+        else
+            return false;
     }
     
     /// Return attribute value, template version.
@@ -58,6 +68,8 @@ public:
     
     /// Register a per-class attribute. If an attribute with the same name already exists, it will be replaced.
     static void RegisterAttribute(StringHash type, Attribute* attr);
+    /// Skip binary data of an object's all attributes.
+    static void Skip(Deserializer& source);
     
     /// Register a per-class attribute, template version.
     template <class T, class U> static void RegisterAttribute(const char* name, U (T::*getFunction)() const, void (T::*setFunction)(U), const U& defaultValue = U(), const char** enumNames = 0)

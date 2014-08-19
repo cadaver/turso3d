@@ -143,4 +143,14 @@ void Serializable::RegisterAttribute(StringHash type, Attribute* attr)
     attributes.Push(attr);
 }
 
+void Serializable::Skip(Deserializer& source)
+{
+    size_t numAttrs = source.ReadVLE();
+    for (size_t i = 0; i < numAttrs; ++i)
+    {
+        AttributeType type = (AttributeType)source.Read<unsigned char>();
+        Attribute::Skip(type, source);
+    }
+}
+
 }
