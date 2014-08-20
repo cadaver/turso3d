@@ -246,7 +246,7 @@ public:
         
         ConstIterator it = Begin();
         ConstIterator rhsIt = rhs.Begin();
-        while (i != End())
+        while (it != End())
         {
             if (*it != *rhsIt)
                 return false;
@@ -355,7 +355,7 @@ public:
         Iterator it = Begin();
         while (it != End() && *it != value)
             ++it;
-        return i;
+        return it;
     }
     
     /// Return const iterator to value, or to the end if not found.
