@@ -80,9 +80,9 @@ public:
     const String& TypeName() const { return typeName; }
 
 protected:
-    /// Object type name hash.
+    /// %Object type name hash.
     StringHash type;
-    /// Object type name.
+    /// %Object type name.
     String typeName;
 };
 

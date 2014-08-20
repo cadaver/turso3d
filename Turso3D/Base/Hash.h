@@ -142,7 +142,7 @@ struct TURSO3D_API HashIteratorBase
             ptr = ptr->prev;
     }
     
-    /// Node pointer.
+    /// %Node pointer.
     HashNodeBase* ptr;
 };
 
@@ -194,7 +194,7 @@ protected:
     HashNodeBase* tail;
     /// Bucket head pointers.
     HashNodeBase** ptrs;
-    /// Node allocator.
+    /// %Node allocator.
     AllocatorBlock* allocator;
 };
 

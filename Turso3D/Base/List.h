@@ -58,7 +58,7 @@ struct TURSO3D_API ListIteratorBase
             ptr = ptr->prev;
     }
     
-    /// Node pointer.
+    /// %Node pointer.
     ListNodeBase* ptr;
 };
 
@@ -92,7 +92,7 @@ protected:
     ListNodeBase* head;
     /// Tail node pointer.
     ListNodeBase* tail;
-    /// Node allocator.
+    /// %Node allocator.
     AllocatorBlock* allocator;
     /// Number of elements.
     size_t size;
@@ -116,7 +116,7 @@ public:
         {
         }
         
-        /// Node value.
+        /// %Node value.
         T value;
         
         /// Return next node.

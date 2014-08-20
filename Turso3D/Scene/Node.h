@@ -30,9 +30,9 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
     
-    /// Load from a binary stream. Store node references to be resolved later.
+    /// Load from binary stream. Store node references to be resolved later.
     virtual void Load(Deserializer& source, ObjectResolver* resolver = 0);
-    /// Save to a binary stream.
+    /// Save to binary stream.
     virtual void Save(Serializer& dest);
     /// Load from JSON data. Store node references to be resolved later.
     virtual void LoadJSON(const JSONValue& source, ObjectResolver* resolver = 0);
@@ -53,23 +53,23 @@ public:
     void SetTemporary(bool enable);
     /// Reparent the node.
     void SetParent(Node* newParent);
-    /// Create a child node of specified type. A registered object factory for the type is required.
+    /// Create child node of specified type. A registered object factory for the type is required.
     Node* CreateChild(StringHash childType);
-    /// Create a named child node of specified type. A registered object factory for the type is required.
+    /// Create named child node of specified type. A registered object factory for the type is required.
     Node* CreateChild(StringHash childType, const String& childName);
-    /// Add a node as a child. This accomplishes the same as SetParent, and can also be used for adding an externally created child node.
+    /// Add node as a child. Same as calling SetParent for the child node.
     void AddChild(Node* child);
-    /// Destroy a child node.
+    /// Destroy child node.
     void DestroyChild(Node* child);
-    /// Destroy a child node by index.
+    /// Destroy child node by index.
     void DestroyChild(size_t index);
     /// Destroy all child nodes.
     void DestroyAllChildren();
     /// Destroy self immediately. No operations on the node are valid after calling this.
     void DestroySelf();
-    /// Create a child node of the specified type, template version.
+    /// Create child node of the specified type, template version.
     template <class T> T* CreateChild() { return static_cast<T*>(CreateChild(T::TypeStatic())); }
-    /// Create a named child node of the specified type, template version.
+    /// Create named child node of the specified type, template version.
     template <class T> T* CreateChild(const String& childName) { return static_cast<T*>(CreateChild(T::TypeStatic(), childName)); }
     
     /// Return name.
@@ -86,17 +86,17 @@ public:
     size_t NumChildren() const { return children.Size(); }
     /// Return number of immediate child nodes that are not temporary.
     size_t NumPersistentChildren() const;
-    /// Return an immediate child node by index.
+    /// Return immediate child node by index.
     Node* Child(size_t index) const { return index < children.Size() ? children[index] : (Node*)0; }
     /// Return all child nodes.
     const Vector<Node*>& Children() const { return children; }
     /// Return child nodes recursively.
     void ChildrenRecursive(Vector<Node*>& dest);
-    /// Find an immediate child node by name.
+    /// Find immediate child node by name.
     Node* FindChild(const String& childName) const;
-    /// Find the first immediate child node of specified type.
+    /// Find first immediate child node of specified type.
     Node* FindChild(StringHash childType) const;
-    /// Find an immediate child node by type and name.
+    /// Find immediate child node by type and name.
     Node* FindChild(StringHash childType, const String& childName) const;
     /// Find child node by name recursively.
     Node* FindChildRecursive(const String& childName) const;
@@ -113,9 +113,9 @@ public:
     /// Find child node by type and name recursively, template version.
     template <class T> T* FindChildRecursive(const String& childName) const { return static_cast<T*>(FindChildRecursive(T::TypeStatic(), childName)); }
     
-    /// Set a bit flag. Called internally.
+    /// Set bit flag. Called internally.
     void SetFlag(unsigned bit, bool set) const { if (set) flags |= bit; else flags &= ~bit; }
-    /// Test a bit flag. Called internally.
+    /// Test bit flag. Called internally.
     bool TestFlag(unsigned bit) const { return (flags & bit) != 0; }
     /// Assign node to a new scene. Called internally.
     void SetScene(Scene* newScene);
@@ -132,7 +132,7 @@ protected:
     virtual void OnSetEnabled(bool newEnabled);
 
 private:
-    /// Node flags. Used to hold several boolean values (some subclass-specific) to reduce memory use.
+    /// %Node flags. Used to hold several boolean values (some subclass-specific) to reduce memory use.
     mutable unsigned flags;
     /// Parent node.
     Node* parent;
@@ -140,7 +140,7 @@ private:
     Scene* scene;
     /// Child nodes. A node owns its children and destroys them during its own destruction.
     Vector<Node*> children;
-    /// Node name.
+    /// %Node name.
     String name;
 };
 

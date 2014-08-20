@@ -10,7 +10,7 @@ namespace Turso3D
 /// Reference to an object with id for serialization.
 struct TURSO3D_API ObjectRef
 {
-    /// Object id.
+    /// %Object id.
     unsigned id;
 
     /// Construct with no reference.

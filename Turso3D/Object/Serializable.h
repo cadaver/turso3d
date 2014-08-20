@@ -14,9 +14,9 @@ class ObjectResolver;
 class TURSO3D_API Serializable : public Object
 {
 public:
-    /// Load from a binary stream. Optionally store object ref attributes to be resolved later.
+    /// Load from binary stream. Optionally store object ref attributes to be resolved later.
     virtual void Load(Deserializer& source, ObjectResolver* resolver = 0);
-    /// Save to a binary stream.
+    /// Save to binary stream.
     virtual void Save(Serializer& dest);
     /// Load from JSON data. Optionally store object ref attributes to be resolved later.
     virtual void LoadJSON(const JSONValue& source, ObjectResolver* resolver = 0);

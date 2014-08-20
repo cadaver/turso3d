@@ -49,7 +49,7 @@ struct StoredLogMessage
     bool error;
 };
 
-/// Log message event.
+/// %Log message event.
 class LogMessageEvent : public Event
 {
 public:
@@ -95,15 +95,15 @@ public:
     /// Write raw output to the log.
     static void WriteRaw(const String& message, bool error = false);
 
-    /// Log message event.
+    /// %Log message event.
     LogMessageEvent logMessage;
 
 private:
     /// Mutex for threaded operation.
     Mutex logMutex;
-    /// Log messages from other threads.
+    /// %Log messages from other threads.
     List<StoredLogMessage> threadMessages;
-    /// Log file.
+    /// %Log file.
     AutoPtr<File> logFile;
     /// Last log message.
     String lastMessage;

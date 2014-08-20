@@ -58,7 +58,7 @@ private:
     HandlerFunctionPtr function;
 };
 
-/// An event to which objects can subscribe by specifying a handler function. Can be subclassed to include event-specific data.
+/// Notification and data passing mechanism, to which objects can subscribe by specifying a handler function. Subclass to include event-specific data.
 class TURSO3D_API Event
 {
 public:

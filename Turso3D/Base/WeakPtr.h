@@ -155,7 +155,7 @@ public:
     bool IsExpired() const { return refCount && *refCount >= WeakRefCounted::EXPIRED; }
     
 private:
-    /// Object pointer.
+    /// %Object pointer.
     T* ptr;
     /// The object's weak reference count.
     unsigned* refCount;

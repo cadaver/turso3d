@@ -135,7 +135,7 @@ public:
     bool IsNull() const { return ptr == 0; }
     
 private:
-    /// Object pointer.
+    /// %Object pointer.
     T* ptr;
 };
 
