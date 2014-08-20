@@ -117,6 +117,9 @@ public:
     /// Assign node to a new scene. Called internally.
     void SetScene(Scene* newScene);
     
+    /// Skip the binary data of a node hierarchy, in case the node could not be created.
+    static void SkipHierarchy(Deserializer& source);
+
 protected:
     /// Perform subclass-specific operation when assigned to a new parent node.
     virtual void OnParentSet(Node* newParent, Node* oldParent);

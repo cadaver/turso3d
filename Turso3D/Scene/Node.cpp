@@ -53,10 +53,8 @@ void Node::Load(Deserializer& source, ObjectResolver* resolver)
         }
         else
         {
-            // If child is unknown type, skip all its attributes
-            Serializable::Skip(source);
-            source.ReadVLE(); // Read count of child's own children
-            /// \todo Need to skip the child's hierarchy properly
+            // If child is unknown type, skip all its attributes and children
+            SkipHierarchy(source);
         }
     }
 }
@@ -383,6 +381,19 @@ void Node::SetScene(Scene* newScene)
     Scene* oldScene = scene;
     scene = newScene;
     OnSceneSet(scene, oldScene);
+}
+
+void Node::SkipHierarchy(Deserializer& source)
+{
+    Serializable::Skip(source);
+
+    size_t numChildren = source.ReadVLE();
+    for (size_t i = 0; i < numChildren; ++i)
+    {
+        StringHash childType = source.Read<StringHash>();
+        unsigned childId = source.Read<unsigned>();
+        SkipHierarchy(source);
+    }
 }
 
 void Node::OnParentSet(Node*, Node*)
