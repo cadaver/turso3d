@@ -11,6 +11,7 @@ class JSONValue;
 class String;
 class StringHash;
 template <class T> class Vector;
+struct ObjectRef;
 struct ResourceRef;
 struct ResourceRefList;
 
@@ -46,6 +47,7 @@ template<> void Serializer::Write(const String& value);
 template<> void Serializer::Write(const StringHash& value);
 template<> void Serializer::Write(const ResourceRef& value);
 template<> void Serializer::Write(const ResourceRefList& value);
+template<> void Serializer::Write(const ObjectRef& value);
 template<> void Serializer::Write(const JSONValue& value);
 
 }

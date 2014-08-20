@@ -8,7 +8,7 @@ namespace Turso3D
 {
 
 class Scene;
-class SceneResolver;
+class ObjectResolver;
 
 static const unsigned NF_ENABLED = 0x1;
 static const unsigned NF_TEMPORARY = 0x2;
@@ -27,18 +27,19 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
     
+    /// Load from a binary stream. Store node references to be resolved later.
+    virtual void Load(Deserializer& source, ObjectResolver* resolver = 0);
     /// Save to a binary stream.
     virtual void Save(Serializer& dest);
+    /// Load from JSON data. Store node references to be resolved later.
+    virtual void LoadJSON(const JSONValue& source, ObjectResolver* resolver = 0);
     /// Save to JSON data.
     virtual void SaveJSON(JSONValue& dest);
+    /// Return unique id within the scene, or 0 if not in a scene.
+    virtual unsigned Id() const;
+
     /// Save JSON data as text to a binary stream. Return true on success.
     bool SaveJSON(Serializer& dest);
-    
-    /// Load from a binary stream. Leave other scene node references to be resolved later.
-    void Load(Deserializer& source, SceneResolver& resolver);
-    /// Load from JSON data. Leave other scene node references to be resolved later.
-    void LoadJSON(const JSONValue& source, SceneResolver& resolver);
-    
     /// Set name, which is not required to be unique within the scene.
     void SetName(const String& newName);
     /// Set enabled status. Meaning is subclass specific.
@@ -78,8 +79,6 @@ public:
     Node* Parent() const { return parent; }
     /// Return the scene that the node belongs to.
     Scene* ParentScene() const { return scene; }
-    /// Return unique id within the scene, or 0 if not in a scene.
-    unsigned Id() const;
     /// Return number of immediate child nodes.
     size_t NumChildren() const { return children.Size(); }
     /// Return number of immediate child nodes that are not temporary.

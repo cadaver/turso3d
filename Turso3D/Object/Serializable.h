@@ -8,28 +8,32 @@
 namespace Turso3D
 {
 
+class ObjectResolver;
+
 /// Base class for objects with automatic serialization using attributes.
 class TURSO3D_API Serializable : public Object
 {
 public:
-    /// Load from a binary stream.
-    virtual void Load(Deserializer& source);
+    /// Load from a binary stream. Optionally store object ref attributes to be resolved later.
+    virtual void Load(Deserializer& source, ObjectResolver* resolver = 0);
     /// Save to a binary stream.
     virtual void Save(Serializer& dest);
-    /// Load from JSON data.
-    virtual void LoadJSON(const JSONValue& source);
+    /// Load from JSON data. Optionally store object ref attributes to be resolved later.
+    virtual void LoadJSON(const JSONValue& source, ObjectResolver* resolver = 0);
     /// Save to JSON data.
     virtual void SaveJSON(JSONValue& dest);
-    
+    /// Return id for referring to the object in serialization.
+    virtual unsigned Id() const { return 0; }
+
     /// Set attribute value from memory.
-    void SetAttributeValue(const Attribute* attr, const void* source);
+    void SetAttributeValue(Attribute* attr, const void* source);
     /// Copy attribute value to memory.
-    void AttributeValue(const Attribute* attr, void* dest);
+    void AttributeValue(Attribute* attr, void* dest);
     
     /// Set attribute value, template version. Return true if value was right type.
-    template <class T> bool SetAttributeValue(const Attribute* attr, const T& source)
+    template <class T> bool SetAttributeValue(Attribute* attr, const T& source)
     {
-        const AttributeImpl<T>* typedAttr = dynamic_cast<const AttributeImpl<T>*>(attr);
+        AttributeImpl<T>* typedAttr = dynamic_cast<AttributeImpl<T>*>(attr);
         if (typedAttr)
         {
             typedAttr->SetValue(this, source);
@@ -40,9 +44,9 @@ public:
     }
     
     /// Copy attribute value, template version. Return true if value was right type.
-    template <class T> bool AttributeValue(const Attribute* attr, T& dest)
+    template <class T> bool AttributeValue(Attribute* attr, T& dest)
     {
-        const AttributeImpl<T>* typedAttr = dynamic_cast<const AttributeImpl<T>*>(attr);
+        AttributeImpl<T>* typedAttr = dynamic_cast<AttributeImpl<T>*>(attr);
         if (typedAttr)
         {
             typedAttr->Value(this, dest);
@@ -53,18 +57,18 @@ public:
     }
     
     /// Return attribute value, template version.
-    template <class T> T AttributeValue(const Attribute* attr)
+    template <class T> T AttributeValue(Attribute* attr)
     {
-        const AttributeImpl<T>* typedAttr = dynamic_cast<const AttributeImpl<T>*>(attr);
+        AttributeImpl<T>* typedAttr = dynamic_cast<AttributeImpl<T>*>(attr);
         return typedAttr ? typedAttr->Value(this) : T();
     }
     
     /// Return the attribute descriptions. Default implementation uses per-class registration.
     virtual const Vector<AutoPtr<Attribute> >* Attributes() const;
     /// Return an attribute description by name, or null if does not exist.
-    const Attribute* FindAttribute(const String& name) const;
+    Attribute* FindAttribute(const String& name) const;
     /// Return an attribute description by name, or null if does not exist.
-    const Attribute* FindAttribute(const char* name) const;
+    Attribute* FindAttribute(const char* name) const;
     
     /// Register a per-class attribute. If an attribute with the same name already exists, it will be replaced.
     static void RegisterAttribute(StringHash type, Attribute* attr);

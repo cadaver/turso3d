@@ -24,7 +24,10 @@ enum AttributeType
     ATTR_FLOAT,
     ATTR_STRING,
     ATTR_VECTOR3,
-    ATTR_QUATERNION
+    ATTR_QUATERNION,
+    ATTR_RESOURCEREF,
+    ATTR_RESOURCEREFLIST,
+    ATTR_OBJECTREF
 };
 
 /// Helper class for accessing serializable variables via getter and setter functions.
@@ -35,9 +38,9 @@ public:
     virtual ~AttributeAccessor();
     
     /// Get the current value of the variable.
-    virtual void Get(const Serializable* instance, void* dest) const = 0;
+    virtual void Get(const Serializable* instance, void* dest) = 0;
     /// Set new value for the variable.
-    virtual void Set(Serializable* instance, const void* source) const = 0;
+    virtual void Set(Serializable* instance, const void* source) = 0;
 };
 
 /// Description of an automatically serializable variable.
@@ -50,22 +53,22 @@ public:
     virtual ~Attribute();
     
     /// Deserialize from binary.
-    virtual void FromBinary(Serializable* instance, Deserializer& source) const = 0;
+    virtual void FromBinary(Serializable* instance, Deserializer& source) = 0;
     /// Serialize to binary.
-    virtual void ToBinary(Serializable* instance, Serializer& dest) const = 0;
+    virtual void ToBinary(Serializable* instance, Serializer& dest) = 0;
     /// Deserialize from JSON.
-    virtual void FromJSON(Serializable* instance, const JSONValue& source) const = 0;
+    virtual void FromJSON(Serializable* instance, const JSONValue& source) = 0;
     /// Serialize to JSON.
-    virtual void ToJSON(Serializable* instance, JSONValue& dest) const = 0;
+    virtual void ToJSON(Serializable* instance, JSONValue& dest) = 0;
     /// Return type.
     virtual AttributeType Type() const = 0;
     /// Return whether is default value.
-    virtual bool IsDefault(Serializable* instance) const = 0;
+    virtual bool IsDefault(Serializable* instance) = 0;
     
     /// Set from a value in memory.
-    void FromValue(Serializable* instance, const void* source) const;
+    void FromValue(Serializable* instance, const void* source);
     /// Copy to a value in memory.
-    void ToValue(Serializable* instance, void* dest) const;
+    void ToValue(Serializable* instance, void* dest);
     
     /// Return variable name.
     const String& Name() const { return name; }
@@ -102,14 +105,14 @@ public:
     }
     
     /// Deserialize from binary.
-    virtual void FromBinary(Serializable* instance, Deserializer& source) const
+    virtual void FromBinary(Serializable* instance, Deserializer& source)
     {
         T value = source.Read<T>();
         FromValue(instance, &value);
     }
     
     /// Serialize to binary.
-    virtual void ToBinary(Serializable* instance, Serializer& dest) const
+    virtual void ToBinary(Serializable* instance, Serializer& dest)
     {
         T value;
         ToValue(instance, &value);
@@ -117,22 +120,22 @@ public:
     }
     
     /// Return whether is default value.
-    virtual bool IsDefault(Serializable* instance) const { return Value(instance) == defaultValue; }
+    virtual bool IsDefault(Serializable* instance) { return Value(instance) == defaultValue; }
     
     /// Deserialize from JSON.
-    virtual void FromJSON(Serializable* instance, const JSONValue& source) const;
+    virtual void FromJSON(Serializable* instance, const JSONValue& source);
     /// Serialize to JSON.
-    virtual void ToJSON(Serializable* instance, JSONValue& dest) const;
+    virtual void ToJSON(Serializable* instance, JSONValue& dest);
     /// Return type.
     virtual AttributeType Type() const;
     
     /// Set new attribute value.
-    void SetValue(Serializable* instance, const T& source) const { accessor->Set(instance, &source); }
+    void SetValue(Serializable* instance, const T& source) { accessor->Set(instance, &source); }
     /// Copy current attribute value.
-    void Value(Serializable* instance, T& dest) const { accessor->Get(instance, &dest); }
+    void Value(Serializable* instance, T& dest) { accessor->Get(instance, &dest); }
     
     /// Return current attribute value.
-    T Value(Serializable* instance) const
+    T Value(Serializable* instance)
     {
         T ret;
         accessor->Get(instance, &ret);
@@ -164,7 +167,7 @@ public:
     }
 
     /// Get current value of the variable.
-    virtual void Get(const Serializable* instance, void* dest) const
+    virtual void Get(const Serializable* instance, void* dest)
     {
         assert(instance);
 
@@ -174,7 +177,7 @@ public:
     }
 
     /// Set new value for the variable.
-    virtual void Set(Serializable* instance, const void* source) const
+    virtual void Set(Serializable* instance, const void* source)
     {
         assert(instance);
 
@@ -207,7 +210,7 @@ public:
     }
 
     /// Get current value of the variable.
-    virtual void Get(const Serializable* instance, void* dest) const
+    virtual void Get(const Serializable* instance, void* dest)
     {
         assert(instance);
 
@@ -217,7 +220,7 @@ public:
     }
 
     /// Set new value for the variable.
-    virtual void Set(Serializable* instance, const void* source) const
+    virtual void Set(Serializable* instance, const void* source)
     {
         assert(instance);
 

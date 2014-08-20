@@ -2,7 +2,9 @@
 
 #include "../IO/Deserializer.h"
 #include "../IO/JsonValue.h"
+#include "../IO/ObjectRef.h"
 #include "../IO/Serializer.h"
+#include "ObjectResolver.h"
 #include "Serializable.h"
 
 #include "../Debug/DebugNew.h"
@@ -12,7 +14,7 @@ namespace Turso3D
 
 HashMap<StringHash, Vector<AutoPtr<Attribute> > > Serializable::classAttributes;
 
-void Serializable::Load(Deserializer& source)
+void Serializable::Load(Deserializer& source, ObjectResolver* resolver)
 {
     const Vector<AutoPtr<Attribute> >* attributes = Attributes();
     if (!attributes)
@@ -30,7 +32,12 @@ void Serializable::Load(Deserializer& source)
             Attribute* attr = attributes->At(i);
             if (attr->Type() == type)
             {
-                attr->FromBinary(this, source);
+                // If an object ref resolver is present, store object refs to it instead of immediately setting
+                if (!resolver || type != ATTR_OBJECTREF)
+                    attr->FromBinary(this, source);
+                else
+                    resolver->StoreObjectRef(this, attr, source.Read<ObjectRef>());
+                
                 skip = false;
             }
         }
@@ -47,15 +54,15 @@ void Serializable::Save(Serializer& dest)
         return;
     
     dest.WriteVLE(attributes->Size());
-    for (size_t i = 0; i < attributes->Size(); ++i)
+    for (Vector<AutoPtr<Attribute> >::ConstIterator it = attributes->Begin(); it != attributes->End(); ++it)
     {
-        Attribute* attr = attributes->At(i);
+        Attribute* attr = *it;
         dest.Write<unsigned char>((unsigned char)attr->Type());
         attr->ToBinary(this, dest);
     }
 }
 
-void Serializable::LoadJSON(const JSONValue& source)
+void Serializable::LoadJSON(const JSONValue& source, ObjectResolver* resolver)
 {
     const Vector<AutoPtr<Attribute> >* attributes = Attributes();
     if (!attributes || !source.IsObject() || !source.Size())
@@ -63,12 +70,18 @@ void Serializable::LoadJSON(const JSONValue& source)
     
     const JSONObject& object = source.GetObject();
     
-    for (size_t i = 0; i < attributes->Size(); ++i)
+    for (Vector<AutoPtr<Attribute> >::ConstIterator it = attributes->Begin(); it != attributes->End(); ++it)
     {
-        Attribute* attr = attributes->At(i);
-        JSONObject::ConstIterator j = object.Find(attr->Name());
-        if (j != object.End())
-            attr->FromJSON(this, j->second);
+        Attribute* attr = *it;
+        JSONObject::ConstIterator jsonIt = object.Find(attr->Name());
+        if (jsonIt != object.End())
+        {
+            // If an object ref resolver is present, store object refs to it instead of immediately setting
+            if (!resolver || attr->Type() != ATTR_OBJECTREF)
+                attr->FromJSON(this, jsonIt->second);
+            else
+                resolver->StoreObjectRef(this, attr, ObjectRef((unsigned)jsonIt->second.GetNumber()));
+        }
     }
 }
 
@@ -78,9 +91,6 @@ void Serializable::SaveJSON(JSONValue& dest)
     if (!attributes)
         return;
     
-    // Clear any existing data
-    dest = JSONObject();
-    
     for (size_t i = 0; i < attributes->Size(); ++i)
     {
         Attribute* attr = attributes->At(i);
@@ -89,13 +99,13 @@ void Serializable::SaveJSON(JSONValue& dest)
     }
 }
 
-void Serializable::SetAttributeValue(const Attribute* attr, const void* source)
+void Serializable::SetAttributeValue(Attribute* attr, const void* source)
 {
     if (attr)
         attr->FromValue(this, source);
 }
 
-void Serializable::AttributeValue(const Attribute* attr, void* dest)
+void Serializable::AttributeValue(Attribute* attr, void* dest)
 {
     if (attr)
         attr->ToValue(this, dest);
@@ -107,12 +117,12 @@ const Vector<AutoPtr<Attribute> >* Serializable::Attributes() const
     return it != classAttributes.End() ? &it->second : (Vector<AutoPtr<Attribute> >*)0;
 }
 
-const Attribute* Serializable::FindAttribute(const String& name) const
+Attribute* Serializable::FindAttribute(const String& name) const
 {
     return FindAttribute(name.CString());
 }
 
-const Attribute* Serializable::FindAttribute(const char* name) const
+Attribute* Serializable::FindAttribute(const char* name) const
 {
     const Vector<AutoPtr<Attribute> >* attributes = Attributes();
     if (!attributes)

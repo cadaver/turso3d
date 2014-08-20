@@ -21,13 +21,12 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
 
-    /// Load whole scene from a binary stream. Existing nodes will be destroyed.
-    virtual void Load(Deserializer& source);
-    /// Load whole scene from JSON data. Existing nodes will be destroyed.
-    virtual void LoadJSON(const JSONValue& source);
-
-    /// Load a JSON file as text from a binary stream, then load whole scene from it. Existing nodes will be destroyed.
-    void LoadJSON(Deserializer& source);
+    /// Load whole scene from a binary stream. Existing nodes will be destroyed. Return true on success.
+    bool Load(Deserializer& source);
+    /// Load whole scene from JSON data. Existing nodes will be destroyed. Return true on success.
+    bool LoadJSON(const JSONValue& source);
+    /// Load a JSON file as text from a binary stream, then load whole scene from it. Existing nodes will be destroyed. Return true if the JSON was correctly parsed; otherwise the data may be partial.
+    bool LoadJSON(Deserializer& source);
     /// Instantiate node(s) from a binary stream and return the root node.
     Node* Instantiate(Deserializer& source);
     /// Instantiate node(s) from JSON data and return the root node.
@@ -42,17 +41,12 @@ public:
     /// Find a node's id by the node pointer.
     unsigned FindNodeId(Node* node) const;
 
-    /// Add a node to the scene. This assign a scene-unique id to it.
+    /// Add a node to the scene. This assigns a scene-unique id to it.
     void AddNode(Node* node);
     /// Remove a node from the scene. This removes the id mapping but does not destroy the node.
     void RemoveNode(Node* node);
 
 private:
-    /// Return next node id. Used by serialization.
-    unsigned NextNodeId() const { return nextNodeId; }
-    /// Set next node id. Used by serialization.
-    void SetNextNodeId(unsigned id) { nextNodeId = id; }
-    
     /// Map from id's to nodes.
     HashMap<unsigned, Node*> nodes;
     /// Map from nodes to id's.

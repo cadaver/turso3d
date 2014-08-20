@@ -2,6 +2,7 @@
 
 #include "../Math/Math.h"
 #include "JSONValue.h"
+#include "ObjectRef.h"
 #include "ResourceRef.h"
 #include "Serializer.h"
 
@@ -108,6 +109,11 @@ template<> void Serializer::Write<ResourceRefList>(const ResourceRefList& value)
     WriteVLE(value.names.Size());
     for (size_t i = 0; i < value.names.Size(); ++i)
         Write(value.names[i]);
+}
+
+template<> void Serializer::Write<ObjectRef>(const ObjectRef& value)
+{
+    Write(value.id);
 }
 
 template<> void Serializer::Write<JSONValue>(const JSONValue& value)

@@ -1,6 +1,8 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/JSONValue.h"
+#include "../IO/ObjectRef.h"
+#include "../IO/ResourceRef.h"
 #include "../Math/Quaternion.h"
 #include "Attribute.h"
 
@@ -24,12 +26,12 @@ Attribute::~Attribute()
 {
 }
 
-void Attribute::FromValue(Serializable* instance, const void* source) const
+void Attribute::FromValue(Serializable* instance, const void* source)
 {
     accessor->Set(instance, source);
 }
 
-void Attribute::ToValue(Serializable* instance, void* dest) const
+void Attribute::ToValue(Serializable* instance, void* dest)
 {
     accessor->Get(instance, dest);
 }
@@ -66,79 +68,121 @@ void Attribute::Skip(AttributeType type, Deserializer& source)
         source.Read<Quaternion>();
         break;
         
+    case ATTR_RESOURCEREF:
+        source.Read<ResourceRef>();
+        break;
+
+    case ATTR_RESOURCEREFLIST:
+        source.Read<ResourceRefList>();
+        break;
+
+    case ATTR_OBJECTREF:
+        source.Read<ObjectRef>();
+        break;
+
     default:
         break;
     }
 }
 
-template<> void AttributeImpl<bool>::FromJSON(Serializable* instance, const JSONValue& source) const
+template<> void AttributeImpl<bool>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, source.GetBool());
 }
 
-template<> void AttributeImpl<int>::FromJSON(Serializable* instance, const JSONValue& source) const
+template<> void AttributeImpl<int>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, (int)source.GetNumber());
 }
 
-template<> void AttributeImpl<unsigned>::FromJSON(Serializable* instance, const JSONValue& source) const
+template<> void AttributeImpl<unsigned>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, (unsigned)source.GetNumber());
 }
 
-template<> void AttributeImpl<float>::FromJSON(Serializable* instance, const JSONValue& source) const
+template<> void AttributeImpl<float>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, (float)source.GetNumber());
 }
 
-template<> void AttributeImpl<String>::FromJSON(Serializable* instance, const JSONValue& source) const
+template<> void AttributeImpl<String>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, source.GetString());
 }
 
-template<> void AttributeImpl<Vector3>::FromJSON(Serializable* instance, const JSONValue& source) const
+template<> void AttributeImpl<Vector3>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, Vector3(source.GetString()));
 }
 
-template<> void AttributeImpl<Quaternion>::FromJSON(Serializable* instance, const JSONValue& source) const
+template<> void AttributeImpl<Quaternion>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, Quaternion(source.GetString()));
 }
 
-template<> void AttributeImpl<bool>::ToJSON(Serializable* instance, JSONValue& dest) const
+template<> void AttributeImpl<ResourceRef>::FromJSON(Serializable* instance, const JSONValue& source)
+{
+    SetValue(instance, ResourceRef(source.GetString()));
+}
+
+template<> void AttributeImpl<ResourceRefList>::FromJSON(Serializable* instance, const JSONValue& source)
+{
+    SetValue(instance, ResourceRefList(source.GetString()));
+}
+
+template<> void AttributeImpl<ObjectRef>::FromJSON(Serializable* instance, const JSONValue& source)
+{
+    SetValue(instance, ObjectRef((unsigned)source.GetNumber()));
+}
+
+template<> void AttributeImpl<bool>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance);
 }
 
-template<> void AttributeImpl<int>::ToJSON(Serializable* instance, JSONValue& dest) const
+template<> void AttributeImpl<int>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance);
 }
 
-template<> void AttributeImpl<unsigned>::ToJSON(Serializable* instance, JSONValue& dest) const
+template<> void AttributeImpl<unsigned>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance);
 }
 
-template<> void AttributeImpl<float>::ToJSON(Serializable* instance, JSONValue& dest) const
+template<> void AttributeImpl<float>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance);
 }
 
-template<> void AttributeImpl<String>::ToJSON(Serializable* instance, JSONValue& dest) const
+template<> void AttributeImpl<String>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance);
 }
 
-template<> void AttributeImpl<Vector3>::ToJSON(Serializable* instance, JSONValue& dest) const
+template<> void AttributeImpl<Vector3>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance).ToString();
 }
 
-template<> void AttributeImpl<Quaternion>::ToJSON(Serializable* instance, JSONValue& dest) const
+template<> void AttributeImpl<Quaternion>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance).ToString();
+}
+
+template<> void AttributeImpl<ResourceRef>::ToJSON(Serializable* instance, JSONValue& dest)
+{
+    dest = Value(instance).ToString();
+}
+
+template<> void AttributeImpl<ResourceRefList>::ToJSON(Serializable* instance, JSONValue& dest)
+{
+    dest = Value(instance).ToString();
+}
+
+template<> void AttributeImpl<ObjectRef>::ToJSON(Serializable* instance, JSONValue& dest)
+{
+    dest = Value(instance).id;
 }
 
 template<> AttributeType AttributeImpl<bool>::Type() const

@@ -4,8 +4,8 @@
 #include "../IO/Deserializer.h"
 #include "../IO/JSONFile.h"
 #include "../IO/Serializer.h"
+#include "../Object/ObjectResolver.h"
 #include "Scene.h"
-#include "SceneResolver.h"
 
 #include "../Debug/DebugNew.h"
 
@@ -28,66 +28,74 @@ Scene::~Scene()
 void Scene::RegisterObject()
 {
     RegisterFactory<Scene>();
-    RegisterRefAttribute("name", &Node::Name, &Node::SetName);
-    RegisterAttribute("nextNodeId", &Scene::NextNodeId, &Scene::SetNextNodeId);
+    RegisterRefAttribute("name", &Scene::Name, &Scene::SetName);
 }
 
-void Scene::Load(Deserializer& source)
+bool Scene::Load(Deserializer& source)
 {
-    Clear();
+    LOGINFO("Loading scene from " + source.Name());
 
     StringHash ownType = source.Read<StringHash>();
+    unsigned ownId = source.Read<unsigned>();
     if (ownType != TypeStatic())
     {
         LOGERROR("Mismatching type of scene root node in scene file");
-        return;
+        return false;
     }
 
-    SceneResolver resolver;
-    unsigned ownId = source.Read<unsigned>();
-    //resolver.AddNode(ownId, this);
-    Node::Load(source, resolver);
-    //resolver.Resolve();
-}
-
-void Scene::LoadJSON(const JSONValue& source)
-{
     Clear();
 
+    ObjectResolver resolver;
+    resolver.StoreObject(ownId, this);
+    Node::Load(source, &resolver);
+    resolver.Resolve();
+
+    return true;
+}
+
+bool Scene::LoadJSON(const JSONValue& source)
+{
     StringHash ownType = source["type"].GetString();
+    unsigned ownId = (unsigned)source["id"].GetNumber();
+
     if (ownType != TypeStatic())
     {
         LOGERROR("Mismatching type of scene root node in scene file");
-        return;
+        return false;
     }
 
-    SceneResolver resolver;
-    unsigned ownId = (unsigned)source["id"].GetNumber();
-    //resolver.AddNode(ownId, this);
+    Clear();
 
-    Node::LoadJSON(source, resolver);
-    //resolver.Resolve();
+    ObjectResolver resolver;
+    resolver.StoreObject(ownId, this);
+    Node::LoadJSON(source, &resolver);
+    resolver.Resolve();
+
+    return true;
 }
 
-void Scene::LoadJSON(Deserializer& source)
+bool Scene::LoadJSON(Deserializer& source)
 {
+    LOGINFO("Loading scene from " + source.Name());
+
     JSONFile json;
-    json.Load(source);
+    bool success = json.Load(source);
     LoadJSON(json.Root());
+    return success;
 }
 
 Node* Scene::Instantiate(Deserializer& source)
 {
-    SceneResolver resolver;
+    ObjectResolver resolver;
     StringHash childType = source.Read<StringHash>();
     unsigned childId = source.Read<unsigned>();
 
     Node* child = CreateChild(childType);
     if (child)
     {
-        //resolver.AddNode(childId, child);
-        child->Load(source, resolver);
-        //resolver.Resolve();
+        resolver.StoreObject(childId, child);
+        child->Load(source, &resolver);
+        resolver.Resolve();
     }
 
     return child;
@@ -95,16 +103,16 @@ Node* Scene::Instantiate(Deserializer& source)
 
 Node* Scene::InstantiateJSON(const JSONValue& source)
 {
-    SceneResolver resolver;
+    ObjectResolver resolver;
     StringHash childType = source["type"].GetString();
     unsigned childId = (unsigned)source["id"].GetNumber();
 
     Node* child = CreateChild(childType);
     if (child)
     {
-        //resolver.AddNode(childId, child);
-        child->LoadJSON(source, resolver);
-        //resolver.Resolve();
+        resolver.StoreObject(childId, child);
+        child->LoadJSON(source, &resolver);
+        resolver.Resolve();
     }
 
     return child;

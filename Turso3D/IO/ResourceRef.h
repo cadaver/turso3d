@@ -8,9 +8,14 @@
 namespace Turso3D
 {
 
-/// Typed resource reference.
+/// Typed resource reference for serialization.
 struct TURSO3D_API ResourceRef
 {
+    /// Resource type.
+    StringHash type;
+    /// Resource name.
+    String name;
+
     /// Construct.
     ResourceRef()
     {
@@ -49,11 +54,6 @@ struct TURSO3D_API ResourceRef
     
     /// Return as a string.
     String ToString() const;
-    
-    /// Object type.
-    StringHash type;
-    /// Object name.
-    String name;
 
     /// Test for equality with another reference.
     bool operator == (const ResourceRef& rhs) const { return type == rhs.type && name == rhs.name; }
@@ -61,9 +61,14 @@ struct TURSO3D_API ResourceRef
     bool operator != (const ResourceRef& rhs) const { return !(*this == rhs); }
 };
 
-/// %List of typed resource references.
+/// %List of typed resource references for serialization.
 struct TURSO3D_API ResourceRefList
 {
+    /// Resource type.
+    StringHash type;
+    /// List of resource names.
+    Vector<String> names;
+
     /// Construct.
     ResourceRefList()
     {
@@ -103,11 +108,6 @@ struct TURSO3D_API ResourceRefList
     /// Return as a string.
     String ToString() const;
     
-    /// Object type.
-    StringHash type;
-    /// List of object names.
-    Vector<String> names;
-
     /// Test for equality with another reference list.
     bool operator == (const ResourceRefList& rhs) const { return type == rhs.type && names == rhs.names; }
     /// Test for inequality with another reference list.

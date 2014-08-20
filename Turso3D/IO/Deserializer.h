@@ -9,6 +9,7 @@ namespace Turso3D
 
 class JSONValue;
 class StringHash;
+struct ObjectRef;
 struct ResourceRef;
 struct ResourceRefList;
 
@@ -65,6 +66,7 @@ template<> String Deserializer::Read();
 template<> StringHash Deserializer::Read();
 template<> ResourceRef Deserializer::Read();
 template<> ResourceRefList Deserializer::Read();
+template<> ObjectRef Deserializer::Read();
 template<> JSONValue Deserializer::Read();
 
 }

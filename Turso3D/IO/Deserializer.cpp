@@ -2,6 +2,7 @@
 
 #include "Deserializer.h"
 #include "JSONValue.h"
+#include "ObjectRef.h"
 #include "ResourceRef.h"
 
 #include "../Debug/DebugNew.h"
@@ -139,6 +140,13 @@ template<> ResourceRefList Deserializer::Read<ResourceRefList>()
     ret.names.Resize(ReadVLE());
     for (Vector<String>::Iterator it = ret.names.Begin(); it != ret.names.End(); ++it)
         *it = Read<String>();
+    return ret;
+}
+
+template<> ObjectRef Deserializer::Read<ObjectRef>()
+{
+    ObjectRef ret;
+    ret.id = Read<unsigned>();
     return ret;
 }
 

@@ -4,8 +4,8 @@
 #include "../IO/Deserializer.h"
 #include "../IO/Serializer.h"
 #include "../IO/JSONFile.h"
+#include "../Object/ObjectResolver.h"
 #include "Scene.h"
-#include "SceneResolver.h"
 
 #include "../Debug/DebugNew.h"
 
@@ -34,6 +34,33 @@ void Node::RegisterObject()
     RegisterAttribute("temporary", &Node::IsTemporary, &Node::SetTemporary, false);
 }
 
+void Node::Load(Deserializer& source, ObjectResolver* resolver)
+{
+    // Type and id has been read by the parent
+    Serializable::Load(source, resolver);
+
+    size_t numChildren = source.ReadVLE();
+    for (size_t i = 0; i < numChildren; ++i)
+    {
+        StringHash childType = source.Read<StringHash>();
+        unsigned childId = source.Read<unsigned>();
+        Node* child = CreateChild(childType);
+        if (child)
+        {
+            if (resolver)
+                resolver->StoreObject(childId, child);
+            child->Load(source, resolver);
+        }
+        else
+        {
+            // If child is unknown type, skip all its attributes
+            Serializable::Skip(source);
+            source.ReadVLE(); // Read count of child's own children
+            /// \todo Need to skip the child's hierarchy properly
+        }
+    }
+}
+
 void Node::Save(Serializer& dest)
 {
     // Write type and ID first, followed by attributes and child nodes
@@ -47,6 +74,30 @@ void Node::Save(Serializer& dest)
         Node* child = *it;
         if (!child->IsTemporary())
             child->Save(dest);
+    }
+}
+
+void Node::LoadJSON(const JSONValue& source, ObjectResolver* resolver)
+{
+    // Type and id has been read by the parent
+    Serializable::LoadJSON(source);
+    
+    const JSONArray& children = source["children"].GetArray();
+    if (children.Size())
+    {
+        for (JSONArray::ConstIterator it = children.Begin(); it != children.End(); ++it)
+        {
+            const JSONValue& childJSON = *it;
+            StringHash childType = childJSON["type"].GetString();
+            unsigned childId = (unsigned)childJSON["id"].GetNumber();
+            Node* child = CreateChild(childType);
+            if (child)
+            {
+                if (resolver)
+                    resolver->StoreObject(childId, child);
+                child->LoadJSON(childJSON, resolver);
+            }
+        }
     }
 }
 
@@ -78,55 +129,6 @@ bool Node::SaveJSON(Serializer& dest)
     JSONFile json;
     SaveJSON(json.Root());
     return json.Save(dest);
-}
-
-void Node::Load(Deserializer& source, SceneResolver& resolver)
-{
-    // Type and id has been read by the parent
-    Serializable::Load(source);
-
-    size_t numChildren = source.ReadVLE();
-    for (size_t i = 0; i < numChildren; ++i)
-    {
-        StringHash childType = source.Read<StringHash>();
-        unsigned childId = source.Read<unsigned>();
-        Node* child = CreateChild(childType);
-        if (child)
-        {
-            //resolver.AddNode(childId, child);
-            child->Load(source, resolver);
-        }
-        else
-        {
-            // If child is unknown type, skip all its attributes
-            Serializable::Skip(source);
-            source.ReadVLE(); // Read count of child's own children
-            /// \todo Need to skip the child's hierarchy properly
-        }
-    }
-}
-
-void Node::LoadJSON(const JSONValue& source, SceneResolver& resolver)
-{
-    // Type and id has been read by the parent
-    Serializable::LoadJSON(source);
-    
-    const JSONArray& children = source["children"].GetArray();
-    if (children.Size())
-    {
-        for (JSONArray::ConstIterator it = children.Begin(); it != children.End(); ++it)
-        {
-            const JSONValue& childJSON = *it;
-            StringHash childType = childJSON["type"].GetString();
-            unsigned childId = (unsigned)childJSON["id"].GetNumber();
-            Node* child = CreateChild(childType);
-            if (child)
-            {
-                //resolver.AddNode(childId, child);
-                child->LoadJSON(childJSON, resolver);
-            }
-        }
-    }
 }
 
 void Node::SetName(const String& newName)

@@ -1,6 +1,6 @@
 # For conditions of distribution and use, see copyright notice in License.txt
 
-set (TARGET_NAME 02_Scene)
+set (TARGET_NAME 02_IO)
 
 file (GLOB SOURCE_FILES *.cpp *.h)
 
