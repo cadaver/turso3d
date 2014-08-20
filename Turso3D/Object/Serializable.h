@@ -64,7 +64,7 @@ public:
     }
     
     /// Return the attribute descriptions. Default implementation uses per-class registration.
-    virtual const Vector<AutoPtr<Attribute> >* Attributes() const;
+    virtual const Vector<SharedPtr<Attribute> >* Attributes() const;
     /// Return an attribute description by name, or null if does not exist.
     Attribute* FindAttribute(const String& name) const;
     /// Return an attribute description by name, or null if does not exist.
@@ -72,24 +72,32 @@ public:
     
     /// Register a per-class attribute. If an attribute with the same name already exists, it will be replaced.
     static void RegisterAttribute(StringHash type, Attribute* attr);
+    /// Copy base class attributes.
+    static void CopyBaseAttributes(StringHash type, StringHash baseType);
     /// Skip binary data of an object's all attributes.
     static void Skip(Deserializer& source);
     
-    /// Register a per-class attribute, template version.
+    /// Register a per-class attribute, template version. Should not be used for base class attributes unless the type is explicitly specified, as by default the attribute will be re-registered to the base class redundantly.
     template <class T, class U> static void RegisterAttribute(const char* name, U (T::*getFunction)() const, void (T::*setFunction)(U), const U& defaultValue = U(), const char** enumNames = 0)
     {
         RegisterAttribute(T::TypeStatic(), new AttributeImpl<U>(name, new AttributeAccessorImpl<T, U>(getFunction, setFunction), defaultValue, enumNames));
     }
     
-    /// Register a per-class attribute with reference access, template version.
+    /// Register a per-class attribute with reference access, template version. Should not be used for base class attributes unless the type is explicitly specified, as by default the attribute will be re-registered to the base class redundantly.
     template <class T, class U> static void RegisterRefAttribute(const char* name, const U& (T::*getFunction)() const, void (T::*setFunction)(const U&), const U& defaultValue = U(), const char** enumNames = 0)
     {
         RegisterAttribute(T::TypeStatic(), new AttributeImpl<U>(name, new RefAttributeAccessorImpl<T, U>(getFunction, setFunction), defaultValue, enumNames));
     }
+
+    /// Copy base class attributes, template version.
+    template <class T, class U> static void CopyBaseAttributes()
+    {
+        CopyBaseAttributes(T::TypeStatic(), U::TypeStatic());
+    }
     
 private:
     /// Per-class attributes.
-    static HashMap<StringHash, Vector<AutoPtr<Attribute> > > classAttributes;
+    static HashMap<StringHash, Vector<SharedPtr<Attribute> > > classAttributes;
 };
 
 }

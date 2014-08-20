@@ -6,6 +6,7 @@
 #include "../IO/Serializer.h"
 #include "../Object/ObjectResolver.h"
 #include "Scene.h"
+#include "SpatialNode.h"
 
 #include "../Debug/DebugNew.h"
 
@@ -28,12 +29,13 @@ Scene::~Scene()
 void Scene::RegisterObject()
 {
     RegisterFactory<Scene>();
-    RegisterRefAttribute("name", &Scene::Name, &Scene::SetName);
+    CopyBaseAttributes<Scene, Node>();
 }
 
 bool Scene::Load(Deserializer& source)
 {
-    LOGINFO("Loading scene from " + source.Name());
+    if (!source.Name().IsEmpty())
+        LOGINFO("Loading scene from " + source.Name());
 
     StringHash ownType = source.Read<StringHash>();
     unsigned ownId = source.Read<unsigned>();
@@ -76,7 +78,8 @@ bool Scene::LoadJSON(const JSONValue& source)
 
 bool Scene::LoadJSON(Deserializer& source)
 {
-    LOGINFO("Loading scene from " + source.Name());
+    if (!source.Name().IsEmpty())
+        LOGINFO("Loading scene from " + source.Name());
 
     JSONFile json;
     bool success = json.Load(source);
@@ -199,6 +202,7 @@ void RegisterSceneLibrary()
 {
     Node::RegisterObject();
     Scene::RegisterObject();
+    SpatialNode::RegisterObject();
 }
 
 }

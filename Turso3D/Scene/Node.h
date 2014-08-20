@@ -12,6 +12,9 @@ class ObjectResolver;
 
 static const unsigned NF_ENABLED = 0x1;
 static const unsigned NF_TEMPORARY = 0x2;
+static const unsigned NF_SPATIAL = 0x4;
+static const unsigned NF_SPATIAL_PARENT = 0x8;
+static const unsigned NF_WORLD_TRANSFORM_DIRTY = 0x10;
 
 /// Base class for scene nodes.
 class TURSO3D_API Node : public Serializable

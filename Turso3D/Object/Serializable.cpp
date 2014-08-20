@@ -12,11 +12,11 @@
 namespace Turso3D
 {
 
-HashMap<StringHash, Vector<AutoPtr<Attribute> > > Serializable::classAttributes;
+HashMap<StringHash, Vector<SharedPtr<Attribute> > > Serializable::classAttributes;
 
 void Serializable::Load(Deserializer& source, ObjectResolver* resolver)
 {
-    const Vector<AutoPtr<Attribute> >* attributes = Attributes();
+    const Vector<SharedPtr<Attribute> >* attributes = Attributes();
     if (!attributes)
         return; // Nothing to do
     
@@ -49,12 +49,12 @@ void Serializable::Load(Deserializer& source, ObjectResolver* resolver)
 
 void Serializable::Save(Serializer& dest)
 {
-    const Vector<AutoPtr<Attribute> >* attributes = Attributes();
+    const Vector<SharedPtr<Attribute> >* attributes = Attributes();
     if (!attributes)
         return;
     
     dest.WriteVLE(attributes->Size());
-    for (Vector<AutoPtr<Attribute> >::ConstIterator it = attributes->Begin(); it != attributes->End(); ++it)
+    for (Vector<SharedPtr<Attribute> >::ConstIterator it = attributes->Begin(); it != attributes->End(); ++it)
     {
         Attribute* attr = *it;
         dest.Write<unsigned char>((unsigned char)attr->Type());
@@ -64,13 +64,13 @@ void Serializable::Save(Serializer& dest)
 
 void Serializable::LoadJSON(const JSONValue& source, ObjectResolver* resolver)
 {
-    const Vector<AutoPtr<Attribute> >* attributes = Attributes();
+    const Vector<SharedPtr<Attribute> >* attributes = Attributes();
     if (!attributes || !source.IsObject() || !source.Size())
         return;
     
     const JSONObject& object = source.GetObject();
     
-    for (Vector<AutoPtr<Attribute> >::ConstIterator it = attributes->Begin(); it != attributes->End(); ++it)
+    for (Vector<SharedPtr<Attribute> >::ConstIterator it = attributes->Begin(); it != attributes->End(); ++it)
     {
         Attribute* attr = *it;
         JSONObject::ConstIterator jsonIt = object.Find(attr->Name());
@@ -87,13 +87,14 @@ void Serializable::LoadJSON(const JSONValue& source, ObjectResolver* resolver)
 
 void Serializable::SaveJSON(JSONValue& dest)
 {
-    const Vector<AutoPtr<Attribute> >* attributes = Attributes();
+    const Vector<SharedPtr<Attribute> >* attributes = Attributes();
     if (!attributes)
         return;
     
     for (size_t i = 0; i < attributes->Size(); ++i)
     {
         Attribute* attr = attributes->At(i);
+        // For better readability, do not save default-valued attributes to JSON
         if (!attr->IsDefault(this))
             attr->ToJSON(this, dest[attr->Name()]);
     }
@@ -111,10 +112,10 @@ void Serializable::AttributeValue(Attribute* attr, void* dest)
         attr->ToValue(this, dest);
 }
 
-const Vector<AutoPtr<Attribute> >* Serializable::Attributes() const
+const Vector<SharedPtr<Attribute> >* Serializable::Attributes() const
 {
-    HashMap<StringHash, Vector<AutoPtr<Attribute> > >::ConstIterator it = classAttributes.Find(Type());
-    return it != classAttributes.End() ? &it->second : (Vector<AutoPtr<Attribute> >*)0;
+    HashMap<StringHash, Vector<SharedPtr<Attribute> > >::ConstIterator it = classAttributes.Find(Type());
+    return it != classAttributes.End() ? &it->second : (Vector<SharedPtr<Attribute> >*)0;
 }
 
 Attribute* Serializable::FindAttribute(const String& name) const
@@ -124,7 +125,7 @@ Attribute* Serializable::FindAttribute(const String& name) const
 
 Attribute* Serializable::FindAttribute(const char* name) const
 {
-    const Vector<AutoPtr<Attribute> >* attributes = Attributes();
+    const Vector<SharedPtr<Attribute> >* attributes = Attributes();
     if (!attributes)
         return 0;
     
@@ -140,7 +141,7 @@ Attribute* Serializable::FindAttribute(const char* name) const
 
 void Serializable::RegisterAttribute(StringHash type, Attribute* attr)
 {
-    Vector<AutoPtr<Attribute> >& attributes = classAttributes[type];
+    Vector<SharedPtr<Attribute> >& attributes = classAttributes[type];
     for (size_t i = 0; i < attributes.Size(); ++i)
     {
         if (attributes[i]->Name() == attr->Name())
@@ -151,6 +152,11 @@ void Serializable::RegisterAttribute(StringHash type, Attribute* attr)
     }
     
     attributes.Push(attr);
+}
+
+void Serializable::CopyBaseAttributes(StringHash type, StringHash baseType)
+{
+    classAttributes[type] = classAttributes[baseType];
 }
 
 void Serializable::Skip(Deserializer& source)

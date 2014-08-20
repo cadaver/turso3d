@@ -3,6 +3,7 @@
 #pragma once
 
 #include "../Base/AutoPtr.h"
+#include "../Base/SharedPtr.h"
 #include "../IO/Deserializer.h"
 #include "../IO/Serializer.h"
 
@@ -44,13 +45,11 @@ public:
 };
 
 /// Description of an automatically serializable variable.
-class TURSO3D_API Attribute
+class TURSO3D_API Attribute : public RefCounted
 {
 public:
     /// Construct.
     Attribute(const char* name, AttributeAccessor* accessor, const char** enumNames = 0);
-    /// Destruct.
-    virtual ~Attribute();
     
     /// Deserialize from binary.
     virtual void FromBinary(Serializable* instance, Deserializer& source) = 0;

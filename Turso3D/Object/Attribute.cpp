@@ -22,10 +22,6 @@ Attribute::Attribute(const char* name_, AttributeAccessor* accessor_, const char
 {
 }
 
-Attribute::~Attribute()
-{
-}
-
 void Attribute::FromValue(Serializable* instance, const void* source)
 {
     accessor->Set(instance, source);

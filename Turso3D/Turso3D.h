@@ -24,6 +24,7 @@
 #include "Math/Ray.h"
 #include "Object/Serializable.h"
 #include "Scene/Scene.h"
+#include "Scene/SpatialNode.h"
 #include "Thread/Condition.h"
 #include "Thread/Mutex.h"
 #include "Thread/Thread.h"

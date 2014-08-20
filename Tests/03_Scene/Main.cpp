@@ -19,7 +19,8 @@ int main()
     #endif
     
     printf("Size of Node: %d\n", sizeof(Node));
-    printf("Size of Scene: %d\n\n", sizeof(Scene));
+    printf("Size of Scene: %d\n", sizeof(Scene));
+    printf("Size of SpatialNode: %d\n\n", sizeof(SpatialNode));
 
     RegisterSceneLibrary();
 
@@ -28,7 +29,10 @@ int main()
     
     Scene scene;
     for (size_t i = 0; i < 10; ++i)
-        scene.CreateChild<Node>("Child" + String(i));
+    {
+        SpatialNode* node = scene.CreateChild<SpatialNode>("Child" + String(i));
+        node->SetPosition(Vector3(Random(-100.0f, 100.0f), Random(-100.0f, 100.0f), Random(-100.0f, 100.0f)));
+    }
 
     {
         File binaryFile("Scene.bin", FILE_WRITE);

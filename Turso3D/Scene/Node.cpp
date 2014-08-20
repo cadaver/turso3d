@@ -101,7 +101,6 @@ void Node::LoadJSON(const JSONValue& source, ObjectResolver* resolver)
 
 void Node::SaveJSON(JSONValue& dest)
 {
-    dest.SetEmptyObject();
     dest["type"] = TypeName();
     dest["id"] = Id();
     Serializable::SaveJSON(dest);
@@ -194,14 +193,24 @@ Node* Node::CreateChild(StringHash childType, const String& childName)
 void Node::AddChild(Node* child)
 {
     // Check for illegal or redundant parent assignment
-    if (!child || child == this || child->parent == this)
+    if (!child || child->parent == this)
         return;
+    
+    if (child == this)
+    {
+        LOGERROR("Attempted parenting node to self");
+        return;
+    }
+
     // Check for possible cyclic parent assignment
     Node* current = parent;
     while (current)
     {
         if (current == child)
+        {
+            LOGERROR("Attempted cyclic node parenting");
             return;
+        }
         current = current->parent;
     }
 
@@ -390,8 +399,8 @@ void Node::SkipHierarchy(Deserializer& source)
     size_t numChildren = source.ReadVLE();
     for (size_t i = 0; i < numChildren; ++i)
     {
-        StringHash childType = source.Read<StringHash>();
-        unsigned childId = source.Read<unsigned>();
+        source.Read<StringHash>(); // StringHash childType
+        source.Read<unsigned>(); // unsigned childId
         SkipHierarchy(source);
     }
 }
