@@ -20,6 +20,7 @@ enum AttributeType
     ATTR_NONE = 0,
     ATTR_BOOL,
     ATTR_INT,
+    ATTR_UNSIGNED,
     ATTR_FLOAT,
     ATTR_STRING,
     ATTR_VECTOR3,

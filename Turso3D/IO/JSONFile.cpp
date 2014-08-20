@@ -1,6 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../Base/AutoPtr.h"
+#include "../Debug/Log.h"
 #include "Deserializer.h"
 #include "Serializer.h"
 #include "JSONFile.h"
@@ -18,7 +19,7 @@ JSONFile::~JSONFile()
 {
 }
 
-bool JSONFile::Read(Deserializer& source)
+bool JSONFile::Load(Deserializer& source)
 {
     size_t dataSize = source.Size() - source.Position();
     AutoArrayPtr<char> buffer(new char[dataSize]);
@@ -31,10 +32,13 @@ bool JSONFile::Read(Deserializer& source)
     // Remove any previous content
     root.SetNull();
     /// \todo If fails, log the line number on which the error occurred
-    return root.Parse(pos, end);
+    bool success = root.Parse(pos, end);
+    if (!success)
+        LOGERROR("Parsing JSON from " + source.Name() + " failed; data may be partial");
+    return success;
 }
 
-bool JSONFile::Write(Serializer& dest, int spacing) const
+bool JSONFile::Save(Serializer& dest, int spacing) const
 {
     String buffer;
     root.ToString(buffer, spacing);

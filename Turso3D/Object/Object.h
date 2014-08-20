@@ -26,11 +26,11 @@ public:
     void UnsubscribeFromEvent(Event& event);
     /// Send an event.
     void SendEvent(Event& event);
-
+    
     /// Subscribe to an event, template version.
     template <class T, class U> void SubscribeToEvent(U& event, void (T::*handlerFunction)(U&))
     {
-        SubscribeToEvent(event, new EventHandlerImpl<T, U>(this, handlerFunction));
+        SubscribeToEvent(event, new EventHandlerImpl<T, U>(this, handlerFunction)); 
     }
 
     /// Return whether is subscribed to an event.
@@ -50,7 +50,6 @@ public:
     static Object* Create(StringHash type);
     /// Return a type name from hash, or empty if not known. Requires a registered object factory.
     static const String& TypeNameFromType(StringHash type);
-    
     /// Return a subsystem, template version.
     template <class T> static T* Subsystem() { return static_cast<T*>(Subsystem(T::TypeStatic())); }
     /// Register an object factory, template version.

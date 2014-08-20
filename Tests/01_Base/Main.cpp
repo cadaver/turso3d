@@ -176,27 +176,35 @@ int main()
     {
         printf("\nTesting Vector\n");
         Vector<int> vec;
-        srand(0);
+        SetRandomSeed(0);
         for (size_t i = 0; i < NUM_ITEMS; ++i)
-            vec.Push(rand());
+            vec.Push(Rand());
         int sum = 0;
-        for (Vector<int>::ConstIterator i = vec.Begin(); i != vec.End(); ++i)
-            sum += *i;
+        int count = 0;
+        for (Vector<int>::ConstIterator it = vec.Begin(); it != vec.End(); ++it)
+        {
+            sum += *it;
+            ++count;
+        }
         printf("Size: %d capacity: %d\n", vec.Size(), vec.Capacity());
-        printf("Sum of vector items: %d\n", sum);
+        printf("Counted vector items %d, sum: %d\n", count, sum);
     }
     
     {
         printf("\nTesting List\n");
         List<int> list;
-        srand(0);
+        SetRandomSeed(0);
         for (size_t i = 0; i < NUM_ITEMS; ++i)
-            list.Push(rand());
+            list.Push(Rand());
         int sum = 0;
-        for (List<int>::ConstIterator i = list.Begin(); i != list.End(); ++i)
-            sum += *i;
+        int count = 0;
+        for (List<int>::ConstIterator it = list.Begin(); it != list.End(); ++it)
+        {
+            sum += *it;
+            ++count;
+        }
         printf("Size: %d\n", list.Size());
-        printf("Sum of list items: %d\n", sum);
+        printf("Counted list items %d, sum: %d\n", count, sum);
     }
     
     {
@@ -232,8 +240,8 @@ int main()
             if (testHashSet.Find(i) != testHashSet.End())
                 ++found;
         }
-        for (HashSet<int>::Iterator i = testHashSet.Begin(); i != testHashSet.End(); ++i)
-            sum += *i;
+        for (HashSet<int>::Iterator it = testHashSet.Begin(); it != testHashSet.End(); ++it)
+            sum += *it;
         printf("Set size and sum: %d %d\n", testHashSet.Size(), sum);
         for (unsigned i = 0; i < 32768; ++i)
             testHashSet.Erase(i);

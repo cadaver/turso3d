@@ -46,6 +46,10 @@ void Attribute::Skip(AttributeType type, Deserializer& source)
         source.Read<int>();
         break;
 
+    case ATTR_UNSIGNED:
+        source.Read<unsigned>();
+        break;
+        
     case ATTR_FLOAT:
         source.Read<float>();
         break;
@@ -75,6 +79,11 @@ template<> void AttributeImpl<bool>::FromJSON(Serializable* instance, const JSON
 template<> void AttributeImpl<int>::FromJSON(Serializable* instance, const JSONValue& source) const
 {
     SetValue(instance, (int)source.GetNumber());
+}
+
+template<> void AttributeImpl<unsigned>::FromJSON(Serializable* instance, const JSONValue& source) const
+{
+    SetValue(instance, (unsigned)source.GetNumber());
 }
 
 template<> void AttributeImpl<float>::FromJSON(Serializable* instance, const JSONValue& source) const
@@ -107,6 +116,11 @@ template<> void AttributeImpl<int>::ToJSON(Serializable* instance, JSONValue& de
     dest = Value(instance);
 }
 
+template<> void AttributeImpl<unsigned>::ToJSON(Serializable* instance, JSONValue& dest) const
+{
+    dest = Value(instance);
+}
+
 template<> void AttributeImpl<float>::ToJSON(Serializable* instance, JSONValue& dest) const
 {
     dest = Value(instance);
@@ -135,6 +149,11 @@ template<> AttributeType AttributeImpl<bool>::Type() const
 template<> AttributeType AttributeImpl<int>::Type() const
 {
     return ATTR_INT;
+}
+
+template<> AttributeType AttributeImpl<unsigned>::Type() const
+{
+    return ATTR_UNSIGNED;
 }
 
 template<> AttributeType AttributeImpl<float>::Type() const

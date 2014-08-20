@@ -246,12 +246,20 @@ static void ScanDirInternal(Vector<String>& result, String path, const String& s
 #endif
 }
 
-void ScanDir(Vector<String>& result, const String& pathName, const String& filter, unsigned flags, bool recursive)
+void ScanDir(Vector<String>& result, const String& pathName, const String& filter, unsigned flags)
 {
     result.Clear();
 
     String initialPath = AddTrailingSlash(pathName);
-    ScanDirInternal(result, initialPath, initialPath, filter, flags, recursive);
+    ScanDirInternal(result, initialPath, initialPath, filter, flags, false);
+}
+
+void ScanDirRecursive(Vector<String>& result, const String& pathName, const String& filter, unsigned flags)
+{
+    result.Clear();
+
+    String initialPath = AddTrailingSlash(pathName);
+    ScanDirInternal(result, initialPath, initialPath, filter, flags, true);
 }
 
 String ExecutableDir()
