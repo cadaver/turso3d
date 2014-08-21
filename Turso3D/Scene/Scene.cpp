@@ -57,7 +57,7 @@ bool Scene::Load(Deserializer& source)
 
 bool Scene::LoadJSON(const JSONValue& source)
 {
-    StringHash ownType = source["type"].GetString();
+    StringHash ownType(source["type"].GetString());
     unsigned ownId = (unsigned)source["id"].GetNumber();
 
     if (ownType != TypeStatic())
@@ -90,7 +90,7 @@ bool Scene::LoadJSON(Deserializer& source)
 Node* Scene::Instantiate(Deserializer& source)
 {
     ObjectResolver resolver;
-    StringHash childType = source.Read<StringHash>();
+    StringHash childType(source.Read<StringHash>());
     unsigned childId = source.Read<unsigned>();
 
     Node* child = CreateChild(childType);
@@ -107,7 +107,7 @@ Node* Scene::Instantiate(Deserializer& source)
 Node* Scene::InstantiateJSON(const JSONValue& source)
 {
     ObjectResolver resolver;
-    StringHash childType = source["type"].GetString();
+    StringHash childType(source["type"].GetString());
     unsigned childId = (unsigned)source["id"].GetNumber();
 
     Node* child = CreateChild(childType);

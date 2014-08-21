@@ -29,15 +29,21 @@ public:
     {
     }
     
+    /// Construct from a string case-insensitively.
+    explicit StringHash(const String& str) :
+        value(String::CaseInsensitiveHash(str.CString()))
+    {
+    }
+    
     /// Construct from a C string case-insensitively.
-    StringHash(const char* str) :
+    explicit StringHash(const char* str) :
         value(String::CaseInsensitiveHash(str))
     {
     }
     
-    /// Construct from a string case-insensitively.
-    StringHash(const String& str) :
-        value(String::CaseInsensitiveHash(str.CString()))
+    /// Construct from a C string case-insensitively.
+    explicit StringHash(char* str) :
+        value(String::CaseInsensitiveHash(str))
     {
     }
     
@@ -45,6 +51,27 @@ public:
     StringHash& operator = (const StringHash& rhs)
     {
         value = rhs.value;
+        return *this;
+    }
+    
+    /// Assign from a string.
+    StringHash& operator = (const String& rhs)
+    {
+        value = String::CaseInsensitiveHash(rhs.CString());
+        return *this;
+    }
+    
+    /// Assign from a C string.
+    StringHash& operator = (const char* rhs)
+    {
+        value = String::CaseInsensitiveHash(rhs);
+        return *this;
+    }
+    
+    /// Assign from a C string.
+    StringHash& operator = (char* rhs)
+    {
+        value = String::CaseInsensitiveHash(rhs);
         return *this;
     }
     

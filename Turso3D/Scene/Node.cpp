@@ -42,7 +42,7 @@ void Node::Load(Deserializer& source, ObjectResolver* resolver)
     size_t numChildren = source.ReadVLE();
     for (size_t i = 0; i < numChildren; ++i)
     {
-        StringHash childType = source.Read<StringHash>();
+        StringHash childType(source.Read<StringHash>());
         unsigned childId = source.Read<unsigned>();
         Node* child = CreateChild(childType);
         if (child)
@@ -86,7 +86,7 @@ void Node::LoadJSON(const JSONValue& source, ObjectResolver* resolver)
         for (JSONArray::ConstIterator it = children.Begin(); it != children.End(); ++it)
         {
             const JSONValue& childJSON = *it;
-            StringHash childType = childJSON["type"].GetString();
+            StringHash childType(childJSON["type"].GetString());
             unsigned childId = (unsigned)childJSON["id"].GetNumber();
             Node* child = CreateChild(childType);
             if (child)
