@@ -285,13 +285,13 @@ void JSONValue::ToString(String& dest, int spacing, int indent) const
             if (array.Size())
             {
                 indent += spacing;
-                for (size_t i = 0; i < array.Size(); ++i)
+                for (JSONArray::ConstIterator it = array.Begin(); it < array.End(); ++it)
                 {
-                    if (i > 0)
+                    if (it != array.Begin())
                         dest += ',';
                     dest += '\n';
                     WriteIndent(dest, indent);
-                    array[i].ToString(dest, spacing, indent);
+                    it->ToString(dest, spacing, indent);
                 }
                 indent -= spacing;
                 dest += '\n';
@@ -581,9 +581,9 @@ void JSONValue::WriteJSONString(String& dest, const String& str)
 {
     dest += '\"';
     
-    for (size_t i = 0; i < str.Length(); ++i)
+    for (String::ConstIterator it = str.Begin(); it != str.End(); ++it)
     {
-        char c = str[i];
+        char c = *it;
         
         if (c >= 0x20 && c != '\"' && c != '\\')
             dest += c;
