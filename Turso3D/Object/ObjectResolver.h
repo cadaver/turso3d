@@ -53,7 +53,7 @@ private:
     /// Mapping of old id's to objects.
     HashMap<unsigned, Serializable*> objects;
     /// Stored object ref attributes.
-    Vector<StoredObjectRef> objectRefs;
+    PODVector<StoredObjectRef> objectRefs;
 };
 
 }

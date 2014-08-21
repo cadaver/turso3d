@@ -20,7 +20,7 @@ public:
     virtual void Save(Serializer& dest);
     /// Load from JSON data. Optionally store object ref attributes to be resolved later.
     virtual void LoadJSON(const JSONValue& source, ObjectResolver* resolver = 0);
-    /// Save to JSON data.
+    /// Save as JSON data.
     virtual void SaveJSON(JSONValue& dest);
     /// Return id for referring to the object in serialization.
     virtual unsigned Id() const { return 0; }

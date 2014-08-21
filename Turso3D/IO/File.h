@@ -35,9 +35,7 @@ public:
     virtual size_t Seek(size_t newPosition);
     /// Write bytes to the file. Return number of bytes actually written.
     virtual size_t Write(const void* data, size_t numBytes);
-    /// Return the file path and name.
-    virtual const String& Name() const { return name; }
-    
+
     /// Open a file. Return true on success.
     bool Open(const String& fileName, FileMode fileMode = FILE_READ);
     /// Close the file.
@@ -45,6 +43,8 @@ public:
     /// Flush any buffered output to the file.
     void Flush();
     
+    /// Return the file path and name.
+    const String& Name() const { return name; }
     /// Return the open mode.
     FileMode Mode() const { return mode; }
     /// Return whether is open.

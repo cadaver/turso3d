@@ -37,7 +37,7 @@ void Serializer::WriteFileID(const String& value)
         Write(' ');
 }
 
-void Serializer::WriteBuffer(const Vector<unsigned char>& value)
+void Serializer::WriteBuffer(const PODVector<unsigned char>& value)
 {
     size_t numBytes = value.Size();
     

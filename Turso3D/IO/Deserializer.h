@@ -9,6 +9,7 @@ namespace Turso3D
 
 class JSONValue;
 class StringHash;
+template <class T> class PODVector;
 struct ObjectRef;
 struct ResourceRef;
 struct ResourceRefList;
@@ -28,8 +29,6 @@ public:
     virtual size_t Read(void* dest, size_t numBytes) = 0;
     /// Set position in bytes from the beginning of the stream.
     virtual size_t Seek(size_t position) = 0;
-    /// Return name of the stream.
-    virtual const String& Name() const;
     /// Return current position in bytes.
     size_t Position() const { return position; }
     /// Return size in bytes.
@@ -44,7 +43,7 @@ public:
     /// Read a 4-character file ID.
     String ReadFileID();
     /// Read a byte buffer, with size prepended as a VLE value.
-    Vector<unsigned char> ReadBuffer();
+    PODVector<unsigned char> ReadBuffer();
     
     /// Read a value, template version.
     template <class T> T Read()

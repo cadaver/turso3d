@@ -67,7 +67,7 @@ void Node::Save(Serializer& dest)
     Serializable::Save(dest);
     dest.WriteVLE(NumPersistentChildren());
 
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (PODVector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (!child->IsTemporary())
@@ -108,7 +108,7 @@ void Node::SaveJSON(JSONValue& dest)
     if (NumPersistentChildren())
     {
         dest["children"].SetEmptyArray();
-        for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+        for (PODVector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
         {
             Node* child = *it;
             if (!child->IsTemporary())
@@ -142,7 +142,7 @@ void Node::SetEnabled(bool enable)
 void Node::SetEnabledRecursive(bool enable)
 {
     SetEnabled(enable);
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (PODVector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         child->SetEnabledRecursive(enable);
@@ -253,8 +253,20 @@ void Node::DestroyChild(size_t index)
 
 void Node::DestroyAllChildren()
 {
-    while (children.Size())
-        DestroyChild(children.Size() - 1);
+    // Start from the beginning in case this is the root node and there are subsystem children such as the octree.
+    // Destroying the subsystems first is faster than having the other children remove themselves from the subsystem(s)
+    for (PODVector<Node*>::Iterator it = children.Begin(); it != children.End(); ++it)
+    {
+        Node* child = *it;
+        child->parent = 0;
+        child->OnParentSet(this, 0);
+        if (scene)
+            scene->RemoveNode(child);
+        delete child;
+        *it = 0;
+    }
+    
+    children.Clear();
 }
 
 void Node::DestroySelf()
@@ -275,7 +287,7 @@ size_t Node::NumPersistentChildren() const
 {
     size_t ret = 0;
 
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (PODVector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (!child->IsTemporary())
@@ -285,9 +297,9 @@ size_t Node::NumPersistentChildren() const
     return ret;
 }
 
-void Node::ChildrenRecursive(Vector<Node*>& dest)
+void Node::ChildrenRecursive(PODVector<Node*>& dest)
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (PODVector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         dest.Push(child);
@@ -297,7 +309,7 @@ void Node::ChildrenRecursive(Vector<Node*>& dest)
 
 Node* Node::FindChild(const String& childName) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (PODVector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (child->name == childName)
@@ -309,7 +321,7 @@ Node* Node::FindChild(const String& childName) const
 
 Node* Node::FindChild(StringHash childType) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (PODVector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (child->Type() == childType)
@@ -321,7 +333,7 @@ Node* Node::FindChild(StringHash childType) const
 
 Node* Node::FindChild(StringHash childType, const String& childName) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (PODVector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (child->Type() == childType && child->name == childName)
@@ -333,7 +345,7 @@ Node* Node::FindChild(StringHash childType, const String& childName) const
 
 Node* Node::FindChildRecursive(const String& childName) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (PODVector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (child->name == childName)
@@ -351,7 +363,7 @@ Node* Node::FindChildRecursive(const String& childName) const
 
 Node* Node::FindChildRecursive(StringHash childType) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (PODVector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (child->Type() == childType)
@@ -369,7 +381,7 @@ Node* Node::FindChildRecursive(StringHash childType) const
 
 Node* Node::FindChildRecursive(StringHash childType, const String& childName) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (PODVector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (child->Type() == childType && child->name == childName)

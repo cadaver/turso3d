@@ -26,11 +26,6 @@ Deserializer::~Deserializer()
 {
 }
 
-const String& Deserializer::Name() const
-{
-    return String::EMPTY;
-}
-
 unsigned Deserializer::ReadVLE()
 {
     unsigned ret;
@@ -91,9 +86,9 @@ String Deserializer::ReadFileID()
     return ret;
 }
 
-Vector<unsigned char> Deserializer::ReadBuffer()
+PODVector<unsigned char> Deserializer::ReadBuffer()
 {
-    Vector<unsigned char> ret(ReadVLE());
+    PODVector<unsigned char> ret(ReadVLE());
     if (ret.Size())
         Read(&ret[0], ret.Size());
     return ret;

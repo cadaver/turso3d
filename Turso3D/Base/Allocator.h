@@ -59,13 +59,13 @@ public:
     /// Destruct. All objects reserved from this allocator should be freed before this is called.
     ~Allocator()
     {
-        AllocatorUninitialize(allocator);
+        Reset();
     }
     
     /// Reserve initial capacity. Only possible before allocating the first object.
     void Reserve(size_t capacity)
     {
-        if (allocator)
+        if (!allocator)
             allocator = AllocatorInitialize(sizeof(T), capacity);
     }
 
@@ -73,7 +73,7 @@ public:
     T* Allocate()
     {
         if (!allocator)
-            allocator = Allocator(sizeof(T));
+            allocator = AllocatorInitialize(sizeof(T));
         T* newObject = static_cast<T*>(AllocatorGet(allocator));
         new(newObject) T();
         
@@ -96,6 +96,13 @@ public:
     {
         (object)->~T();
         AllocatorFree(allocator, object);
+    }
+    
+    /// Free the allocator. All objects reserved from this allocator should be freed before this is called.
+    void Reset()
+    {
+        AllocatorUninitialize(allocator);
+        allocator = 0;
     }
     
 private:

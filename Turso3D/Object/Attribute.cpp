@@ -3,6 +3,7 @@
 #include "../IO/JSONValue.h"
 #include "../IO/ObjectRef.h"
 #include "../IO/ResourceRef.h"
+#include "../Math/BoundingBox.h"
 #include "../Math/Quaternion.h"
 #include "Attribute.h"
 
@@ -64,6 +65,10 @@ void Attribute::Skip(AttributeType type, Deserializer& source)
         source.Read<Quaternion>();
         break;
         
+    case ATTR_BOUNDINGBOX:
+        source.Read<BoundingBox>();
+        break;
+        
     case ATTR_RESOURCEREF:
         source.Read<ResourceRef>();
         break;
@@ -116,6 +121,11 @@ template<> void AttributeImpl<Quaternion>::FromJSON(Serializable* instance, cons
     SetValue(instance, Quaternion(source.GetString()));
 }
 
+template<> void AttributeImpl<BoundingBox>::FromJSON(Serializable* instance, const JSONValue& source)
+{
+    SetValue(instance, BoundingBox(source.GetString()));
+}
+
 template<> void AttributeImpl<ResourceRef>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, ResourceRef(source.GetString()));
@@ -162,6 +172,11 @@ template<> void AttributeImpl<Vector3>::ToJSON(Serializable* instance, JSONValue
 }
 
 template<> void AttributeImpl<Quaternion>::ToJSON(Serializable* instance, JSONValue& dest)
+{
+    dest = Value(instance).ToString();
+}
+
+template<> void AttributeImpl<BoundingBox>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance).ToString();
 }
@@ -215,5 +230,26 @@ template<> AttributeType AttributeImpl<Quaternion>::Type() const
 {
     return ATTR_QUATERNION;
 }
+
+template<> AttributeType AttributeImpl<BoundingBox>::Type() const
+{
+    return ATTR_BOUNDINGBOX;
+}
+
+template<> AttributeType AttributeImpl<ResourceRef>::Type() const
+{
+    return ATTR_RESOURCEREF;
+}
+
+template<> AttributeType AttributeImpl<ResourceRefList>::Type() const
+{
+    return ATTR_RESOURCEREFLIST;
+}
+
+template<> AttributeType AttributeImpl<ObjectRef>::Type() const
+{
+    return ATTR_OBJECTREF;
+}
+
 
 }

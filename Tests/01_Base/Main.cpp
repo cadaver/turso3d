@@ -107,9 +107,10 @@ int main()
         delete object;
         printf("Number of weak refs: %d expired: %d\n", ptr1.WeakRefs(), ptr1.IsExpired());
     }
-
+    
     {
         printf("\nTesting Vector\n");
+        HiresTimer t;
         Vector<int> vec;
         SetRandomSeed(0);
         for (size_t i = 0; i < NUM_ITEMS; ++i)
@@ -121,12 +122,35 @@ int main()
             sum += *it;
             ++count;
         }
+        int usec = (int)t.ElapsedUSec();
         printf("Size: %d capacity: %d\n", vec.Size(), vec.Capacity());
         printf("Counted vector items %d, sum: %d\n", count, sum);
+        printf("Processing took %d usec\n", usec);
     }
-    
+
+    {
+        printf("\nTesting PODVector\n");
+        HiresTimer t;
+        PODVector<int> vec;
+        SetRandomSeed(0);
+        for (size_t i = 0; i < NUM_ITEMS; ++i)
+            vec.Push(Rand());
+        int sum = 0;
+        int count = 0;
+        for (Vector<int>::ConstIterator it = vec.Begin(); it != vec.End(); ++it)
+        {
+            sum += *it;
+            ++count;
+        }
+        int usec = (int)t.ElapsedUSec();
+        printf("Size: %d capacity: %d\n", vec.Size(), vec.Capacity());
+        printf("Counted vector items %d, sum: %d\n", count, sum);
+        printf("Processing took %d usec\n", usec);
+    }
+
     {
         printf("\nTesting List\n");
+        HiresTimer t;
         List<int> list;
         SetRandomSeed(0);
         for (size_t i = 0; i < NUM_ITEMS; ++i)
@@ -138,14 +162,17 @@ int main()
             sum += *it;
             ++count;
         }
+        int usec = (int)t.ElapsedUSec();
         printf("Size: %d\n", list.Size());
         printf("Counted list items %d, sum: %d\n", count, sum);
+        printf("Processing took %d usec\n", usec);
     }
     
     {
         printf("\nTesting String\n");
+        HiresTimer t;
         String test;
-        for (size_t i = 0; i < NUM_ITEMS; ++i)
+        for (size_t i = 0; i < NUM_ITEMS/4; ++i)
             test += "Test";
         String test2;
         test2.AppendWithFormat("Size: %d capacity: %d\n", test.Length(), test.Capacity());
@@ -154,10 +181,13 @@ int main()
         printf(test2.CString());
         test2.Replace("SIZE:", "LENGTH:");
         printf(test2.CString());
+        int usec = (int)t.ElapsedUSec();
+        printf("Processing took %d usec\n", usec);
     }
     
     {
         printf("\nTesting HashSet\n");
+        HiresTimer t;
         size_t found = 0;
         unsigned sum = 0;
         HashSet<int> testHashSet;
@@ -177,10 +207,9 @@ int main()
         }
         for (HashSet<int>::Iterator it = testHashSet.Begin(); it != testHashSet.End(); ++it)
             sum += *it;
+        int usec = (int)t.ElapsedUSec();
         printf("Set size and sum: %d %d\n", testHashSet.Size(), sum);
-        for (unsigned i = 0; i < 32768; ++i)
-            testHashSet.Erase(i);
-        printf("Set size after erase: %d\n", testHashSet.Size());
+        printf("Processing took %d usec\n", usec);
     }
 
     {

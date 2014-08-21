@@ -111,9 +111,9 @@ public:
     Vector3 WorldToLocal(const Vector4& vector) const { return WorldTransform().Inverse() * vector; }
 
 protected:
-    /// Perform subclass-specific operation when assigned to a new parent node.
+    /// Handle being assigned to a new parent node.
     virtual void OnParentSet(Node* newParent, Node* oldParent);
-    /// Perform subclass-specific operation when the transform has changed.
+    /// Handle the transform matrix changing.
     virtual void OnTransformChanged();
 
 private:

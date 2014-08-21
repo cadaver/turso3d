@@ -21,12 +21,17 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
 
-    /// Load whole scene from a binary stream. Existing nodes will be destroyed. Return true on success.
+    /// Save scene to binary stream.
+    virtual void Save(Serializer& dest);
+    
+    /// Load scene from a binary stream. Existing nodes will be destroyed. Return true on success.
     bool Load(Deserializer& source);
-    /// Load whole scene from JSON data. Existing nodes will be destroyed. Return true on success.
+    /// Load scene from JSON data. Existing nodes will be destroyed. Return true on success.
     bool LoadJSON(const JSONValue& source);
-    /// Load JSON data as text from a binary stream, then load whole scene from it. Existing nodes will be destroyed. Return true if the JSON was correctly parsed; otherwise the data may be partial.
+    /// Load scene from JSON text data read from a binary stream. Existing nodes will be destroyed. Return true if the JSON was correctly parsed; otherwise the data may be partial.
     bool LoadJSON(Deserializer& source);
+    /// Save scene as JSON text data to a binary stream. Return true on success.
+    bool SaveJSON(Serializer& dest);
     /// Instantiate node(s) from binary stream and return the root node.
     Node* Instantiate(Deserializer& source);
     /// Instantiate node(s) from JSON data and return the root node.

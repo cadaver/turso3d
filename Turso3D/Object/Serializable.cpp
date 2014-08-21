@@ -156,7 +156,7 @@ void Serializable::RegisterAttribute(StringHash type, Attribute* attr)
 
 void Serializable::CopyBaseAttributes(StringHash type, StringHash baseType)
 {
-    classAttributes[type] = classAttributes[baseType];
+    classAttributes[type].Push(classAttributes[baseType]);
 }
 
 void Serializable::Skip(Deserializer& source)

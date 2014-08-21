@@ -15,6 +15,8 @@ static const unsigned NF_TEMPORARY = 0x2;
 static const unsigned NF_SPATIAL = 0x4;
 static const unsigned NF_SPATIAL_PARENT = 0x8;
 static const unsigned NF_WORLD_TRANSFORM_DIRTY = 0x10;
+static const unsigned NF_BOUNDING_BOX_DIRTY = 0x20;
+static const unsigned NF_OCTREE_UPDATE_QUEUED = 0x40;
 
 /// Base class for scene nodes.
 class TURSO3D_API Node : public Serializable
@@ -36,12 +38,12 @@ public:
     virtual void Save(Serializer& dest);
     /// Load from JSON data. Store node references to be resolved later.
     virtual void LoadJSON(const JSONValue& source, ObjectResolver* resolver = 0);
-    /// Save to JSON data.
+    /// Save as JSON data.
     virtual void SaveJSON(JSONValue& dest);
     /// Return unique id within the scene, or 0 if not in a scene.
     virtual unsigned Id() const;
 
-    /// Save JSON data as text to a binary stream. Return true on success.
+    /// Save as JSON text data to a binary stream. Return true on success.
     bool SaveJSON(Serializer& dest);
     /// Set name, which is not required to be unique within the scene.
     void SetName(const String& newName);
@@ -89,9 +91,9 @@ public:
     /// Return immediate child node by index.
     Node* Child(size_t index) const { return index < children.Size() ? children[index] : (Node*)0; }
     /// Return all child nodes.
-    const Vector<Node*>& Children() const { return children; }
+    const PODVector<Node*>& Children() const { return children; }
     /// Return child nodes recursively.
-    void ChildrenRecursive(Vector<Node*>& dest);
+    void ChildrenRecursive(PODVector<Node*>& dest);
     /// Find immediate child node by name.
     Node* FindChild(const String& childName) const;
     /// Find first immediate child node of specified type.
@@ -124,11 +126,11 @@ public:
     static void SkipHierarchy(Deserializer& source);
 
 protected:
-    /// Perform subclass-specific operation when assigned to a new parent node.
+    /// Handle being assigned to a new parent node.
     virtual void OnParentSet(Node* newParent, Node* oldParent);
-    /// Perform subclass-specific operation when assigned to a new scene.
+    /// Handle being assigned to a new scene.
     virtual void OnSceneSet(Scene* newScene, Scene* oldScene);
-    /// Perform subclass-specific operation when the enabled status is changed.
+    /// Handle the enabled status changing.
     virtual void OnSetEnabled(bool newEnabled);
 
 private:
@@ -139,7 +141,7 @@ private:
     /// Parent scene.
     Scene* scene;
     /// Child nodes. A node owns its children and destroys them during its own destruction.
-    Vector<Node*> children;
+    PODVector<Node*> children;
     /// %Node name.
     String name;
 };
