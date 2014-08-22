@@ -46,7 +46,7 @@ protected:
     unsigned char* buffer;
 };
 
-/// %Vector template class. Implements a dynamic-sized array where the elements are in continuous memory. The elements will be copied with block copy so they should not contain pointers to themselves.
+/// %Vector template class. Implements a dynamic-sized array where the elements are in continuous memory. The elements need to be safe to move with block copy.
 template <class T> class Vector : public VectorBase
 {
 public:
@@ -305,11 +305,13 @@ public:
             {
                 newBuffer = reinterpret_cast<T*>(AllocateBuffer(capacity * sizeof(T)));
                 // Move the data into the new buffer
-                ConstructElements(newBuffer, Buffer(), size);
+                // This assumes the elements are safe to move without copy-constructing and deleting the old elements;
+                // ie. they should not contain pointers to self, or interact with outside objects in their constructors
+                // or destructors
+                MoveElements(newBuffer, Buffer(), size);
             }
 
             // Delete the old buffer
-            DestructElements(Buffer(), size);
             delete[] buffer;
             buffer = reinterpret_cast<unsigned char*>(newBuffer);
         }
@@ -386,17 +388,35 @@ private:
                 unsigned char* newBuffer = AllocateBuffer(capacity * sizeof(T));
                 if (buffer)
                 {
-                    // This assumes the elements are safe to move without copy-constructing and deleting the old elements;
-                    // ie. they should not contain pointers to self, or interact with outside objects in a way that would
-                    // require their address to be preserved
                     MoveElements(reinterpret_cast<T*>(newBuffer), Buffer(), size);
                     delete[] buffer;
                 }
                 buffer = newBuffer;
             }
 
-            // Initialize the new elements
-            ConstructElements(Buffer() + size, src, newSize - size);
+            // Initialize the new elements. Optimize for case of only 1 element
+            size_t count = newSize - size;
+            T* dest = Buffer() + size;
+            if (src)
+            {
+                if (count == 1)
+                    new(dest) T(*src);
+                else
+                {
+                    for (size_t i = 0; i < count; ++i)
+                        new(dest + i) T(src[i]);
+                }
+            }
+            else
+            {
+                if (count == 1)
+                    new(dest) T();
+                else
+                {
+                    for (size_t i = 0; i < count; ++i)
+                        new(dest + i) T();
+                }
+            }
         }
 
         size = newSize;
@@ -415,21 +435,6 @@ private:
         {
             for (size_t i = 0; i < count; ++i)
                 buffer[dest + i] = buffer[src + i];
-        }
-    }
-
-    /// Construct elements, optionally with source data.
-    static void ConstructElements(T* dest, const T* src, size_t count)
-    {
-        if (!src)
-        {
-            for (size_t i = 0; i < count; ++i)
-                new(dest + i) T();
-        }
-        else
-        {
-            for (size_t i = 0; i < count; ++i)
-                new(dest + i) T(*(src + i));
         }
     }
 
