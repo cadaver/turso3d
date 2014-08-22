@@ -91,9 +91,9 @@ public:
     /// Return immediate child node by index.
     Node* Child(size_t index) const { return index < children.Size() ? children[index] : (Node*)0; }
     /// Return all child nodes.
-    const PODVector<Node*>& Children() const { return children; }
+    const Vector<Node*>& Children() const { return children; }
     /// Return child nodes recursively.
-    void ChildrenRecursive(PODVector<Node*>& dest);
+    void ChildrenRecursive(Vector<Node*>& dest);
     /// Find immediate child node by name.
     Node* FindChild(const String& childName) const;
     /// Find first immediate child node of specified type.
@@ -141,7 +141,7 @@ private:
     /// Parent scene.
     Scene* scene;
     /// Child nodes. A node owns its children and destroys them during its own destruction.
-    PODVector<Node*> children;
+    Vector<Node*> children;
     /// %Node name.
     String name;
 };

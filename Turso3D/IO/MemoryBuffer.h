@@ -17,9 +17,9 @@ public:
     /// Construct as read-only with a pointer and size.
     MemoryBuffer(const void* data, size_t numBytes);
     /// Construct from a vector, which must not go out of scope before MemoryBuffer.
-    MemoryBuffer(PODVector<unsigned char>& data);
+    MemoryBuffer(Vector<unsigned char>& data);
     /// Construct from a read-only vector, which must not go out of scope before MemoryBuffer.
-    MemoryBuffer(const PODVector<unsigned char>& data);
+    MemoryBuffer(const Vector<unsigned char>& data);
     
     /// Read bytes from the memory area. Return number of bytes actually read.
     virtual size_t Read(void* dest, size_t numBytes);

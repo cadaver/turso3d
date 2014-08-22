@@ -294,8 +294,8 @@ void SpatialNode::OnTransformChanged()
 {
     SetFlag(NF_WORLD_TRANSFORM_DIRTY, true);
 
-    const PODVector<Node*>& children = Children();
-    for (PODVector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    const Vector<Node*>& children = Children();
+    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (child->TestFlag(NF_SPATIAL))

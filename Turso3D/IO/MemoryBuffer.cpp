@@ -28,14 +28,14 @@ MemoryBuffer::MemoryBuffer(const void* data, size_t numBytes) :
         size = 0;
 }
 
-MemoryBuffer::MemoryBuffer(PODVector<unsigned char>& data) :
+MemoryBuffer::MemoryBuffer(Vector<unsigned char>& data) :
     Deserializer(data.Size()),
     buffer(data.Begin().ptr),
     readOnly(false)
 {
 }
 
-MemoryBuffer::MemoryBuffer(const PODVector<unsigned char>& data) :
+MemoryBuffer::MemoryBuffer(const Vector<unsigned char>& data) :
     Deserializer(data.Size()),
     buffer(data.Begin().ptr),
     readOnly(true)

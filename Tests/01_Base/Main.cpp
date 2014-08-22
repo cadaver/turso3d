@@ -129,26 +129,6 @@ int main()
     }
 
     {
-        printf("\nTesting PODVector\n");
-        HiresTimer t;
-        PODVector<int> vec;
-        SetRandomSeed(0);
-        for (size_t i = 0; i < NUM_ITEMS; ++i)
-            vec.Push(Rand());
-        int sum = 0;
-        int count = 0;
-        for (Vector<int>::ConstIterator it = vec.Begin(); it != vec.End(); ++it)
-        {
-            sum += *it;
-            ++count;
-        }
-        int usec = (int)t.ElapsedUSec();
-        printf("Size: %d capacity: %d\n", vec.Size(), vec.Capacity());
-        printf("Counted vector items %d, sum: %d\n", count, sum);
-        printf("Processing took %d usec\n", usec);
-    }
-
-    {
         printf("\nTesting List\n");
         HiresTimer t;
         List<int> list;

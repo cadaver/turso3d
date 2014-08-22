@@ -213,8 +213,8 @@ void Scene::AddNode(Node* node)
     // If node has children, add them to the scene as well
     if (node->NumChildren())
     {
-        const PODVector<Node*>& children = node->Children();
-        for (PODVector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+        const Vector<Node*>& children = node->Children();
+        for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
             AddNode(*it);
     }
 }
@@ -231,8 +231,8 @@ void Scene::RemoveNode(Node* node)
     // If node has children, remove them from the scene as well
     if (node->NumChildren())
     {
-        const PODVector<Node*>& children = node->Children();
-        for (PODVector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+        const Vector<Node*>& children = node->Children();
+        for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
             RemoveNode(*it);
     }
 }

@@ -9,7 +9,7 @@ namespace Turso3D
 
 class JSONValue;
 class StringHash;
-template <class T> class PODVector;
+template <class T> class Vector;
 struct ObjectRef;
 struct ResourceRef;
 struct ResourceRefList;
@@ -43,7 +43,7 @@ public:
     /// Read a 4-character file ID.
     String ReadFileID();
     /// Read a byte buffer, with size prepended as a VLE value.
-    PODVector<unsigned char> ReadBuffer();
+    Vector<unsigned char> ReadBuffer();
     
     /// Read a value, template version.
     template <class T> T Read()

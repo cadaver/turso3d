@@ -32,7 +32,7 @@ public:
     /// Write a four-letter file ID. If the string is not long enough, spaces will be appended.
     void WriteFileID(const String& value);
     /// Write a byte buffer, with size encoded as VLE.
-    void WriteBuffer(const PODVector<unsigned char>& buffer);
+    void WriteBuffer(const Vector<unsigned char>& buffer);
     /// Write a variable-length encoded unsigned integer, which can use 29 bits maximum.
     void WriteVLE(size_t value);
     /// Write a text line. Char codes 13 & 10 will be automatically appended.
