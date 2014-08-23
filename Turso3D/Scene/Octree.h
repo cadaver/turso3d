@@ -5,7 +5,7 @@
 #include "../Base/Allocator.h"
 #include "../Debug/Profiler.h"
 #include "../Math/BoundingBox.h"
-#include "Node.h"
+#include "OctreeNode.h"
 
 namespace Turso3D
 {

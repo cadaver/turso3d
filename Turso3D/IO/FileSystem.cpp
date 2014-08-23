@@ -214,7 +214,7 @@ static void ScanDirInternal(Vector<String>& result, String path, const String& s
     DIR *dir;
     struct dirent *de;
     struct stat st;
-    dir = opendir(GetNativePath(path).CString());
+    dir = opendir(NativePath(path).CString());
     if (dir)
     {
         while ((de = readdir(dir)))

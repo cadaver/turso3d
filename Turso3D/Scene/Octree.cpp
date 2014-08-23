@@ -2,7 +2,6 @@
 
 #include "../Debug/Log.h"
 #include "Octree.h"
-#include "OctreeNode.h"
 
 #include <cassert>
 

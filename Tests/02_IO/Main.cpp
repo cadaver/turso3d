@@ -44,7 +44,7 @@ public:
     
     void HandleTestEvent(TestEvent& event)
     {
-        printf("Receiver %08x got TestEvent from %08x with data %d\n", (int)this, (int)event.Sender(), event.data);
+        printf("Receiver %08x got TestEvent from %08x with data %d\n", *(int*)this, *(int*)event.Sender(), event.data);
     }
 };
 
