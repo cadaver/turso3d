@@ -17,6 +17,8 @@ static const unsigned NF_SPATIAL_PARENT = 0x8;
 static const unsigned NF_WORLD_TRANSFORM_DIRTY = 0x10;
 static const unsigned NF_BOUNDING_BOX_DIRTY = 0x20;
 static const unsigned NF_OCTREE_UPDATE_QUEUED = 0x40;
+static const unsigned NF_GEOMETRY = 0x80;
+static const unsigned NF_LIGHT = 0x100;
 
 /// Base class for scene nodes.
 class TURSO3D_API Node : public Serializable
@@ -119,6 +121,8 @@ public:
     void SetFlag(unsigned bit, bool set) const { if (set) flags |= bit; else flags &= ~bit; }
     /// Test bit flag. Called internally.
     bool TestFlag(unsigned bit) const { return (flags & bit) != 0; }
+    /// Return bit flags. Used internally eg. by octree queries.
+    unsigned Flags() const { return flags; }
     /// Assign node to a new scene. Called internally.
     void SetScene(Scene* newScene);
     

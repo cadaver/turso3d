@@ -1,7 +1,6 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../Debug/Log.h"
-#include "../Debug/Profiler.h"
 #include "Octree.h"
 #include "OctreeNode.h"
 
@@ -223,6 +222,24 @@ void Octree::CollectNodes(Vector<OctreeNode*>& dest, Octant* octant)
     {
         if (octant->children[i])
             CollectNodes(dest, octant->children[i]);
+    }
+}
+
+void Octree::CollectNodes(Vector<OctreeNode*>& dest, Octant* octant, unsigned nodeFlags)
+{
+    const Vector<OctreeNode*>& octantNodes = octant->nodes;
+    for (Vector<OctreeNode*>::ConstIterator it = octantNodes.Begin(); it != octantNodes.End(); ++it)
+    {
+        OctreeNode* node = *it;
+        unsigned flags = node->Flags();
+        if ((flags & NF_ENABLED) && (flags & nodeFlags))
+            dest.Push(node);
+    }
+    
+    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+    {
+        if (octant->children[i])
+            CollectNodes(dest, octant->children[i], nodeFlags);
     }
 }
 

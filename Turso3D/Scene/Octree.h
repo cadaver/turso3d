@@ -3,6 +3,7 @@
 #pragma once
 
 #include "../Base/Allocator.h"
+#include "../Debug/Profiler.h"
 #include "../Math/BoundingBox.h"
 #include "Node.h"
 
@@ -75,6 +76,15 @@ public:
     /// Cancel a pending reinsertion.
     void CancelUpdate(OctreeNode* node);
 
+    /// Query for nodes using a volume such as frustum or sphere.
+    template <class T> void FindNodes(Vector<OctreeNode*>& dest, const T& volume, unsigned nodeFlags)
+    {
+        PROFILE(QueryOctree);
+        
+        dest.Clear();
+        CollectNodes(dest, &root, volume, nodeFlags);
+    }
+    
 private:
     /// Set bounding box. Used in serialization.
     void SetBoundingBoxAttr(const BoundingBox& boundingBox);
@@ -92,6 +102,8 @@ private:
     void RemoveNode(OctreeNode* node, Octant* octant);
     /// Get all nodes from an octant recursively.
     void CollectNodes(Vector<OctreeNode*>& dest, Octant* octant);
+    /// Get all visible nodes matching flags from an octant recursively.
+    void CollectNodes(Vector<OctreeNode*>& dest, Octant* octant, unsigned nodeFlags);
     /// Create a new child octant.
     Octant* CreateChildOctant(Octant* octant, size_t index);
     /// Delete one child octant.
@@ -99,6 +111,35 @@ private:
     /// Delete a child octant hierarchy. If not deleting the octree for good, moves any nodes back to the root octant.
     void DeleteChildOctants(Octant* octant, bool deletingOctree);
 
+    /// Collect nodes matching flags using a volume such as frustum or sphere.
+    template <class T> void CollectNodes(Vector<OctreeNode*>& dest, Octant* octant, const T& volume, unsigned nodeFlags)
+    {
+        Intersection res = volume.IsInside(octant->cullingBox);
+        if (res == OUTSIDE)
+            return;
+        
+        // If this octant is completely inside the volume, can include all contained octants and their nodes without further tests
+        if (res == INSIDE)
+            CollectNodes(dest, octant, nodeFlags);
+        else
+        {
+            const Vector<OctreeNode*>& octantNodes = octant->nodes;
+            for (Vector<OctreeNode*>::ConstIterator it = octantNodes.Begin(); it != octantNodes.End(); ++it)
+            {
+                OctreeNode* node = *it;
+                unsigned flags = node->Flags();
+                if ((flags & NF_ENABLED) && (flags & nodeFlags) && volume.IsInsideFast(node->WorldBoundingBox()) != OUTSIDE)
+                    dest.Push(node);
+            }
+            
+            for (size_t i = 0; i < NUM_OCTANTS; ++i)
+            {
+                if (octant->children[i])
+                    CollectNodes(dest, octant->children[i], volume, nodeFlags);
+            }
+        }
+    }
+    
     /// Queue of nodes to be reinserted.
     Vector<OctreeNode*> updateQueue;
     /// Allocator for child octants.

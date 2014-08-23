@@ -111,6 +111,13 @@ int main()
         }
 
         {
+            Vector<OctreeNode*> dest;
+            BoundingBox queryBox(-10.0f, 10.0f);
+            octree->FindNodes(dest, queryBox, NF_SPATIAL);
+            printf("Query found %d nodes\n", (int)dest.Size());
+        }
+        
+        {
             PROFILE(DestroyScene);
             scene.Clear();
         }
