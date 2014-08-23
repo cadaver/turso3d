@@ -14,6 +14,22 @@ static const size_t NUM_OCTANTS = 8;
 
 class Octree;
 class OctreeNode;
+class Ray;
+
+/// Structure for raycast query results.
+struct RaycastResult
+{
+    /// Hit world position.
+    Vector3 position;
+    /// Hit world normal.
+    Vector3 normal;
+    /// Hit distance along the ray.
+    float distance;
+    /// Hit node.
+    OctreeNode* node;
+    /// Subclass specific hit details.
+    void* extraData;
+};
 
 /// %Octree cell, contains up to 8 child octants.
 struct Octant
@@ -66,25 +82,26 @@ public:
     void Update();
     /// Resize octree.
     void Resize(const BoundingBox& boundingBox, int numLevels);
-    /// Return root octant.
-    Octant* RootOctant() { return &root; }
-
     /// Remove a node from the octree.
     void RemoveNode(OctreeNode* node);
     /// Queue a reinsertion for a node.
     void QueueUpdate(OctreeNode* node);
     /// Cancel a pending reinsertion.
     void CancelUpdate(OctreeNode* node);
+    /// Query for nodes with a raycast and return all results.
+    void Raycast(Vector<RaycastResult>& dest, const Ray& ray, unsigned nodeFlags, float maxDistance = M_INFINITY);
+    /// Query for nodes with a raycast and return the closest result.
+    RaycastResult RaycastSingle(const Ray& ray, unsigned nodeFlags, float maxDistance = M_INFINITY);
 
     /// Query for nodes using a volume such as frustum or sphere.
-    template <class T> void FindNodes(Vector<OctreeNode*>& dest, const T& volume, unsigned nodeFlags)
+    template <class T> void FindNodes(Vector<OctreeNode*>& dest, const T& volume, unsigned nodeFlags) const
     {
         PROFILE(QueryOctree);
-        
+
         dest.Clear();
         CollectNodes(dest, &root, volume, nodeFlags);
     }
-    
+
 private:
     /// Set bounding box. Used in serialization.
     void SetBoundingBoxAttr(const BoundingBox& boundingBox);
@@ -100,19 +117,23 @@ private:
     void AddNode(OctreeNode* node, Octant* octant);
     /// Remove node from an octant.
     void RemoveNode(OctreeNode* node, Octant* octant);
-    /// Get all nodes from an octant recursively.
-    void CollectNodes(Vector<OctreeNode*>& dest, Octant* octant);
-    /// Get all visible nodes matching flags from an octant recursively.
-    void CollectNodes(Vector<OctreeNode*>& dest, Octant* octant, unsigned nodeFlags);
     /// Create a new child octant.
     Octant* CreateChildOctant(Octant* octant, size_t index);
     /// Delete one child octant.
     void DeleteChildOctant(Octant* octant, size_t index);
     /// Delete a child octant hierarchy. If not deleting the octree for good, moves any nodes back to the root octant.
     void DeleteChildOctants(Octant* octant, bool deletingOctree);
+    /// Get all nodes from an octant recursively.
+    void CollectNodes(Vector<OctreeNode*>& dest, const Octant* octant) const;
+    /// Get all visible nodes matching flags from an octant recursively.
+    void CollectNodes(Vector<OctreeNode*>& dest, const Octant* octant, unsigned nodeFlags) const;
+    /// Get all visible nodes matching flags along a ray.
+    void CollectNodes(Vector<RaycastResult>& dest, const Octant* octant, const Ray& ray, unsigned nodeFlags, float maxDistance) const;
+    /// Get all visible nodes matching flags that could be potential raycast hits.
+    void CollectNodes(Vector<Pair<OctreeNode*, float> >& dest, const Octant* octant, const Ray& ray, unsigned nodeFlags, float maxDistance) const;
 
     /// Collect nodes matching flags using a volume such as frustum or sphere.
-    template <class T> void CollectNodes(Vector<OctreeNode*>& dest, Octant* octant, const T& volume, unsigned nodeFlags)
+    template <class T> void CollectNodes(Vector<OctreeNode*>& dest, const Octant* octant, const T& volume, unsigned nodeFlags) const
     {
         Intersection res = volume.IsInside(octant->cullingBox);
         if (res == OUTSIDE)

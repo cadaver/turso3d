@@ -8,8 +8,10 @@
 namespace Turso3D
 {
 
-struct Octant;
 class Octree;
+class Ray;
+struct Octant;
+struct RaycastResult;
 
 /// Base class for nodes that insert themselves to the octree for rendering.
 class OctreeNode : public SpatialNode
@@ -27,6 +29,9 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
 
+    /// Perform ray test on self and add possible hit to the result vector.
+    virtual void OnRaycast(Vector<RaycastResult>& dest, const Ray& ray, float maxDistance);
+    
     /// Return the current octree this node resides in.
     Octree* CurrentOctree() const { return octree; }
     /// Return the current octree octant this node resides in.

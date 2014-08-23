@@ -1,7 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
+#include "../Math/Ray.h"
 #include "Octree.h"
-#include "OctreeNode.h"
 #include "Scene.h"
 
 namespace Turso3D
@@ -23,6 +23,21 @@ void OctreeNode::RegisterObject()
 {
     RegisterFactory<OctreeNode>();
     CopyBaseAttributes<OctreeNode, SpatialNode>();
+}
+
+void OctreeNode::OnRaycast(Vector<RaycastResult>& dest, const Ray& ray, float maxDistance)
+{
+    float distance = ray.HitDistance(WorldBoundingBox());
+    if (distance < maxDistance)
+    {
+        RaycastResult res;
+        res.position = ray.origin + distance * ray.direction;
+        res.normal = -ray.direction;
+        res.distance = distance;
+        res.node = this;
+        res.extraData = 0;
+        dest.Push(res);
+    }
 }
 
 void OctreeNode::OnSceneSet(Scene* newScene, Scene*)

@@ -1,6 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../Debug/Log.h"
+#include "../Math/Ray.h"
 #include "Octree.h"
 
 #include <cassert>
@@ -13,6 +14,16 @@ namespace Turso3D
 static const float DEFAULT_OCTREE_SIZE = 1000.0f;
 static const int DEFAULT_OCTREE_LEVELS = 8;
 static const int MAX_OCTREE_LEVELS = 256;
+
+bool CompareRaycastResults(const RaycastResult& lhs, const RaycastResult& rhs)
+{
+    return lhs.distance < rhs.distance;
+}
+
+bool CompareNodeDistances(const Pair<OctreeNode*, float>& lhs, const Pair<OctreeNode*, float>& rhs)
+{
+    return lhs.second < rhs.second;
+}
 
 Octant::Octant() :
     parent(0),
@@ -123,6 +134,52 @@ void Octree::CancelUpdate(OctreeNode* node)
     node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
 }
 
+void Octree::Raycast(Vector<RaycastResult>& dest, const Ray& ray, unsigned nodeFlags, float maxDistance)
+{
+    dest.Clear();
+    CollectNodes(dest, &root, ray, nodeFlags, maxDistance);
+    Sort(dest.Begin(), dest.End(), CompareRaycastResults);
+}
+
+RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned nodeFlags, float maxDistance)
+{
+    // Get first the potential hits
+    Vector<Pair<OctreeNode*, float> > initialRes;
+    CollectNodes(initialRes, &root, ray, nodeFlags, maxDistance);
+    Sort(initialRes.Begin(), initialRes.End(), CompareNodeDistances);
+
+    // Then perform actual per-node ray tests and early-out when possible
+    Vector<RaycastResult> res;
+    float closestHit = M_INFINITY;
+    for (Vector<Pair<OctreeNode*, float> >::ConstIterator it = initialRes.Begin(); it != initialRes.End(); ++it)
+    {
+        if (it->second < Min(closestHit, maxDistance))
+        {
+            size_t oldSize = res.Size();
+            it->first->OnRaycast(res, ray, maxDistance);
+            if (res.Size() > oldSize)
+                closestHit = Min(closestHit, res.Back().distance);
+        }
+        else
+            break;
+    }
+
+    if (res.Size())
+    {
+        Sort(res.Begin(), res.End(), CompareRaycastResults);
+        return res.Front();
+    }
+    else
+    {
+        RaycastResult emptyRes;
+        emptyRes.position = emptyRes.normal = Vector3::ZERO;
+        emptyRes.distance = M_INFINITY;
+        emptyRes.node = 0;
+        emptyRes.extraData = 0;
+        return emptyRes;
+    }
+}
+
 void Octree::SetBoundingBoxAttr(const BoundingBox& boundingBox)
 {
     root.worldBoundingBox = boundingBox;
@@ -213,35 +270,6 @@ void Octree::RemoveNode(OctreeNode* node, Octant* octant)
     }
 }
 
-void Octree::CollectNodes(Vector<OctreeNode*>& dest, Octant* octant)
-{
-    dest.Push(octant->nodes);
-
-    for (size_t i = 0; i < NUM_OCTANTS; ++i)
-    {
-        if (octant->children[i])
-            CollectNodes(dest, octant->children[i]);
-    }
-}
-
-void Octree::CollectNodes(Vector<OctreeNode*>& dest, Octant* octant, unsigned nodeFlags)
-{
-    const Vector<OctreeNode*>& octantNodes = octant->nodes;
-    for (Vector<OctreeNode*>::ConstIterator it = octantNodes.Begin(); it != octantNodes.End(); ++it)
-    {
-        OctreeNode* node = *it;
-        unsigned flags = node->Flags();
-        if ((flags & NF_ENABLED) && (flags & nodeFlags))
-            dest.Push(node);
-    }
-    
-    for (size_t i = 0; i < NUM_OCTANTS; ++i)
-    {
-        if (octant->children[i])
-            CollectNodes(dest, octant->children[i], nodeFlags);
-    }
-}
-
 Octant* Octree::CreateChildOctant(Octant* octant, size_t index)
 {
     if (octant->children[index])
@@ -303,6 +331,85 @@ void Octree::DeleteChildOctants(Octant* octant, bool deletingOctree)
 
     if (octant != &root)
         allocator.Free(octant);
+}
+
+void Octree::CollectNodes(Vector<OctreeNode*>& dest, const Octant* octant) const
+{
+    dest.Push(octant->nodes);
+
+    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+    {
+        if (octant->children[i])
+            CollectNodes(dest, octant->children[i]);
+    }
+}
+
+void Octree::CollectNodes(Vector<OctreeNode*>& dest, const Octant* octant, unsigned nodeFlags) const
+{
+    const Vector<OctreeNode*>& octantNodes = octant->nodes;
+    for (Vector<OctreeNode*>::ConstIterator it = octantNodes.Begin(); it != octantNodes.End(); ++it)
+    {
+        OctreeNode* node = *it;
+        unsigned flags = node->Flags();
+        if ((flags & NF_ENABLED) && (flags & nodeFlags))
+            dest.Push(node);
+    }
+
+    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+    {
+        if (octant->children[i])
+            CollectNodes(dest, octant->children[i], nodeFlags);
+    }
+}
+
+void Octree::CollectNodes(Vector<RaycastResult>& dest, const Octant* octant, const Ray& ray, unsigned nodeFlags, 
+    float maxDistance) const
+{
+    float octantDist = ray.HitDistance(octant->cullingBox);
+    if (octantDist >= maxDistance)
+        return;
+
+    const Vector<OctreeNode*>& octantNodes = octant->nodes;
+    for (Vector<OctreeNode*>::ConstIterator it = octantNodes.Begin(); it != octantNodes.End(); ++it)
+    {
+        OctreeNode* node = *it;
+        unsigned flags = node->Flags();
+        if ((flags & NF_ENABLED) && (flags & nodeFlags))
+            node->OnRaycast(dest, ray, maxDistance);
+    }
+
+    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+    {
+        if (octant->children[i])
+            CollectNodes(dest, octant->children[i], ray, nodeFlags, maxDistance);
+    }
+}
+
+void Octree::CollectNodes(Vector<Pair<OctreeNode*, float> >& dest, const Octant* octant, const Ray& ray, unsigned nodeFlags,
+    float maxDistance) const
+{
+    float octantDist = ray.HitDistance(octant->cullingBox);
+    if (octantDist >= maxDistance)
+        return;
+
+    const Vector<OctreeNode*>& octantNodes = octant->nodes;
+    for (Vector<OctreeNode*>::ConstIterator it = octantNodes.Begin(); it != octantNodes.End(); ++it)
+    {
+        OctreeNode* node = *it;
+        unsigned flags = node->Flags();
+        if ((flags & NF_ENABLED) && (flags & nodeFlags))
+        {
+            float distance = ray.HitDistance(node->WorldBoundingBox());
+            if (distance < maxDistance)
+                dest.Push(MakePair(node, distance));
+        }
+    }
+
+    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+    {
+        if (octant->children[i])
+            CollectNodes(dest, octant->children[i], ray, nodeFlags, maxDistance);
+    }
 }
 
 }

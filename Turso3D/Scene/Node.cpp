@@ -253,8 +253,6 @@ void Node::DestroyChild(size_t index)
 
 void Node::DestroyAllChildren()
 {
-    // Start from the beginning in case this is the root node and there are subsystem children such as the octree.
-    // Destroying the subsystems first is faster than having the other children remove themselves from the subsystem(s)
     for (Vector<Node*>::Iterator it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
