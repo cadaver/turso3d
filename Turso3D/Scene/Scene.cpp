@@ -4,9 +4,9 @@
 #include "../Debug/Profiler.h"
 #include "../IO/Deserializer.h"
 #include "../IO/File.h"
-#include "../IO/JSONFile.h"
 #include "../IO/Serializer.h"
 #include "../Object/ObjectResolver.h"
+#include "../Resource/JSONFile.h"
 #include "Octree.h"
 #include "OctreeNode.h"
 #include "Scene.h"
@@ -39,9 +39,9 @@ void Scene::Save(Serializer& dest)
 {
     PROFILE(SaveScene);
     
-    File* destFile = dynamic_cast<File*>(&dest);
-    if (destFile)
-        LOGINFO("Saving scene to " + destFile->Name());
+    String fileName = FileName(dest);
+    if (!fileName.IsEmpty())
+        LOGINFO("Saving scene to " + fileName);
     
     /// \todo Write file ID
     Node::Save(dest);
@@ -51,9 +51,9 @@ bool Scene::Load(Deserializer& source)
 {
     PROFILE(LoadScene);
     
-    File* sourceFile = dynamic_cast<File*>(&source);
-    if (sourceFile)
-        LOGINFO("Loading scene from " + sourceFile->Name());
+    String fileName = FileName(source);
+    if (!fileName.IsEmpty())
+        LOGINFO("Loading scene from " + fileName);
     
     /// \todo Read file ID
     StringHash ownType = source.Read<StringHash>();
@@ -99,9 +99,9 @@ bool Scene::LoadJSON(const JSONValue& source)
 
 bool Scene::LoadJSON(Deserializer& source)
 {
-    File* sourceFile = dynamic_cast<File*>(&source);
-    if (sourceFile)
-        LOGINFO("Loading scene from " + sourceFile->Name());
+    String fileName = FileName(source);
+    if (!fileName.IsEmpty())
+        LOGINFO("Loading scene from " + fileName);
     
     JSONFile json;
     bool success = json.Load(source);
@@ -113,9 +113,9 @@ bool Scene::SaveJSON(Serializer& dest)
 {
     PROFILE(SaveSceneJSON);
     
-    File* destFile = dynamic_cast<File*>(&dest);
-    if (destFile)
-        LOGINFO("Saving scene to " + destFile->Name());
+    String fileName = FileName(dest);
+    if (!fileName.IsEmpty())
+        LOGINFO("Saving scene to " + fileName);
     
     JSONFile json;
     Node::SaveJSON(json.Root());

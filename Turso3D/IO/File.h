@@ -42,6 +42,8 @@ public:
     void Close();
     /// Flush any buffered output to the file.
     void Flush();
+    /// Change the file name that will be returned. Does not affect the opened file handle.
+    void SetName(const String& newName);
     
     /// Return the file path and name.
     const String& Name() const { return name; }
@@ -67,5 +69,10 @@ private:
     /// Synchronization needed before write -flag.
     bool writeSyncNeeded;
 };
+
+/// Return name if a deserializer is a file, empty otherwise.
+TURSO3D_API String FileName(const Deserializer& deserializer);
+/// Return name if a serializer is a file, empty otherwise.
+TURSO3D_API String FileName(const Serializer& serializer);
 
 }

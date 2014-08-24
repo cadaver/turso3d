@@ -181,9 +181,26 @@ void File::Flush()
         fflush((FILE*)handle);
 }
 
+void File::SetName(const String& newName)
+{
+    name = newName;
+}
+
 bool File::IsOpen() const
 {
     return handle != 0;
+}
+
+String FileName(const Deserializer& deserializer)
+{
+    const File* file = dynamic_cast<const File*>(&deserializer);
+    return file ? file->Name() : String::EMPTY;
+}
+
+String FileName(const Serializer& serializer)
+{
+    const File* file = dynamic_cast<const File*>(&serializer);
+    return file ? file->Name() : String::EMPTY;
 }
 
 }

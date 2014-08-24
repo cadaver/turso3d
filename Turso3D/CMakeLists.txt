@@ -16,6 +16,7 @@ add_engine_directory (Debug)
 add_engine_directory (IO)
 add_engine_directory (Math)
 add_engine_directory (Object)
+add_engine_directory (Resource)
 add_engine_directory (Scene)
 add_engine_directory (Thread)
 

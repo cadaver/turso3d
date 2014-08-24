@@ -3,9 +3,7 @@
 #include "../Base/AutoPtr.h"
 #include "../Debug/Log.h"
 #include "../Debug/Profiler.h"
-#include "Deserializer.h"
-#include "File.h"
-#include "Serializer.h"
+#include "../IO/File.h"
 #include "JSONFile.h"
 
 #include "../Debug/DebugNew.h"
@@ -13,12 +11,9 @@
 namespace Turso3D
 {
 
-JSONFile::JSONFile()
+void JSONFile::RegisterObject()
 {
-}
-
-JSONFile::~JSONFile()
-{
+    RegisterFactory<JSONFile>();
 }
 
 bool JSONFile::Load(Deserializer& source)
@@ -39,9 +34,9 @@ bool JSONFile::Load(Deserializer& source)
     bool success = root.Parse(pos, end);
     if (!success)
     {
-        File* sourceFile = dynamic_cast<File*>(&source);
-        if (sourceFile)
-            LOGERROR("Parsing JSON from " + sourceFile->Name() + " failed; data may be partial");
+        String fileName = FileName(source);
+        if (!fileName.IsEmpty())
+            LOGERROR("Parsing JSON from " + fileName + " failed; data may be partial");
         else
             LOGERROR("Parsing JSON failed; data may be partial");
     }
@@ -49,12 +44,12 @@ bool JSONFile::Load(Deserializer& source)
     return success;
 }
 
-bool JSONFile::Save(Serializer& dest, int spacing) const
+bool JSONFile::Save(Serializer& dest) const
 {
     PROFILE(SaveJSONFile);
     
     String buffer;
-    root.ToString(buffer, spacing);
+    root.ToString(buffer);
     return dest.Write(buffer.Begin().ptr, buffer.Length()) == buffer.Length();
 }
 

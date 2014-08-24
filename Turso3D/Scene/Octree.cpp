@@ -136,6 +136,8 @@ void Octree::CancelUpdate(OctreeNode* node)
 
 void Octree::Raycast(Vector<RaycastResult>& dest, const Ray& ray, unsigned nodeFlags, float maxDistance)
 {
+    PROFILE(OctreeRaycast);
+
     dest.Clear();
     CollectNodes(dest, &root, ray, nodeFlags, maxDistance);
     Sort(dest.Begin(), dest.End(), CompareRaycastResults);
@@ -143,6 +145,8 @@ void Octree::Raycast(Vector<RaycastResult>& dest, const Ray& ray, unsigned nodeF
 
 RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned nodeFlags, float maxDistance)
 {
+    PROFILE(OctreeRaycastSingle);
+
     // Get first the potential hits
     Vector<Pair<OctreeNode*, float> > initialRes;
     CollectNodes(initialRes, &root, ray, nodeFlags, maxDistance);

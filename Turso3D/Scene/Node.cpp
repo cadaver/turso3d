@@ -3,8 +3,8 @@
 #include "../Debug/Log.h"
 #include "../IO/Deserializer.h"
 #include "../IO/Serializer.h"
-#include "../IO/JSONFile.h"
 #include "../Object/ObjectResolver.h"
+#include "../Resource/JSONFile.h"
 #include "Scene.h"
 
 #include "../Debug/DebugNew.h"
@@ -164,20 +164,20 @@ void Node::SetParent(Node* newParent)
 
 Node* Node::CreateChild(StringHash childType)
 {
-    Object* newObject = Create(childType);
+    AutoPtr<Object> newObject = Create(childType);
     if (!newObject)
     {
         LOGERROR("Could not create child node of unknown type " + childType.ToString());
         return 0;
     }
-    Node* child = dynamic_cast<Node*>(newObject);
+    Node* child = dynamic_cast<Node*>(newObject.Get());
     if (!child)
     {
         LOGERROR(newObject->TypeName() + " is not a Node subclass, could not add as a child");
-        delete newObject;
         return 0;
     }
 
+    newObject.Detach();
     AddChild(child);
     return child;
 }
