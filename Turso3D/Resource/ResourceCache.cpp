@@ -62,14 +62,7 @@ bool ResourceCache::AddManualResource(Resource* resource)
         return false;
     }
 
-    Pair<StringHash, StringHash> key = MakePair(resource->Type(), StringHash(resource->Name()));
-    if (resources.Find(key) != resources.End())
-    {
-        LOGERROR("Resource with same type and name already exists");
-        return false;
-    }
-
-    resources[key] = resource;
+    resources[MakePair(resource->Type(), StringHash(resource->Name()))] = resource;
     return true;
 }
 
@@ -98,10 +91,7 @@ void ResourceCache::UnloadResource(StringHash type, const String& name, bool for
 
     Resource* resource = it->second;
     if (!resource->WeakRefs() || force)
-    {
-        delete resource;
         resources.Erase(key);
-    }
 }
 
 void ResourceCache::UnloadResources(StringHash type, bool force)
@@ -113,10 +103,7 @@ void ResourceCache::UnloadResources(StringHash type, bool force)
         {
             Resource* resource = current->second;
             if (!resource->WeakRefs() || force)
-            {
-                delete resource;
                 resources.Erase(current);
-            }
         }
     }
 }
@@ -130,10 +117,7 @@ void ResourceCache::UnloadResources(StringHash type, const String& partialName, 
         {
             Resource* resource = current->second;
             if (resource->Name().StartsWith(partialName) && (!resource->WeakRefs() || force))
-            {
-                delete resource;
                 resources.Erase(current);
-            }
         }
     }
 }
@@ -151,31 +135,30 @@ void ResourceCache::UnloadResources(const String& partialName, bool force)
             ResourceMap::Iterator current = it++;
             Resource* resource = current->second;
             if (resource->Name().StartsWith(partialName) && (!resource->WeakRefs() || force))
-            {
-                delete resource;
                 resources.Erase(current);
-            }
         }
     }
 }
 
 void ResourceCache::UnloadAllResources(bool force)
 {
-    size_t repeat = force ? 1 : 2;
-
-    while (repeat--)
+    if (!force)
     {
-        for (ResourceMap::Iterator it = resources.Begin(); it != resources.End();)
+        size_t repeat = 2;
+
+        while (repeat--)
         {
-            ResourceMap::Iterator current = it++;
-            Resource* resource = current->second;
-            if (!resource->WeakRefs() || force)
+            for (ResourceMap::Iterator it = resources.Begin(); it != resources.End();)
             {
-                delete resource;
-                resources.Erase(current);
+                ResourceMap::Iterator current = it++;
+                Resource* resource = current->second;
+                if (!resource->WeakRefs())
+                    resources.Erase(current);
             }
         }
     }
+    else
+        resources.Clear();
 }
 
 bool ResourceCache::ReloadResource(Resource* resource)

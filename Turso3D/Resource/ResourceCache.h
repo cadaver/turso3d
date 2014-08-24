@@ -11,7 +11,7 @@ namespace Turso3D
 class File;
 class Resource;
 
-typedef HashMap<Pair<StringHash, StringHash>, Resource*> ResourceMap;
+typedef HashMap<Pair<StringHash, StringHash>, AutoPtr<Resource> > ResourceMap;
  
 /// %Resource cache subsystem. Loads resources on demand and stores them for later access.
 class ResourceCache : public Object
@@ -55,8 +55,6 @@ public:
 
     /// Return resources by type.
     void ResourcesByType(Vector<Resource*>& dest, StringHash type) const;
-    /// Return all resources.
-    const ResourceMap& AllResources() const { return resources; }
     /// Return resource directories.
     const Vector<String>& ResourceDirs() const { return resourceDirs; }
     /// Return whether a file exists in the resource directories.
