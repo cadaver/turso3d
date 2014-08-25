@@ -334,6 +334,11 @@ void Node::ChildrenRecursive(Vector<Node*>& dest)
 
 Node* Node::FindChild(const String& childName) const
 {
+    return FindChild(childName.CString());
+}
+
+Node* Node::FindChild(const char* childName) const
+{
     for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
@@ -358,6 +363,11 @@ Node* Node::FindChild(StringHash childType) const
 
 Node* Node::FindChild(StringHash childType, const String& childName) const
 {
+    return FindChild(childType, childName.CString());
+}
+
+Node* Node::FindChild(StringHash childType, const char* childName) const
+{
     for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
@@ -369,6 +379,11 @@ Node* Node::FindChild(StringHash childType, const String& childName) const
 }
 
 Node* Node::FindChildRecursive(const String& childName) const
+{
+    return FindChildRecursive(childName.CString());
+}
+
+Node* Node::FindChildRecursive(const char* childName) const
 {
     for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
     {
@@ -405,6 +420,11 @@ Node* Node::FindChildRecursive(StringHash childType) const
 }
 
 Node* Node::FindChildRecursive(StringHash childType, const String& childName) const
+{
+    return FindChildRecursive(childType, childName.CString());
+}
+
+Node* Node::FindChildRecursive(StringHash childType, const char* childName) const
 {
     for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
     {

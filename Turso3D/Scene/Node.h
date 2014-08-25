@@ -114,25 +114,37 @@ public:
     void ChildrenRecursive(Vector<Node*>& dest);
     /// Find immediate child node by name.
     Node* FindChild(const String& childName) const;
+    /// Find immediate child node by name.
+    Node* FindChild(const char* childName) const;
     /// Find first immediate child node of specified type.
     Node* FindChild(StringHash childType) const;
     /// Find immediate child node by type and name.
     Node* FindChild(StringHash childType, const String& childName) const;
+    /// Find immediate child node by type and name.
+    Node* FindChild(StringHash childType, const char* childName) const;
     /// Find child node by name recursively.
     Node* FindChildRecursive(const String& childName) const;
+    /// Find child node by name recursively.
+    Node* FindChildRecursive(const char* childName) const;
     /// Find child node by type recursively.
     Node* FindChildRecursive(StringHash childType) const;
     /// Find child node by type and name recursively.
     Node* FindChildRecursive(StringHash childType, const String& childName) const;
+    /// Find child node by type and name recursively.
+    Node* FindChildRecursive(StringHash childType, const char* childName) const;
     /// Find immediate child node by type, template version.
     template <class T> T* FindChild() const { return static_cast<T*>(FindChild(T::TypeStatic())); }
     /// Find immediate child node by type and name, template version.
     template <class T> T* FindChild(const String& childName) const { return static_cast<T*>(FindChild(T::TypeStatic(), childName)); }
+    /// Find immediate child node by type and name, template version.
+    template <class T> T* FindChild(const char* childName) const { return static_cast<T*>(FindChild(T::TypeStatic(), childName)); }
     /// Find child node by type recursively, template version.
     template <class T> T* FindChildRecursive() const { return static_cast<T*>(FindChildRecursive(T::TypeStatic())); }
     /// Find child node by type and name recursively, template version.
     template <class T> T* FindChildRecursive(const String& childName) const { return static_cast<T*>(FindChildRecursive(T::TypeStatic(), childName)); }
-    
+    /// Find child node by type and name recursively, template version.
+    template <class T> T* FindChildRecursive(const char* childName) const { return static_cast<T*>(FindChildRecursive(T::TypeStatic(), childName)); }
+
     /// Set bit flag. Called internally.
     void SetFlag(unsigned bit, bool set) const { if (set) flags |= bit; else flags &= ~bit; }
     /// Test bit flag. Called internally.
