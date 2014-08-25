@@ -76,8 +76,8 @@ int main()
         profiler.BeginFrame();
         
         Vector<OctreeNode*> boxNodes;
-        Scene scene;
-        Octree* octree = scene.CreateChild<Octree>();
+        AutoPtr<Scene> scene(new Scene());
+        Octree* octree = scene->CreateChild<Octree>();
         
         {
             PROFILE(CreateObjects);
@@ -85,7 +85,7 @@ int main()
             {
                 for (int x = -125; x < 125; ++x)
                 {
-                    OctreeNode* boxNode = scene.CreateChild<OctreeNode>("Box");
+                    OctreeNode* boxNode = scene->CreateChild<OctreeNode>("Box");
                     boxNode->SetPosition(Vector3(x * 0.3f, 0.0f, y * 0.3f));
                     boxNode->SetScale(0.25f);
                     boxNodes.Push(boxNode);
@@ -119,7 +119,7 @@ int main()
         
         {
             PROFILE(DestroyScene);
-            scene.Clear();
+            scene.Reset();
         }
 
         profiler.EndFrame();

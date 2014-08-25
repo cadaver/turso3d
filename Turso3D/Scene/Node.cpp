@@ -22,8 +22,9 @@ Node::Node() :
 Node::~Node()
 {
     DestroyAllChildren();
-    if (scene)
-        scene->RemoveNode(this);
+    // At the time of destruction the node should not have a parent, or be in a scene
+    assert(!parent);
+    assert(!scene);
 }
 
 void Node::RegisterObject()
@@ -245,6 +246,7 @@ Node* Node::DetachChild(size_t index)
 
     Node* child = children[index];
     children.Erase(index);
+    // Detach from both the parent and the scene (removes id assignment)
     child->parent = 0;
     child->OnParentSet(this, 0);
     if (scene)

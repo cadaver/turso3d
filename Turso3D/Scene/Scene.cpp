@@ -25,8 +25,12 @@ Scene::Scene() :
 
 Scene::~Scene()
 {
-    for (HashMap<unsigned, Node*>::Iterator it = nodes.Begin(); it != nodes.End(); ++it)
-        it->second->SetScene(0);
+    // Node destructor will also destroy children. But at that point the node<>id maps have been destroyed 
+    // so must destroy the scene tree already here
+    DestroyAllChildren();
+    RemoveNode(this);
+    assert(nodes.IsEmpty());
+    assert(ids.IsEmpty());
 }
 
 void Scene::RegisterObject()
