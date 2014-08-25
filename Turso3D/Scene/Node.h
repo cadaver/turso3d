@@ -19,6 +19,8 @@ static const unsigned NF_BOUNDING_BOX_DIRTY = 0x20;
 static const unsigned NF_OCTREE_UPDATE_QUEUED = 0x40;
 static const unsigned NF_GEOMETRY = 0x80;
 static const unsigned NF_LIGHT = 0x100;
+static const unsigned LAYER_DEFAULT = 0x1;
+static const unsigned LAYER_ALL = 0xffffffff;
 
 /// Base class for scene nodes.
 class TURSO3D_API Node : public Serializable
@@ -49,6 +51,8 @@ public:
     bool SaveJSON(Serializer& dest);
     /// Set name, which is not required to be unique within the scene.
     void SetName(const String& newName);
+    /// Set node's layer bits. Usage is subclass specific, for example rendering nodes selectively. Default is 1. Node can belong to several layers (bits) if necessary.
+    void SetLayer(unsigned newLayer);
     /// Set enabled status. Meaning is subclass specific.
     void SetEnabled(bool enable);
     /// Set enabled status recursively in the child hierarchy.
@@ -82,6 +86,8 @@ public:
     
     /// Return name.
     const String& Name() const { return name; }
+    /// Return layer bits.
+    unsigned Layer() const { return layer; }
     /// Return enabled status.
     bool IsEnabled() const { return TestFlag(NF_ENABLED); }
     /// Return whether is temporary.
@@ -152,10 +158,12 @@ private:
     Scene* scene;
     /// Child nodes. A node owns its children and destroys them during its own destruction.
     Vector<Node*> children;
-    /// %Node name.
-    String name;
+    /// Layer bits.
+    unsigned layer;
     /// Id within the scene.
     unsigned id;
+    /// %Node name.
+    String name;
 };
 
 }

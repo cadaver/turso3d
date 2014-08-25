@@ -134,22 +134,22 @@ void Octree::CancelUpdate(OctreeNode* node)
     node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
 }
 
-void Octree::Raycast(Vector<RaycastResult>& dest, const Ray& ray, unsigned nodeFlags, float maxDistance)
+void Octree::Raycast(Vector<RaycastResult>& dest, const Ray& ray, unsigned nodeFlags, float maxDistance, unsigned layerMask)
 {
     PROFILE(OctreeRaycast);
 
     dest.Clear();
-    CollectNodes(dest, &root, ray, nodeFlags, maxDistance);
+    CollectNodes(dest, &root, ray, nodeFlags, maxDistance, layerMask);
     Sort(dest.Begin(), dest.End(), CompareRaycastResults);
 }
 
-RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned nodeFlags, float maxDistance)
+RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned nodeFlags, float maxDistance, unsigned layerMask)
 {
     PROFILE(OctreeRaycastSingle);
 
     // Get first the potential hits
     Vector<Pair<OctreeNode*, float> > initialRes;
-    CollectNodes(initialRes, &root, ray, nodeFlags, maxDistance);
+    CollectNodes(initialRes, &root, ray, nodeFlags, maxDistance, layerMask);
     Sort(initialRes.Begin(), initialRes.End(), CompareNodeDistances);
 
     // Then perform actual per-node ray tests and early-out when possible
@@ -348,26 +348,26 @@ void Octree::CollectNodes(Vector<OctreeNode*>& dest, const Octant* octant) const
     }
 }
 
-void Octree::CollectNodes(Vector<OctreeNode*>& dest, const Octant* octant, unsigned nodeFlags) const
+void Octree::CollectNodes(Vector<OctreeNode*>& dest, const Octant* octant, unsigned nodeFlags, unsigned layerMask) const
 {
     const Vector<OctreeNode*>& octantNodes = octant->nodes;
     for (Vector<OctreeNode*>::ConstIterator it = octantNodes.Begin(); it != octantNodes.End(); ++it)
     {
         OctreeNode* node = *it;
         unsigned flags = node->Flags();
-        if ((flags & NF_ENABLED) && (flags & nodeFlags))
+        if ((flags & NF_ENABLED) && (flags & nodeFlags) && (node->Layer() & layerMask))
             dest.Push(node);
     }
 
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
     {
         if (octant->children[i])
-            CollectNodes(dest, octant->children[i], nodeFlags);
+            CollectNodes(dest, octant->children[i], nodeFlags, layerMask);
     }
 }
 
 void Octree::CollectNodes(Vector<RaycastResult>& dest, const Octant* octant, const Ray& ray, unsigned nodeFlags, 
-    float maxDistance) const
+    float maxDistance, unsigned layerMask) const
 {
     float octantDist = ray.HitDistance(octant->cullingBox);
     if (octantDist >= maxDistance)
@@ -378,19 +378,19 @@ void Octree::CollectNodes(Vector<RaycastResult>& dest, const Octant* octant, con
     {
         OctreeNode* node = *it;
         unsigned flags = node->Flags();
-        if ((flags & NF_ENABLED) && (flags & nodeFlags))
+        if ((flags & NF_ENABLED) && (flags & nodeFlags) && (node->Layer() & layerMask))
             node->OnRaycast(dest, ray, maxDistance);
     }
 
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
     {
         if (octant->children[i])
-            CollectNodes(dest, octant->children[i], ray, nodeFlags, maxDistance);
+            CollectNodes(dest, octant->children[i], ray, nodeFlags, maxDistance, layerMask);
     }
 }
 
 void Octree::CollectNodes(Vector<Pair<OctreeNode*, float> >& dest, const Octant* octant, const Ray& ray, unsigned nodeFlags,
-    float maxDistance) const
+    float maxDistance, unsigned layerMask) const
 {
     float octantDist = ray.HitDistance(octant->cullingBox);
     if (octantDist >= maxDistance)
@@ -401,7 +401,7 @@ void Octree::CollectNodes(Vector<Pair<OctreeNode*, float> >& dest, const Octant*
     {
         OctreeNode* node = *it;
         unsigned flags = node->Flags();
-        if ((flags & NF_ENABLED) && (flags & nodeFlags))
+        if ((flags & NF_ENABLED) && (flags & nodeFlags) && (node->Layer() & layerMask))
         {
             float distance = ray.HitDistance(node->WorldBoundingBox());
             if (distance < maxDistance)
@@ -412,7 +412,7 @@ void Octree::CollectNodes(Vector<Pair<OctreeNode*, float> >& dest, const Octant*
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
     {
         if (octant->children[i])
-            CollectNodes(dest, octant->children[i], ray, nodeFlags, maxDistance);
+            CollectNodes(dest, octant->children[i], ray, nodeFlags, maxDistance, layerMask);
     }
 }
 

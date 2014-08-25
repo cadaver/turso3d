@@ -437,6 +437,7 @@ void DecompressImageETC( unsigned char* rgba, const void* blocks, int width, int
 #define CLAMP(X, lower, upper) (_MIN(_MAX((X),(lower)), (upper)))
 #define LIMIT_COORD(Val, Size, AssumeImageTiles) ((AssumeImageTiles)? WRAP_COORD((Val), (Size)): CLAMP((Val), 0, (Size)-1))
 
+/// 64-bit block of PVRTC compressed data.
 typedef struct
 {
     // Uses 64 bits pre block

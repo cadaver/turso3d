@@ -16,6 +16,7 @@ Node::Node() :
     flags(NF_ENABLED),
     parent(0),
     scene(0),
+    layer(LAYER_DEFAULT),
     id(0)
 {
 }
@@ -34,6 +35,7 @@ void Node::RegisterObject()
     RegisterRefAttribute("name", &Node::Name, &Node::SetName);
     RegisterAttribute("enabled", &Node::IsEnabled, &Node::SetEnabled, true);
     RegisterAttribute("temporary", &Node::IsTemporary, &Node::SetTemporary, false);
+    RegisterAttribute("layer", &Node::Layer, &Node::SetLayer, LAYER_DEFAULT);
 }
 
 void Node::Load(Deserializer& source, ObjectResolver* resolver)
@@ -133,6 +135,11 @@ bool Node::SaveJSON(Serializer& dest)
 void Node::SetName(const String& newName)
 {
     name = newName;
+}
+
+void Node::SetLayer(unsigned newLayer)
+{
+    layer = newLayer;
 }
 
 void Node::SetEnabled(bool enable)
