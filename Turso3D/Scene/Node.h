@@ -63,6 +63,10 @@ public:
     Node* CreateChild(StringHash childType, const String& childName);
     /// Add node as a child. Same as calling SetParent for the child node.
     void AddChild(Node* child);
+    /// Detach and return child node. The child node is removed from the scene and its deletion becomes the responsibility of the caller.
+    Node* DetachChild(Node* child);
+    /// Detach and return child node by index.
+    Node* DetachChild(size_t);
     /// Destroy child node.
     void DestroyChild(Node* child);
     /// Destroy child node by index.

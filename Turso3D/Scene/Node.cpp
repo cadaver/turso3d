@@ -224,30 +224,43 @@ void Node::AddChild(Node* child)
         scene->AddNode(child);
 }
 
-void Node::DestroyChild(Node* child)
+Node* Node::DetachChild(Node* child)
 {
     if (!child || child->parent != this)
-        return;
+        return 0;
 
-    children.Remove(child);
+    for (size_t i = 0; i < children.Size(); ++i)
+    {
+        if (children[i] == child)
+            return DetachChild(i);
+    }
+
+    return 0;
+}
+
+Node* Node::DetachChild(size_t index)
+{
+    if (index >= children.Size())
+        return 0;
+
+    Node* child = children[index];
+    children.Erase(index);
     child->parent = 0;
     child->OnParentSet(this, 0);
     if (scene)
         scene->RemoveNode(child);
+    return child;
+}
+
+void Node::DestroyChild(Node* child)
+{
+    child = DetachChild(child);
     delete child;
 }
 
 void Node::DestroyChild(size_t index)
 {
-    if (index >= children.Size())
-        return;
-
-    Node* child = children[index];
-    children.Erase(children.Begin() + index);
-    child->parent = 0;
-    child->OnParentSet(this, 0);
-    if (scene)
-        scene->RemoveNode(child);
+    Node* child = DetachChild(index);
     delete child;
 }
 
