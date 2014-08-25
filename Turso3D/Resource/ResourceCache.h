@@ -14,7 +14,7 @@ class Resource;
 typedef HashMap<Pair<StringHash, StringHash>, AutoPtr<Resource> > ResourceMap;
  
 /// %Resource cache subsystem. Loads resources on demand and stores them for later access.
-class ResourceCache : public Object
+class TURSO3D_API ResourceCache : public Object
 {
     OBJECT(ResourceCache);
 

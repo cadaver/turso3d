@@ -12,7 +12,7 @@ class Deserializer;
 class Serializer;
 
 /// JSON document. Contains a root JSON value and can be read/written to file as text.
-class JSONFile : public Resource
+class TURSO3D_API JSONFile : public Resource
 {
     OBJECT(JSONFile);
 

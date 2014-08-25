@@ -1,8 +1,10 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
+#include "../Debug/Log.h"
+#include "../Debug/Profiler.h"
 #include "../IO/File.h"
 #include "../IO/FileSystem.h"
-#include "../Debug/Log.h"
+#include "Image.h"
 #include "JSONFile.h"
 #include "ResourceCache.h"
 
@@ -24,6 +26,8 @@ ResourceCache::~ResourceCache()
 
 bool ResourceCache::AddResourceDir(const String& pathName, bool addFirst)
 {
+    PROFILE(AddResourceDir);
+
     if (!DirExists(pathName))
     {
         LOGERROR("Could not open directory " + pathName);
@@ -323,6 +327,7 @@ String ResourceCache::SanitateResourceDirName(const String& nameIn) const
 
 void RegisterResourceLibrary()
 {
+    Image::RegisterObject();
     JSONFile::RegisterObject();
 }
 

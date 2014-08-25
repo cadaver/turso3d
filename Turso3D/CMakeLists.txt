@@ -19,12 +19,16 @@ add_engine_directory (Object)
 add_engine_directory (Resource)
 add_engine_directory (Scene)
 add_engine_directory (Thread)
+add_engine_directory (ThirdParty/STB)
 
 # Add root-level files
 file (GLOB TURSO3D_FILES *.h *.c *.cpp)
 list (APPEND SOURCE_FILES ${TURSO3D_FILES})
 
 add_library (${TARGET_NAME} STATIC ${SOURCE_FILES})
+
+# Add third party include directories. Only used internally
+include_directories (ThirdParty/STB)
 
 if (WIN32)
     target_link_libraries (${TARGET_NAME} winmm)
