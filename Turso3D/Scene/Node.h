@@ -43,7 +43,7 @@ public:
     /// Save as JSON data.
     virtual void SaveJSON(JSONValue& dest);
     /// Return unique id within the scene, or 0 if not in a scene.
-    virtual unsigned Id() const;
+    virtual unsigned Id() const { return id; }
 
     /// Save as JSON text data to a binary stream. Return true on success.
     bool SaveJSON(Serializer& dest);
@@ -129,6 +129,8 @@ public:
     unsigned Flags() const { return flags; }
     /// Assign node to a new scene. Called internally.
     void SetScene(Scene* newScene);
+    /// Assign new id. Called internally.
+    void SetId(unsigned newId);
     
     /// Skip the binary data of a node hierarchy, in case the node could not be created.
     static void SkipHierarchy(Deserializer& source);
@@ -152,6 +154,8 @@ private:
     Vector<Node*> children;
     /// %Node name.
     String name;
+    /// Id within the scene.
+    unsigned id;
 };
 
 }

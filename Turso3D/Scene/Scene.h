@@ -43,12 +43,10 @@ public:
 
     /// Find node by id.
     Node* FindNode(unsigned id) const;
-    /// Find node's id by the node pointer.
-    unsigned FindNodeId(Node* node) const;
 
-    /// Add node to the scene. This assigns a scene-unique id to it.
+    /// Add node to the scene. This assigns a scene-unique id to it. Called internally.
     void AddNode(Node* node);
-    /// Remove node from the scene. This removes the id mapping but does not destroy the node.
+    /// Remove node from the scene. This removes the id mapping but does not destroy the node. Called internally.
     void RemoveNode(Node* node);
 
 private:

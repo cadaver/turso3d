@@ -30,7 +30,6 @@ Scene::~Scene()
     DestroyAllChildren();
     RemoveNode(this);
     assert(nodes.IsEmpty());
-    assert(ids.IsEmpty());
 }
 
 void Scene::RegisterObject()
@@ -183,12 +182,6 @@ Node* Scene::FindNode(unsigned id) const
     return it != nodes.End() ? it->second : (Node*)0;
 }
 
-unsigned Scene::FindNodeId(Node* node) const
-{
-    HashMap<Node*, unsigned>::ConstIterator it = ids.Find(node);
-    return it != ids.End() ? it->second : 0;
-}
-
 void Scene::AddNode(Node* node)
 {
     if (!node || node->ParentScene() == this)
@@ -206,11 +199,10 @@ void Scene::AddNode(Node* node)
     {
         unsigned oldId = node->Id();
         oldScene->nodes.Erase(oldId);
-        oldScene->ids.Erase(node);
     }
     nodes[nextNodeId] = node;
-    ids[node] = nextNodeId;
     node->SetScene(this);
+    node->SetId(nextNodeId);
 
     ++nextNodeId;
 
@@ -229,8 +221,8 @@ void Scene::RemoveNode(Node* node)
         return;
 
     nodes.Erase(node->Id());
-    ids.Erase(node);
     node->SetScene(0);
+    node->SetId(0);
     
     // If node has children, remove them from the scene as well
     if (node->NumChildren())

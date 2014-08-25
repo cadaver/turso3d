@@ -15,7 +15,8 @@ namespace Turso3D
 Node::Node() :
     flags(NF_ENABLED),
     parent(0),
-    scene(0)
+    scene(0),
+    id(0)
 {
 }
 
@@ -290,12 +291,6 @@ void Node::DestroySelf()
         delete this;
 }
 
-unsigned Node::Id() const
-{
-    // The id is not needed often. Query from Scene to avoid having to store into nodes separately
-    return scene ? scene->FindNodeId(const_cast<Node*>(this)) : 0;
-}
-
 size_t Node::NumPersistentChildren() const
 {
     size_t ret = 0;
@@ -415,6 +410,11 @@ void Node::SetScene(Scene* newScene)
     Scene* oldScene = scene;
     scene = newScene;
     OnSceneSet(scene, oldScene);
+}
+
+void Node::SetId(unsigned newId)
+{
+    id = newId;
 }
 
 void Node::SkipHierarchy(Deserializer& source)
