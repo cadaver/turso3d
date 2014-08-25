@@ -49,8 +49,10 @@ public:
 
     /// Save as JSON text data to a binary stream. Return true on success.
     bool SaveJSON(Serializer& dest);
-    /// Set name, which is not required to be unique within the scene.
+    /// Set name. Is not required to be unique within the scene.
     void SetName(const String& newName);
+    /// Set name.
+    void SetName(const char* newName);
     /// Set node's layer bits. Usage is subclass specific, for example rendering nodes selectively. Default is 1. Node can belong to several layers (bits) if necessary.
     void SetLayer(unsigned newLayer);
     /// Set enabled status. Meaning is subclass specific.
@@ -63,8 +65,10 @@ public:
     void SetParent(Node* newParent);
     /// Create child node of specified type. A registered object factory for the type is required.
     Node* CreateChild(StringHash childType);
-    /// Create named child node of specified type. A registered object factory for the type is required.
+    /// Create named child node of specified type.
     Node* CreateChild(StringHash childType, const String& childName);
+    /// Create named child node of specified type.
+    Node* CreateChild(StringHash childType, const char* childName);
     /// Add node as a child. Same as calling SetParent for the child node.
     void AddChild(Node* child);
     /// Detach and return child node. The child node is removed from the scene and its deletion becomes the responsibility of the caller.
@@ -83,7 +87,9 @@ public:
     template <class T> T* CreateChild() { return static_cast<T*>(CreateChild(T::TypeStatic())); }
     /// Create named child node of the specified type, template version.
     template <class T> T* CreateChild(const String& childName) { return static_cast<T*>(CreateChild(T::TypeStatic(), childName)); }
-    
+    /// Create named child node of the specified type, template version.
+    template <class T> T* CreateChild(const char* childName) { return static_cast<T*>(CreateChild(T::TypeStatic(), childName)); }
+
     /// Return name.
     const String& Name() const { return name; }
     /// Return layer bits.

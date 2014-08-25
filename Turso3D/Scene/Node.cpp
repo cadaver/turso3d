@@ -134,6 +134,11 @@ bool Node::SaveJSON(Serializer& dest)
 
 void Node::SetName(const String& newName)
 {
+    SetName(newName.CString());
+}
+
+void Node::SetName(const char* newName)
+{
     name = newName;
 }
 
@@ -192,6 +197,11 @@ Node* Node::CreateChild(StringHash childType)
 }
 
 Node* Node::CreateChild(StringHash childType, const String& childName)
+{
+    return CreateChild(childType, childName.CString());
+}
+
+Node* Node::CreateChild(StringHash childType, const char* childName)
 {
     Node* child = CreateChild(childType);
     if (child)
