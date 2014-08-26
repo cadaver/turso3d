@@ -33,6 +33,7 @@ struct JSONData
 {
     union
     {
+        char charValue;
         bool boolValue;
         double numberValue;
         size_t padding[4];
