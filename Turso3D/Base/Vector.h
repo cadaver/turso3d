@@ -17,32 +17,28 @@ class TURSO3D_API VectorBase
 {
 public:
     /// Construct.
-    VectorBase() :
-        size(0),
-        capacity(0),
-        buffer(0)
-    {
-    }
+    VectorBase();
 
     /// Swap with another vector.
     void Swap(VectorBase& vector);
 
     /// Return number of elements in the vector.
-    size_t Size() const { return size; }
+    size_t Size() const { return buffer ? reinterpret_cast<size_t*>(buffer)[0] : 0; }
     /// Return element capacity of the vector.
-    size_t Capacity() const { return capacity; }
+    size_t Capacity() const { return buffer ? reinterpret_cast<size_t*>(buffer)[1] : 0; }
     /// Return whether has no elements.
-    bool IsEmpty() const { return size == 0; }
+    bool IsEmpty() const { return Size() == 0; }
 
 protected:
+    /// Set new size.
+    void SetSize(size_t size) { reinterpret_cast<size_t*>(buffer)[0] = size; } 
+    /// Set new capacity.
+    void SetCapacity(size_t capacity) { reinterpret_cast<size_t*>(buffer)[1] = capacity; } 
+
     /// Allocate the buffer for elements.
     static unsigned char* AllocateBuffer(size_t size);
 
-    /// Number of elements.
-    size_t size;
-    /// Element capacity in the buffer.
-    size_t capacity;
-    /// Buffer.
+    /// Buffer. Contains size and capacity in the beginning.
     unsigned char* buffer;
 };
 
@@ -87,7 +83,7 @@ public:
     Vector<T>& operator = (const Vector<T>& rhs)
     {
         Clear();
-        Resize(rhs.size, rhs.Buffer());
+        Resize(rhs.Size(), rhs.Buffer());
         return *this;
     }
 
@@ -124,13 +120,13 @@ public:
     /// Test for equality with another vector.
     bool operator == (const Vector<T>& rhs) const
     {
-        if (rhs.size != size)
+        if (rhs.Size() != Size())
             return false;
 
         T* buffer = Buffer();
         T* rhsBuffer = rhs.Buffer();
 
-        for (size_t i = 0; i < size; ++i)
+        for (size_t i = 0; i < Size(); ++i)
         {
             if (buffer[i] != rhsBuffer[i])
                 return false;
@@ -142,30 +138,30 @@ public:
     /// Test for inequality with another vector.
     bool operator != (const Vector<T>& rhs) const { return !(*this == rhs); }
     /// Return element at index.
-    T& operator [] (size_t index) { assert(index < size); return Buffer()[index]; }
+    T& operator [] (size_t index) { assert(index < Size()); return Buffer()[index]; }
     /// Return const element at index.
-    const T& operator [] (size_t index) const { assert(index < size); return Buffer()[index]; }
+    const T& operator [] (size_t index) const { assert(index < Size()); return Buffer()[index]; }
 
     /// Add an element at the end.
-    void Push(const T& value) { Resize(size + 1, &value); }
+    void Push(const T& value) { Resize(Size() + 1, &value); }
     /// Add another vector at the end.
-    void Push(const Vector<T>& vector) { Resize(size + vector.size, vector.Buffer()); }
+    void Push(const Vector<T>& vector) { Resize(Size() + vector.Size(), vector.Buffer()); }
 
     /// Remove the last element.
     void Pop()
     {
-        if (size)
-            Resize(size - 1, 0);
+        if (Size())
+            Resize(Size() - 1, 0);
     }
 
     /// Insert an element at position.
     void Insert(size_t pos, const T& value)
     {
-        if (pos > size)
-            pos = size;
+        if (pos > Size())
+            pos = Size();
 
-        size_t oldSize = size;
-        Resize(size + 1, 0);
+        size_t oldSize = Size();
+        Resize(Size() + 1, 0);
         MoveRange(pos + 1, pos, oldSize - pos);
         Buffer()[pos] = value;
     }
@@ -173,21 +169,21 @@ public:
     /// Insert another vector at position.
     void Insert(size_t pos, const Vector<T>& vector)
     {
-        if (pos > size)
-            pos = size;
+        if (pos > Size())
+            pos = Size();
 
-        size_t oldSize = size;
-        Resize(size + vector.size, 0);
-        MoveRange(pos + vector.size, pos, oldSize - pos);
-        CopyElements(Buffer() + pos, vector.Buffer(), vector.size);
+        size_t oldSize = Size();
+        Resize(Size() + vector.Size(), 0);
+        MoveRange(pos + vector.Size(), pos, oldSize - pos);
+        CopyElements(Buffer() + pos, vector.Buffer(), vector.Size());
     }
 
     /// Insert an element by iterator.
     Iterator Insert(const Iterator& dest, const T& value)
     {
         size_t pos = dest - Begin();
-        if (pos > size)
-            pos = size;
+        if (pos > Size())
+            pos = Size();
         Insert(pos, value);
 
         return Begin() + pos;
@@ -197,8 +193,8 @@ public:
     Iterator Insert(const Iterator& dest, const Vector<T>& vector)
     {
         size_t pos = dest - Begin();
-        if (pos > size)
-            pos = size;
+        if (pos > Size())
+            pos = Size();
         Insert(pos, vector);
 
         return Begin() + pos;
@@ -208,11 +204,11 @@ public:
     Iterator Insert(const Iterator& dest, const ConstIterator& start, const ConstIterator& end)
     {
         size_t pos = dest - Begin();
-        if (pos > size)
-            pos = size;
+        if (pos > Size())
+            pos = Size();
         size_t length = end - start;
-        Resize(size + length, 0);
-        MoveRange(pos + length, pos, size - pos - length);
+        Resize(Size() + length, 0);
+        MoveRange(pos + length, pos, Size() - pos - length);
 
         T* destPtr = Buffer() + pos;
         for (Iterator it = start; it != end; ++it)
@@ -225,11 +221,11 @@ public:
     Iterator Insert(const Iterator& dest, const T* start, const T* end)
     {
         size_t pos = dest - Begin();
-        if (pos > size)
-            pos = size;
+        if (pos > Size())
+            pos = Size();
         size_t length = end - start;
-        Resize(size + length, 0);
-        MoveRange(pos + length, pos, size - pos - length);
+        Resize(Size() + length, 0);
+        MoveRange(pos + length, pos, Size() - pos - length);
 
         T* destPtr = Buffer() + pos;
         for (const T* i = start; i != end; ++i)
@@ -242,18 +238,18 @@ public:
     void Erase(size_t pos, size_t length = 1)
     {
         // Return if the range is illegal
-        if (pos + length > size || !length)
+        if (pos + length > Size() || !length)
             return;
 
-        MoveRange(pos, pos + length, size - pos - length);
-        Resize(size - length, 0);
+        MoveRange(pos, pos + length, Size() - pos - length);
+        Resize(Size() - length, 0);
     }
 
     /// Erase an element by iterator. Return iterator to the next element.
     Iterator Erase(const Iterator& it)
     {
         size_t pos = it - Begin();
-        if (pos >= size)
+        if (pos >= Size())
             return End();
         Erase(pos);
 
@@ -264,7 +260,7 @@ public:
     Iterator Erase(const Iterator& start, const Iterator& end)
     {
         size_t pos = start - Begin();
-        if (pos >= size)
+        if (pos >= Size())
             return End();
         size_t length = end - start;
         Erase(pos, length);
@@ -293,37 +289,39 @@ public:
     /// Set new capacity.
     void Reserve(size_t newCapacity)
     {
+        size_t size = Size();
         if (newCapacity < size)
             newCapacity = size;
 
         if (newCapacity != capacity)
         {
-            T* newBuffer = 0;
-            capacity = newCapacity;
-
-            if (capacity)
+            unsigned char* newBuffer = 0;
+            
+            if (newCapacity)
             {
-                newBuffer = reinterpret_cast<T*>(AllocateBuffer(capacity * sizeof(T)));
+                newBuffer = AllocateBuffer(capacity * sizeof(T));
                 // Move the data into the new buffer
                 // This assumes the elements are safe to move without copy-constructing and deleting the old elements;
                 // ie. they should not contain pointers to self, or interact with outside objects in their constructors
                 // or destructors
-                MoveElements(newBuffer, Buffer(), size);
+                MoveElements(reinterpret_cast<T*>(newBuffer + 2 * sizeof(size_t)), Buffer(), size);
             }
 
             // Delete the old buffer
             delete[] buffer;
-            buffer = reinterpret_cast<unsigned char*>(newBuffer);
+            buffer = newBuffer;
+            SetSize(size);
+            SetCapacity(newCapacity);
         }
     }
 
     /// Reallocate so that no extra memory is used.
-    void Compact() { Reserve(size); }
+    void Compact() { Reserve(Size()); }
 
     /// Return element at index.
-    T& At(size_t index) { assert(index < size); return Buffer()[index]; }
+    T& At(size_t index) { assert(index < Size()); return Buffer()[index]; }
     /// Return const element at index.
-    const T& At(size_t index) const { assert(index < size); return Buffer()[index]; }
+    const T& At(size_t index) const { assert(index < Size()); return Buffer()[index]; }
 
     /// Return iterator to first occurrence of value, or to the end if not found.
     Iterator Find(const T& value)
@@ -350,25 +348,28 @@ public:
     /// Return const iterator to the beginning.
     ConstIterator Begin() const { return ConstIterator(Buffer()); }
     /// Return iterator to the end.
-    Iterator End() { return Iterator(Buffer() + size); }
+    Iterator End() { return Iterator(Buffer() + Size()); }
     /// Return const iterator to the end.
-    ConstIterator End() const { return ConstIterator(Buffer() + size); }
+    ConstIterator End() const { return ConstIterator(Buffer() + Size()); }
     /// Return first element.
-    T& Front() { assert(size); return Buffer()[0]; }
+    T& Front() { assert(Size()); return Buffer()[0]; }
     /// Return const first element.
-    const T& Front() const { assert(size); return Buffer()[0]; }
+    const T& Front() const { assert(Size()); return Buffer()[0]; }
     /// Return last element.
-    T& Back() { assert(size); return Buffer()[size - 1]; }
+    T& Back() { assert(Size()); return Buffer()[Size() - 1]; }
     /// Return const last element.
-    const T& Back() const { assert(size); return Buffer()[size - 1]; }
+    const T& Back() const { assert(Size()); return Buffer()[Size() - 1]; }
 
 private:
     /// Return the buffer with right type.
-    T* Buffer() const { return reinterpret_cast<T*>(buffer); }
+    T* Buffer() const { return reinterpret_cast<T*>(buffer + 2 * sizeof(size_t)); }
 
    /// Resize the vector and create/remove new elements as necessary.
     void Resize(size_t newSize, const T* src)
     {
+        size_t size = Size();
+        size_t capacity = Capacity();
+
         // If size shrinks, destruct the removed elements
         if (newSize < size)
             DestructElements(Buffer() + newSize, size - newSize);
@@ -388,10 +389,11 @@ private:
                 unsigned char* newBuffer = AllocateBuffer(capacity * sizeof(T));
                 if (buffer)
                 {
-                    MoveElements(reinterpret_cast<T*>(newBuffer), Buffer(), size);
+                    MoveElements(reinterpret_cast<T*>(newBuffer + 2 * sizeof(size_t)), Buffer(), size);
                     delete[] buffer;
                 }
                 buffer = newBuffer;
+                SetCapacity(capacity);
             }
 
             // Initialize the new elements. Optimize for case of only 1 element
@@ -419,7 +421,8 @@ private:
             }
         }
 
-        size = newSize;
+        if (buffer)
+            SetSize(newSize);
     }
 
     /// Move a range of elements within the vector.

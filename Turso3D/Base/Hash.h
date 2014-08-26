@@ -184,7 +184,7 @@ protected:
     /// Reset bucket head pointers.
     void ResetPtrs();
     /// Set new size.
-    void SetSize(size_t size) { if (ptrs) (reinterpret_cast<size_t*>(ptrs))[0] = size; }
+    void SetSize(size_t size) { reinterpret_cast<size_t*>(ptrs)[0] = size; }
     /// Return bucket head pointers.
     HashNodeBase** Ptrs() const { return ptrs ? ptrs + 2 : 0; }
     

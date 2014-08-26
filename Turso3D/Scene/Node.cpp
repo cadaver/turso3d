@@ -14,9 +14,9 @@ namespace Turso3D
 
 Node::Node() :
     flags(NF_ENABLED),
+    layer(LAYER_DEFAULT),
     parent(0),
     scene(0),
-    layer(LAYER_DEFAULT),
     id(0)
 {
 }
@@ -142,7 +142,7 @@ void Node::SetName(const char* newName)
     name = newName;
 }
 
-void Node::SetLayer(unsigned newLayer)
+void Node::SetLayer(unsigned char newLayer)
 {
     layer = newLayer;
 }

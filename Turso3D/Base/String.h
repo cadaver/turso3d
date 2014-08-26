@@ -24,35 +24,27 @@ public:
     
     /// Construct empty.
     String() :
-        length(0),
-        capacity(0),
-        buffer(&endZero)
+        buffer(0)
     {
     }
     
     /// Copy-construct.
     String(const String& str) :
-        length(0),
-        capacity(0),
-        buffer(&endZero)
+        buffer(0)
     {
         *this = str;
     }
     
     /// Construct from a C string.
     String(const char* str) :
-        length(0),
-        capacity(0),
-        buffer(&endZero)
+        buffer(0)
     {
         *this = str;
     }
     
     /// Construct from a C string.
     String(char* str) :
-        length(0),
-        capacity(0),
-        buffer(&endZero)
+        buffer(0)
     {
         *this = (const char*)str;
     }
@@ -94,9 +86,7 @@ public:
     
     /// Construct from a convertible value.
     template <class T> explicit String(const T& value) :
-        length(0),
-        capacity(0),
-        buffer(&endZero)
+        buffer(0)
     {
         *this = value.ToString();
     }
@@ -166,9 +156,9 @@ public:
     /// Test if string is greater than a C string.
     bool operator > (const char* rhs) const { return Compare(rhs) > 0; }
     /// Return char at index.
-    char& operator [] (size_t index) { assert(index < length); return buffer[index]; }
+    char& operator [] (size_t index) { assert(index < Length()); return Buffer()[index]; }
     /// Return const char at index.
-    const char& operator [] (size_t index) const { assert(index < length); return buffer[index]; }
+    const char& operator [] (size_t index) const { assert(index < Length()); return Buffer()[index]; }
     
     /// Replace all occurrences of a character.
     void Replace(char replaceThis, char replaceWith, bool caseSensitive = true);
@@ -224,21 +214,21 @@ public:
     String& AppendWithFormatArgs(const char* formatStr, va_list args);
     
     /// Return char at index.
-    char& At(size_t index) { assert(index < length); return buffer[index]; }
+    char& At(size_t index) { assert(index < Length()); return Buffer()[index]; }
     /// Return const char at index.
-    const char& At(size_t index) const { assert(index < length); return buffer[index]; }
+    const char& At(size_t index) const { assert(index < Length()); return Buffer()[index]; }
     /// Return iterator to the beginning.
-    Iterator Begin() { return Iterator(buffer); }
+    Iterator Begin() { return Iterator(Buffer()); }
     /// Return const iterator to the beginning.
-    ConstIterator Begin() const { return ConstIterator(buffer); }
+    ConstIterator Begin() const { return ConstIterator(Buffer()); }
     /// Return iterator to the end.
-    Iterator End() { return Iterator(buffer + length); }
+    Iterator End() { return Iterator(Buffer() + Length()); }
     /// Return const iterator to the end.
-    ConstIterator End() const { return ConstIterator(buffer + length); }
+    ConstIterator End() const { return ConstIterator(Buffer() + Length()); }
     /// Return first char, or 0 if empty.
-    char Front() const { return buffer[0]; }
+    char Front() const { return CString()[0]; }
     /// Return last char, or 0 if empty.
-    char Back() const { return length ? buffer[length - 1] : buffer[0]; }
+    char Back() const { return Length() ? CString()[Length()- 1] : CString()[0]; }
     /// Return a substring from position to end.
     String Substring(size_t pos) const;
     /// Return a substring with length from position.
@@ -264,13 +254,15 @@ public:
     /// Return whether ends with a string.
     bool EndsWith(const String& str, bool caseSensitive = true) const;
     /// Return the C string.
-    const char* CString() const { return buffer; }
+    const char* CString() const { return buffer ? buffer + 2 * sizeof(size_t) : &endZero; }
+    /// Return the char buffer.
+    char* Buffer() const { return buffer ? buffer + 2 * sizeof(size_t) : &endZero; }
     /// Return number of characters in the string.
-    size_t Length() const { return length; }
+    size_t Length() const { return buffer ? reinterpret_cast<size_t*>(buffer)[0] : 0; }
     /// Return buffer capacity.
-    size_t Capacity() const { return capacity; }
+    size_t Capacity() const { return buffer ? reinterpret_cast<size_t*>(buffer)[1] : 0; }
     /// Return whether the string is zero characters long.
-    bool IsEmpty() const { return length == 0; }
+    bool IsEmpty() const { return Length() == 0; }
     /// Return comparision result with a string.
     int Compare(const String& str, bool caseSensitive = true) const { return Compare(CString(), str.CString(), caseSensitive); }
     /// Return comparision result with a C string.
@@ -356,8 +348,12 @@ public:
     static const size_t MIN_CAPACITY = 8;
     /// Empty string.
     static const String EMPTY;
-    
+
 private:
+    /// Set new length.
+    void SetLength(size_t length) { reinterpret_cast<size_t*>(buffer)[0] = length; }
+    /// Set new capacity.
+    void SetCapacity(size_t capacity) { reinterpret_cast<size_t*>(buffer)[1] = capacity; }
     /// Replace a substring with another substring.
     void Replace(size_t pos, size_t numChars, const char* srcStart, size_t srcLength);
     /// Move a range of characters within the string.
@@ -366,11 +362,7 @@ private:
     /// Copy chars from one buffer to another.
     static void CopyChars(char* dest, const char* src, size_t numChars);
 
-    /// String length.
-    size_t length;
-    /// Capacity, zero if buffer not allocated.
-    size_t capacity;
-    /// String buffer, null if not allocated.
+    /// String buffer, null if not allocated. Contains length and capacity in the beginning.
     char* buffer;
     
     /// End zero for empty strings.

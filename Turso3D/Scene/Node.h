@@ -10,17 +10,17 @@ namespace Turso3D
 class Scene;
 class ObjectResolver;
 
-static const unsigned NF_ENABLED = 0x1;
-static const unsigned NF_TEMPORARY = 0x2;
-static const unsigned NF_SPATIAL = 0x4;
-static const unsigned NF_SPATIAL_PARENT = 0x8;
-static const unsigned NF_WORLD_TRANSFORM_DIRTY = 0x10;
-static const unsigned NF_BOUNDING_BOX_DIRTY = 0x20;
-static const unsigned NF_OCTREE_UPDATE_QUEUED = 0x40;
-static const unsigned NF_GEOMETRY = 0x80;
-static const unsigned NF_LIGHT = 0x100;
-static const unsigned LAYER_DEFAULT = 0x1;
-static const unsigned LAYER_ALL = 0xffffffff;
+static const unsigned short NF_ENABLED = 0x1;
+static const unsigned short NF_TEMPORARY = 0x2;
+static const unsigned short NF_SPATIAL = 0x4;
+static const unsigned short NF_SPATIAL_PARENT = 0x8;
+static const unsigned short NF_WORLD_TRANSFORM_DIRTY = 0x10;
+static const unsigned short NF_BOUNDING_BOX_DIRTY = 0x20;
+static const unsigned short NF_OCTREE_UPDATE_QUEUED = 0x40;
+static const unsigned short NF_GEOMETRY = 0x80;
+static const unsigned short NF_LIGHT = 0x100;
+static const unsigned char LAYER_DEFAULT = 0x0;
+static const unsigned LAYERMASK_ALL = 0xffffffff;
 
 /// Base class for scene nodes.
 class TURSO3D_API Node : public Serializable
@@ -53,8 +53,8 @@ public:
     void SetName(const String& newName);
     /// Set name.
     void SetName(const char* newName);
-    /// Set node's layer bits. Usage is subclass specific, for example rendering nodes selectively. Default is 1. Node can belong to several layers (bits) if necessary.
-    void SetLayer(unsigned newLayer);
+    /// Set node's layer. Usage is subclass specific, for example rendering nodes selectively. Default is 0.
+    void SetLayer(unsigned char newLayer);
     /// Set enabled status. Meaning is subclass specific.
     void SetEnabled(bool enable);
     /// Set enabled status recursively in the child hierarchy.
@@ -92,8 +92,10 @@ public:
 
     /// Return name.
     const String& Name() const { return name; }
-    /// Return layer bits.
-    unsigned Layer() const { return layer; }
+    /// Return layer.
+    unsigned char Layer() const { return layer; }
+    /// Return bitmask corresponding to layer.
+    unsigned LayerMask() const { return 1 << layer; }
     /// Return enabled status.
     bool IsEnabled() const { return TestFlag(NF_ENABLED); }
     /// Return whether is temporary.
@@ -146,11 +148,11 @@ public:
     template <class T> T* FindChildRecursive(const char* childName) const { return static_cast<T*>(FindChildRecursive(T::TypeStatic(), childName)); }
 
     /// Set bit flag. Called internally.
-    void SetFlag(unsigned bit, bool set) const { if (set) flags |= bit; else flags &= ~bit; }
+    void SetFlag(unsigned short bit, bool set) const { if (set) flags |= bit; else flags &= ~bit; }
     /// Test bit flag. Called internally.
-    bool TestFlag(unsigned bit) const { return (flags & bit) != 0; }
+    bool TestFlag(unsigned short bit) const { return (flags & bit) != 0; }
     /// Return bit flags. Used internally eg. by octree queries.
-    unsigned Flags() const { return flags; }
+    unsigned short Flags() const { return flags; }
     /// Assign node to a new scene. Called internally.
     void SetScene(Scene* newScene);
     /// Assign new id. Called internally.
@@ -169,15 +171,15 @@ protected:
 
 private:
     /// %Node flags. Used to hold several boolean values (some subclass-specific) to reduce memory use.
-    mutable unsigned flags;
+    mutable unsigned short flags;
+    /// Layer number.
+    unsigned char layer;
     /// Parent node.
     Node* parent;
     /// Parent scene.
     Scene* scene;
     /// Child nodes. A node owns its children and destroys them during its own destruction.
     Vector<Node*> children;
-    /// Layer bits.
-    unsigned layer;
     /// Id within the scene.
     unsigned id;
     /// %Node name.

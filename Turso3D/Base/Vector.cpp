@@ -8,16 +8,20 @@
 namespace Turso3D
 {
 
+VectorBase::VectorBase() :
+    buffer(0)
+{
+}
+
 void VectorBase::Swap(VectorBase& vector)
 {
-    Turso3D::Swap(size, vector.size);
-    Turso3D::Swap(capacity, vector.capacity);
     Turso3D::Swap(buffer, vector.buffer);
 }
 
 unsigned char* VectorBase::AllocateBuffer(size_t size)
 {
-    return new unsigned char[size];
+    // Include space for size and capacity
+    return new unsigned char[size + 2 * sizeof(size_t)];
 }
 
 template<> void Swap<VectorBase>(VectorBase& first, VectorBase& second)

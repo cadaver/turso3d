@@ -22,6 +22,7 @@ enum AttributeType
     ATTR_BOOL,
     ATTR_INT,
     ATTR_UNSIGNED,
+    ATTR_BYTE,
     ATTR_FLOAT,
     ATTR_STRING,
     ATTR_VECTOR3,

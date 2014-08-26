@@ -89,12 +89,12 @@ public:
     /// Cancel a pending reinsertion.
     void CancelUpdate(OctreeNode* node);
     /// Query for nodes with a raycast and return all results.
-    void Raycast(Vector<RaycastResult>& dest, const Ray& ray, unsigned nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYER_ALL);
+    void Raycast(Vector<RaycastResult>& dest, const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL);
     /// Query for nodes with a raycast and return the closest result.
-    RaycastResult RaycastSingle(const Ray& ray, unsigned nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYER_ALL);
+    RaycastResult RaycastSingle(const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL);
 
     /// Query for nodes using a volume such as frustum or sphere.
-    template <class T> void FindNodes(Vector<OctreeNode*>& dest, const T& volume, unsigned nodeFlags, unsigned layerMask = LAYER_ALL) const
+    template <class T> void FindNodes(Vector<OctreeNode*>& dest, const T& volume, unsigned short nodeFlags, unsigned layerMask = LAYERMASK_ALL) const
     {
         PROFILE(QueryOctree);
 
@@ -126,14 +126,14 @@ private:
     /// Get all nodes from an octant recursively.
     void CollectNodes(Vector<OctreeNode*>& dest, const Octant* octant) const;
     /// Get all visible nodes matching flags from an octant recursively.
-    void CollectNodes(Vector<OctreeNode*>& dest, const Octant* octant, unsigned nodeFlags, unsigned layerMask) const;
+    void CollectNodes(Vector<OctreeNode*>& dest, const Octant* octant, unsigned short nodeFlags, unsigned layerMask) const;
     /// Get all visible nodes matching flags along a ray.
-    void CollectNodes(Vector<RaycastResult>& dest, const Octant* octant, const Ray& ray, unsigned nodeFlags, float maxDistance, unsigned layerMask) const;
+    void CollectNodes(Vector<RaycastResult>& dest, const Octant* octant, const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask) const;
     /// Get all visible nodes matching flags that could be potential raycast hits.
-    void CollectNodes(Vector<Pair<OctreeNode*, float> >& dest, const Octant* octant, const Ray& ray, unsigned nodeFlags, float maxDistance, unsigned layerMask) const;
+    void CollectNodes(Vector<Pair<OctreeNode*, float> >& dest, const Octant* octant, const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask) const;
 
     /// Collect nodes matching flags using a volume such as frustum or sphere.
-    template <class T> void CollectNodes(Vector<OctreeNode*>& dest, const Octant* octant, const T& volume, unsigned nodeFlags, unsigned layerMask) const
+    template <class T> void CollectNodes(Vector<OctreeNode*>& dest, const Octant* octant, const T& volume, unsigned short nodeFlags, unsigned layerMask) const
     {
         Intersection res = volume.IsInside(octant->cullingBox);
         if (res == OUTSIDE)
@@ -149,7 +149,8 @@ private:
             {
                 OctreeNode* node = *it;
                 unsigned flags = node->Flags();
-                if ((flags & NF_ENABLED) && (flags & nodeFlags) && (node->Layer() & layerMask) && volume.IsInsideFast(node->WorldBoundingBox()) != OUTSIDE)
+                if ((flags & NF_ENABLED) && (flags & nodeFlags) && (node->LayerMask() & layerMask) &&
+                    volume.IsInsideFast(node->WorldBoundingBox()) != OUTSIDE)
                     dest.Push(node);
             }
             
