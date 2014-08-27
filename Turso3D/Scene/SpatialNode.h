@@ -16,7 +16,7 @@ enum TransformSpace
     TS_WORLD
 };
 
-/// %Scene node with position in three-dimensional space.
+/// Base class for scene nodes with position in three-dimensional space.
 class TURSO3D_API SpatialNode : public Node
 {
     OBJECT(SpatialNode);

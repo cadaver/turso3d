@@ -17,7 +17,7 @@ class OctreeNode;
 class Ray;
 
 /// Structure for raycast query results.
-struct RaycastResult
+struct TURSO3D_API RaycastResult
 {
     /// Hit world position.
     Vector3 position;
@@ -32,7 +32,7 @@ struct RaycastResult
 };
 
 /// %Octree cell, contains up to 8 child octants.
-struct Octant
+struct TURSO3D_API Octant
 {
     /// Construct.
     Octant();
@@ -65,7 +65,7 @@ struct Octant
 };
 
 /// Acceleration structure for rendering. Should be created as a child of the scene root.
-class Octree : public Node
+class TURSO3D_API Octree : public Node
 {
     OBJECT(Octree);
 
