@@ -406,8 +406,13 @@ private:
                     new(dest) T(*src);
                 else
                 {
-                    for (size_t i = 0; i < count; ++i)
-                        new(dest + i) T(src[i]);
+                    T* end = dest + count;
+                    while (dest != end)
+                    {
+                        new(dest) T(*src);
+                        ++dest;
+                        ++src;
+                    }
                 }
             }
             else
@@ -416,8 +421,12 @@ private:
                     new(dest) T();
                 else
                 {
-                    for (size_t i = 0; i < count; ++i)
-                        new(dest + i) T();
+                    T* end = dest + count;
+                    while (dest != end)
+                    {
+                        new(dest) T();
+                        ++dest;
+                    }
                 }
             }
         }
