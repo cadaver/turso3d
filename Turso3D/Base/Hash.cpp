@@ -38,13 +38,13 @@ void HashBase::AllocateBuckets(size_t size, size_t numBuckets)
 
 void HashBase::ResetPtrs()
 {
-    if (!ptrs)
-        return;
-    
-    size_t numBuckets = NumBuckets();
-    HashNodeBase** data = Ptrs();
-    for (size_t i = 0; i < numBuckets; ++i)
-        data[i] = 0;
+    if (ptrs)
+    {
+        size_t numBuckets = NumBuckets();
+        HashNodeBase** data = Ptrs();
+        for (size_t i = 0; i < numBuckets; ++i)
+            data[i] = 0;
+    }
 }
 
 template<> void Swap<HashBase>(HashBase& first, HashBase& second)

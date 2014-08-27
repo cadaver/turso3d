@@ -120,9 +120,12 @@ public:
     /// Destruct.
     ~HashSet()
     {
-        Clear();
-        FreeNode(Tail());
-        AllocatorUninitialize(allocator);
+        if (ptrs && allocator)
+        {
+            Clear();
+            FreeNode(Tail());
+            AllocatorUninitialize(allocator);
+        }
     }
     
     /// Assign a hash set.
@@ -266,9 +269,8 @@ public:
             
             SetHead(Tail());
             SetSize(0);
+            ResetPtrs();
         }
-        
-        ResetPtrs();
     }
     
     /// Sort keys. After sorting the set can be iterated in order until new elements are inserted.
@@ -486,11 +488,8 @@ private:
     /// Free a node.
     void FreeNode(Node* node)
     {
-        if (node)
-        {
-            (node)->~Node();
-            AllocatorFree(allocator, node);
-        }
+        (node)->~Node();
+        AllocatorFree(allocator, node);
     }
     
     /// Rehash the buckets.

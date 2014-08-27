@@ -154,9 +154,12 @@ public:
     /// Destruct.
     ~HashMap()
     {
-        Clear();
-        FreeNode(Tail());
-        AllocatorUninitialize(allocator);
+        if (ptrs && allocator)
+        {
+            Clear();
+            FreeNode(Tail());
+            AllocatorUninitialize(allocator);
+        }
     }
     
     /// Assign a hash map.
@@ -295,9 +298,8 @@ public:
             
             SetHead(Tail());
             SetSize(0);
+            ResetPtrs();
         }
-        
-        ResetPtrs();
     }
     
     /// Sort pairs. After sorting the map can be iterated in order until new elements are inserted.
@@ -576,11 +578,8 @@ private:
     /// Free a node.
     void FreeNode(Node* node)
     {
-        if (node)
-        {
-            (node)->~Node();
-            AllocatorFree(allocator, node);
-        }
+        (node)->~Node();
+        AllocatorFree(allocator, node);
     }
     
     /// Rehash the buckets.
