@@ -36,7 +36,7 @@ struct JSONData
         char charValue;
         bool boolValue;
         double numberValue;
-        size_t padding[4];
+        size_t padding[2];
     };
 };
 

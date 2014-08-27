@@ -120,13 +120,14 @@ public:
     /// Test for equality with another vector.
     bool operator == (const Vector<T>& rhs) const
     {
-        if (rhs.Size() != Size())
+        size_t size = Size();
+        if (rhs.Size() != size)
             return false;
 
         T* buffer = Buffer();
         T* rhsBuffer = rhs.Buffer();
 
-        for (size_t i = 0; i < Size(); ++i)
+        for (size_t i = 0; i < size; ++i)
         {
             if (buffer[i] != rhsBuffer[i])
                 return false;
@@ -293,13 +294,13 @@ public:
         if (newCapacity < size)
             newCapacity = size;
 
-        if (newCapacity != capacity)
+        if (newCapacity != Capacity())
         {
             unsigned char* newBuffer = 0;
             
             if (newCapacity)
             {
-                newBuffer = AllocateBuffer(capacity * sizeof(T));
+                newBuffer = AllocateBuffer(newCapacity * sizeof(T));
                 // Move the data into the new buffer
                 // This assumes the elements are safe to move without copy-constructing and deleting the old elements;
                 // ie. they should not contain pointers to self, or interact with outside objects in their constructors

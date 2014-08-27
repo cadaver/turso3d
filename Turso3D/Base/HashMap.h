@@ -142,17 +142,12 @@ public:
     /// Construct empty.
     HashMap()
     {
-        // Reserve the tail node
-        allocator = AllocatorInitialize(sizeof(Node));
-        head = tail = AllocateNode();
     }
     
     /// Construct from another hash map.
     HashMap(const HashMap<T, U>& map)
     {
-        // Reserve the tail node + initial capacity according to the map's size
-        allocator = AllocatorInitialize(sizeof(Node), map.Size() + 1);
-        head = tail = AllocateNode();
+        Initialize(map.NumBuckets(), map.Size() + 1);
         *this = map;
     }
     
@@ -208,16 +203,7 @@ public:
     /// Index the map. Create a new pair if key not found.
     U& operator [] (const T& key)
     {
-        if (!ptrs)
-            return InsertNode(key, U(), false)->pair.second;
-        
-        unsigned hashKey = Hash(key);
-        
-        Node* node = FindNode(key, hashKey);
-        if (node)
-            return node->pair.second;
-        else
-            return InsertNode(key, U(), false)->pair.second;
+        return InsertNode(key)->pair.second;
     }
     
     /// Insert a pair. Return an iterator to it.
@@ -241,7 +227,7 @@ public:
     {
         ConstIterator i = start;
         while (i != end)
-            InsertNode(*i++);
+            Insert(*i++);
     }
     
     /// Erase a pair by key. Return true if was found.
@@ -307,7 +293,7 @@ public:
                 it.ptr->prev = 0;
             }
             
-            head = tail;
+            SetHead(Tail());
             SetSize(0);
         }
         
@@ -332,15 +318,15 @@ public:
         
         Turso3D::Sort(RandomAccessIterator<Node*>(ptrs), RandomAccessIterator<Node*>(ptrs + numKeys), CompareNodes);
         
-        head = ptrs[0];
-        ptrs[0]->prev_ = 0;
+        SetHead(ptrs[0]);
+        ptrs[0]->prev = 0;
         for (size_t i = 1; i < numKeys; ++i)
         {
             ptrs[i - 1]->next = ptrs[i];
             ptrs[i]->prev = ptrs[i - 1];
         }
-        ptrs[numKeys - 1]->next = tail;
-        tail->prev = ptrs[numKeys - 1];
+        ptrs[numKeys - 1]->next = Tail();
+        Tail()->prev = ptrs[numKeys - 1];
         
         delete[] ptrs;
     }
@@ -427,14 +413,27 @@ public:
     const T& Back() const { assert(Size()); return *(--End()); }
     
 private:
-    /// Return the head node.
-    Node* Head() const { return static_cast<Node*>(head); }
-    /// Return the tail node.
-    Node* Tail() const { return static_cast<Node*>(tail); }
+    /// Return head node with correct type.
+    Node* Head() const { return static_cast<Node*>(HashBase::Head()); }
+    /// Return tail node with correct type.
+    Node* Tail() const { return static_cast<Node*>(HashBase::Tail()); }
+
+    /// Reserve the tail node and initial buckets.
+    void Initialize(size_t numBuckets, size_t numNodes)
+    {
+        AllocateBuckets(0, numBuckets);
+        allocator = AllocatorInitialize(sizeof(Node), numNodes);
+        HashNodeBase* tail = AllocateNode();
+        SetHead(tail);
+        SetTail(tail);
+    }
     
-    /// Find a node from the buckets. Do not call if the buckets have not been allocated.
+    /// Find a node from the buckets.
     Node* FindNode(const T& key, unsigned hashKey) const
     {
+        if (!ptrs)
+            return 0;
+
         Node* node = static_cast<Node*>(Ptrs()[hashKey]);
         while (node)
         {
@@ -446,11 +445,13 @@ private:
         return 0;
     }
     
-    /// Find a node and the previous node from the buckets. Do not call if the buckets have not been allocated.
+    /// Find a node and the previous node from the buckets.
     Node* FindNode(const T& key, unsigned hashKey, Node*& previous) const
     {
         previous = 0;
-        
+        if (!ptrs)
+            return 0;
+
         Node* node = static_cast<Node*>(Ptrs()[hashKey]);
         while (node)
         {
@@ -463,27 +464,41 @@ private:
         return 0;
     }
     
-    /// Insert a key and value and return either the new or existing node.
-    Node* InsertNode(const T& key, const U& value, bool findExisting = true)
+    /// Insert a key and default value and return either the new or existing node.
+    Node* InsertNode(const T& key)
     {
-        // If no pointers yet, allocate with minimum bucket count
-        if (!ptrs)
+        unsigned hashKey = Hash(key);
+
+        // If exists, just return the node
+        Node* existing = FindNode(key, hashKey);
+        if (existing)
+            return existing;
+
+        Node* newNode = InsertNode(Tail(), key, U());
+        newNode->down = Ptrs()[hashKey];
+        Ptrs()[hashKey] = newNode;
+
+        // Rehash if the maximum load factor has been exceeded
+        if (Size() > NumBuckets() * MAX_LOAD_FACTOR)
         {
-            AllocateBuckets(Size(), MIN_BUCKETS);
+            AllocateBuckets(Size(), NumBuckets() << 1);
             Rehash();
         }
-        
+
+        return newNode;
+    }
+
+    /// Insert a key and value and return either the new or existing node.
+    Node* InsertNode(const T& key, const U& value)
+    {
         unsigned hashKey = Hash(key);
         
-        if (findExisting)
+        // If exists, just change the value
+        Node* existing = FindNode(key, hashKey);
+        if (existing)
         {
-            // If exists, just change the value
-            Node* existing = FindNode(key, hashKey);
-            if (existing)
-            {
-                existing->pair.second = value;
-                return existing;
-            }
+            existing->pair.second = value;
+            return existing;
         }
         
         Node* newNode = InsertNode(Tail(), key, value);
@@ -503,8 +518,12 @@ private:
     /// Insert a node into the list. Return the new node.
     Node* InsertNode(Node* dest, const T& key, const U& value)
     {
-        if (!dest)
-            return 0;
+        // If no pointers yet, allocate with minimum bucket count
+        if (!ptrs)
+        {
+            Initialize(MIN_BUCKETS, 2);
+            dest = Head();
+        }
         
         Node* newNode = AllocateNode(key, value);
         Node* prev = dest->Prev();
@@ -516,7 +535,7 @@ private:
         
         // Reassign the head node if necessary
         if (dest == Head())
-            head = newNode;
+            SetHead(newNode);
         
         SetSize(Size() + 1);
         
@@ -527,7 +546,7 @@ private:
     Node* EraseNode(Node* node)
     {
         // The tail node can not be removed
-        if (!node || node == tail)
+        if (!node || node == Tail())
             return Tail();
         
         Node* prev = node->Prev();
@@ -538,7 +557,7 @@ private:
         
         // Reassign the head node if necessary
         if (node == Head())
-            head = next;
+            SetHead(next);
         
         FreeNode(node);
         SetSize(Size() - 1);
@@ -557,8 +576,11 @@ private:
     /// Free a node.
     void FreeNode(Node* node)
     {
-        (node)->~Node();
-        AllocatorFree(allocator, node);
+        if (node)
+        {
+            (node)->~Node();
+            AllocatorFree(allocator, node);
+        }
     }
     
     /// Rehash the buckets.

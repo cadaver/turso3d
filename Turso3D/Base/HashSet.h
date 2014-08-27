@@ -108,17 +108,12 @@ public:
     /// Construct empty.
     HashSet()
     {
-        // Reserve the tail node
-        allocator = AllocatorInitialize(sizeof(Node));
-        head = tail = AllocateNode();
     }
     
     /// Construct from another hash set.
     HashSet(const HashSet<T>& set)
     {
-        // Reserve the tail node + initial capacity according to the set's size
-        allocator = AllocatorInitialize(sizeof(Node), set.Size() + 1);
-        head = tail = AllocateNode();
+        Initialize(set.NumBuckets(), set.Size() + 1);
         *this = set;
     }
     
@@ -173,13 +168,6 @@ public:
     /// Insert a key. Return an iterator to it.
     Iterator Insert(const T& key)
     {
-        // If no pointers yet, allocate with minimum bucket count
-        if (!ptrs)
-        {
-            AllocateBuckets(Size(), MIN_BUCKETS);
-            Rehash();
-        }
-        
         unsigned hashKey = Hash(key);
         
         Node* existing = FindNode(key, hashKey);
@@ -276,7 +264,7 @@ public:
                 it.ptr->prev = 0;
             }
             
-            head = tail;
+            SetHead(Tail());
             SetSize(0);
         }
         
@@ -301,15 +289,15 @@ public:
         
         Turso3D::Sort(RandomAccessIterator<Node*>(ptrs), RandomAccessIterator<Node*>(ptrs + numKeys), CompareNodes);
         
-        head = ptrs[0];
+        SetHead(ptrs[0]);
         ptrs[0]->prev = 0;
         for (size_t i = 1; i < numKeys; ++i)
         {
             ptrs[i - 1]->next = ptrs[i];
             ptrs[i]->prev = ptrs[i - 1];
         }
-        ptrs[numKeys - 1]->next = tail;
-        tail->prev = ptrs[numKeys - 1];
+        ptrs[numKeys - 1]->next = Tail();
+        Tail()->prev = ptrs[numKeys - 1];
         
         delete[] ptrs;
     }
@@ -386,14 +374,27 @@ public:
     const T& Back() const { assert(Size()); return *(--End()); }
     
 private:
-    /// Return the head node.
-    Node* Head() const { return static_cast<Node*>(head); }
-    /// Return the tail node.
-    Node* Tail() const { return static_cast<Node*>(tail); }
-    
-    /// Find a node from the buckets. Do not call if the buckets have not been allocated.
+    /// Return head node with correct type.
+    Node* Head() const { return static_cast<Node*>(HashBase::Head()); }
+    /// Return tail node with correct type.
+    Node* Tail() const { return static_cast<Node*>(HashBase::Tail()); }
+
+    /// Reserve the tail node and initial buckets.
+    void Initialize(size_t numBuckets, size_t numNodes)
+    {
+        AllocateBuckets(0, numBuckets);
+        allocator = AllocatorInitialize(sizeof(Node), numNodes);
+        HashNodeBase* tail = AllocateNode();
+        SetHead(tail);
+        SetTail(tail);
+    }
+
+    /// Find a node from the buckets.
     Node* FindNode(const T& key, unsigned hashKey) const
     {
+        if (!ptrs)
+            return 0;
+
         Node* node = static_cast<Node*>(Ptrs()[hashKey]);
         while (node)
         {
@@ -405,10 +406,12 @@ private:
         return 0;
     }
     
-    /// Find a node and the previous node from the buckets. Do not call if the buckets have not been allocated.
+    /// Find a node and the previous node from the buckets.
     Node* FindNode(const T& key, unsigned hashKey, Node*& previous) const
     {
         previous = 0;
+        if (!ptrs)
+            return 0;
         
         Node* node = static_cast<Node*>(Ptrs()[hashKey]);
         while (node)
@@ -425,9 +428,13 @@ private:
     /// Insert a node into the list. Return the new node.
     Node* InsertNode(Node* dest, const T& key)
     {
-        if (!dest)
-            return 0;
-        
+        // If no pointers yet, allocate with minimum bucket count
+        if (!ptrs)
+        {
+            Initialize(MIN_BUCKETS, 2);
+            dest = Head();
+        }
+
         Node* newNode = AllocateNode(key);
         Node* prev = dest->Prev();
         newNode->next = dest;
@@ -438,7 +445,7 @@ private:
         
         // Reassign the head node if necessary
         if (dest == Head())
-            head = newNode;
+            SetHead(newNode);
         
         SetSize(Size() + 1);
         
@@ -449,7 +456,7 @@ private:
     Node* EraseNode(Node* node)
     {
         // The tail node can not be removed
-        if (!node || node == tail)
+        if (!node || node == Tail())
             return Tail();
         
         Node* prev = node->Prev();
@@ -460,7 +467,7 @@ private:
         
         // Reassign the head node if necessary
         if (node == Head())
-            head = next;
+            SetHead(next);
         
         FreeNode(node);
         SetSize(Size() - 1);
@@ -479,8 +486,11 @@ private:
     /// Free a node.
     void FreeNode(Node* node)
     {
-        (node)->~Node();
-        AllocatorFree(allocator, node);
+        if (node)
+        {
+            (node)->~Node();
+            AllocatorFree(allocator, node);
+        }
     }
     
     /// Rehash the buckets.
