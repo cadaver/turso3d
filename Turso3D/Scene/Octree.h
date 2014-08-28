@@ -164,6 +164,10 @@ private:
     
     /// Queue of nodes to be reinserted.
     Vector<OctreeNode*> updateQueue;
+    /// RaycastSingle initial coarse result.
+    Vector<Pair<OctreeNode*, float> > initialRes;
+    /// RaycastSingle final result.
+    Vector<RaycastResult> finalRes;
     /// Allocator for child octants.
     Allocator<Octant> allocator;
     /// Root octant.

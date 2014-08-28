@@ -148,30 +148,30 @@ RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, fl
     PROFILE(OctreeRaycastSingle);
 
     // Get first the potential hits
-    Vector<Pair<OctreeNode*, float> > initialRes;
+    initialRes.Clear();
     CollectNodes(initialRes, &root, ray, nodeFlags, maxDistance, layerMask);
     Sort(initialRes.Begin(), initialRes.End(), CompareNodeDistances);
 
     // Then perform actual per-node ray tests and early-out when possible
-    Vector<RaycastResult> res;
+    finalRes.Clear();
     float closestHit = M_INFINITY;
     for (Vector<Pair<OctreeNode*, float> >::ConstIterator it = initialRes.Begin(); it != initialRes.End(); ++it)
     {
         if (it->second < Min(closestHit, maxDistance))
         {
-            size_t oldSize = res.Size();
-            it->first->OnRaycast(res, ray, maxDistance);
-            if (res.Size() > oldSize)
-                closestHit = Min(closestHit, res.Back().distance);
+            size_t oldSize = finalRes.Size();
+            it->first->OnRaycast(finalRes, ray, maxDistance);
+            if (finalRes.Size() > oldSize)
+                closestHit = Min(closestHit, finalRes.Back().distance);
         }
         else
             break;
     }
 
-    if (res.Size())
+    if (finalRes.Size())
     {
-        Sort(res.Begin(), res.End(), CompareRaycastResults);
-        return res.Front();
+        Sort(finalRes.Begin(), finalRes.End(), CompareRaycastResults);
+        return finalRes.Front();
     }
     else
     {
