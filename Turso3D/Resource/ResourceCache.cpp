@@ -246,14 +246,14 @@ Resource* ResourceCache::LoadResource(StringHash type, const String& nameIn)
     return newResource;
 }
 
-void ResourceCache::ResourcesByType(Vector<Resource*>& dest, StringHash type) const
+void ResourceCache::ResourcesByType(Vector<Resource*>& result, StringHash type) const
 {
-    dest.Clear();
+    result.Clear();
 
     for (ResourceMap::ConstIterator it = resources.Begin(); it != resources.End(); ++it)
     {
         if (it->second->Type() == type)
-            dest.Push(it->second);
+            result.Push(it->second);
     }
 }
 

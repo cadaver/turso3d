@@ -21,6 +21,9 @@ Scene::Scene() :
 {
     // Register self to allow finding by ID
     AddNode(this);
+
+    DefineLayer(LAYER_DEFAULT, "Default");
+    DefineTag(TAG_NONE, "None");
 }
 
 Scene::~Scene()
@@ -36,6 +39,8 @@ void Scene::RegisterObject()
 {
     RegisterFactory<Scene>();
     CopyBaseAttributes<Scene, Node>();
+    RegisterAttribute("layerNames", &Scene::LayerNamesAttr, &Scene::SetLayerNamesAttr);
+    RegisterAttribute("tagNames", &Scene::TagNamesAttr, &Scene::SetTagNamesAttr);
 }
 
 void Scene::Save(Serializer& dest)
@@ -170,6 +175,28 @@ Node* Scene::InstantiateJSON(Deserializer& source)
     return InstantiateJSON(json.Root());
 }
 
+void Scene::DefineLayer(unsigned char index, const String& name)
+{
+    if (index >= 32)
+    {
+        LOGERROR("Can not define more than 32 layers");
+        return;
+    }
+
+    if (layerNames.Size() <= index)
+        layerNames.Resize(index + 1);
+    layerNames[index] = name;
+    layers[name] = index;
+}
+
+void Scene::DefineTag(unsigned char index, const String& name)
+{
+    if (tagNames.Size() <= index)
+        tagNames.Resize(index + 1);
+    tagNames[index] = name;
+    tags[name] = index;
+}
+
 void Scene::Clear()
 {
     DestroyAllChildren();
@@ -231,6 +258,56 @@ void Scene::RemoveNode(Node* node)
         for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
             RemoveNode(*it);
     }
+}
+
+void Scene::SetLayerNamesAttr(JSONValue names)
+{
+    layerNames.Clear();
+    layers.Clear();
+
+    const JSONArray& array = names.GetArray();
+    for (size_t i = 0; i < array.Size(); ++i)
+    {
+        const String& name = array[i].GetString();
+        layerNames.Push(name);
+        layers[name] = (unsigned char)i;
+    }
+}
+
+JSONValue Scene::LayerNamesAttr() const
+{
+    JSONValue ret;
+
+    ret.SetEmptyArray();
+    for (Vector<String>::ConstIterator it = layerNames.Begin(); it != layerNames.End(); ++it)
+        ret.Push(*it);
+    
+    return ret;
+}
+
+void Scene::SetTagNamesAttr(JSONValue names)
+{
+    tagNames.Clear();
+    tags.Clear();
+
+    const JSONArray& array = names.GetArray();
+    for (size_t i = 0; i < array.Size(); ++i)
+    {
+        const String& name = array[i].GetString();
+        tagNames.Push(name);
+        tags[name] = (unsigned char)i;
+    }
+}
+
+JSONValue Scene::TagNamesAttr() const
+{
+    JSONValue ret;
+
+    ret.SetEmptyArray();
+    for (Vector<String>::ConstIterator it = tagNames.Begin(); it != tagNames.End(); ++it)
+        ret.Push(*it);
+
+    return ret;
 }
 
 void RegisterSceneLibrary()

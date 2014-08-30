@@ -36,10 +36,14 @@ int main()
         profiler.BeginFrame();
 
         Scene scene;
+        scene.DefineLayer(1, "TestLayer");
+        scene.DefineTag(1, "TestTag");
         for (size_t i = 0; i < 10; ++i)
         {
             SpatialNode* node = scene.CreateChild<SpatialNode>("Child" + String(i));
             node->SetPosition(Vector3(Random(-100.0f, 100.0f), Random(-100.0f, 100.0f), Random(-100.0f, 100.0f)));
+            node->SetLayerName("TestLayer");
+            node->SetTagName("TestTag");
         }
 
         {
@@ -59,7 +63,10 @@ int main()
             {
                 printf("Scene loaded successfully from binary data\n");
                 for (size_t i = 0; i < loadScene.NumChildren(); ++i)
-                    printf("Child name: %s\n", loadScene.Child(i)->Name().CString());
+                {
+                    Node* child = loadScene.Child(i);
+                    printf("Child name: %s layer: %d tag: %d\n", child->Name().CString(), (int)child->Layer(), (int)child->Tag());
+                }
             }
             else
                 printf("Failed to load scene from binary data\n");

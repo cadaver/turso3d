@@ -38,11 +38,23 @@ public:
     Node* InstantiateJSON(const JSONValue& source);
     /// Load JSON data as text from a binary stream, then instantiate node(s) from it and return the root node.
     Node* InstantiateJSON(Deserializer& source);
+    /// Define a layer name. There can be 32 different layers (indices 0-31.)
+    void DefineLayer(unsigned char index, const String& name);
+    /// Define a tag name.
+    void DefineTag(unsigned char index, const String& name);
     /// Destroy child nodes recursively, leaving the scene empty.
     void Clear();
 
     /// Find node by id.
     Node* FindNode(unsigned id) const;
+    /// Return the layer names.
+    const Vector<String>& LayerNames() const { return layerNames; }
+    /// Return the layer name-to-index map.
+    const HashMap<String, unsigned char>& Layers() const { return layers; }
+    /// Return the tag names.
+    const Vector<String>& TagNames() const { return tagNames; }
+    /// Return the tag name-to-index map.
+    const HashMap<String, unsigned char>& Tags() const { return tags; }
 
     /// Add node to the scene. This assigns a scene-unique id to it. Called internally.
     void AddNode(Node* node);
@@ -50,12 +62,27 @@ public:
     void RemoveNode(Node* node);
 
 private:
+    /// Set layer names. Used in serialization.
+    void SetLayerNamesAttr(JSONValue names);
+    /// Return layer names. Used in serialization.
+    JSONValue LayerNamesAttr() const;
+    /// Set tag names. Used in serialization.
+    void SetTagNamesAttr(JSONValue names);
+    /// Return tag names. Used in serialization.
+    JSONValue TagNamesAttr() const;
+
     /// Map from id's to nodes.
     HashMap<unsigned, Node*> nodes;
-    /// Map from nodes to id's.
-    HashMap<Node*, unsigned> ids;
     /// Next free node id.
     unsigned nextNodeId;
+    /// List of layer names by index.
+    Vector<String> layerNames;
+    /// Map from layer names to indices.
+    HashMap<String, unsigned char> layers;
+    /// List of tag names by index.
+    Vector<String> tagNames;
+    /// Map from tag names to indices.
+    HashMap<String, unsigned char> tags;
 };
 
 /// Register Scene related object factories and attributes.

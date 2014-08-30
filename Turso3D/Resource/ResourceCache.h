@@ -54,7 +54,7 @@ public:
     template <class T> T* LoadResource(const char* name) { return static_cast<T*>(LoadResource(T::TypeStatic(), name)); }
 
     /// Return resources by type.
-    void ResourcesByType(Vector<Resource*>& dest, StringHash type) const;
+    void ResourcesByType(Vector<Resource*>& result, StringHash type) const;
     /// Return resource directories.
     const Vector<String>& ResourceDirs() const { return resourceDirs; }
     /// Return whether a file exists in the resource directories.

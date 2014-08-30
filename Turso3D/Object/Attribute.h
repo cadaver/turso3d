@@ -30,7 +30,8 @@ enum AttributeType
     ATTR_BOUNDINGBOX,
     ATTR_RESOURCEREF,
     ATTR_RESOURCEREFLIST,
-    ATTR_OBJECTREF
+    ATTR_OBJECTREF,
+    ATTR_JSONVALUE
 };
 
 /// Helper class for accessing serializable variables via getter and setter functions.

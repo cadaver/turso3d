@@ -85,6 +85,10 @@ void Attribute::Skip(AttributeType type, Deserializer& source)
         source.Read<ObjectRef>();
         break;
 
+    case ATTR_JSONVALUE:
+        source.Read<JSONValue>();
+        break;
+
     default:
         break;
     }
@@ -150,6 +154,11 @@ template<> void AttributeImpl<ObjectRef>::FromJSON(Serializable* instance, const
     SetValue(instance, ObjectRef((unsigned)source.GetNumber()));
 }
 
+template<> void AttributeImpl<JSONValue>::FromJSON(Serializable* instance, const JSONValue& source)
+{
+    SetValue(instance, source);
+}
+
 template<> void AttributeImpl<bool>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance);
@@ -208,6 +217,11 @@ template<> void AttributeImpl<ResourceRefList>::ToJSON(Serializable* instance, J
 template<> void AttributeImpl<ObjectRef>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance).id;
+}
+
+template<> void AttributeImpl<JSONValue>::ToJSON(Serializable* instance, JSONValue& dest)
+{
+    dest = Value(instance);
 }
 
 template<> AttributeType AttributeImpl<bool>::Type() const
@@ -270,5 +284,9 @@ template<> AttributeType AttributeImpl<ObjectRef>::Type() const
     return ATTR_OBJECTREF;
 }
 
+template<> AttributeType AttributeImpl<JSONValue>::Type() const
+{
+    return ATTR_JSONVALUE;
+}
 
 }

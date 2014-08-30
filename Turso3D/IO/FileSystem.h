@@ -35,9 +35,7 @@ TURSO3D_API bool FileExists(const String& fileName);
 /// Check if a directory exists.
 TURSO3D_API bool DirExists(const String& pathName);
 /// Scan a directory for specified files.
-TURSO3D_API void ScanDir(Vector<String>& result, const String& pathName, const String& filter, unsigned flags = SCAN_FILES);
-/// Scan a directory for specified files recursively.
-TURSO3D_API void ScanDirRecursive(Vector<String>& result, const String& pathName, const String& filter, unsigned flags = SCAN_FILES);
+TURSO3D_API void ScanDir(Vector<String>& result, const String& pathName, const String& filter, unsigned flags = SCAN_FILES, bool recursive = false);
 /// Return the executable's directory.
 TURSO3D_API String ExecutableDir();
 /// Split a full path to path, filename and extension. The extension will be converted to lowercase by default.
