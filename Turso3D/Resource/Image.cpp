@@ -6,6 +6,7 @@
 #include "../Math/Math.h"
 #include "Decompress.h"
 
+#include <cstdlib>
 #include <cstring>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -29,12 +30,14 @@
 namespace Turso3D
 {
 
+/// DirectDraw color key definition.
 struct DDColorKey
 {
     unsigned dwColorSpaceLowValue;
     unsigned dwColorSpaceHighValue;
 };
 
+/// DirectDraw pixel format definition.
 struct DDPixelFormat
 {
     unsigned dwSize;
@@ -88,6 +91,7 @@ struct DDPixelFormat
     };
 };
 
+/// DirectDraw surface capabilities.
 struct DDSCaps2
 {
     unsigned dwCaps;
@@ -100,6 +104,7 @@ struct DDSCaps2
     };
 };
 
+/// DirectDraw surface description.
 struct DDSurfaceDesc2
 {
     unsigned dwSize;
@@ -457,6 +462,29 @@ bool Image::BeginLoad(Stream& source)
     return true;
 }
 
+bool Image::Save(Stream& dest) const
+{
+    PROFILE(SaveImage);
+
+    if (IsCompressed())
+    {
+        LOGERROR("Can not save compressed image " + Name());
+        return false;
+    }
+
+    if (!data)
+    {
+        LOGERROR("Can not save zero-sized image " + Name());
+        return false;
+    }
+
+    int len;
+    unsigned char *png = stbi_write_png_to_mem(data.Get(), 0, width, height, components, &len);
+    bool success = dest.Write(png, len) == (size_t)len;
+    free(png);
+    return success;
+}
+
 void Image::SetSize(int newWidth, int newHeight, unsigned newComponents)
 {
     if (newWidth == width && newHeight == height && newComponents == components)
@@ -479,54 +507,6 @@ void Image::SetData(const unsigned char* pixelData)
         memcpy(data.Get(), pixelData, width * height * components);
     else
         LOGERROR("Can not set pixel data of a compressed image");
-}
-
-bool Image::SaveBMP(const String& fileName)
-{
-    PROFILE(SaveImageBMP);
-
-    if (IsCompressed())
-    {
-        LOGERROR("Can not save compressed image to BMP");
-        return false;
-    }
-
-    if (data)
-        return stbi_write_bmp(fileName.CString(), width, height, components, data.Get()) != 0;
-    else
-        return false;
-}
-
-bool Image::SavePNG(const String& fileName)
-{
-    PROFILE(SaveImagePNG);
-
-    if (IsCompressed())
-    {
-        LOGERROR("Can not save compressed image to PNG");
-        return false;
-    }
-
-    if (data)
-        return stbi_write_png(fileName.CString(), width, height, components, data.Get(), 0) != 0;
-    else
-        return false;
-}
-
-bool Image::SaveTGA(const String& fileName)
-{
-    PROFILE(SaveImageTGA);
-
-    if (IsCompressed())
-    {
-        LOGERROR("Can not save compressed image to TGA");
-        return false;
-    }
-
-    if (data)
-        return stbi_write_tga(fileName.CString(), width, height, components, data.Get()) != 0;
-    else
-        return false;
 }
 
 unsigned char* Image::DecodePixelData(Stream& source, int& width, int& height, unsigned& components)

@@ -36,7 +36,11 @@ int main()
     }
 
     if (image)
+    {
         printf("Image loaded successfully, size %dx%d components %d\n", image->Width(), image->Height(), image->Components());
+        File saveFile("Test_Save.png", FILE_WRITE);
+        image->Save(saveFile);
+    }
 
     LOGRAW(profiler.OutputResults(false, false, 16));
 

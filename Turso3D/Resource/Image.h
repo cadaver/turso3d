@@ -64,19 +64,15 @@ public:
     /// Register object factory.
     static void RegisterObject();
 
-    /// Load the resource from a binary stream. Return true on success.
+    /// Load image from a stream. Return true on success.
     virtual bool BeginLoad(Stream& source);
+    /// Save the image to a stream. Regardless of original format, the image is saved as png. Compressed image data is not supported. Return true on success.
+    virtual bool Save(Stream& dest) const;
 
     /// Set new image pixel dimensions and number of components.
     void SetSize(int newWidth, int newHeight, unsigned newComponents);
     /// Set new pixel data.
     void SetData(const unsigned char* pixelData);
-    /// Save in BMP format. Return true on success.
-    bool SaveBMP(const String& fileName);
-    /// Save in PNG format. Return true on success.
-    bool SavePNG(const String& fileName);
-    /// Save in TGA format. Return true on success.
-    bool SaveTGA(const String& fileName);
 
     /// Return image width in pixels.
     int Width() const { return width; }
