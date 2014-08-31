@@ -17,6 +17,12 @@ Stream::Stream() :
 {
 }
 
+Stream::Stream(size_t numBytes) :
+    position(0),
+    size(numBytes)
+{
+}
+
 Stream::~Stream()
 {
 }
