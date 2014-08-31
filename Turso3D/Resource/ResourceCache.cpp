@@ -198,11 +198,6 @@ AutoPtr<File> ResourceCache::OpenFile(const String& nameIn)
     return FileExists(nameIn) ? AutoPtr<File>(new File(nameIn)) : AutoPtr<File>();
 }
 
-Resource* ResourceCache::LoadResource(StringHash type, const char* name)
-{
-    return LoadResource(type, String(name));
-}
-
 Resource* ResourceCache::LoadResource(StringHash type, const String& nameIn)
 {
     String name = SanitateResourceName(nameIn);

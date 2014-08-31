@@ -34,8 +34,6 @@ public:
     AutoPtr<File> OpenFile(const String& name);
     /// Load and return a resource.
     Resource* LoadResource(StringHash type, const String& name);
-    /// Load and return a resource.
-    Resource* LoadResource(StringHash type, const char* name);
     /// Unload resource. Optionally force removal even if referenced.
     void UnloadResource(StringHash type, const String& name, bool force = false);
     /// Unload all resources of type.

@@ -56,12 +56,12 @@ public:
     void SetName(const char* newName);
     /// Set node's layer. Usage is subclass specific, for example rendering nodes selectively. Default is 0.
     void SetLayer(unsigned char newLayer);
-    /// Set node's layer by name. The layer name must have been registered to the scene root beforehand. Return true on success (layer is known.)
-    bool SetLayerName(const String& newLayerName);
+    /// Set node's layer by name. The layer name must have been registered to the scene root beforehand.
+    void SetLayerName(const String& newLayerName);
     /// Set node's tag, which can be used to search for specific nodes.
     void SetTag(unsigned char newTag);
-    /// Set node's tag by name. The tag name must have been registered to the scene root beforehand. Return true on success (tag is known.)
-    bool SetTagName(const String& newTagName);
+    /// Set node's tag by name. The tag name must have been registered to the scene root beforehand.
+    void SetTagName(const String& newTagName);
     /// Set enabled status. Meaning is subclass specific.
     void SetEnabled(bool enable);
     /// Set enabled status recursively in the child hierarchy.
@@ -127,23 +127,23 @@ public:
     const Vector<Node*>& Children() const { return children; }
     /// Return child nodes recursively.
     void AllChildren(Vector<Node*>& result) const;
-    /// Find first child node that matches name.
+    /// Return first child node that matches name.
     Node* FindChild(const String& childName, bool recursive = false) const;
-    /// Find first child node that matches name.
+    /// Return first child node that matches name.
     Node* FindChild(const char* childName, bool recursive = false) const;
-    /// Find first child node of specified type.
+    /// Return first child node of specified type.
     Node* FindChild(StringHash childType, bool recursive = false) const;
-    /// Find first child node that matches type and name.
+    /// Return first child node that matches type and name.
     Node* FindChild(StringHash childType, const String& childName, bool recursive = false) const;
-    /// Find first child node that matches type and name.
+    /// Return first child node that matches type and name.
     Node* FindChild(StringHash childType, const char* childName, bool recursive = false) const;
-    /// Find first child node that matches layer mask.
+    /// Return first child node that matches layer mask.
     Node* FindChildByLayer(unsigned layerMask, bool recursive = false) const;
-    /// Find first child node that matches tag.
+    /// Return first child node that matches tag.
     Node* FindChildByTag(unsigned char tag, bool recursive = false) const;
-    /// Find first child node that matches tag name.
+    /// Return first child node that matches tag name.
     Node* FindChildByTag(const String& tagName, bool recursive = false) const;
-    /// Find first child node that matches tag name.
+    /// Return first child node that matches tag name.
     Node* FindChildByTag(const char* tagName, bool recursive = false) const;
     /// Find child nodes of specified type.
     void FindChildren(Vector<Node*>& result, StringHash childType, bool recursive = false) const;
@@ -155,11 +155,11 @@ public:
     void FindChildrenByTag(Vector<Node*>& result, const String& tagName, bool recursive = false) const;
     /// Find child nodes that match tag name.
     void FindChildrenByTag(Vector<Node*>& result, const char* tagName, bool recursive = false) const;
-    /// Find first child node of specified type, template version.
+    /// Return first child node of specified type, template version.
     template <class T> T* FindChild(bool recursive = false) const { return static_cast<T*>(FindChild(T::TypeStatic(), recursive)); }
-    /// Find first child node that matches type and name, template version.
+    /// Return first child node that matches type and name, template version.
     template <class T> T* FindChild(const String& childName, bool recursive = false) const { return static_cast<T*>(FindChild(T::TypeStatic(), childName, recursive)); }
-    /// Find first child node that matches type and name, template version.
+    /// Return first child node that matches type and name, template version.
     template <class T> T* FindChild(const char* childName, bool recursive = false) const { return static_cast<T*>(FindChild(T::TypeStatic(), childName, recursive)); }
     /// Find child nodes of specified type, template version.
     template <class T> void FindChildren(Vector<T*>& result, bool recursive = false) const { return FindChildren(reinterpret_cast<Vector<T*>&>(result), recursive); }

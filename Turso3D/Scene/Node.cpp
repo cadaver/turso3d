@@ -151,23 +151,17 @@ void Node::SetLayer(unsigned char newLayer)
         LOGERROR("Can not set layer 32 or higher");
 }
 
-bool Node::SetLayerName(const String& newLayerName)
+void Node::SetLayerName(const String& newLayerName)
 {
     if (!scene)
-        return false;
+        return;
     
     const HashMap<String, unsigned char>& layers = scene->Layers();
     HashMap<String, unsigned char>::ConstIterator it = layers.Find(newLayerName);
     if (it != layers.End())
-    {
         layer = it->second;
-        return true;
-    }
     else
-    {
         LOGERROR("Layer " + newLayerName + " not defined in the scene");
-        return false;
-    }
 }
 
 void Node::SetTag(unsigned char newTag)
@@ -175,23 +169,17 @@ void Node::SetTag(unsigned char newTag)
     tag = newTag;
 }
 
-bool Node::SetTagName(const String& newTagName)
+void Node::SetTagName(const String& newTagName)
 {
     if (!scene)
-        return false;
+        return;
 
     const HashMap<String, unsigned char>& tags = scene->Tags();
     HashMap<String, unsigned char>::ConstIterator it = tags.Find(newTagName);
     if (it != tags.End())
-    {
         tag = it->second;
-        return true;
-    }
     else
-    {
         LOGERROR("Tag " + newTagName + " not defined in the scene");
-        return false;
-    }
 }
 
 void Node::SetEnabled(bool enable)

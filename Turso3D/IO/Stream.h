@@ -40,15 +40,6 @@ public:
     void SetName(const String& newName);
     /// Change the stream name.
     void SetName(const char* newName);
-    /// Return the stream name.
-    const String& Name() const { return name; }
-    /// Return current position in bytes.
-    size_t Position() const { return position; }
-    /// Return size in bytes.
-    size_t Size() const { return size; }
-    /// Return whether the end of stream has been reached.
-    bool IsEof() const { return position >= size; }
-    
     /// Read a variable-length encoded unsigned integer, which can use 29 bits maximum.
     unsigned ReadVLE();
     /// Read a text line.
@@ -80,6 +71,15 @@ public:
         Read(&ret, sizeof ret);
         return ret;
     }
+    
+    /// Return the stream name.
+    const String& Name() const { return name; }
+    /// Return current position in bytes.
+    size_t Position() const { return position; }
+    /// Return size in bytes.
+    size_t Size() const { return size; }
+    /// Return whether the end of stream has been reached.
+    bool IsEof() const { return position >= size; }
     
 protected:
     /// Stream position.
