@@ -2,10 +2,9 @@
 
 #include "../Base/Vector.h"
 #include "../Base/HashMap.h"
-#include "Deserializer.h"
-#include "MemoryBuffer.h"
 #include "JSONValue.h"
-#include "Serializer.h"
+#include "Stream.h"
+#include "MemoryBuffer.h"
 #include "VectorBuffer.h"
 
 #include <cstdio>

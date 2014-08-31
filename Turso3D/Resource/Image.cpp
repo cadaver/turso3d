@@ -190,7 +190,7 @@ void Image::RegisterObject()
     RegisterFactory<Image>();
 }
 
-bool Image::Load(Deserializer& source)
+bool Image::BeginLoad(Stream& source)
 {
     PROFILE(LoadImage);
 
@@ -446,7 +446,7 @@ bool Image::Load(Deserializer& source)
         unsigned char* pixelData = DecodePixelData(source, imageWidth, imageHeight, imageComponents);
         if (!pixelData)
         {
-            LOGERROR("Could not load image " + FileName(source) + ": " + String(stbi_failure_reason()));
+            LOGERROR("Could not load image " + source.Name() + ": " + String(stbi_failure_reason()));
             return false;
         }
         SetSize(imageWidth, imageHeight, imageComponents);
@@ -529,7 +529,7 @@ bool Image::SaveTGA(const String& fileName)
         return false;
 }
 
-unsigned char* Image::DecodePixelData(Deserializer& source, int& width, int& height, unsigned& components)
+unsigned char* Image::DecodePixelData(Stream& source, int& width, int& height, unsigned& components)
 {
     size_t dataSize = source.Size();
 

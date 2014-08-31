@@ -4,16 +4,14 @@
 
 #include "../Base/AutoPtr.h"
 #include "../Base/SharedPtr.h"
-#include "../IO/Deserializer.h"
-#include "../IO/Serializer.h"
+#include "../IO/Stream.h"
 
 namespace Turso3D
 {
 
-class Deserializer;
 class JSONValue;
 class Serializable;
-class Serializer;
+class Stream;
 
 /// Supported attribute types.
 enum AttributeType
@@ -55,9 +53,9 @@ public:
     Attribute(const char* name, AttributeAccessor* accessor, const char** enumNames = 0);
     
     /// Deserialize from binary.
-    virtual void FromBinary(Serializable* instance, Deserializer& source) = 0;
+    virtual void FromBinary(Serializable* instance, Stream& source) = 0;
     /// Serialize to binary.
-    virtual void ToBinary(Serializable* instance, Serializer& dest) = 0;
+    virtual void ToBinary(Serializable* instance, Stream& dest) = 0;
     /// Deserialize from JSON.
     virtual void FromJSON(Serializable* instance, const JSONValue& source) = 0;
     /// Serialize to JSON.
@@ -78,7 +76,7 @@ public:
     const char** EnumNames() const { return enumNames; }
     
     /// Skip binary data of an attribute.
-    static void Skip(AttributeType type, Deserializer& source);
+    static void Skip(AttributeType type, Stream& source);
     
 protected:
     /// Variable name.
@@ -107,14 +105,14 @@ public:
     }
     
     /// Deserialize from binary.
-    virtual void FromBinary(Serializable* instance, Deserializer& source)
+    virtual void FromBinary(Serializable* instance, Stream& source)
     {
         T value = source.Read<T>();
         FromValue(instance, &value);
     }
     
     /// Serialize to binary.
-    virtual void ToBinary(Serializable* instance, Serializer& dest)
+    virtual void ToBinary(Serializable* instance, Stream& dest)
     {
         T value;
         ToValue(instance, &value);

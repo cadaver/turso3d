@@ -11,35 +11,33 @@ namespace Turso3D
 {
 
 MemoryBuffer::MemoryBuffer(void* data, size_t numBytes) :
-    Deserializer(numBytes),
     buffer((unsigned char*)data),
     readOnly(false)
 {
-    if (!buffer)
-        size = 0;
+    size = buffer ? numBytes : 0;
+    SetName("Memory");
 }
 
 MemoryBuffer::MemoryBuffer(const void* data, size_t numBytes) :
-    Deserializer(numBytes),
     buffer((unsigned char*)data),
     readOnly(true)
 {
-    if (!buffer)
-        size = 0;
+    size = buffer ? numBytes : 0;
+    SetName("Memory");
 }
 
 MemoryBuffer::MemoryBuffer(Vector<unsigned char>& data) :
-    Deserializer(data.Size()),
     buffer(data.Begin().ptr),
     readOnly(false)
 {
+    size = data.Size();
 }
 
 MemoryBuffer::MemoryBuffer(const Vector<unsigned char>& data) :
-    Deserializer(data.Size()),
     buffer(data.Begin().ptr),
     readOnly(true)
 {
+    size = data.Size();
 }
 
 size_t MemoryBuffer::Read(void* dest, size_t numBytes)
@@ -111,6 +109,16 @@ size_t MemoryBuffer::Write(const void* data, size_t numBytes)
         *destPtr = *srcPtr;
     
     return numBytes;
+}
+
+bool MemoryBuffer::IsReadable() const
+{
+    return buffer != 0;
+}
+
+bool MemoryBuffer::IsWritable() const
+{
+    return buffer && !readOnly;
 }
 
 }

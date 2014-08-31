@@ -2,9 +2,7 @@
 
 #include "../Debug/Log.h"
 #include "../Debug/Profiler.h"
-#include "../IO/Deserializer.h"
-#include "../IO/File.h"
-#include "../IO/Serializer.h"
+#include "../IO/Stream.h"
 #include "../Object/ObjectResolver.h"
 #include "../Resource/JSONFile.h"
 #include "Octree.h"
@@ -43,25 +41,21 @@ void Scene::RegisterObject()
     RegisterAttribute("tagNames", &Scene::TagNamesAttr, &Scene::SetTagNamesAttr);
 }
 
-void Scene::Save(Serializer& dest)
+void Scene::Save(Stream& dest)
 {
     PROFILE(SaveScene);
     
-    String fileName = FileName(dest);
-    if (!fileName.IsEmpty())
-        LOGINFO("Saving scene to " + fileName);
+    LOGINFO("Saving scene to " + dest.Name());
     
     /// \todo Write file ID
     Node::Save(dest);
 }
 
-bool Scene::Load(Deserializer& source)
+bool Scene::Load(Stream& source)
 {
     PROFILE(LoadScene);
     
-    String fileName = FileName(source);
-    if (!fileName.IsEmpty())
-        LOGINFO("Loading scene from " + fileName);
+    LOGINFO("Loading scene from " + source.Name());
     
     /// \todo Read file ID
     StringHash ownType = source.Read<StringHash>();
@@ -105,11 +99,9 @@ bool Scene::LoadJSON(const JSONValue& source)
     return true;
 }
 
-bool Scene::LoadJSON(Deserializer& source)
+bool Scene::LoadJSON(Stream& source)
 {
-    String fileName = FileName(source);
-    if (!fileName.IsEmpty())
-        LOGINFO("Loading scene from " + fileName);
+    LOGINFO("Loading scene from " + source.Name());
     
     JSONFile json;
     bool success = json.Load(source);
@@ -117,20 +109,18 @@ bool Scene::LoadJSON(Deserializer& source)
     return success;
 }
 
-bool Scene::SaveJSON(Serializer& dest)
+bool Scene::SaveJSON(Stream& dest)
 {
     PROFILE(SaveSceneJSON);
     
-    String fileName = FileName(dest);
-    if (!fileName.IsEmpty())
-        LOGINFO("Saving scene to " + fileName);
+    LOGINFO("Saving scene to " + dest.Name());
     
     JSONFile json;
     Node::SaveJSON(json.Root());
     return json.Save(dest);
 }
 
-Node* Scene::Instantiate(Deserializer& source)
+Node* Scene::Instantiate(Stream& source)
 {
     PROFILE(Instantiate);
     
@@ -168,7 +158,7 @@ Node* Scene::InstantiateJSON(const JSONValue& source)
     return child;
 }
 
-Node* Scene::InstantiateJSON(Deserializer& source)
+Node* Scene::InstantiateJSON(Stream& source)
 {
     JSONFile json;
     json.Load(source);

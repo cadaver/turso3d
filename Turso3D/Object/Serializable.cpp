@@ -1,9 +1,8 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
-#include "../IO/Deserializer.h"
 #include "../IO/JsonValue.h"
 #include "../IO/ObjectRef.h"
-#include "../IO/Serializer.h"
+#include "../IO/Stream.h"
 #include "ObjectResolver.h"
 #include "Serializable.h"
 
@@ -14,7 +13,7 @@ namespace Turso3D
 
 HashMap<StringHash, Vector<SharedPtr<Attribute> > > Serializable::classAttributes;
 
-void Serializable::Load(Deserializer& source, ObjectResolver* resolver)
+void Serializable::Load(Stream& source, ObjectResolver* resolver)
 {
     const Vector<SharedPtr<Attribute> >* attributes = Attributes();
     if (!attributes)
@@ -47,7 +46,7 @@ void Serializable::Load(Deserializer& source, ObjectResolver* resolver)
     }
 }
 
-void Serializable::Save(Serializer& dest)
+void Serializable::Save(Stream& dest)
 {
     const Vector<SharedPtr<Attribute> >* attributes = Attributes();
     if (!attributes)
@@ -159,7 +158,7 @@ void Serializable::CopyBaseAttributes(StringHash type, StringHash baseType)
     classAttributes[type].Push(classAttributes[baseType]);
 }
 
-void Serializable::Skip(Deserializer& source)
+void Serializable::Skip(Stream& source)
 {
     size_t numAttrs = source.ReadVLE();
     for (size_t i = 0; i < numAttrs; ++i)

@@ -2,14 +2,13 @@
 
 #pragma once
 
-#include "Deserializer.h"
-#include "Serializer.h"
+#include "Stream.h"
 
 namespace Turso3D
 {
 
 /// Memory area that can be read and written to as a stream.
-class TURSO3D_API MemoryBuffer : public Deserializer, public Serializer
+class TURSO3D_API MemoryBuffer : public Stream
 {
 public:
     /// Construct with a pointer and size.
@@ -27,14 +26,16 @@ public:
     virtual size_t Seek(size_t newPosition);
     /// Write bytes to the memory area.
     virtual size_t Write(const void* data, size_t numBytes);
-    
+    /// Return whether read operations are allowed.
+    virtual bool IsReadable() const;
+    /// Return whether write operations are allowed.
+    virtual bool IsWritable() const;
+
     /// Return memory area.
     unsigned char* Data() { return buffer; }
-    /// Return whether buffer is read-only.
-    bool IsReadOnly() { return readOnly; }
     
-    using Deserializer::Read;
-    using Serializer::Write;
+    using Stream::Read;
+    using Stream::Write;
     
 private:
     /// Pointer to the memory area.

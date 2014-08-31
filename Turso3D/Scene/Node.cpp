@@ -1,8 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../Debug/Log.h"
-#include "../IO/Deserializer.h"
-#include "../IO/Serializer.h"
+#include "../IO/Stream.h"
 #include "../Object/ObjectResolver.h"
 #include "../Resource/JSONFile.h"
 #include "Scene.h"
@@ -40,7 +39,7 @@ void Node::RegisterObject()
     RegisterAttribute("tag", &Node::Tag, &Node::SetTag, TAG_NONE);
 }
 
-void Node::Load(Deserializer& source, ObjectResolver* resolver)
+void Node::Load(Stream& source, ObjectResolver* resolver)
 {
     // Type and id has been read by the parent
     Serializable::Load(source, resolver);
@@ -65,7 +64,7 @@ void Node::Load(Deserializer& source, ObjectResolver* resolver)
     }
 }
 
-void Node::Save(Serializer& dest)
+void Node::Save(Stream& dest)
 {
     // Write type and ID first, followed by attributes and child nodes
     dest.Write(Type());
@@ -127,7 +126,7 @@ void Node::SaveJSON(JSONValue& dest)
     }
 }
 
-bool Node::SaveJSON(Serializer& dest)
+bool Node::SaveJSON(Stream& dest)
 {
     JSONFile json;
     SaveJSON(json.Root());
@@ -586,7 +585,7 @@ void Node::SetId(unsigned newId)
     id = newId;
 }
 
-void Node::SkipHierarchy(Deserializer& source)
+void Node::SkipHierarchy(Stream& source)
 {
     Serializable::Skip(source);
 

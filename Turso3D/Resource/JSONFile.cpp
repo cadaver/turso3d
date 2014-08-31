@@ -16,7 +16,7 @@ void JSONFile::RegisterObject()
     RegisterFactory<JSONFile>();
 }
 
-bool JSONFile::Load(Deserializer& source)
+bool JSONFile::BeginLoad(Stream& source)
 {
     PROFILE(LoadJSONFile);
     
@@ -33,18 +33,12 @@ bool JSONFile::Load(Deserializer& source)
     /// \todo If fails, log the line number on which the error occurred
     bool success = root.Parse(pos, end);
     if (!success)
-    {
-        String fileName = FileName(source);
-        if (!fileName.IsEmpty())
-            LOGERROR("Parsing JSON from " + fileName + " failed; data may be partial");
-        else
-            LOGERROR("Parsing JSON failed; data may be partial");
-    }
+        LOGERROR("Parsing JSON from " + source.Name() + " failed; data may be partial");
     
     return success;
 }
 
-bool JSONFile::Save(Serializer& dest) const
+bool JSONFile::Save(Stream& dest) const
 {
     PROFILE(SaveJSONFile);
     

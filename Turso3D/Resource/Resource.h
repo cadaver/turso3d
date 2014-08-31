@@ -8,8 +8,7 @@
 namespace Turso3D
 {
 
-class Deserializer;
-class Serializer;
+class Stream;
 
 /// Base class for resources.
 class TURSO3D_API Resource : public Object
@@ -17,11 +16,15 @@ class TURSO3D_API Resource : public Object
     OBJECT(Resource);
 
 public:
-    /// Load the resource from a binary stream. Return true on success.
-    virtual bool Load(Deserializer& source);
+    /// Load the resource data from a binary stream. May be executed outside the main thread, should not access GPU resources. Return true on success.
+    virtual bool BeginLoad(Stream& source);
+    /// Finish resource loading if necessary. Always called from the main thread, so GPU resources can be accessed here. Return true on success.
+    virtual bool EndLoad();
     /// Save the resource to a binary stream. Return true on success.
-    virtual bool Save(Serializer& dest) const;
+    virtual bool Save(Stream& dest) const;
 
+    /// Load the resource synchronously from a binary stream. Return true on success.
+    bool Load(Stream& source);
     /// Set name of the resource, usually the same as the file being loaded from.
     void SetName(const String& newName);
 

@@ -3,14 +3,13 @@
 #pragma once
 
 #include "../Base/Vector.h"
-#include "Deserializer.h"
-#include "Serializer.h"
+#include "Stream.h"
 
 namespace Turso3D
 {
 
 /// Dynamically sized buffer that can be read and written to as a stream.
-class TURSO3D_API VectorBuffer : public Deserializer, public Serializer
+class TURSO3D_API VectorBuffer : public Stream
 {
 public:
     /// Construct an empty buffer.
@@ -20,7 +19,7 @@ public:
     /// Construct from a memory area.
     VectorBuffer(const void* data, size_t numBytes);
     /// Construct from a stream.
-    VectorBuffer(Deserializer& source, size_t numBytes);
+    VectorBuffer(Stream& source, size_t numBytes);
     
     /// Read bytes from the buffer. Return number of bytes actually read.
     virtual size_t Read(void* dest, size_t size);
@@ -28,13 +27,17 @@ public:
     virtual size_t Seek(size_t newPosition);
     /// Write bytes to the buffer. Return number of bytes actually written.
     virtual size_t Write(const void* data, size_t size);
-    
+    /// Return whether read operations are allowed.
+    virtual bool IsReadable() const;
+    /// Return whether write operations are allowed.
+    virtual bool IsWritable() const;
+
     /// Set data from another buffer.
     void SetData(const Vector<unsigned char>& data);
     /// Set data from a memory area.
     void SetData(const void* data, size_t numBytes);
     /// Set data from a stream.
-    void SetData(Deserializer& source, size_t numBytes);
+    void SetData(Stream& source, size_t numBytes);
     /// Reset to zero size.
     void Clear();
     /// Set size.
@@ -47,8 +50,8 @@ public:
     /// Return the buffer.
     const Vector<unsigned char>& Buffer() const { return buffer; }
     
-    using Deserializer::Read;
-    using Serializer::Write;
+    using Stream::Read;
+    using Stream::Write;
     
 private:
     /// Dynamic data buffer.

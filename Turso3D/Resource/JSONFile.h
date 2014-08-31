@@ -8,8 +8,7 @@
 namespace Turso3D
 {
 
-class Deserializer;
-class Serializer;
+class Stream;
 
 /// JSON document. Contains a root JSON value and can be read/written to file as text.
 class TURSO3D_API JSONFile : public Resource
@@ -18,9 +17,9 @@ class TURSO3D_API JSONFile : public Resource
 
 public:
     /// Load from a stream as text. Return true on success. Will contain partial data on failure.
-    virtual bool Load(Deserializer& source);
+    virtual bool BeginLoad(Stream& source);
     /// Save to a stream as text. Return true on success.
-    virtual bool Save(Serializer& dest) const;
+    virtual bool Save(Stream& dest) const;
     
     /// Register object factory.
     static void RegisterObject();

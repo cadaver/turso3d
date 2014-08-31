@@ -38,9 +38,9 @@ public:
     static void RegisterObject();
     
     /// Load from binary stream. Store node references to be resolved later.
-    virtual void Load(Deserializer& source, ObjectResolver* resolver = 0);
+    virtual void Load(Stream& source, ObjectResolver* resolver = 0);
     /// Save to binary stream.
-    virtual void Save(Serializer& dest);
+    virtual void Save(Stream& dest);
     /// Load from JSON data. Store node references to be resolved later.
     virtual void LoadJSON(const JSONValue& source, ObjectResolver* resolver = 0);
     /// Save as JSON data.
@@ -49,7 +49,7 @@ public:
     virtual unsigned Id() const { return id; }
 
     /// Save as JSON text data to a binary stream. Return true on success.
-    bool SaveJSON(Serializer& dest);
+    bool SaveJSON(Stream& dest);
     /// Set name. Is not required to be unique within the scene.
     void SetName(const String& newName);
     /// Set name.
@@ -176,7 +176,7 @@ public:
     void SetId(unsigned newId);
     
     /// Skip the binary data of a node hierarchy, in case the node could not be created.
-    static void SkipHierarchy(Deserializer& source);
+    static void SkipHierarchy(Stream& source);
 
 protected:
     /// Handle being assigned to a new parent node.

@@ -9,9 +9,8 @@
 namespace Turso3D
 {
 
-class Deserializer;
 class JSONValue;
-class Serializer;
+class Stream;
 
 typedef Vector<JSONValue> JSONArray;
 typedef HashMap<String, JSONValue> JSONObject;

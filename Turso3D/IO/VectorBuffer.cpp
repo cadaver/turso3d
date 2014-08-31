@@ -11,21 +11,25 @@ namespace Turso3D
 
 VectorBuffer::VectorBuffer()
 {
+    SetName("Vector");
 }
 
 VectorBuffer::VectorBuffer(const Vector<unsigned char>& data)
 {
     SetData(data);
+    SetName("Vector");
 }
 
 VectorBuffer::VectorBuffer(const void* data, size_t numBytes)
 {
     SetData(data, numBytes);
+    SetName("Vector");
 }
 
-VectorBuffer::VectorBuffer(Deserializer& source, size_t numBytes)
+VectorBuffer::VectorBuffer(Stream& source, size_t numBytes)
 {
     SetData(source, numBytes);
+    SetName("Vector");
 }
 
 size_t VectorBuffer::Read(void* dest, size_t numBytes)
@@ -104,6 +108,16 @@ size_t VectorBuffer::Write(const void* data, size_t numBytes)
     return numBytes;
 }
 
+bool VectorBuffer::IsReadable() const
+{
+    return true;
+}
+
+bool VectorBuffer::IsWritable() const
+{
+    return true;
+}
+
 void VectorBuffer::SetData(const Vector<unsigned char>& data)
 {
     buffer = data;
@@ -124,7 +138,7 @@ void VectorBuffer::SetData(const void* data, size_t numBytes)
     size = numBytes;
 }
 
-void VectorBuffer::SetData(Deserializer& source, size_t numBytes)
+void VectorBuffer::SetData(Stream& source, size_t numBytes)
 {
     buffer.Resize(numBytes);
     size_t actualSize = source.Read(&buffer[0], numBytes);

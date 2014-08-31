@@ -65,7 +65,7 @@ public:
     static void RegisterObject();
 
     /// Load the resource from a binary stream. Return true on success.
-    virtual bool Load(Deserializer& source);
+    virtual bool BeginLoad(Stream& source);
 
     /// Set new image pixel dimensions and number of components.
     void SetSize(int newWidth, int newHeight, unsigned newComponents);
@@ -99,7 +99,7 @@ public:
 
 private:
     /// Decode image pixel data using the stb_image library.
-    static unsigned char* DecodePixelData(Deserializer& source, int& width, int& height, unsigned& components);
+    static unsigned char* DecodePixelData(Stream& source, int& width, int& height, unsigned& components);
     /// Free the decoded pixel data.
     static void FreePixelData(unsigned char* pixelData);
 

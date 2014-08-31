@@ -33,7 +33,7 @@ void Attribute::ToValue(Serializable* instance, void* dest)
     accessor->Get(instance, dest);
 }
 
-void Attribute::Skip(AttributeType type, Deserializer& source)
+void Attribute::Skip(AttributeType type, Stream& source)
 {
     switch (type)
     {

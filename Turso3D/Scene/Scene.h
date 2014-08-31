@@ -22,22 +22,22 @@ public:
     static void RegisterObject();
 
     /// Save scene to binary stream.
-    virtual void Save(Serializer& dest);
+    virtual void Save(Stream& dest);
     
     /// Load scene from a binary stream. Existing nodes will be destroyed. Return true on success.
-    bool Load(Deserializer& source);
+    bool Load(Stream& source);
     /// Load scene from JSON data. Existing nodes will be destroyed. Return true on success.
     bool LoadJSON(const JSONValue& source);
     /// Load scene from JSON text data read from a binary stream. Existing nodes will be destroyed. Return true if the JSON was correctly parsed; otherwise the data may be partial.
-    bool LoadJSON(Deserializer& source);
+    bool LoadJSON(Stream& source);
     /// Save scene as JSON text data to a binary stream. Return true on success.
-    bool SaveJSON(Serializer& dest);
+    bool SaveJSON(Stream& dest);
     /// Instantiate node(s) from binary stream and return the root node.
-    Node* Instantiate(Deserializer& source);
+    Node* Instantiate(Stream& source);
     /// Instantiate node(s) from JSON data and return the root node.
     Node* InstantiateJSON(const JSONValue& source);
     /// Load JSON data as text from a binary stream, then instantiate node(s) from it and return the root node.
-    Node* InstantiateJSON(Deserializer& source);
+    Node* InstantiateJSON(Stream& source);
     /// Define a layer name. There can be 32 different layers (indices 0-31.)
     void DefineLayer(unsigned char index, const String& name);
     /// Define a tag name.

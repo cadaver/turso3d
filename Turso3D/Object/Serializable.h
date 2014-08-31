@@ -15,9 +15,9 @@ class TURSO3D_API Serializable : public Object
 {
 public:
     /// Load from binary stream. Optionally store object ref attributes to be resolved later.
-    virtual void Load(Deserializer& source, ObjectResolver* resolver = 0);
+    virtual void Load(Stream& source, ObjectResolver* resolver = 0);
     /// Save to binary stream.
-    virtual void Save(Serializer& dest);
+    virtual void Save(Stream& dest);
     /// Load from JSON data. Optionally store object ref attributes to be resolved later.
     virtual void LoadJSON(const JSONValue& source, ObjectResolver* resolver = 0);
     /// Save as JSON data.
@@ -75,7 +75,7 @@ public:
     /// Copy base class attributes.
     static void CopyBaseAttributes(StringHash type, StringHash baseType);
     /// Skip binary data of an object's all attributes.
-    static void Skip(Deserializer& source);
+    static void Skip(Stream& source);
     
     /// Register a per-class attribute, template version. Should not be used for base class attributes unless the type is explicitly specified, as by default the attribute will be re-registered to the base class redundantly.
     template <class T, class U> static void RegisterAttribute(const char* name, U (T::*getFunction)() const, void (T::*setFunction)(U), const U& defaultValue = U(), const char** enumNames = 0)
