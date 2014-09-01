@@ -1,6 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "Turso3D.h"
+#include "Object/ObjectResolver.h"
 #include "Debug/DebugNew.h"
 
 #ifdef _MSC_VER
@@ -191,12 +192,14 @@ int main()
         printf("Object binary data size: %d\n", binarySaveData.Size());
 
         AutoPtr<TestSerializable> instance2(new TestSerializable());
-        instance2->LoadJSON(saveData);
+        ObjectResolver res;
+        instance2->LoadJSON(saveData, res);
         printf("Loaded variables (JSON): int %d string: %s\n", instance2->IntVariable(), instance2->StringVariable().CString());
         
         AutoPtr<TestSerializable> instance3(new TestSerializable());
+        ObjectResolver res2;
         binarySaveData.Seek(0);
-        instance3->Load(binarySaveData);
+        instance3->Load(binarySaveData, res2);
         printf("Loaded variables (binary): int %d string: %s\n", instance3->IntVariable(), instance3->StringVariable().CString());
     }
 

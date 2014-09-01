@@ -70,7 +70,7 @@ bool Scene::Load(Stream& source)
 
     ObjectResolver resolver;
     resolver.StoreObject(ownId, this);
-    Node::Load(source, &resolver);
+    Node::Load(source, resolver);
     resolver.Resolve();
 
     return true;
@@ -93,7 +93,7 @@ bool Scene::LoadJSON(const JSONValue& source)
 
     ObjectResolver resolver;
     resolver.StoreObject(ownId, this);
-    Node::LoadJSON(source, &resolver);
+    Node::LoadJSON(source, resolver);
     resolver.Resolve();
 
     return true;
@@ -132,7 +132,7 @@ Node* Scene::Instantiate(Stream& source)
     if (child)
     {
         resolver.StoreObject(childId, child);
-        child->Load(source, &resolver);
+        child->Load(source, resolver);
         resolver.Resolve();
     }
 
@@ -151,7 +151,7 @@ Node* Scene::InstantiateJSON(const JSONValue& source)
     if (child)
     {
         resolver.StoreObject(childId, child);
-        child->LoadJSON(source, &resolver);
+        child->LoadJSON(source, resolver);
         resolver.Resolve();
     }
 

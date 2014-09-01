@@ -38,11 +38,11 @@ public:
     static void RegisterObject();
     
     /// Load from binary stream. Store node references to be resolved later.
-    virtual void Load(Stream& source, ObjectResolver* resolver = 0);
+    virtual void Load(Stream& source, ObjectResolver& resolver);
     /// Save to binary stream.
     virtual void Save(Stream& dest);
     /// Load from JSON data. Store node references to be resolved later.
-    virtual void LoadJSON(const JSONValue& source, ObjectResolver* resolver = 0);
+    virtual void LoadJSON(const JSONValue& source, ObjectResolver& resolver);
     /// Save as JSON data.
     virtual void SaveJSON(JSONValue& dest);
     /// Return unique id within the scene, or 0 if not in a scene.

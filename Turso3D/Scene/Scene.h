@@ -60,6 +60,10 @@ public:
     void AddNode(Node* node);
     /// Remove node from the scene. This removes the id mapping but does not destroy the node. Called internally.
     void RemoveNode(Node* node);
+    
+    using Node::Load;
+    using Node::LoadJSON;
+    using Node::SaveJSON;
 
 private:
     /// Set layer names. Used in serialization.

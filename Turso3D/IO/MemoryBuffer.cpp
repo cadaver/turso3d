@@ -11,7 +11,7 @@ namespace Turso3D
 {
 
 MemoryBuffer::MemoryBuffer(void* data, size_t numBytes) :
-    Stream(buffer ? numBytes : 0),
+    Stream(data ? numBytes : 0),
     buffer((unsigned char*)data),
     readOnly(false)
 {
@@ -19,7 +19,7 @@ MemoryBuffer::MemoryBuffer(void* data, size_t numBytes) :
 }
 
 MemoryBuffer::MemoryBuffer(const void* data, size_t numBytes) :
-    Stream(buffer ? numBytes : 0),
+    Stream(data ? numBytes : 0),
     buffer((unsigned char*)data),
     readOnly(true)
 {
