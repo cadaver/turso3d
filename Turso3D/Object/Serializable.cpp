@@ -13,7 +13,7 @@ namespace Turso3D
 
 HashMap<StringHash, Vector<SharedPtr<Attribute> > > Serializable::classAttributes;
 
-void Serializable::Load(Stream& source, ObjectResolver* resolver)
+void Serializable::Load(Stream& source, ObjectResolver& resolver)
 {
     const Vector<SharedPtr<Attribute> >* attributes = Attributes();
     if (!attributes)
@@ -31,11 +31,11 @@ void Serializable::Load(Stream& source, ObjectResolver* resolver)
             Attribute* attr = attributes->At(i);
             if (attr->Type() == type)
             {
-                // If an object ref resolver is present, store object refs to it instead of immediately setting
-                if (!resolver || type != ATTR_OBJECTREF)
+                // Store object refs to the resolver instead of immediately setting
+                if (type != ATTR_OBJECTREF)
                     attr->FromBinary(this, source);
                 else
-                    resolver->StoreObjectRef(this, attr, source.Read<ObjectRef>());
+                    resolver.StoreObjectRef(this, attr, source.Read<ObjectRef>());
                 
                 skip = false;
             }
@@ -61,7 +61,7 @@ void Serializable::Save(Stream& dest)
     }
 }
 
-void Serializable::LoadJSON(const JSONValue& source, ObjectResolver* resolver)
+void Serializable::LoadJSON(const JSONValue& source, ObjectResolver& resolver)
 {
     const Vector<SharedPtr<Attribute> >* attributes = Attributes();
     if (!attributes || !source.IsObject() || !source.Size())
@@ -75,11 +75,11 @@ void Serializable::LoadJSON(const JSONValue& source, ObjectResolver* resolver)
         JSONObject::ConstIterator jsonIt = object.Find(attr->Name());
         if (jsonIt != object.End())
         {
-            // If an object ref resolver is present, store object refs to it instead of immediately setting
-            if (!resolver || attr->Type() != ATTR_OBJECTREF)
+            // Store object refs to the resolver instead of immediately setting
+            if (attr->Type() != ATTR_OBJECTREF)
                 attr->FromJSON(this, jsonIt->second);
             else
-                resolver->StoreObjectRef(this, attr, ObjectRef((unsigned)jsonIt->second.GetNumber()));
+                resolver.StoreObjectRef(this, attr, ObjectRef((unsigned)jsonIt->second.GetNumber()));
         }
     }
 }

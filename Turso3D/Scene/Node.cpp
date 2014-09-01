@@ -39,7 +39,7 @@ void Node::RegisterObject()
     RegisterAttribute("tag", &Node::Tag, &Node::SetTag, TAG_NONE);
 }
 
-void Node::Load(Stream& source, ObjectResolver* resolver)
+void Node::Load(Stream& source, ObjectResolver& resolver)
 {
     // Type and id has been read by the parent
     Serializable::Load(source, resolver);
@@ -52,8 +52,7 @@ void Node::Load(Stream& source, ObjectResolver* resolver)
         Node* child = CreateChild(childType);
         if (child)
         {
-            if (resolver)
-                resolver->StoreObject(childId, child);
+            resolver.StoreObject(childId, child);
             child->Load(source, resolver);
         }
         else
@@ -80,10 +79,10 @@ void Node::Save(Stream& dest)
     }
 }
 
-void Node::LoadJSON(const JSONValue& source, ObjectResolver* resolver)
+void Node::LoadJSON(const JSONValue& source, ObjectResolver& resolver)
 {
     // Type and id has been read by the parent
-    Serializable::LoadJSON(source);
+    Serializable::LoadJSON(source, resolver);
     
     const JSONArray& children = source["children"].GetArray();
     if (children.Size())
@@ -96,8 +95,7 @@ void Node::LoadJSON(const JSONValue& source, ObjectResolver* resolver)
             Node* child = CreateChild(childType);
             if (child)
             {
-                if (resolver)
-                    resolver->StoreObject(childId, child);
+                resolver.StoreObject(childId, child);
                 child->LoadJSON(childJSON, resolver);
             }
         }
