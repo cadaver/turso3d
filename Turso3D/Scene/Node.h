@@ -155,6 +155,40 @@ public:
     void FindChildrenByTag(Vector<Node*>& result, const String& tagName, bool recursive = false) const;
     /// Find child nodes that match tag name.
     void FindChildrenByTag(Vector<Node*>& result, const char* tagName, bool recursive = false) const;
+    /// Return number of sibling nodes.
+    size_t NumSiblings() const;
+    /// Return sibling node by index.
+    Node* Sibling(size_t index) const;
+    /// Return all sibling nodes.
+    const Vector<Node*>& Siblings() const;
+    /// Return first sibling node that matches name.
+    Node* FindSibling(const String& siblingName) const;
+    /// Return first sibling node that matches name.
+    Node* FindSibling(const char* siblingName) const;
+    /// Return first sibling node of specified type.
+    Node* FindSibling(StringHash siblingType) const;
+    /// Return first sibling node that matches type and name.
+    Node* FindSibling(StringHash siblingType, const String& siblingName) const;
+    /// Return first sibling node that matches type and name.
+    Node* FindSibling(StringHash siblingType, const char* siblingName) const;
+    /// Return first sibling node that matches layer mask.
+    Node* FindSiblingByLayer(unsigned layerMask) const;
+    /// Return first sibling node that matches tag.
+    Node* FindSiblingByTag(unsigned char tag) const;
+    /// Return first sibling node that matches tag name.
+    Node* FindSiblingByTag(const String& tagName) const;
+    /// Return first sibling node that matches tag name.
+    Node* FindSiblingByTag(const char* tagName) const;
+    /// Find sibling nodes of specified type.
+    void FindSiblings(Vector<Node*>& result, StringHash siblingType) const;
+    /// Find sibling nodes that match layer mask.
+    void FindSiblingsByLayer(Vector<Node*>& result, unsigned layerMask) const;
+    /// Find sibling nodes that match tag.
+    void FindSiblingsByTag(Vector<Node*>& result, unsigned char tag) const;
+    /// Find sibling nodes that match tag name.
+    void FindSiblingsByTag(Vector<Node*>& result, const String& tagName) const;
+    /// Find sibling nodes that match tag name.
+    void FindSiblingsByTag(Vector<Node*>& result, const char* tagName) const;
     /// Return first child node of specified type, template version.
     template <class T> T* FindChild(bool recursive = false) const { return static_cast<T*>(FindChild(T::TypeStatic(), recursive)); }
     /// Return first child node that matches type and name, template version.
@@ -163,6 +197,14 @@ public:
     template <class T> T* FindChild(const char* childName, bool recursive = false) const { return static_cast<T*>(FindChild(T::TypeStatic(), childName, recursive)); }
     /// Find child nodes of specified type, template version.
     template <class T> void FindChildren(Vector<T*>& result, bool recursive = false) const { return FindChildren(reinterpret_cast<Vector<T*>&>(result), recursive); }
+    /// Return first sibling node of specified type, template version.
+    template <class T> T* FindSibling() const { return static_cast<T*>(FindSibling(T::TypeStatic())); }
+    /// Return first sibling node that matches type and name, template version.
+    template <class T> T* FindSibling(const String& siblingName) const { return static_cast<T*>(FindSibling(T::TypeStatic(), siblingName)); }
+    /// Return first sibling node that matches type and name, template version.
+    template <class T> T* FindSibling(const char* siblingName) const { return static_cast<T*>(FindSibling(T::TypeStatic(), siblingName)); }
+    /// Find sibling nodes of specified type, template version.
+    template <class T> void FindSiblings(Vector<T*>& result) const { return FindSiblings(reinterpret_cast<Vector<T*>&>(result)); }
 
     /// Set bit flag. Called internally.
     void SetFlag(unsigned short bit, bool set) const { if (set) flags |= bit; else flags &= ~bit; }

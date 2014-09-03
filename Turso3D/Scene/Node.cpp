@@ -11,6 +11,8 @@
 namespace Turso3D
 {
 
+static Vector<Node*> noChildren;
+
 Node::Node() :
     flags(NF_ENABLED),
     layer(LAYER_DEFAULT),
@@ -557,6 +559,96 @@ void Node::FindChildrenByTag(Vector<Node*>& result, const char* tagName, bool re
         if (recursive && child->children.Size())
             child->FindChildrenByTag(result, tagName, recursive);
     }
+}
+
+size_t Node::NumSiblings() const
+{
+    return parent ? parent->NumChildren() : 0;
+}
+
+Node* Node::Sibling(size_t index) const
+{
+    return parent ? parent->Child(index) : 0;
+}
+
+const Vector<Node*>& Node::Siblings() const
+{
+    return parent ? parent->children : noChildren;
+}
+
+Node* Node::FindSibling(const String& siblingName) const
+{
+    return parent ? parent->FindChild(siblingName) : 0;
+}
+
+Node* Node::FindSibling(const char* siblingName) const
+{
+    return parent ? parent->FindChild(siblingName) : 0;
+}
+
+Node* Node::FindSibling(StringHash siblingType) const
+{
+    return parent ? parent->FindChild(siblingType) : 0;
+}
+
+Node* Node::FindSibling(StringHash siblingType, const String& siblingName) const
+{
+    return parent ? parent->FindChild(siblingType, siblingName) : 0;
+}
+
+Node* Node::FindSibling(StringHash siblingType, const char* siblingName) const
+{
+    return parent ? parent->FindChild(siblingType, siblingName) : 0;
+}
+
+Node* Node::FindSiblingByLayer(unsigned layerMask) const
+{
+    return parent ? parent->FindChildByLayer(layerMask) : 0;
+}
+
+Node* Node::FindSiblingByTag(unsigned char tag) const
+{
+    return parent ? parent->FindChildByTag(tag) : 0;
+}
+
+Node* Node::FindSiblingByTag(const String& tagName) const
+{
+    return parent ? parent->FindChildByTag(tagName) : 0;
+}
+
+Node* Node::FindSiblingByTag(const char* tagName) const
+{
+    return parent ? parent->FindChildByTag(tagName) : 0;
+}
+
+void Node::FindSiblings(Vector<Node*>& result, StringHash siblingType) const
+{
+    if (parent)
+        parent->FindChildren(result, siblingType);
+}
+
+void Node::FindSiblingsByLayer(Vector<Node*>& result, unsigned layerMask) const
+{
+    if (parent)
+        parent->FindChildrenByLayer(result, layerMask);
+}
+
+void Node::FindSiblingsByTag(Vector<Node*>& result, unsigned char tag) const
+{
+    if (parent)
+        parent->FindChildrenByTag(result, tag);
+}
+
+void Node::FindSiblingsByTag(Vector<Node*>& result, const String& tagName) const
+{
+    if (parent)
+        parent->FindChildrenByTag(result, tagName);
+}
+
+void Node::FindSiblingsByTag(Vector<Node*>& result, const char* tagName) const
+{
+    if (parent)
+        parent->FindChildrenByTag(result, tagName);
 }
 
 void Node::SetScene(Scene* newScene)
