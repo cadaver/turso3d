@@ -32,4 +32,6 @@ include_directories (ThirdParty/STB)
 
 if (WIN32)
     target_link_libraries (${TARGET_NAME} winmm)
+else ()
+    target_link_libraries (${TARGET_NAME} pthread)
 endif ()

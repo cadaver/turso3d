@@ -1,6 +1,6 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
-#include "../IO/JsonValue.h"
+#include "../IO/JSONValue.h"
 #include "../IO/ObjectRef.h"
 #include "../IO/Stream.h"
 #include "ObjectResolver.h"
