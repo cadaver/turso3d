@@ -46,6 +46,13 @@ bool Window::SetSize(int width, int height, bool resizable)
 
     if (!handle)
     {
+        // Cancel automatic DPI scaling
+        typedef BOOL (WINAPI *BoolFuncPtr)();
+        
+        BoolFuncPtr proc = GetProcAddress(GetModuleHandle("user32.dll"), "SetProcessDPIAware");
+        if (proc)
+            proc();
+        
         String className("Turso3DWindow");
 
         WNDCLASS wc;
