@@ -68,6 +68,7 @@ class TURSO3D_API Input : public Object
 {
     OBJECT(Input);
 
+public:
     /// Construct and register subsystem.
     Input();
     /// Destruct.
