@@ -26,7 +26,7 @@ static const int LOG_NONE = 4;
 class File;
 
 /// Stored log message from another thread.
-struct StoredLogMessage
+struct TURSO3D_API StoredLogMessage
 {
     /// Construct undefined.
     StoredLogMessage()
@@ -50,7 +50,7 @@ struct StoredLogMessage
 };
 
 /// %Log message event.
-class LogMessageEvent : public Event
+class TURSO3D_API LogMessageEvent : public Event
 {
 public:
     /// Message.
@@ -80,8 +80,8 @@ public:
     void SetTimeStamp(bool enable);
     /// Set quiet mode, ie. only output error messages to the standard error stream.
     void SetQuiet(bool enable);
-    /// Process threaded log messages.
-    void ProcessThreadedMessages();
+    /// Process threaded log messages at the end of a frame.
+    void EndFrame();
 
     /// Return logging level.
     int Level() const { return level; }
@@ -96,7 +96,7 @@ public:
     static void WriteRaw(const String& message, bool error = false);
 
     /// %Log message event.
-    LogMessageEvent logMessage;
+    LogMessageEvent logMessageEvent;
 
 private:
     /// Mutex for threaded operation.

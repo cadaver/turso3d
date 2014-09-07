@@ -91,6 +91,24 @@ void Log::SetQuiet(bool enable)
     quiet = enable;
 }
 
+void Log::EndFrame()
+{
+    MutexLock lock(logMutex);
+
+    // Process messages accumulated from other threads (if any)
+    while (!threadMessages.IsEmpty())
+    {
+        const StoredLogMessage& stored = threadMessages.Front();
+
+        if (stored.level != LOG_RAW)
+            Write(stored.level, stored.message);
+        else
+            WriteRaw(stored.message, stored.error);
+
+        threadMessages.PopFront();
+    }
+}
+
 void Log::Write(int msgLevel, const String& message)
 {
     assert(msgLevel >= LOG_DEBUG && msgLevel < LOG_NONE);
@@ -135,7 +153,7 @@ void Log::Write(int msgLevel, const String& message)
 
     instance->inWrite = true;
 
-    LogMessageEvent& event = instance->logMessage;
+    LogMessageEvent& event = instance->logMessageEvent;
     event.message = formattedMessage;
     event.level = msgLevel;
     instance->SendEvent(event);
@@ -180,30 +198,12 @@ void Log::WriteRaw(const String& message, bool error)
 
     instance->inWrite = true;
 
-    LogMessageEvent& event = instance->logMessage;
+    LogMessageEvent& event = instance->logMessageEvent;
     event.message = message;
     event.level = error ? LOG_ERROR : LOG_INFO;
     instance->SendEvent(event);
 
     instance->inWrite = false;
-}
-
-void Log::ProcessThreadedMessages()
-{
-    MutexLock lock(logMutex);
-    
-    // Process messages accumulated from other threads (if any)
-    while (!threadMessages.IsEmpty())
-    {
-        const StoredLogMessage& stored = threadMessages.Front();
-        
-        if (stored.level != LOG_RAW)
-            Write(stored.level, stored.message);
-        else
-            WriteRaw(stored.message, stored.error);
-        
-        threadMessages.PopFront();
-    }
 }
 
 }

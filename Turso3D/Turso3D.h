@@ -32,4 +32,5 @@
 #include "Thread/Mutex.h"
 #include "Thread/Thread.h"
 #include "Thread/Timer.h"
-
+#include "Window/Input.h"
+#include "Window/Window.h"

@@ -10,6 +10,12 @@ macro (add_engine_directory DIRECTORY)
     list (APPEND SOURCE_FILES ${DIR_FILES})
 endmacro ()
 
+macro (add_engine_directory_group DIRECTORY GROUP)
+    file (GLOB DIR_FILES ${DIRECTORY}/*.h ${DIRECTORY}/*.c ${DIRECTORY}/*.cpp)
+    source_group ("${GROUP}" FILES ${DIR_FILES})
+    list (APPEND SOURCE_FILES ${DIR_FILES})
+endmacro ()
+
 # Add source files from subdirectories
 add_engine_directory (Base)
 add_engine_directory (Debug)
@@ -20,6 +26,10 @@ add_engine_directory (Resource)
 add_engine_directory (Scene)
 add_engine_directory (Thread)
 add_engine_directory (ThirdParty/STB)
+add_engine_directory (Window)
+if (WIN32)
+    add_engine_directory_group (Window/Win32 Window)
+endif ()
 
 # Add root-level files
 file (GLOB TURSO3D_FILES *.h *.c *.cpp)
