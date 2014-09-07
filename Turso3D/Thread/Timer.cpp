@@ -5,8 +5,8 @@
 #include <ctime>
 
 #ifdef WIN32
-#include <windows.h>
-#include <mmsystem.h>
+#include <Windows.h>
+#include <MMSystem.h>
 #else
 #include <sys/time.h>
 #include <unistd.h>
