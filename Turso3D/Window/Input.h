@@ -74,7 +74,7 @@ public:
     /// Destruct.
     virtual ~Input();
 
-    /// Update. Poll the window (if any) for OS window messages and update input state.
+    /// Poll the window (if any) for OS window messages and update input state.
     void Update();
 
     /// Return whether key is down by key code.

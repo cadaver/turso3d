@@ -47,9 +47,7 @@ bool Window::SetSize(int width, int height, bool resizable)
     if (!handle)
     {
         // Cancel automatic DPI scaling
-        typedef BOOL (WINAPI *BoolFuncPtr)();
-        
-        BoolFuncPtr proc = GetProcAddress(GetModuleHandle("user32.dll"), "SetProcessDPIAware");
+        BOOL (WINAPI* proc)() = (BOOL (WINAPI *)())(void*)GetProcAddress(GetModuleHandle("user32.dll"), "SetProcessDPIAware");
         if (proc)
             proc();
         
@@ -80,13 +78,13 @@ bool Window::SetSize(int width, int height, bool resizable)
         }
         wasMinimized = false;
 
-        SetWindowLongPtr((HWND)handle, GWL_USERDATA, (LONG)this);
+        SetWindowLongPtr((HWND)handle, GWLP_USERDATA, (LONG)this);
         ShowWindow((HWND)handle, SW_SHOW);
         return true;
     }
     else
     {
-        SetWindowLongPtr((HWND)handle, GWL_STYLE, windowStyle);
+        SetWindowLong((HWND)handle, GWL_STYLE, windowStyle);
         WINDOWPLACEMENT placement;
         placement.length = sizeof(placement);
         GetWindowPlacement((HWND)handle, &placement);
@@ -161,7 +159,7 @@ bool Window::IsResizable() const
 {
     if (handle)
     {
-        DWORD windowStyle = GetWindowLongPtr((HWND)handle, GWL_STYLE);
+        DWORD windowStyle = GetWindowLong((HWND)handle, GWL_STYLE);
         return (windowStyle & WS_THICKFRAME) != 0;
     }
     else
@@ -204,7 +202,7 @@ void Window::OnSizeChange(unsigned mode)
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    Window* window = reinterpret_cast<Window*>(GetWindowLongPtr(hwnd, GWL_USERDATA));
+    Window* window = reinterpret_cast<Window*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
     // When the window is just opening and has not assigned the userdata yet, let the default procedure handle the messages
     if (!window)
         return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -239,26 +237,26 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_SIZE:
-        window->OnSizeChange(wParam);
+        window->OnSizeChange((unsigned)wParam);
         break;
 
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
         if (input)
-            input->OnKey(wParam, (lParam >> 16) & 0xff, true);
+            input->OnKey((unsigned)wParam, (lParam >> 16) & 0xff, true);
         handled = true;
         break;
 
     case WM_KEYUP:
     case WM_SYSKEYUP:
         if (input)
-            input->OnKey(wParam, (lParam >> 16) & 0xff, false);
+            input->OnKey((unsigned)wParam, (lParam >> 16) & 0xff, false);
         handled = false;
         break;
 
     case WM_CHAR:
         if (input)
-            input->OnChar(wParam);
+            input->OnChar((unsigned)wParam);
         handled = false;
         break;
 
