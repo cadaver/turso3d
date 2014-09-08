@@ -63,7 +63,7 @@ public:
     /// Handle a window message. Return true if handled and should not be passed to the default window procedure.
     bool OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam);
 
-    /// Close requested (for example close button pressed) event.
+    /// Close requested event.
     Event closeRequestEvent;
     /// Gained focus event.
     Event gainFocusEvent;

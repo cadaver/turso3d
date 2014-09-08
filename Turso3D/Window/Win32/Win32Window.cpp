@@ -210,14 +210,14 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
     case WM_SYSKEYDOWN:
         if (input)
             input->OnKey(wParam, (lParam >> 16) & 0xff, true);
-        handled = true;
+        handled = (msg == WM_KEYDOWN);
         break;
 
     case WM_KEYUP:
     case WM_SYSKEYUP:
         if (input)
             input->OnKey(wParam, (lParam >> 16) & 0xff, false);
-        handled = true;
+        handled = (msg == WM_KEYUP);
         break;
 
     case WM_CHAR:
