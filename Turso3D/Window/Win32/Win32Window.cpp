@@ -18,7 +18,9 @@ static LRESULT CALLBACK WndProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM lParam
 Window::Window() :
     handle(0),
     title("Turso3D Window"),
-    wasMinimized(false)
+    minimized(false),
+    focus(false),
+    resizable(false)
 {
     RegisterSubsystem(this);
 }
@@ -36,12 +38,12 @@ void Window::SetTitle(const String& newTitle)
         SetWindowTextW((HWND)handle, WString(title).CString());
 }
 
-bool Window::SetSize(int width, int height, bool resizable)
+bool Window::SetSize(int width, int height, bool resizable_)
 {
     width = Max(width, 0);
     height = Max(height, 0);
     DWORD windowStyle = WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME & ~WS_MAXIMIZEBOX;
-    if (resizable)
+    if (resizable_)
         windowStyle |= WS_THICKFRAME | WS_MAXIMIZEBOX;
 
     if (!handle)
@@ -76,7 +78,13 @@ bool Window::SetSize(int width, int height, bool resizable)
             LOGERROR("Failed to create window");
             return false;
         }
-        wasMinimized = false;
+
+        GetClientRect((HWND)handle, &rect);
+        size.x = rect.right;
+        size.y = rect.bottom;
+        minimized = false;
+        focus = false;
+        resizable = resizable_;
 
         SetWindowLongPtr((HWND)handle, GWLP_USERDATA, (LONG)this);
         ShowWindow((HWND)handle, SW_SHOW);
@@ -131,185 +139,142 @@ void Window::PumpMessages()
     }
 }
 
-int Window::Width() const
+bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
 {
-    if (handle)
-    {
-        RECT rect;
-        GetClientRect((HWND)handle, &rect);
-        return rect.right;
-    }
-    else
-        return 0;
-}
-
-int Window::Height() const
-{
-    if (handle)
-    {
-        RECT rect;
-        GetClientRect((HWND)handle, &rect);
-        return rect.bottom;
-    }
-    else
-        return 0;
-}
-
-bool Window::IsResizable() const
-{
-    if (handle)
-    {
-        DWORD windowStyle = GetWindowLong((HWND)handle, GWL_STYLE);
-        return (windowStyle & WS_THICKFRAME) != 0;
-    }
-    else
-        return false;
-}
-
-bool Window::IsMinimized() const
-{
-    return handle ? IsIconic((HWND)handle) == TRUE : false;
-}
-
-bool Window::HasFocus() const
-{
-    return GetActiveWindow() == (HWND)handle;
-}
-
-void Window::OnClose()
-{
-    handle = 0;
-}
-
-void Window::OnSizeChange(unsigned mode)
-{
-    bool minimized = mode == SIZE_MINIMIZED;
-    if (minimized)
-        SendEvent(minimizeEvent);
-    else if (wasMinimized)
-        SendEvent(restoreEvent);
-    wasMinimized = minimized;
-
-    if (!minimized)
-    {
-        RECT rect;
-        GetClientRect((HWND)handle, &rect);
-        resizeEvent.width = rect.right;
-        resizeEvent.height = rect.bottom;
-        SendEvent(resizeEvent);
-    }
-}
-
-LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{
-    Window* window = reinterpret_cast<Window*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
-    // When the window is just opening and has not assigned the userdata yet, let the default procedure handle the messages
-    if (!window)
-        return DefWindowProc(hwnd, msg, wParam, lParam);
-
-    Input* input = Object::Subsystem<Input>();
+    Input* input = Subsystem<Input>();
     bool handled = false;
 
     switch (msg)
     {
     case WM_DESTROY:
-        window->OnClose();
+        handle = 0;
         break;
 
     case WM_CLOSE:
-        window->SendEvent(window->closeRequestEvent);
+        SendEvent(closeRequestEvent);
         handled = true;
         break;
 
     case WM_ACTIVATE:
-        if (LOWORD(wParam) != WA_INACTIVE)
         {
-            if (input)
-                input->OnGainFocus();
-            window->SendEvent(window->gainFocusEvent);
-        }
-        else
-        {
-            if (input)
-                input->OnLoseFocus();
-            window->SendEvent(window->loseFocusEvent);
+            bool newFocus = LOWORD(wParam) != WA_INACTIVE;
+            if (newFocus != focus)
+            {
+                focus = newFocus;
+                if (focus)
+                {
+                    SendEvent(gainFocusEvent);
+                    if (input)
+                        input->OnGainFocus();
+                }
+                else
+                {
+                    SendEvent(loseFocusEvent);
+                    if (input)
+                        input->OnLoseFocus();
+                }
+            }
         }
         break;
 
     case WM_SIZE:
-        window->OnSizeChange((unsigned)wParam);
+        {
+            bool newMinimized = (wParam == SIZE_MINIMIZED);
+            if (newMinimized != minimized)
+            {
+                minimized = newMinimized;
+                if (minimized)
+                    SendEvent(minimizeEvent);
+                else
+                    SendEvent(restoreEvent);
+            }
+
+            if (!minimized)
+            {
+                IntVector2 newSize;
+                RECT rect;
+                GetClientRect((HWND)handle, &rect);
+                newSize.x = rect.right;
+                newSize.y = rect.bottom;
+                if (newSize != size)
+                {
+                    size = newSize;
+                    resizeEvent.size = newSize;
+                    SendEvent(resizeEvent);
+                }
+            }
+        }
         break;
 
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
         if (input)
-            input->OnKey((unsigned)wParam, (lParam >> 16) & 0xff, true);
+            input->OnKey(wParam, (lParam >> 16) & 0xff, true);
         handled = true;
         break;
 
     case WM_KEYUP:
     case WM_SYSKEYUP:
         if (input)
-            input->OnKey((unsigned)wParam, (lParam >> 16) & 0xff, false);
-        handled = false;
+            input->OnKey(wParam, (lParam >> 16) & 0xff, false);
+        handled = true;
         break;
 
     case WM_CHAR:
         if (input)
-            input->OnChar((unsigned)wParam);
-        handled = false;
+            input->OnChar(wParam);
+        handled = true;
         break;
 
     case WM_MOUSEMOVE:
+        if (input)
         {
             IntVector2 newPosition;
             newPosition.x = (int)(short)LOWORD(lParam);
             newPosition.y = (int)(short)HIWORD(lParam);
-            if (input)
-                input->OnMouseMove(newPosition);
+            input->OnMouseMove(newPosition);
         }
+        handled = true;
         break;
 
     case WM_LBUTTONDOWN:
-        if (input)
-            input->OnMouseButton(MOUSEB_LEFT, true);
-        handled = true;
-        break;
-
-    case WM_NCLBUTTONUP:
-    case WM_LBUTTONUP:
-        if (input)
-            input->OnMouseButton(MOUSEB_LEFT, false);
-        handled = true;
-        break;
-
+    case WM_MBUTTONDOWN:
     case WM_RBUTTONDOWN:
         if (input)
-            input->OnMouseButton(MOUSEB_RIGHT, true);
+        {
+            unsigned button = (msg == WM_LBUTTONDOWN) ? MOUSEB_LEFT : (msg == WM_MBUTTONDOWN) ? MOUSEB_MIDDLE : MOUSEB_RIGHT;
+            input->OnMouseButton(button, true);
+            // Make sure we track the button release even if mouse moves outside the window
+            SetCapture((HWND)handle);
+        }
         handled = true;
         break;
 
-    case WM_NCRBUTTONUP:
+    case WM_LBUTTONUP:
+    case WM_MBUTTONUP:
     case WM_RBUTTONUP:
         if (input)
-            input->OnMouseButton(MOUSEB_RIGHT, false);
-        handled = true;
-        break;
-
-    case WM_MBUTTONDOWN:
-        if (input)
-            input->OnMouseButton(MOUSEB_MIDDLE, true);
-        handled = true;
-        break;
-
-    case WM_NCMBUTTONUP:
-    case WM_MBUTTONUP:
-        if (input)
-            input->OnMouseButton(MOUSEB_MIDDLE, false);
+        {
+            unsigned button = (msg == WM_LBUTTONUP) ? MOUSEB_LEFT : (msg == WM_MBUTTONUP) ? MOUSEB_MIDDLE : MOUSEB_RIGHT;
+            input->OnMouseButton(button, false);
+            // End capture when there are no more mouse buttons held down
+            if (!input->MouseButtons())
+                ReleaseCapture();
+        }
         handled = true;
         break;
     }
 
+    return handled;
+}
+
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    Window* window = reinterpret_cast<Window*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+    bool handled = false;
+    // When the window is just opening and has not assigned the userdata yet, let the default procedure handle the messages
+    if (window)
+        handled = window->OnWindowMessage(msg, (unsigned)wParam, (unsigned)lParam);
     return handled ? 0 : DefWindowProc(hwnd, msg, wParam, lParam);
 }
 

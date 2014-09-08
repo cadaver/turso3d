@@ -51,7 +51,7 @@ public:
 
     void HandleResize(WindowResizeEvent& event)
     {
-        printf("Window resized to %d %d\n", event.width, event.height);
+        printf("Window resized to %d %d\n", event.size.x, event.size.y);
     }
 
     void HandleGainFocus(Event& /* event */)

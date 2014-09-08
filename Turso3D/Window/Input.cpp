@@ -23,11 +23,13 @@ Input::~Input()
 
 void Input::Update()
 {
+    // Clear accumulated input & key/button presses
     mouseButtonsPressed = 0;
     mouseMove = IntVector2::ZERO;
     keyPressed.Clear();
     rawKeyPressed.Clear();
 
+    // The OS-specific window message handling will call back to Input and update the state
     Window* window = Subsystem<Window>();
     if (window)
         window->PumpMessages();

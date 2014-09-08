@@ -11,13 +11,11 @@ namespace Turso3D
 class TURSO3D_API WindowResizeEvent : public Event
 {
 public:
-    /// New window width.
-    int width;
-    /// New window height.
-    int height;
+    /// New window size.
+    IntVector2 size;
 };
 
-/// An operating system window, Win32 implementation.
+/// Operating system window, Win32 implementation.
 class TURSO3D_API Window : public Object
 {
     OBJECT(Window);
@@ -30,7 +28,7 @@ public:
 
     /// Set window title.
     void SetTitle(const String& newTitle);
-    /// Set window size. Opens the window if not opened yet. Return true on success.
+    /// Set window size. Open the window if not opened yet. Return true on success.
     bool SetSize(int width, int height, bool resizable);
     /// Close the window.
     void Close();
@@ -45,37 +43,37 @@ public:
 
     /// Return window title.
     const String& Title() const { return title; }
+    /// Return window client area size.
+    const IntVector2& Size() const { return size; }
     /// Return window client area width.
-    int Width() const;
+    int Width() const { return size.x; }
     /// Return window client area height.
-    int Height() const;
+    int Height() const { return size.y; }
     /// Return whether window is open.
     bool IsOpen() const { return handle != 0; }
     /// Return whether is resizable.
-    bool IsResizable() const;
+    bool IsResizable() const { return resizable; }
     /// Return whether is currently minimized.
-    bool IsMinimized() const;
+    bool IsMinimized() const { return minimized; }
     /// Return whether has input focus.
-    bool HasFocus() const;
+    bool HasFocus() const { return focus; }
     /// Return window handle. Can be cast to a HWND.
     void* Handle() const { return handle; }
 
-    /// Handle the window being closed. Called internally.
-    void OnClose();
-    /// Handle a size change, minimization or restore. Called internally.
-    void OnSizeChange(unsigned mode);
+    /// Handle a window message. Return true if handled and should not be passed to the default window procedure.
+    bool OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam);
 
-    /// Event for window close being requested.
+    /// Close requested (for example close button pressed) event.
     Event closeRequestEvent;
-    /// Event for window gaining focus.
+    /// Gained focus event.
     Event gainFocusEvent;
-    /// Event for window losing focus.
+    /// Lost focus event.
     Event loseFocusEvent;
-    /// Event for window being minimized.
+    /// Minimized event.
     Event minimizeEvent;
-    /// Event for window being restored after being minimized.
+    /// Restored after minimization -event.
     Event restoreEvent;
-    /// Event for window resized.
+    /// Size changed event.
     WindowResizeEvent resizeEvent;
 
 private:
@@ -83,8 +81,14 @@ private:
     void* handle;
     /// Window title.
     String title;
-    /// Previous minimization state.
-    bool wasMinimized;
+    /// Current client area size.
+    IntVector2 size;
+    /// Current minimization state.
+    bool minimized;
+    /// Current focus state.
+    bool focus;
+    /// Resizable flag.
+    bool resizable;
 };
 
 }
