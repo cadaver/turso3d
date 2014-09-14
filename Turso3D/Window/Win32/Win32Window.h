@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "../../Math/IntVector2.h"
 #include "../../Object/Object.h"
 
 namespace Turso3D

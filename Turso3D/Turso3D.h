@@ -11,6 +11,7 @@
 #include "Base/SharedPtr.h"
 #include "Debug/Log.h"
 #include "Debug/Profiler.h"
+#include "Graphics/Graphics.h"
 #include "IO/Arguments.h"
 #include "IO/Console.h"
 #include "IO/File.h"

@@ -21,6 +21,7 @@ public:
     {
         input = new Input();
         window = new Window();
+        window->SetTitle("Window test");
         window->SetSize(640, 480, true);
         printf("Window opened\n");
 

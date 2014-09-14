@@ -4,6 +4,43 @@ project (Turso3D)
 
 cmake_minimum_required (VERSION 2.8)
 
+# Find DirectX SDK
+# Based on realXtend Tundra CMake build system (https://github.com/realXtend/tundra)
+if (WIN32)
+    set (DIRECTX_INC_SEARCH_PATH
+        "$ENV{DIRECTX_ROOT}/Include"
+        "$ENV{DXSDK_DIR}/Include"
+        "C:/Program Files (x86)/Microsoft DirectX SDK*/Include"
+        "C:/Program Files/Microsoft DirectX SDK*/Include")
+    find_path (DIRECT3D_INCLUDE_DIRS d3d11.h ${DIRECTX_INC_SEARCH_PATH})
+
+    if (CMAKE_CL_64)
+        set (DIRECTX_LIB_SEARCH_PATH
+            "$ENV{DIRECTX_ROOT}/Lib/x64"
+            "$ENV{DXSDK_DIR}/Lib/x64"
+            "C:/Program Files (x86)/Microsoft DirectX SDK*/Lib/x64"
+            "C:/Program Files/Microsoft DirectX SDK*/Lib/x64")
+    else ()
+        set (DIRECTX_LIB_SEARCH_PATH
+            "$ENV{DIRECTX_ROOT}/Lib"
+            "$ENV{DIRECTX_ROOT}/Lib/x86"
+            "$ENV{DXSDK_DIR}/Lib"
+            "$ENV{DXSDK_DIR}/Lib/x86"
+            "C:/Program Files (x86)/Microsoft DirectX SDK*/Lib"
+            "C:/Program Files (x86)/Microsoft DirectX SDK*/Lib/x86"
+            "C:/Program Files/Microsoft DirectX SDK*/Lib"
+            "C:/Program Files/Microsoft DirectX SDK*/Lib/x86")
+    endif ()
+    find_library (DIRECT3D_LIBRARIES d3d11 ${DIRECTX_LIB_SEARCH_PATH})
+    find_library (DIRECT3D_COMPILER_LIBRARIES d3dcompiler ${DIRECTX_LIB_SEARCH_PATH})
+
+    if (DIRECT3D_INCLUDE_DIRS AND DIRECT3D_LIBRARIES AND DIRECT3D_COMPILER_LIBRARIES)
+        set (DIRECT3D_FOUND 1)
+        include (FindPackageMessage)
+        FIND_PACKAGE_MESSAGE (Direct3D "Found DirectX SDK: ${DIRECT3D_LIBRARIES} ${DIRECT3D_INCLUDE_DIRS}" "[${DIRECT3D_LIBRARIES}][${DIRECT3D_INCLUDE_DIRS}]")
+    endif ()
+endif ()
+
 # Compiler-specific setup
 if (MSVC)
     add_definitions (-D_CRT_SECURE_NO_WARNINGS)

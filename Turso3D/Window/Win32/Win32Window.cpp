@@ -130,6 +130,9 @@ void Window::Restore()
 
 void Window::PumpMessages()
 {
+    if (!handle)
+        return;
+
     MSG msg;
 
     while (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
