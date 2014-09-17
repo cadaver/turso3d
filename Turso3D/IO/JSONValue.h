@@ -188,7 +188,9 @@ private:
     static bool ReadJSONString(String& dest, const char*& pos, const char*& end, bool inQuote);
     /// Match until the end of a string. Return true if successfully matched.
     static bool MatchString(const char* str, const char*& pos, const char*& end);
-    
+    /// Scan until a character is found. Return true if successfully matched.
+    static bool MatchChar(char c, const char*& pos, const char*& end);
+
     /// Get the next char from a stream. Return true on success or false if the stream ended.
     static bool NextChar(char& dest, const char*& pos, const char*& end, bool skipWhiteSpace)
     {
