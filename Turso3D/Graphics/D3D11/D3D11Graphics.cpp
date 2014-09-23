@@ -5,6 +5,7 @@
 #include "D3D11Graphics.h"
 
 #include <d3d11.h>
+#include <dxgi.h>
 #include <cstdlib>
 
 #include "../../Debug/DebugNew.h"
@@ -20,7 +21,9 @@ struct GraphicsImpl
         device(0),
         deviceContext(0),
         swapChain(0),
-        backbufferView(0)
+        backbufferView(0),
+        depthTexture(0),
+        depthStencilView(0)
     {
     }
 
@@ -32,6 +35,10 @@ struct GraphicsImpl
     IDXGISwapChain* swapChain;
     /// Backbuffer rendertarget view.
     ID3D11RenderTargetView* backbufferView;
+    /// Default depth buffer texture.
+    ID3D11Texture2D* depthTexture;
+    /// Default depth stencil view.
+    ID3D11DepthStencilView* depthStencilView;
 };
 
 Graphics::Graphics()
@@ -61,6 +68,16 @@ void Graphics::Close()
     {
         impl->backbufferView->Release();
         impl->backbufferView = 0;
+    }
+    if (impl->depthStencilView)
+    {
+        impl->depthStencilView->Release();
+        impl->depthStencilView = 0;
+    }
+    if (impl->depthTexture)
+    {
+        impl->depthTexture->Release();
+        impl->depthTexture = 0;
     }
     if (impl->swapChain)
     {
@@ -98,6 +115,15 @@ void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDe
 
     if (clearFlags & CLEAR_COLOR)
         impl->deviceContext->ClearRenderTargetView(impl->backbufferView, clearColor.Data());
+    if (clearFlags & (CLEAR_DEPTH|CLEAR_STENCIL))
+    {
+        UINT depthClearFlags = 0;
+        if (clearFlags & CLEAR_DEPTH)
+            depthClearFlags |= D3D11_CLEAR_DEPTH;
+        if (clearFlags & CLEAR_STENCIL)
+            depthClearFlags |= D3D11_CLEAR_STENCIL;
+        impl->deviceContext->ClearDepthStencilView(impl->depthStencilView, depthClearFlags, clearDepth, clearStencil);
+    }
 }
 
 void Graphics::Present()
@@ -114,6 +140,8 @@ bool Graphics::CreateDevice()
     memset(&swapChainDesc, 0, sizeof swapChainDesc);
 
     swapChainDesc.BufferCount = 1;
+    swapChainDesc.BufferDesc.Width = window->Width();
+    swapChainDesc.BufferDesc.Height = window->Height();
     swapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     swapChainDesc.OutputWindow = (HWND)window->Handle();
@@ -141,6 +169,15 @@ bool Graphics::CreateDevice()
         return false;
     }
 
+    // Disable automatic fullscreen switching
+    IDXGIFactory* factory;
+    impl->swapChain->GetParent(__uuidof(IDXGIFactory), (void**)&factory);
+    if (factory)
+    {
+        factory->MakeWindowAssociation((HWND)window->Handle(), DXGI_MWA_NO_ALT_ENTER);
+        factory->Release();
+    }
+
     // Get the backbuffer
     ID3D11Texture2D* backbufferTexture;
     impl->swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&backbufferTexture);
@@ -148,11 +185,30 @@ bool Graphics::CreateDevice()
     {
         impl->device->CreateRenderTargetView(backbufferTexture, NULL, &impl->backbufferView);
         backbufferTexture->Release();
-        /// \todo Get depth stencil
-        impl->deviceContext->OMSetRenderTargets(1, &impl->backbufferView, NULL);
     }
     else
         LOGERROR("Failed to get backbuffer texture");
+
+    // Create default depth stencil
+    D3D11_TEXTURE2D_DESC depthDesc;
+    depthDesc.Width = window->Width();
+    depthDesc.Height = window->Height();
+    depthDesc.MipLevels = 1;
+    depthDesc.ArraySize = 1;
+    depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    depthDesc.SampleDesc.Count = 1;
+    depthDesc.SampleDesc.Quality = 0;
+    depthDesc.Usage = D3D11_USAGE_DEFAULT;
+    depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+    depthDesc.CPUAccessFlags = 0;
+    depthDesc.MiscFlags = 0;
+    impl->device->CreateTexture2D(&depthDesc, NULL, &impl->depthTexture);
+    if (impl->depthTexture)
+        impl->device->CreateDepthStencilView(impl->depthTexture, NULL, &impl->depthStencilView);
+    else
+        LOGERROR("Failed to create depth texture");
+
+    impl->deviceContext->OMSetRenderTargets(1, &impl->backbufferView, impl->depthStencilView);
 
     return true;
 }

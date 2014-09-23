@@ -43,7 +43,7 @@ add_library (${TARGET_NAME} STATIC ${SOURCE_FILES})
 include_directories (ThirdParty/STB)
 
 if (WIN32)
-    target_link_libraries (${TARGET_NAME} winmm d3d11)
+    target_link_libraries (${TARGET_NAME} winmm d3d11 dxgi)
 else ()
     target_link_libraries (${TARGET_NAME} pthread)
 endif ()
