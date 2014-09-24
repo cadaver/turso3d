@@ -41,11 +41,13 @@ struct GraphicsImpl
     ID3D11DepthStencilView* depthStencilView;
 };
 
-Graphics::Graphics()
+Graphics::Graphics() :
+    backBufferSize(IntVector2::ZERO)
 {
     RegisterSubsystem(this);
     impl = new GraphicsImpl();
     window = new Window();
+    SubscribeToEvent(window->resizeEvent, &Graphics::HandleResize);
 }
 
 Graphics::~Graphics()
@@ -59,7 +61,10 @@ bool Graphics::SetMode(int width, int height, bool resizable)
     if (!window->SetSize(width, height, resizable))
         return false;
     
-    return CreateDevice();
+    if (!impl->device)
+        return CreateDevice();
+    else
+        return UpdateBuffersAndViews();
 }
 
 void Graphics::Close()
@@ -96,6 +101,8 @@ void Graphics::Close()
     }
     
     window->Close();
+    
+    backBufferSize = IntVector2::ZERO;
 }
 
 bool Graphics::IsInitialized() const
@@ -136,6 +143,9 @@ void Graphics::Present()
 
 bool Graphics::CreateDevice()
 {
+    if (impl->device)
+        return true; // Already exists
+
     DXGI_SWAP_CHAIN_DESC swapChainDesc;
     memset(&swapChainDesc, 0, sizeof swapChainDesc);
 
@@ -178,6 +188,19 @@ bool Graphics::CreateDevice()
         factory->Release();
     }
 
+    return UpdateBuffersAndViews();
+}
+
+bool Graphics::UpdateBuffersAndViews()
+{
+    bool success = true;
+
+    // Update internally held backbuffer size
+    backBufferSize.x = window->Width();
+    backBufferSize.y = window->Height();
+
+    impl->swapChain->ResizeBuffers(1, window->Width(), window->Height(), DXGI_FORMAT_UNKNOWN, 0);
+
     // Get the backbuffer
     ID3D11Texture2D* backbufferTexture;
     impl->swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&backbufferTexture);
@@ -187,12 +210,21 @@ bool Graphics::CreateDevice()
         backbufferTexture->Release();
     }
     else
+    {
         LOGERROR("Failed to get backbuffer texture");
+        success = false;
+    }
+
+    if (impl->depthTexture)
+    {
+        impl->depthTexture->Release();
+        impl->depthTexture = 0;
+    }
 
     // Create default depth stencil
     D3D11_TEXTURE2D_DESC depthDesc;
-    depthDesc.Width = window->Width();
-    depthDesc.Height = window->Height();
+    depthDesc.Width = backBufferSize.x;
+    depthDesc.Height = backBufferSize.y;
     depthDesc.MipLevels = 1;
     depthDesc.ArraySize = 1;
     depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -206,11 +238,20 @@ bool Graphics::CreateDevice()
     if (impl->depthTexture)
         impl->device->CreateDepthStencilView(impl->depthTexture, NULL, &impl->depthStencilView);
     else
+    {
         LOGERROR("Failed to create depth texture");
+        success = false;
+    }
 
     impl->deviceContext->OMSetRenderTargets(1, &impl->backbufferView, impl->depthStencilView);
-
     return true;
+}
+
+void Graphics::HandleResize(WindowResizeEvent& /*event*/)
+{
+    // If already have a swapchain, resize it
+    if (impl->swapChain && (window->Width() != backBufferSize.x || window->Height() != backBufferSize.y))
+        UpdateBuffersAndViews();
 }
 
 }

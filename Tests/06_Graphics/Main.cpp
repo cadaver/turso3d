@@ -22,7 +22,7 @@ public:
         input = new Input();
         graphics = new Graphics();
         graphics->RenderWindow()->SetTitle("Graphics test");
-        graphics->SetMode(640, 480, false);
+        graphics->SetMode(640, 480, true);
 
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &GraphicsTest::HandleCloseRequest);
         
