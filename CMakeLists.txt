@@ -31,13 +31,18 @@ if (WIN32)
             "C:/Program Files/Microsoft DirectX SDK*/Lib"
             "C:/Program Files/Microsoft DirectX SDK*/Lib/x86")
     endif ()
-    find_library (DIRECT3D_LIBRARIES d3d11 ${DIRECTX_LIB_SEARCH_PATH})
-    find_library (DIRECT3D_COMPILER_LIBRARIES d3dcompiler ${DIRECTX_LIB_SEARCH_PATH})
+    find_library (D3D11_LIBRARY d3d11 ${DIRECTX_LIB_SEARCH_PATH})
+    find_library (DXGI_LIBRARY dxgi ${DIRECTX_LIB_SEARCH_PATH})
+    find_library (D3DCOMPILER_LIBRARY d3dcompiler ${DIRECTX_LIB_SEARCH_PATH})
 
-    if (DIRECT3D_INCLUDE_DIRS AND DIRECT3D_LIBRARIES AND DIRECT3D_COMPILER_LIBRARIES)
+    if (DIRECT3D_INCLUDE_DIRS AND D3D11_LIBRARY AND DXGI_LIBRARY AND D3DCOMPILER_LIBRARY)
         set (DIRECT3D_FOUND 1)
+        set (DIRECT3D_LIBRARIES ${D3D11_LIBRARY} ${DXGI_LIBRARY} ${D3DCOMPILER_LIBRARY})
         include (FindPackageMessage)
         FIND_PACKAGE_MESSAGE (Direct3D "Found DirectX SDK: ${DIRECT3D_LIBRARIES} ${DIRECT3D_INCLUDE_DIRS}" "[${DIRECT3D_LIBRARIES}][${DIRECT3D_INCLUDE_DIRS}]")
+    else ()
+        # If DirectX SDK not found, assume the includes & libs are found in Windows SDK
+        set (DIRECT3D_LIBRARIES d3d11 dxgi d3dcompiler)
     endif ()
 endif ()
 
