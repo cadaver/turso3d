@@ -26,11 +26,9 @@ public:
     ~Graphics();
 
     /// Set graphics mode. Create the window and rendering context if not created yet. Return true on success.
-    bool SetMode(int width, int height, bool resizable);
-    /// Return backbuffer width, or 0 if not initialized.
-    int Width() const { return backBufferSize.x; }
-    /// Return backbuffer height, or 0 if not initialized.
-    int Height() const { return backBufferSize.y; }
+    bool SetMode(int width, int height, bool fullscreen, bool resizable);
+    /// Switch between fullscreen/windowed while retaining previous resolution. Return true on success.
+    bool SwitchFullscreen();
     /// Close the window and destroy the rendering context and GPU objects.
     void Close();
     /// Clear the current rendertarget.
@@ -40,14 +38,20 @@ public:
 
     /// Return whether has the rendering window and context.
     bool IsInitialized() const;
+    /// Return backbuffer width, or 0 if not initialized.
+    int Width() const { return backbufferSize.x; }
+    /// Return backbuffer height, or 0 if not initialized.
+    int Height() const { return backbufferSize.y; }
+    /// Return whether is using fullscreen mode
+    bool IsFullscreen() const { return fullscreen; }
     /// Return the rendering window.
     Window* RenderWindow() const;
 
 private:
     /// Create the D3D11 device and swap chain. Requires an open window. Return true on success.
     bool CreateDevice();
-    /// Update buffers to match window size and create default views for the backbuffer and depth buffer. Return true on success.
-    bool UpdateBuffersAndViews();
+    /// Update swap chain state for a new mode and create views for the backbuffer & default depth buffer.
+    bool UpdateSwapChain(int width, int height, bool fullscreen);
     /// Resize the backbuffer when window size changes.
     void HandleResize(WindowResizeEvent& event);
 
@@ -56,7 +60,9 @@ private:
     /// OS-level rendering window.
     AutoPtr<Window> window;
     /// Current size of the backbuffer.
-    IntVector2 backBufferSize;
+    IntVector2 backbufferSize;
+    /// Fullscreen flag.
+    bool fullscreen;
 };
 
 }

@@ -22,13 +22,22 @@ public:
         input = new Input();
         graphics = new Graphics();
         graphics->RenderWindow()->SetTitle("Graphics test");
-        graphics->SetMode(640, 480, true);
+        graphics->SetMode(640, 480, false, true);
 
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &GraphicsTest::HandleCloseRequest);
         
         while (graphics->RenderWindow()->IsOpen())
         {
             input->Update();
+            // Switch fullscreen
+            if (input->KeyPressed('F'))
+                graphics->SwitchFullscreen();
+            if (input->KeyPressed(27))
+            {
+                graphics->Close();
+                break;
+            }
+
             graphics->Clear(CLEAR_COLOR, Color(Random(), Random(), Random()));
             graphics->Present();
         }
