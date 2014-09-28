@@ -19,6 +19,7 @@ class GraphicsTest : public Object
 public:
     void Run()
     {
+        log = new Log();
         input = new Input();
         graphics = new Graphics();
         graphics->RenderWindow()->SetTitle("Graphics test");
@@ -46,23 +47,25 @@ public:
             "VOut main(float3 position : POSITION)"
             "{"
             "   VOut output;"
-            "   output.position = float4(position, 1.0f);"
+            "   output.position = float4(position, 1);"
             "   return output;"
             "}";
 
         String psCode =
             "float4 main(float4 position : SV_POSITION) : SV_TARGET"
             "{"
-            "   return color;"
+            "   return float4(1, 1, 1, 1);"
             "}";
 
         AutoPtr<VertexBuffer> vb = new VertexBuffer();
         AutoPtr<IndexBuffer> ib = new IndexBuffer();
-        vb->Define(3, ELEMENT_POSITION, false, true, vertexData);
+        vb->Define(3, MASK_POSITION, false, true, vertexData);
         ib->Define(3, sizeof(unsigned short), false, true, indexData);
 
         AutoPtr<Shader> vs = new Shader();
         AutoPtr<Shader> ps = new Shader();
+        vs->SetName("Test.vs");
+        ps->SetName("Test.ps");
         vs->Define(SHADER_VS, vsCode);
         ps->Define(SHADER_PS, psCode);
         ShaderVariation* vsv = vs->CreateVariation();
@@ -96,6 +99,7 @@ public:
 
     AutoPtr<Graphics> graphics;
     AutoPtr<Input> input;
+    AutoPtr<Log> log;
 };
 
 int main()

@@ -263,7 +263,7 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
 
     if (ps != pixelShader)
     {
-        if (ps && ps->Stage() == SHADER_VS)
+        if (ps && ps->Stage() == SHADER_PS)
         {
             if (!ps->IsCompiled())
                 ps->Compile();

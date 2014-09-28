@@ -117,6 +117,8 @@ bool VertexBuffer::Define(size_t numVertices_, unsigned elementMask_, bool dynam
             LOGERROR("Failed to create vertex buffer");
             return false;
         }
+        else
+            LOGDEBUGF("Created vertex buffer size %d vertexSize %d", numVertices, vertexSize);
     }
 
     return true;

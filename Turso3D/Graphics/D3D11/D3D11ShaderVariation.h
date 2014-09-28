@@ -28,6 +28,8 @@ public:
     
     /// Return the parent shader resource.
     Shader* Parent() const;
+    /// Return full name combined from parent resource name and compilation defines.
+    String FullName() const;
     /// Return shader stage.
     ShaderStage Stage() const { return stage; }
     /// Return the D3D11 shader byte blob. Null if not compiled yet or compile failed.

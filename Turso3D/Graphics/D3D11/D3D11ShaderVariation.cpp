@@ -64,6 +64,8 @@ bool ShaderVariation::Compile()
     if (compiled)
         return shader != 0;
 
+    PROFILE(CompileShaderVariation);
+
     // Do not retry without a Release() inbetween
     compiled = true;
 
@@ -114,7 +116,7 @@ bool ShaderVariation::Compile()
         if (errorBlob)
         {
             String errorString((const char*)errorBlob->GetBufferPointer());
-            LOGERROR("Failed to compile shader " + parent->Name() + " with defines " + defines + ": " + errorString);
+            LOGERROR("Failed to compile shader " + FullName() + ": " + errorString);
             errorBlob->Release();
         }
         return false;
@@ -136,11 +138,26 @@ bool ShaderVariation::Compile()
 
     if (!shader)
     {
-        LOGERROR("Failed to compile shader " + parent->Name() + " with defines " + defines);
+        LOGERROR("Failed to create shader " + FullName());
         return false;
     }
-
+    else
+        LOGDEBUGF("Compiled shader %s bytecode size %d", FullName().CString(), d3dBlob->GetBufferSize());
+    
     return true;
+}
+
+Shader* ShaderVariation::Parent() const
+{
+    return parent;
+}
+
+String ShaderVariation::FullName() const
+{
+    if (parent)
+        return defines.IsEmpty() ? parent->Name() : parent->Name() + " (" + defines + ")";
+    else
+        return String::EMPTY;
 }
 
 }

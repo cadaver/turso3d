@@ -95,6 +95,8 @@ bool IndexBuffer::Define(size_t numIndices_, size_t indexSize_, bool dynamic, bo
             LOGERROR("Failed to create index buffer");
             return false;
         }
+        else
+            LOGDEBUGF("Created index buffer size %d indexSize %d", numIndices, indexSize);
     }
 
     return true;

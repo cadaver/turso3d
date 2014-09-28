@@ -29,7 +29,7 @@ Log::Log() :
 #else
     level(LOG_INFO),
 #endif
-    timeStamp(true),
+    timeStamp(false),
     inWrite(false),
     quiet(false)
 {
