@@ -228,9 +228,9 @@ public:
     /// Insert a range by iterators.
     void Insert(const ConstIterator& start, const ConstIterator& end)
     {
-        ConstIterator i = start;
-        while (i != end)
-            Insert(*i++);
+        ConstIterator it = start;
+        while (it != end)
+            Insert(*it++);
     }
     
     /// Erase a pair by key. Return true if was found.

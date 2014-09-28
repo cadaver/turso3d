@@ -26,6 +26,52 @@ public:
 
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &GraphicsTest::HandleCloseRequest);
         
+        float vertexData[] = {
+            -1.0f, 1.0f, 0.0f,
+            1.0f, 1.0f, 0.0f,
+            1.0f, -1.0f, 0.0f
+        };
+
+        unsigned short indexData[] = {
+            0,
+            1,
+            2
+        };
+
+        String vsCode = 
+            "struct VOut"
+            "{"
+            "   float4 position : SV_POSITION;"
+            "};"
+            "VOut main(float3 position : POSITION)"
+            "{"
+            "   VOut output;"
+            "   output.position = float4(position, 1.0f);"
+            "   return output;"
+            "}";
+
+        String psCode =
+            "float4 main(float4 position : SV_POSITION) : SV_TARGET"
+            "{"
+            "   return color;"
+            "}";
+
+        AutoPtr<VertexBuffer> vb = new VertexBuffer();
+        AutoPtr<IndexBuffer> ib = new IndexBuffer();
+        vb->Define(3, ELEMENT_POSITION, false, true, vertexData);
+        ib->Define(3, sizeof(unsigned short), false, true, indexData);
+
+        AutoPtr<Shader> vs = new Shader();
+        AutoPtr<Shader> ps = new Shader();
+        vs->Define(SHADER_VS, vsCode);
+        ps->Define(SHADER_PS, psCode);
+        ShaderVariation* vsv = vs->CreateVariation();
+        ShaderVariation* psv = ps->CreateVariation();
+
+        graphics->SetVertexBuffer(0, vb);
+        graphics->SetIndexBuffer(ib);
+        graphics->SetShaders(vsv, psv);
+
         while (graphics->RenderWindow()->IsOpen())
         {
             input->Update();

@@ -2,7 +2,11 @@
 
 #include "../../Debug/Log.h"
 #include "../../Window/Window.h"
+#include "../GPUObject.h"
 #include "D3D11Graphics.h"
+#include "D3D11IndexBuffer.h"
+#include "D3D11ShaderVariation.h"
+#include "D3D11VertexBuffer.h"
 
 #include <d3d11.h>
 #include <dxgi.h>
@@ -43,12 +47,14 @@ struct GraphicsImpl
 
 Graphics::Graphics() :
     backbufferSize(IntVector2::ZERO),
-    fullscreen(false)
+    fullscreen(false),
+    inResize(false)
 {
     RegisterSubsystem(this);
     impl = new GraphicsImpl();
     window = new Window();
     SubscribeToEvent(window->resizeEvent, &Graphics::HandleResize);
+    ResetState();
 }
 
 Graphics::~Graphics()
@@ -59,8 +65,7 @@ Graphics::~Graphics()
 
 bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
 {
-    // Setting window size only required if window not open yet, otherwise the swapchain
-    // takes care of resizing
+    // Setting window size only required if window not open yet, otherwise the swapchain takes care of resizing
     if (!window->IsOpen())
     {
         if (!window->SetSize(width, height, resizable))
@@ -84,6 +89,13 @@ bool Graphics::SwitchFullscreen()
 
 void Graphics::Close()
 {
+    // Release all GPU objects
+    for (Vector<GPUObject*>::Iterator it = gpuObjects.Begin(); it != gpuObjects.End(); ++it)
+    {
+        GPUObject* object = *it;
+        object->Release();
+    }
+
     if (impl->backbufferView)
     {
         impl->backbufferView->Release();
@@ -116,8 +128,8 @@ void Graphics::Close()
     }
     
     window->Close();
-    
     backbufferSize = IntVector2::ZERO;
+    ResetState();
 }
 
 bool Graphics::IsInitialized() const
@@ -128,6 +140,33 @@ bool Graphics::IsInitialized() const
 Window* Graphics::RenderWindow() const
 {
     return window;
+}
+
+void* Graphics::Device() const
+{
+    return impl->device;
+}
+
+void* Graphics::DeviceContext() const
+{
+    return impl->deviceContext;
+}
+
+VertexBuffer* Graphics::CurrentVertexBuffer(size_t index) const
+{
+    return index < MAX_VERTEX_STREAMS ? vertexBuffers[index] : (VertexBuffer*)0;
+}
+
+void Graphics::AddGPUObject(GPUObject* object)
+{
+    if (object)
+        gpuObjects.Push(object);
+}
+
+void Graphics::RemoveGPUObject(GPUObject* object)
+{
+    // Note: implies a linear search, needs to be profiled whether becomes a problem with a large number of objects
+    gpuObjects.Remove(object);
 }
 
 void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDepth, unsigned char clearStencil)
@@ -156,6 +195,87 @@ void Graphics::Present()
     impl->swapChain->Present(0, 0);
 }
 
+void Graphics::SetVertexBuffer(size_t index, VertexBuffer* buffer)
+{
+    if (!impl->device)
+        return;
+
+    if (index < MAX_VERTEX_STREAMS && vertexBuffers[index] != buffer)
+    {
+        vertexBuffers[index] = buffer;
+        if (buffer)
+        {
+            ID3D11Buffer* d3dBuffer = (ID3D11Buffer*)buffer->Buffer();
+            UINT stride = buffer->VertexSize();
+            UINT offset = 0;
+            impl->deviceContext->IASetVertexBuffers(index, 1, &d3dBuffer, &stride, &offset);
+        }
+        else
+        {
+            ID3D11Buffer* d3dBuffer = 0;
+            UINT zero = 0;
+            impl->deviceContext->IASetVertexBuffers(index, 1, &d3dBuffer, &zero, &zero);
+        }
+        inputLayoutDirty = true;
+    }
+}
+
+void Graphics::SetIndexBuffer(IndexBuffer* buffer)
+{
+    if (!impl->device)
+        return;
+
+    if (indexBuffer != buffer)
+    {
+        indexBuffer = buffer;
+        if (buffer)
+            impl->deviceContext->IASetIndexBuffer((ID3D11Buffer*)buffer->Buffer(), buffer->IndexSize() == sizeof(unsigned short) ?
+                DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
+        else
+            impl->deviceContext->IASetIndexBuffer(0, DXGI_FORMAT_UNKNOWN, 0);
+    }
+}
+
+void Graphics::ResetVertexBuffers()
+{
+    for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
+        SetVertexBuffer(i, 0);
+}
+
+void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
+{
+    if (!impl->device)
+        return;
+
+    if (vs != vertexShader)
+    {
+        if (vs && vs->Stage() == SHADER_VS)
+        {
+            if (!vs->IsCompiled())
+                vs->Compile();
+            impl->deviceContext->VSSetShader((ID3D11VertexShader*)vs->CompiledShader(), 0, 0);
+        }
+        else
+            impl->deviceContext->VSSetShader(0, 0, 0);
+
+        vertexShader = vs;
+    }
+
+    if (ps != pixelShader)
+    {
+        if (ps && ps->Stage() == SHADER_VS)
+        {
+            if (!ps->IsCompiled())
+                ps->Compile();
+            impl->deviceContext->PSSetShader((ID3D11PixelShader*)ps->CompiledShader(), 0, 0);
+        }
+        else
+            impl->deviceContext->PSSetShader(0, 0, 0);
+
+        pixelShader = ps;
+    }
+}
+
 bool Graphics::CreateDevice()
 {
     if (impl->device)
@@ -175,17 +295,17 @@ bool Graphics::CreateDevice()
     swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
     D3D11CreateDeviceAndSwapChain(
-        NULL,
+        0,
         D3D_DRIVER_TYPE_HARDWARE,
-        NULL,
-        NULL,
-        NULL,
-        NULL,
+        0,
+        0,
+        0,
+        0,
         D3D11_SDK_VERSION,
         &swapChainDesc,
         &impl->swapChain,
         &impl->device,
-        NULL,
+        0,
         &impl->deviceContext
     );
 
@@ -209,7 +329,29 @@ bool Graphics::CreateDevice()
 
 bool Graphics::UpdateSwapChain(int width, int height, bool fullscreen_)
 {
+    if (inResize)
+        return true;
+
+    inResize = true;
     bool success = true;
+
+    ID3D11RenderTargetView* nullView = 0;
+    impl->deviceContext->OMSetRenderTargets(1, &nullView, (ID3D11DepthStencilView*)0);
+    if (impl->backbufferView)
+    {
+        impl->backbufferView->Release();
+        impl->backbufferView = 0;
+    }
+    if (impl->depthStencilView)
+    {
+        impl->depthStencilView->Release();
+        impl->depthStencilView = 0;
+    }
+    if (impl->depthTexture)
+    {
+        impl->depthTexture->Release();
+        impl->depthTexture = 0;
+    }
 
     DXGI_MODE_DESC modeDesc;
     memset(&modeDesc, 0, sizeof modeDesc);
@@ -222,11 +364,11 @@ bool Graphics::UpdateSwapChain(int width, int height, bool fullscreen_)
     if (fullscreen_)
     {
         impl->swapChain->ResizeTarget(&modeDesc);
-        impl->swapChain->SetFullscreenState(fullscreen_, NULL);
+        impl->swapChain->SetFullscreenState(fullscreen_, 0);
     }
     else
     {
-        impl->swapChain->SetFullscreenState(fullscreen_, NULL);
+        impl->swapChain->SetFullscreenState(fullscreen_, 0);
         impl->swapChain->ResizeTarget(&modeDesc);
     }
 
@@ -244,19 +386,13 @@ bool Graphics::UpdateSwapChain(int width, int height, bool fullscreen_)
     impl->swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&backbufferTexture);
     if (backbufferTexture)
     {
-        impl->device->CreateRenderTargetView(backbufferTexture, NULL, &impl->backbufferView);
+        impl->device->CreateRenderTargetView(backbufferTexture, 0, &impl->backbufferView);
         backbufferTexture->Release();
     }
     else
     {
         LOGERROR("Failed to get backbuffer texture");
         success = false;
-    }
-
-    if (impl->depthTexture)
-    {
-        impl->depthTexture->Release();
-        impl->depthTexture = 0;
     }
 
     // Create default depth stencil
@@ -272,9 +408,9 @@ bool Graphics::UpdateSwapChain(int width, int height, bool fullscreen_)
     depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
     depthDesc.CPUAccessFlags = 0;
     depthDesc.MiscFlags = 0;
-    impl->device->CreateTexture2D(&depthDesc, NULL, &impl->depthTexture);
+    impl->device->CreateTexture2D(&depthDesc, 0, &impl->depthTexture);
     if (impl->depthTexture)
-        impl->device->CreateDepthStencilView(impl->depthTexture, NULL, &impl->depthStencilView);
+        impl->device->CreateDepthStencilView(impl->depthTexture, 0, &impl->depthStencilView);
     else
     {
         LOGERROR("Failed to create depth texture");
@@ -288,6 +424,7 @@ bool Graphics::UpdateSwapChain(int width, int height, bool fullscreen_)
     backbufferSize.y = height;
     fullscreen = fullscreen_;
 
+    inResize = false;
     return success;
 }
 
@@ -296,6 +433,16 @@ void Graphics::HandleResize(WindowResizeEvent& /*event*/)
     // Handle windowed mode resize
     if (impl->swapChain && !fullscreen && (window->Width() != backbufferSize.x || window->Height() != backbufferSize.y))
         UpdateSwapChain(window->Width(), window->Height(), false);
+}
+
+void Graphics::ResetState()
+{
+    for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
+        vertexBuffers[i] = 0;
+    indexBuffer = 0;
+    vertexShader = 0;
+    pixelShader = 0;
+    inputLayoutDirty = false;
 }
 
 }

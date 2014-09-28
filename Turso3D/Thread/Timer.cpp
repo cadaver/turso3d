@@ -63,7 +63,7 @@ unsigned Timer::ElapsedMSec(bool reset)
     unsigned currentTime = timeGetTime();
     #else
     struct timeval time;
-    gettimeofday(&time, NULL);
+    gettimeofday(&time, 0);
     unsigned currentTime = time.tv_sec * 1000 + time.tv_usec / 1000;
     #endif
     
@@ -80,7 +80,7 @@ void Timer::Reset()
     startTime = timeGetTime();
     #else
     struct timeval time;
-    gettimeofday(&time, NULL);
+    gettimeofday(&time, 0);
     startTime = time.tv_sec * 1000 + time.tv_usec / 1000;
     #endif
 }
@@ -105,7 +105,7 @@ long long HiresTimer::ElapsedUSec(bool reset)
         currentTime = timeGetTime();
     #else
     struct timeval time;
-    gettimeofday(&time, NULL);
+    gettimeofday(&time, 0);
     currentTime = time.tv_sec * 1000000LL + time.tv_usec;
     #endif
     
@@ -134,7 +134,7 @@ void HiresTimer::Reset()
         startTime = timeGetTime();
     #else
     struct timeval time;
-    gettimeofday(&time, NULL);
+    gettimeofday(&time, 0);
     startTime = time.tv_sec * 1000000LL + time.tv_usec;
     #endif
 }
