@@ -47,6 +47,10 @@ public:
     void ResetVertexBuffers();
     /// Bind vertex and pixel shaders.
     void SetShaders(ShaderVariation* vs, ShaderVariation* ps);
+    /// Draw non-indexed geometry.
+    void Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount);
+    /// Draw indexed geometry.
+    void DrawIndexed(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart = 0);
 
     /// Return whether has the rendering window and context.
     bool IsInitialized() const;
@@ -83,6 +87,8 @@ private:
     bool UpdateSwapChain(int width, int height, bool fullscreen);
     /// Resize the backbuffer when window size changes.
     void HandleResize(WindowResizeEvent& event);
+    /// Set topology, and find or create an input layout for the currently set vertex buffers and vertex shader.
+    void PrepareDraw(PrimitiveType type);
     /// Reset internally tracked state.
     void ResetState();
 
@@ -94,6 +100,8 @@ private:
     IntVector2 backbufferSize;
     /// GPU objects.
     Vector<GPUObject*> gpuObjects;
+    /// Input layouts.
+    HashMap<unsigned long long, void*> inputLayouts;
     /// Bound vertex buffers.
     VertexBuffer* vertexBuffers[MAX_VERTEX_STREAMS];
     /// Bound index buffer.
@@ -102,6 +110,10 @@ private:
     ShaderVariation* vertexShader;
     /// Bound pixel shader.
     ShaderVariation* pixelShader;
+    /// Current primitive type.
+    PrimitiveType primitiveType;
+    /// Current input layout (total vertex element mask.)
+    unsigned long long inputLayout;
     /// Fullscreen flag.
     bool fullscreen;
     /// Resize handling flag to prevent recursion.

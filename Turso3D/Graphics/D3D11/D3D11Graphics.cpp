@@ -17,6 +17,62 @@
 namespace Turso3D
 {
 
+const char* elementSemantic[] = {
+    "POSITION",
+    "NORMAL",
+    "COLOR",
+    "TEXCOORD",
+    "TEXCOORD",
+    "CUBETEXCOORD",
+    "CUBETEXCOORD",
+    "TANGENT",
+    "BLENDWEIGHTS",
+    "BLENDINDICES",
+    "INSTANCEMATRIX",
+    "INSTANCEMATRIX",
+    "INSTANCEMATRIX"
+};
+
+UINT elementSemanticIndex[] = {
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+    2
+};
+
+DXGI_FORMAT elementFormat[] = {
+    DXGI_FORMAT_R32G32B32_FLOAT,
+    DXGI_FORMAT_R32G32B32_FLOAT,
+    DXGI_FORMAT_R8G8B8A8_UNORM,
+    DXGI_FORMAT_R32G32_FLOAT,
+    DXGI_FORMAT_R32G32_FLOAT,
+    DXGI_FORMAT_R32G32B32_FLOAT,
+    DXGI_FORMAT_R32G32B32_FLOAT,
+    DXGI_FORMAT_R32G32B32A32_FLOAT,
+    DXGI_FORMAT_R32G32B32A32_FLOAT,
+    DXGI_FORMAT_R8G8B8A8_UNORM,
+    DXGI_FORMAT_R32G32B32A32_FLOAT,
+    DXGI_FORMAT_R32G32B32A32_FLOAT,
+    DXGI_FORMAT_R32G32B32A32_FLOAT
+};
+
+D3D11_PRIMITIVE_TOPOLOGY primitiveTopology[] = {
+    D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+    D3D11_PRIMITIVE_TOPOLOGY_LINELIST,
+    D3D11_PRIMITIVE_TOPOLOGY_POINTLIST,
+    D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP,
+    D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP
+};
+
 /// %Graphics implementation. Holds OS-specific rendering API objects.
 struct GraphicsImpl
 {
@@ -95,6 +151,13 @@ void Graphics::Close()
         GPUObject* object = *it;
         object->Release();
     }
+
+    for (HashMap<unsigned long long, void*>::Iterator it = inputLayouts.Begin(); it != inputLayouts.End(); ++it)
+    {
+        ID3D11InputLayout* d3dLayout = (ID3D11InputLayout*)it->second;
+        d3dLayout->Release();
+    }
+    inputLayouts.Clear();
 
     if (impl->backbufferView)
     {
@@ -276,6 +339,24 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
     }
 }
 
+void Graphics::Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount)
+{
+    if (!impl->device)
+        return;
+
+    PrepareDraw(type);
+    impl->deviceContext->Draw((UINT)vertexCount, (UINT)vertexStart);
+}
+
+void Graphics::DrawIndexed(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart)
+{
+    if (!impl->device)
+        return;
+
+    PrepareDraw(type);
+    impl->deviceContext->DrawIndexed((UINT)indexCount, (UINT)indexStart, (UINT)vertexStart);
+}
+
 bool Graphics::CreateDevice()
 {
     if (impl->device)
@@ -417,7 +498,16 @@ bool Graphics::UpdateSwapChain(int width, int height, bool fullscreen_)
         success = false;
     }
 
+    D3D11_VIEWPORT vp;
+    vp.TopLeftX = 0.0f;
+    vp.TopLeftY = 0.0f;
+    vp.Width = (float)width;
+    vp.Height = (float)height;
+    vp.MinDepth = 0.0f;
+    vp.MaxDepth = 1.0f;
+
     impl->deviceContext->OMSetRenderTargets(1, &impl->backbufferView, impl->depthStencilView);
+    impl->deviceContext->RSSetViewports(1, &vp);
 
     // Update internally held backbuffer size and fullscreen state
     backbufferSize.x = width;
@@ -435,6 +525,80 @@ void Graphics::HandleResize(WindowResizeEvent& /*event*/)
         UpdateSwapChain(window->Width(), window->Height(), false);
 }
 
+void Graphics::PrepareDraw(PrimitiveType type)
+{
+    if (primitiveType != type)
+    {
+        impl->deviceContext->IASetPrimitiveTopology(primitiveTopology[type]);
+        primitiveType = type;
+    }
+
+    if (inputLayoutDirty)
+    {
+        inputLayoutDirty = false;
+        unsigned long long totalMask = 0;
+        for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
+        {
+            if (vertexBuffers[i])
+                totalMask |= (unsigned long long)vertexBuffers[i]->ElementMask() << (i * MAX_VERTEX_ELEMENTS);
+        }
+
+        if (!totalMask || inputLayout == totalMask)
+            return;
+
+        // Check if layout already exists
+        HashMap<unsigned long long, void*>::Iterator it = inputLayouts.Find(totalMask);
+        if (it != inputLayouts.End())
+        {
+            impl->deviceContext->IASetInputLayout((ID3D11InputLayout*)it->second);
+            inputLayout = totalMask;
+            return;
+        }
+
+        // Not found, create new
+        size_t currentOffset = 0;
+        Vector<D3D11_INPUT_ELEMENT_DESC> elementDescs;
+
+        for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
+        {
+            if (vertexBuffers[i])
+            {
+                unsigned elementMask = vertexBuffers[i]->ElementMask();
+
+                for (size_t j = 0; j < MAX_VERTEX_ELEMENTS; ++j)
+                {
+                    if (elementMask & (1 << j))
+                    {
+                        D3D11_INPUT_ELEMENT_DESC newDesc;
+                        newDesc.SemanticName = elementSemantic[j];
+                        newDesc.SemanticIndex = elementSemanticIndex[j];
+                        newDesc.Format = elementFormat[j];
+                        newDesc.InputSlot = i;
+                        newDesc.AlignedByteOffset = currentOffset;
+                        newDesc.InputSlotClass = j < ELEMENT_INSTANCEMATRIX1 ? D3D11_INPUT_PER_VERTEX_DATA :  D3D11_INPUT_PER_INSTANCE_DATA;
+                        newDesc.InstanceDataStepRate = j < ELEMENT_INSTANCEMATRIX1 ? 0 : 1;
+                        elementDescs.Push(newDesc);
+
+                        currentOffset += VertexBuffer::elementSize[j];
+                    }
+                }
+            }
+        }
+
+        ID3D11InputLayout* newLayout = 0;
+        ID3DBlob* d3dBlob = (ID3DBlob*)vertexShader->CompiledBlob();
+        impl->device->CreateInputLayout(&elementDescs[0], elementDescs.Size(), d3dBlob->GetBufferPointer(), d3dBlob->GetBufferSize(), &newLayout);
+        if (newLayout)
+        {
+            inputLayouts[totalMask] = newLayout;
+            impl->deviceContext->IASetInputLayout(newLayout);
+            inputLayout = totalMask;
+        }
+        else
+            LOGERROR("Failed to create input layout");
+    }
+}
+
 void Graphics::ResetState()
 {
     for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
@@ -442,7 +606,9 @@ void Graphics::ResetState()
     indexBuffer = 0;
     vertexShader = 0;
     pixelShader = 0;
+    inputLayout = 0;
     inputLayoutDirty = false;
+    primitiveType = MAX_PRIMITIVE_TYPES;
 }
 
 }

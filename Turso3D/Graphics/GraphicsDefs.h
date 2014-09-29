@@ -42,6 +42,17 @@ enum ShaderStage
     SHADER_PS
 };
 
+/// Primitive types.
+enum PrimitiveType
+{
+    TRIANGLE_LIST = 0,
+    LINE_LIST,
+    POINT_LIST,
+    TRIANGLE_STRIP,
+    LINE_STRIP,
+    MAX_PRIMITIVE_TYPES
+};
+
 static const unsigned MASK_POSITION = 0x1;
 static const unsigned MASK_NORMAL = 0x2;
 static const unsigned MASK_COLOR = 0x4;
