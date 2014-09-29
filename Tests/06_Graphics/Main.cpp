@@ -28,9 +28,9 @@ public:
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &GraphicsTest::HandleCloseRequest);
         
         float vertexData[] = {
-            -1.0f, 1.0f, 0.0f,
-            1.0f, 1.0f, 0.0f,
-            1.0f, -1.0f, 0.0f
+            0.0f, 0.5f, 0.0f,
+            0.5f, -0.5f, 0.0f,
+            -0.5f, -0.5f, 0.0f
         };
 
         unsigned short indexData[] = {
@@ -83,7 +83,7 @@ public:
                 break;
             }
 
-            graphics->Clear(CLEAR_COLOR, Color(Random(), Random(), Random()));
+            graphics->Clear(CLEAR_COLOR | CLEAR_DEPTH, Color(Random(), Random(), Random()));
             graphics->SetVertexBuffer(0, vb);
             graphics->SetIndexBuffer(ib);
             graphics->SetShaders(vsv, psv);
