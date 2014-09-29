@@ -38,7 +38,7 @@ enum VertexElement
 /// Shader stages.
 enum ShaderStage
 {
-    SHADER_VS,
+    SHADER_VS = 0,
     SHADER_PS
 };
 

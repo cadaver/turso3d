@@ -71,10 +71,6 @@ public:
         ShaderVariation* vsv = vs->CreateVariation();
         ShaderVariation* psv = ps->CreateVariation();
 
-        graphics->SetVertexBuffer(0, vb);
-        graphics->SetIndexBuffer(ib);
-        graphics->SetShaders(vsv, psv);
-
         while (graphics->RenderWindow()->IsOpen())
         {
             input->Update();
@@ -88,6 +84,10 @@ public:
             }
 
             graphics->Clear(CLEAR_COLOR, Color(Random(), Random(), Random()));
+            graphics->SetVertexBuffer(0, vb);
+            graphics->SetIndexBuffer(ib);
+            graphics->SetShaders(vsv, psv);
+            graphics->DrawIndexed(TRIANGLE_LIST, 0, 3);
             graphics->Present();
         }
     }

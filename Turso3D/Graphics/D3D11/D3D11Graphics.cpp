@@ -508,7 +508,7 @@ bool Graphics::UpdateSwapChain(int width, int height, bool fullscreen_)
 
     impl->deviceContext->OMSetRenderTargets(1, &impl->backbufferView, impl->depthStencilView);
     impl->deviceContext->RSSetViewports(1, &vp);
-
+    
     // Update internally held backbuffer size and fullscreen state
     backbufferSize.x = width;
     backbufferSize.y = height;
@@ -535,7 +535,6 @@ void Graphics::PrepareDraw(PrimitiveType type)
 
     if (inputLayoutDirty)
     {
-        inputLayoutDirty = false;
         unsigned long long totalMask = 0;
         for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
         {
@@ -543,8 +542,10 @@ void Graphics::PrepareDraw(PrimitiveType type)
                 totalMask |= (unsigned long long)vertexBuffers[i]->ElementMask() << (i * MAX_VERTEX_ELEMENTS);
         }
 
-        if (!totalMask || inputLayout == totalMask)
+        if (!totalMask || inputLayout == totalMask || !vertexShader)
             return;
+
+        inputLayoutDirty = false;
 
         // Check if layout already exists
         HashMap<unsigned long long, void*>::Iterator it = inputLayouts.Find(totalMask);
