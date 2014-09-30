@@ -39,7 +39,8 @@ enum VertexElement
 enum ShaderStage
 {
     SHADER_VS = 0,
-    SHADER_PS
+    SHADER_PS,
+    MAX_SHADER_STAGES
 };
 
 /// Primitive types.
@@ -51,6 +52,20 @@ enum PrimitiveType
     TRIANGLE_STRIP,
     LINE_STRIP,
     MAX_PRIMITIVE_TYPES
+};
+
+/// Constant types in constant buffers.
+enum ConstantType
+{
+    C_INT = 0,
+    C_FLOAT,
+    C_VECTOR2,
+    C_VECTOR3,
+    C_VECTOR4,
+    C_COLOR,
+    C_MATRIX3,
+    C_MATRIX3X4,
+    C_MATRIX4
 };
 
 static const unsigned MASK_POSITION = 0x1;
@@ -68,5 +83,6 @@ static const unsigned MASK_INSTANCEMATRIX2 = 0x800;
 static const unsigned MASK_INSTANCEMATRIX3 = 0x1000;
 
 static const size_t MAX_VERTEX_STREAMS = 4;
+static const size_t MAX_CONSTANT_BUFFERS = 15;
 
 }

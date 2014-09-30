@@ -18,13 +18,13 @@ public:
     /// Destruct.
     virtual ~IndexBuffer();
 
-    /// Release the vertex buffer and CPU shadow data.
+    /// Release the index buffer and CPU shadow data.
     virtual void Release();
 
     /// Define buffer with initial data. Non-dynamic buffer must specify data here, as it will be immutable after creation. Return true on success.
     bool Define(size_t numIndices, size_t indexSize, bool dynamic, bool shadow, const void* data);
     /// Redefine buffer data either completely or partially. Buffer must be dynamic. Return true on success.
-    bool SetData(size_t firstVertex, size_t numVertices, const void* data);
+    bool SetData(size_t firstIndex, size_t numIndices, const void* data);
 
     /// Return the D3D11 buffer.
     void* Buffer() const { return buffer; }
@@ -44,7 +44,7 @@ private:
     AutoArrayPtr<unsigned char> shadowData;
     /// Number of indices.
     size_t numIndices;
-    /// Size of vertex in bytes.
+    /// Size of index in bytes.
     size_t indexSize;
     /// Dynamic flag.
     bool dynamic;

@@ -166,7 +166,7 @@ bool VertexBuffer::Define(size_t numVertices_, unsigned elementMask_, bool dynam
             return false;
         }
         else
-            LOGDEBUGF("Created vertex buffer size %d vertexSize %d", numVertices, vertexSize);
+            LOGDEBUGF("Created vertex buffer size %u vertexSize %u", (unsigned)numVertices, (unsigned)vertexSize);
     }
 
     return true;
@@ -200,7 +200,7 @@ bool VertexBuffer::SetData(size_t firstVertex, size_t numVertices_, const void* 
     if (buffer)
     {
         D3D11_MAPPED_SUBRESOURCE mappedData;
-        memset(&mappedData, 0, sizeof mappedData);
+        mappedData.pData = 0;
 
         ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->DeviceContext();
         d3dDeviceContext->Map((ID3D11Buffer*)buffer, 0, numVertices_ == numVertices ? D3D11_MAP_WRITE_DISCARD : D3D11_MAP_WRITE, 0, &mappedData);

@@ -96,7 +96,7 @@ bool IndexBuffer::Define(size_t numIndices_, size_t indexSize_, bool dynamic, bo
             return false;
         }
         else
-            LOGDEBUGF("Created index buffer size %d indexSize %d", numIndices, indexSize);
+            LOGDEBUGF("Created index buffer size %u indexSize %u", (unsigned)numIndices, (unsigned)indexSize);
     }
 
     return true;
@@ -128,7 +128,7 @@ bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* dat
     if (buffer)
     {
         D3D11_MAPPED_SUBRESOURCE mappedData;
-        memset(&mappedData, 0, sizeof mappedData);
+        mappedData.pData = 0;
 
         ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->DeviceContext();
         d3dDeviceContext->Map((ID3D11Buffer*)buffer, 0, numIndices_ == numIndices ? D3D11_MAP_WRITE_DISCARD : D3D11_MAP_WRITE, 0, &mappedData);

@@ -4,6 +4,7 @@
 #include "../../Window/Window.h"
 #include "../GPUObject.h"
 #include "D3D11Graphics.h"
+#include "D3D11ConstantBuffer.h"
 #include "D3D11IndexBuffer.h"
 #include "D3D11ShaderVariation.h"
 #include "D3D11VertexBuffer.h"
@@ -172,6 +173,11 @@ VertexBuffer* Graphics::CurrentVertexBuffer(size_t index) const
     return index < MAX_VERTEX_STREAMS ? vertexBuffers[index] : (VertexBuffer*)0;
 }
 
+ConstantBuffer* Graphics::CurrentConstantBuffer(ShaderStage stage, size_t index) const
+{
+    return (stage < MAX_SHADER_STAGES && index < MAX_CONSTANT_BUFFERS) ? constantBuffers[stage][index] : (ConstantBuffer*)0;
+}
+
 void Graphics::AddGPUObject(GPUObject* object)
 {
     if (object)
@@ -212,34 +218,41 @@ void Graphics::Present()
 
 void Graphics::SetVertexBuffer(size_t index, VertexBuffer* buffer)
 {
-    if (!impl->device)
-        return;
-
     if (index < MAX_VERTEX_STREAMS && vertexBuffers[index] != buffer)
     {
         vertexBuffers[index] = buffer;
-        if (buffer)
-        {
-            ID3D11Buffer* d3dBuffer = (ID3D11Buffer*)buffer->Buffer();
-            UINT stride = buffer->VertexSize();
-            UINT offset = 0;
-            impl->deviceContext->IASetVertexBuffers(index, 1, &d3dBuffer, &stride, &offset);
-        }
-        else
-        {
-            ID3D11Buffer* d3dBuffer = 0;
-            UINT zero = 0;
-            impl->deviceContext->IASetVertexBuffers(index, 1, &d3dBuffer, &zero, &zero);
-        }
+        ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->Buffer() : (ID3D11Buffer*)0;
+        UINT stride = buffer ? buffer->VertexSize() : 0;
+        UINT offset = 0;
+        impl->deviceContext->IASetVertexBuffers(index, 1, &d3dBuffer, &stride, &offset);
         inputLayoutDirty = true;
+    }
+}
+
+void Graphics::SetConstantBuffer(ShaderStage stage, size_t index, ConstantBuffer* buffer)
+{
+    if (stage < MAX_SHADER_STAGES &&index < MAX_CONSTANT_BUFFERS && constantBuffers[stage][index] != buffer)
+    {
+        constantBuffers[stage][index] = buffer;
+        ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->Buffer() : (ID3D11Buffer*)0;
+        switch (stage)
+        {
+        case SHADER_VS:
+            impl->deviceContext->VSSetConstantBuffers(index, 1, &d3dBuffer);
+            break;
+            
+        case SHADER_PS:
+            impl->deviceContext->PSSetConstantBuffers(index, 1, &d3dBuffer);
+            break;
+            
+        default:
+            break;
+        }
     }
 }
 
 void Graphics::SetIndexBuffer(IndexBuffer* buffer)
 {
-    if (!impl->device)
-        return;
-
     if (indexBuffer != buffer)
     {
         indexBuffer = buffer;
@@ -257,11 +270,17 @@ void Graphics::ResetVertexBuffers()
         SetVertexBuffer(i, 0);
 }
 
+void Graphics::ResetConstantBuffers()
+{
+    for (size_t i = 0; i < MAX_SHADER_STAGES; ++i)
+    {
+        for (size_t j = 0; i < MAX_CONSTANT_BUFFERS; ++j)
+            SetConstantBuffer((ShaderStage)i, j, 0);
+    }
+}
+
 void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
 {
-    if (!impl->device)
-        return;
-
     if (vs != vertexShader)
     {
         if (vs && vs->Stage() == SHADER_VS)
@@ -293,18 +312,12 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
 
 void Graphics::Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount)
 {
-    if (!impl->device)
-        return;
-
     PrepareDraw(type);
     impl->deviceContext->Draw((UINT)vertexCount, (UINT)vertexStart);
 }
 
 void Graphics::DrawIndexed(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart)
 {
-    if (!impl->device)
-        return;
-
     PrepareDraw(type);
     impl->deviceContext->DrawIndexed((UINT)indexCount, (UINT)indexStart, (UINT)vertexStart);
 }
@@ -558,6 +571,13 @@ void Graphics::ResetState()
 {
     for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
         vertexBuffers[i] = 0;
+    
+    for (size_t i = 0; i < MAX_SHADER_STAGES; ++i)
+    {
+        for (size_t j = 0; j < MAX_CONSTANT_BUFFERS; ++j)
+            constantBuffers[i][j] = 0;
+    }
+    
     indexBuffer = 0;
     vertexShader = 0;
     pixelShader = 0;

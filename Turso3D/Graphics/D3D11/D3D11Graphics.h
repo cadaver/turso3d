@@ -11,6 +11,7 @@ namespace Turso3D
 {
 
 struct GraphicsImpl;
+class ConstantBuffer;
 class GPUObject;
 class IndexBuffer;
 class ShaderVariation;
@@ -46,8 +47,12 @@ public:
     void SetVertexBuffer(size_t index, VertexBuffer* buffer);
     /// Bind an index buffer.
     void SetIndexBuffer(IndexBuffer* buffer);
+    /// Bind a constant buffer.
+    void SetConstantBuffer(ShaderStage stage, size_t index, ConstantBuffer* buffer);
     /// Clear all bound vertex buffers.
     void ResetVertexBuffers();
+    /// Clear all bound constant buffers.
+    void ResetConstantBuffers();
     /// Bind vertex and pixel shaders.
     void SetShaders(ShaderVariation* vs, ShaderVariation* ps);
     /// Draw non-indexed geometry.
@@ -73,6 +78,8 @@ public:
     VertexBuffer* CurrentVertexBuffer(size_t index) const;
     /// Return currently bound index buffer.
     IndexBuffer* CurrentIndexBuffer() const { return indexBuffer; }
+    /// Return currently bound constant buffer by shader stage and index.
+    ConstantBuffer* CurrentConstantBuffer(ShaderStage stage, size_t index) const;
     /// Return currently bound vertex shader.
     ShaderVariation* CurrentVertexShader() const { return vertexShader; }
     /// Return currently bound pixel shader.
@@ -109,6 +116,8 @@ private:
     VertexBuffer* vertexBuffers[MAX_VERTEX_STREAMS];
     /// Bound index buffer.
     IndexBuffer* indexBuffer;
+    /// Bound constant buffers by shader stage.
+    ConstantBuffer* constantBuffers[MAX_SHADER_STAGES][MAX_CONSTANT_BUFFERS];
     /// Bound vertex shader.
     ShaderVariation* vertexShader;
     /// Bound pixel shader.

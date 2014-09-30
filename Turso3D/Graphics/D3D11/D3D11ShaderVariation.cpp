@@ -182,7 +182,7 @@ bool ShaderVariation::Compile()
         return false;
     }
     else
-        LOGDEBUGF("Compiled shader %s bytecode size %d", FullName().CString(), d3dBlob->GetBufferSize());
+        LOGDEBUGF("Compiled shader %s bytecode size %u", FullName().CString(), (unsigned)d3dBlob->GetBufferSize());
     
     return true;
 }

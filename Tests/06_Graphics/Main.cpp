@@ -39,11 +39,14 @@ public:
             2
         };
 
+        Constant c(C_COLOR, "Color");
+        
         String vsCode = 
             "struct VOut"
             "{"
             "   float4 position : SV_POSITION;"
             "};"
+            ""
             "VOut main(float3 position : POSITION)"
             "{"
             "   VOut output;"
@@ -52,15 +55,24 @@ public:
             "}";
 
         String psCode =
+            "cbuffer ConstantBuffer : register(b0)"
+            "{"
+            "   float4 Color;"
+            "}"
+            ""
             "float4 main(float4 position : SV_POSITION) : SV_TARGET"
             "{"
-            "   return float4(1, 1, 1, 1);"
+            "   return Color;"
             "}";
-
+        
         AutoPtr<VertexBuffer> vb = new VertexBuffer();
-        AutoPtr<IndexBuffer> ib = new IndexBuffer();
         vb->Define(3, MASK_POSITION, false, true, vertexData);
+        
+        AutoPtr<IndexBuffer> ib = new IndexBuffer();
         ib->Define(3, sizeof(unsigned short), false, true, indexData);
+        
+        AutoPtr<ConstantBuffer> cb = new ConstantBuffer();
+        cb->Define(1, &c);
 
         AutoPtr<Shader> vs = new Shader();
         AutoPtr<Shader> ps = new Shader();
@@ -70,6 +82,9 @@ public:
         ps->Define(SHADER_PS, psCode);
         ShaderVariation* vsv = vs->CreateVariation();
         ShaderVariation* psv = ps->CreateVariation();
+
+        cb->SetConstant("Color", Color::YELLOW);
+        cb->Apply();
 
         while (graphics->RenderWindow()->IsOpen())
         {
@@ -86,6 +101,7 @@ public:
             graphics->Clear(CLEAR_COLOR | CLEAR_DEPTH, Color(Random(), Random(), Random()));
             graphics->SetVertexBuffer(0, vb);
             graphics->SetIndexBuffer(ib);
+            graphics->SetConstantBuffer(SHADER_PS, 0, cb);
             graphics->SetShaders(vsv, psv);
             graphics->DrawIndexed(TRIANGLE_LIST, 0, 3);
             graphics->Present();
