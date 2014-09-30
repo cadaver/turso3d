@@ -17,54 +17,6 @@
 namespace Turso3D
 {
 
-const char* elementSemantic[] = {
-    "POSITION",
-    "NORMAL",
-    "COLOR",
-    "TEXCOORD",
-    "TEXCOORD",
-    "CUBETEXCOORD",
-    "CUBETEXCOORD",
-    "TANGENT",
-    "BLENDWEIGHTS",
-    "BLENDINDICES",
-    "INSTANCEMATRIX",
-    "INSTANCEMATRIX",
-    "INSTANCEMATRIX"
-};
-
-UINT elementSemanticIndex[] = {
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    1,
-    2
-};
-
-DXGI_FORMAT elementFormat[] = {
-    DXGI_FORMAT_R32G32B32_FLOAT,
-    DXGI_FORMAT_R32G32B32_FLOAT,
-    DXGI_FORMAT_R8G8B8A8_UNORM,
-    DXGI_FORMAT_R32G32_FLOAT,
-    DXGI_FORMAT_R32G32_FLOAT,
-    DXGI_FORMAT_R32G32B32_FLOAT,
-    DXGI_FORMAT_R32G32B32_FLOAT,
-    DXGI_FORMAT_R32G32B32A32_FLOAT,
-    DXGI_FORMAT_R32G32B32A32_FLOAT,
-    DXGI_FORMAT_R8G8B8A8_UNORM,
-    DXGI_FORMAT_R32G32B32A32_FLOAT,
-    DXGI_FORMAT_R32G32B32A32_FLOAT,
-    DXGI_FORMAT_R32G32B32A32_FLOAT
-};
-
 D3D11_PRIMITIVE_TOPOLOGY primitiveTopology[] = {
     D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
     D3D11_PRIMITIVE_TOPOLOGY_LINELIST,
@@ -152,7 +104,7 @@ void Graphics::Close()
         object->Release();
     }
 
-    for (HashMap<unsigned long long, void*>::Iterator it = inputLayouts.Begin(); it != inputLayouts.End(); ++it)
+    for (InputLayoutMap::Iterator it = inputLayouts.Begin(); it != inputLayouts.End(); ++it)
     {
         ID3D11InputLayout* d3dLayout = (ID3D11InputLayout*)it->second;
         d3dLayout->Release();
@@ -398,7 +350,7 @@ bool Graphics::CreateDevice()
 
     // Disable automatic fullscreen switching
     IDXGIFactory* factory;
-    impl->swapChain->GetParent(__uuidof(IDXGIFactory), (void**)&factory);
+    impl->swapChain->GetParent(IID_IDXGIFactory, (void**)&factory);
     if (factory)
     {
         factory->MakeWindowAssociation((HWND)window->Handle(), DXGI_MWA_NO_ALT_ENTER);
@@ -464,7 +416,7 @@ bool Graphics::UpdateSwapChain(int width, int height, bool fullscreen_)
 
     // Get the backbuffer
     ID3D11Texture2D* backbufferTexture;
-    impl->swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&backbufferTexture);
+    impl->swapChain->GetBuffer(0, IID_ID3D11Texture2D, (void**)&backbufferTexture);
     if (backbufferTexture)
     {
         impl->device->CreateRenderTargetView(backbufferTexture, 0, &impl->backbufferView);
@@ -533,26 +485,28 @@ void Graphics::PrepareDraw(PrimitiveType type)
         primitiveType = type;
     }
 
-    if (inputLayoutDirty)
+    if (inputLayoutDirty && vertexShader)
     {
-        unsigned long long totalMask = 0;
+        InputLayoutDesc newInputLayout;
+        newInputLayout.first = 0;
+        newInputLayout.second = vertexShader->ElementMask();
         for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
         {
             if (vertexBuffers[i])
-                totalMask |= (unsigned long long)vertexBuffers[i]->ElementMask() << (i * MAX_VERTEX_ELEMENTS);
+                newInputLayout.first |= (unsigned long long)vertexBuffers[i]->ElementMask() << (i * MAX_VERTEX_ELEMENTS);
         }
 
-        if (!totalMask || inputLayout == totalMask || !vertexShader)
+        if (newInputLayout == inputLayout)
             return;
 
         inputLayoutDirty = false;
 
         // Check if layout already exists
-        HashMap<unsigned long long, void*>::Iterator it = inputLayouts.Find(totalMask);
+        InputLayoutMap::ConstIterator it = inputLayouts.Find(newInputLayout);
         if (it != inputLayouts.End())
         {
             impl->deviceContext->IASetInputLayout((ID3D11InputLayout*)it->second);
-            inputLayout = totalMask;
+            inputLayout = newInputLayout;
             return;
         }
 
@@ -571,9 +525,9 @@ void Graphics::PrepareDraw(PrimitiveType type)
                     if (elementMask & (1 << j))
                     {
                         D3D11_INPUT_ELEMENT_DESC newDesc;
-                        newDesc.SemanticName = elementSemantic[j];
-                        newDesc.SemanticIndex = elementSemanticIndex[j];
-                        newDesc.Format = elementFormat[j];
+                        newDesc.SemanticName = VertexBuffer::elementSemantic[j];
+                        newDesc.SemanticIndex = VertexBuffer::elementSemanticIndex[j];
+                        newDesc.Format = (DXGI_FORMAT)VertexBuffer::elementFormat[j];
                         newDesc.InputSlot = i;
                         newDesc.AlignedByteOffset = currentOffset;
                         newDesc.InputSlotClass = j < ELEMENT_INSTANCEMATRIX1 ? D3D11_INPUT_PER_VERTEX_DATA :  D3D11_INPUT_PER_INSTANCE_DATA;
@@ -586,14 +540,14 @@ void Graphics::PrepareDraw(PrimitiveType type)
             }
         }
 
-        ID3D11InputLayout* newLayout = 0;
+        ID3D11InputLayout* d3dInputLayout = 0;
         ID3DBlob* d3dBlob = (ID3DBlob*)vertexShader->CompiledBlob();
-        impl->device->CreateInputLayout(&elementDescs[0], elementDescs.Size(), d3dBlob->GetBufferPointer(), d3dBlob->GetBufferSize(), &newLayout);
-        if (newLayout)
+        impl->device->CreateInputLayout(&elementDescs[0], elementDescs.Size(), d3dBlob->GetBufferPointer(), d3dBlob->GetBufferSize(), &d3dInputLayout);
+        if (d3dInputLayout)
         {
-            inputLayouts[totalMask] = newLayout;
-            impl->deviceContext->IASetInputLayout(newLayout);
-            inputLayout = totalMask;
+            inputLayouts[newInputLayout] = d3dInputLayout;
+            impl->deviceContext->IASetInputLayout(d3dInputLayout);
+            inputLayout = newInputLayout;
         }
         else
             LOGERROR("Failed to create input layout");
@@ -607,7 +561,8 @@ void Graphics::ResetState()
     indexBuffer = 0;
     vertexShader = 0;
     pixelShader = 0;
-    inputLayout = 0;
+    inputLayout.first = 0;
+    inputLayout.second = 0;
     inputLayoutDirty = false;
     primitiveType = MAX_PRIMITIVE_TYPES;
 }

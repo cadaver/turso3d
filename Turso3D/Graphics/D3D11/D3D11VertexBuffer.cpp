@@ -29,6 +29,54 @@ const size_t VertexBuffer::elementSize[] =
     4 * sizeof(float) // Instancematrix3
 };
 
+const char* VertexBuffer::elementSemantic[] = {
+    "POSITION",
+    "NORMAL",
+    "COLOR",
+    "TEXCOORD",
+    "TEXCOORD",
+    "CUBETEXCOORD",
+    "CUBETEXCOORD",
+    "TANGENT",
+    "BLENDWEIGHTS",
+    "BLENDINDICES",
+    "INSTANCEMATRIX",
+    "INSTANCEMATRIX",
+    "INSTANCEMATRIX"
+};
+
+const unsigned VertexBuffer::elementSemanticIndex[] = {
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+    2
+};
+
+const unsigned VertexBuffer::elementFormat[] = {
+    DXGI_FORMAT_R32G32B32_FLOAT,
+    DXGI_FORMAT_R32G32B32_FLOAT,
+    DXGI_FORMAT_R8G8B8A8_UNORM,
+    DXGI_FORMAT_R32G32_FLOAT,
+    DXGI_FORMAT_R32G32_FLOAT,
+    DXGI_FORMAT_R32G32B32_FLOAT,
+    DXGI_FORMAT_R32G32B32_FLOAT,
+    DXGI_FORMAT_R32G32B32A32_FLOAT,
+    DXGI_FORMAT_R32G32B32A32_FLOAT,
+    DXGI_FORMAT_R8G8B8A8_UNORM,
+    DXGI_FORMAT_R32G32B32A32_FLOAT,
+    DXGI_FORMAT_R32G32B32A32_FLOAT,
+    DXGI_FORMAT_R32G32B32A32_FLOAT
+};
+
 VertexBuffer::VertexBuffer() :
     buffer(0),
     numVertices(0),

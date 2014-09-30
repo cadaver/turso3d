@@ -36,6 +36,8 @@ public:
     void* CompiledBlob() const { return blob; }
     /// Return the D3D11 shader. Null if not compiled yet or compile failed.
     void* CompiledShader() { return shader; }
+    /// Return element mask for vertex shaders.
+    unsigned ElementMask() const { return elementMask; }
     /// Return whether compile attempted.
     bool IsCompiled() const { return compiled; }
 
@@ -50,6 +52,8 @@ private:
     void* blob;
     /// D3D11 shader.
     void* shader;
+    /// Vertex shader element mask.
+    unsigned elementMask;
     /// Compile attempted flag.
     bool compiled;
 };

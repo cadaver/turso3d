@@ -9,6 +9,8 @@
 #include <cstring>
 #include <new>
 
+#pragma warning(disable:4345)
+
 namespace Turso3D
 {
 

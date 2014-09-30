@@ -5,6 +5,7 @@
 #include "../Shader.h"
 #include "D3D11Graphics.h"
 #include "D3D11ShaderVariation.h"
+#include "D3D11VertexBuffer.h"
 
 #include <d3d11.h>
 #include <d3dcompiler.h>
@@ -14,12 +15,47 @@
 namespace Turso3D
 {
 
+unsigned InspectInputSignature(ID3DBlob* d3dBlob)
+{
+    ID3D11ShaderReflection* reflection = 0;
+    D3D11_SHADER_DESC shaderDesc;
+    unsigned elementMask = 0;
+
+    D3DReflect(d3dBlob->GetBufferPointer(), d3dBlob->GetBufferSize(), IID_ID3D11ShaderReflection, (void**)&reflection);
+    if (!reflection)
+    {
+        LOGERROR("Failed to reflect vertex shader's input signature");
+        return elementMask;
+    }
+
+    reflection->GetDesc(&shaderDesc);
+    for (size_t i = 0; i < shaderDesc.InputParameters; ++i)
+    {
+        D3D11_SIGNATURE_PARAMETER_DESC paramDesc;
+        reflection->GetInputParameterDesc(i, &paramDesc);
+
+        for (size_t j = 0; j < MAX_VERTEX_ELEMENTS; ++j)
+        {
+            if (paramDesc.SemanticIndex == VertexBuffer::elementSemanticIndex[j] && !String::Compare(paramDesc.SemanticName,
+                VertexBuffer::elementSemantic[j]))
+            {
+                elementMask |= 1 << j;
+                break;
+            }
+        }
+    }
+
+    reflection->Release();
+    return elementMask;
+}
+
 ShaderVariation::ShaderVariation(Shader* parent_, const String& defines_) :
     parent(parent_),
     stage(parent->Stage()),
     defines(defines_),
     blob(0),
     shader(0),
+    elementMask(0),
     compiled(false)
 {
 }
@@ -56,6 +92,7 @@ void ShaderVariation::Release()
         shader = 0;
     }
 
+    elementMask = 0;
     compiled = false;
 }
 
@@ -130,9 +167,12 @@ bool ShaderVariation::Compile()
     
     ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
     ID3DBlob* d3dBlob = (ID3DBlob*)blob;
-
+    
     if (stage == SHADER_VS)
+    {
+        elementMask = InspectInputSignature(d3dBlob);
         d3dDevice->CreateVertexShader(d3dBlob->GetBufferPointer(), d3dBlob->GetBufferSize(), 0, (ID3D11VertexShader**)&shader);
+    }
     else
         d3dDevice->CreatePixelShader(d3dBlob->GetBufferPointer(), d3dBlob->GetBufferSize(), 0, (ID3D11PixelShader**)&shader);
 

@@ -18,6 +18,9 @@ class VertexBuffer;
 class Window;
 class WindowResizeEvent;
 
+typedef Pair<unsigned long long, unsigned> InputLayoutDesc;
+typedef HashMap<InputLayoutDesc, void*> InputLayoutMap;
+
 /// 3D graphics rendering context. Manages the rendering window and GPU objects.
 class TURSO3D_API Graphics : public Object
 {
@@ -101,7 +104,7 @@ private:
     /// GPU objects.
     Vector<GPUObject*> gpuObjects;
     /// Input layouts.
-    HashMap<unsigned long long, void*> inputLayouts;
+    InputLayoutMap inputLayouts;
     /// Bound vertex buffers.
     VertexBuffer* vertexBuffers[MAX_VERTEX_STREAMS];
     /// Bound index buffer.
@@ -112,8 +115,8 @@ private:
     ShaderVariation* pixelShader;
     /// Current primitive type.
     PrimitiveType primitiveType;
-    /// Current input layout (total vertex element mask.)
-    unsigned long long inputLayout;
+    /// Current input layout: vertex buffers' element mask and vertex shader's element mask combined.
+    InputLayoutDesc inputLayout;
     /// Fullscreen flag.
     bool fullscreen;
     /// Resize handling flag to prevent recursion.

@@ -48,6 +48,12 @@ public:
 
     /// Vertex element sizes.
     static const size_t elementSize[];
+    /// Vertex element D3D11 semantics.
+    static const char* elementSemantic[];
+    /// Vertex element D3D11 semantic indices (when more than one of the same element)
+    static const unsigned VertexBuffer::elementSemanticIndex[];
+    /// Vertex element D3D11 formats
+    static const unsigned VertexBuffer::elementFormat[];
 
 private:
     /// D3D11 buffer.
