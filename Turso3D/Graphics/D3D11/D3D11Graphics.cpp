@@ -199,7 +199,7 @@ void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDe
         impl->deviceContext->ClearRenderTargetView(impl->backbufferView, clearColor.Data());
     if (clearFlags & (CLEAR_DEPTH|CLEAR_STENCIL))
     {
-        UINT depthClearFlags = 0;
+        unsigned depthClearFlags = 0;
         if (clearFlags & CLEAR_DEPTH)
             depthClearFlags |= D3D11_CLEAR_DEPTH;
         if (clearFlags & CLEAR_STENCIL)
@@ -222,9 +222,9 @@ void Graphics::SetVertexBuffer(size_t index, VertexBuffer* buffer)
     {
         vertexBuffers[index] = buffer;
         ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->Buffer() : (ID3D11Buffer*)0;
-        UINT stride = buffer ? buffer->VertexSize() : 0;
-        UINT offset = 0;
-        impl->deviceContext->IASetVertexBuffers(index, 1, &d3dBuffer, &stride, &offset);
+        unsigned stride = buffer ? (unsigned)buffer->VertexSize() : 0;
+        unsigned offset = 0;
+        impl->deviceContext->IASetVertexBuffers((unsigned)index, 1, &d3dBuffer, &stride, &offset);
         inputLayoutDirty = true;
     }
 }
@@ -238,11 +238,11 @@ void Graphics::SetConstantBuffer(ShaderStage stage, size_t index, ConstantBuffer
         switch (stage)
         {
         case SHADER_VS:
-            impl->deviceContext->VSSetConstantBuffers(index, 1, &d3dBuffer);
+            impl->deviceContext->VSSetConstantBuffers((unsigned)index, 1, &d3dBuffer);
             break;
             
         case SHADER_PS:
-            impl->deviceContext->PSSetConstantBuffers(index, 1, &d3dBuffer);
+            impl->deviceContext->PSSetConstantBuffers((unsigned)index, 1, &d3dBuffer);
             break;
             
         default:
@@ -313,13 +313,13 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
 void Graphics::Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount)
 {
     PrepareDraw(type);
-    impl->deviceContext->Draw((UINT)vertexCount, (UINT)vertexStart);
+    impl->deviceContext->Draw((unsigned)vertexCount, (unsigned)vertexStart);
 }
 
 void Graphics::DrawIndexed(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart)
 {
     PrepareDraw(type);
-    impl->deviceContext->DrawIndexed((UINT)indexCount, (UINT)indexStart, (UINT)vertexStart);
+    impl->deviceContext->DrawIndexed((unsigned)indexCount, (unsigned)indexStart, (unsigned)vertexStart);
 }
 
 bool Graphics::CreateDevice()
@@ -541,8 +541,8 @@ void Graphics::PrepareDraw(PrimitiveType type)
                         newDesc.SemanticName = VertexBuffer::elementSemantic[j];
                         newDesc.SemanticIndex = VertexBuffer::elementSemanticIndex[j];
                         newDesc.Format = (DXGI_FORMAT)VertexBuffer::elementFormat[j];
-                        newDesc.InputSlot = i;
-                        newDesc.AlignedByteOffset = currentOffset;
+                        newDesc.InputSlot = (unsigned)i;
+                        newDesc.AlignedByteOffset = (unsigned)currentOffset;
                         newDesc.InputSlotClass = j < ELEMENT_INSTANCEMATRIX1 ? D3D11_INPUT_PER_VERTEX_DATA :  D3D11_INPUT_PER_INSTANCE_DATA;
                         newDesc.InstanceDataStepRate = j < ELEMENT_INSTANCEMATRIX1 ? 0 : 1;
                         elementDescs.Push(newDesc);
@@ -555,7 +555,8 @@ void Graphics::PrepareDraw(PrimitiveType type)
 
         ID3D11InputLayout* d3dInputLayout = 0;
         ID3DBlob* d3dBlob = (ID3DBlob*)vertexShader->CompiledBlob();
-        impl->device->CreateInputLayout(&elementDescs[0], elementDescs.Size(), d3dBlob->GetBufferPointer(), d3dBlob->GetBufferSize(), &d3dInputLayout);
+        impl->device->CreateInputLayout(&elementDescs[0], (unsigned)elementDescs.Size(), d3dBlob->GetBufferPointer(),
+            d3dBlob->GetBufferSize(), &d3dInputLayout);
         if (d3dInputLayout)
         {
             inputLayouts[newInputLayout] = d3dInputLayout;

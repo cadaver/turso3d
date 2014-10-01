@@ -109,7 +109,7 @@ bool ConstantBuffer::Define(size_t numConstants, const Constant* srcConstants)
         bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
         bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
         bufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-        bufferDesc.ByteWidth = byteSize;
+        bufferDesc.ByteWidth = (unsigned)byteSize;
 
         ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
         d3dDevice->CreateBuffer(&bufferDesc, 0, (ID3D11Buffer**)&buffer);

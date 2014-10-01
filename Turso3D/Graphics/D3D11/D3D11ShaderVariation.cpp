@@ -32,7 +32,7 @@ unsigned InspectInputSignature(ID3DBlob* d3dBlob)
     for (size_t i = 0; i < shaderDesc.InputParameters; ++i)
     {
         D3D11_SIGNATURE_PARAMETER_DESC paramDesc;
-        reflection->GetInputParameterDesc(i, &paramDesc);
+        reflection->GetInputParameterDesc((unsigned)i, &paramDesc);
 
         for (size_t j = 0; j < MAX_VERTEX_ELEMENTS; ++j)
         {

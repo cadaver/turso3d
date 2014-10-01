@@ -155,7 +155,7 @@ bool VertexBuffer::Define(size_t numVertices_, unsigned elementMask_, bool dynam
         bufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
         bufferDesc.CPUAccessFlags = dynamic ? D3D11_CPU_ACCESS_WRITE : 0;
         bufferDesc.Usage = dynamic ? D3D11_USAGE_DYNAMIC : D3D11_USAGE_IMMUTABLE;
-        bufferDesc.ByteWidth = numVertices * vertexSize;
+        bufferDesc.ByteWidth = (unsigned)(numVertices * vertexSize);
 
         ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
         d3dDevice->CreateBuffer(&bufferDesc, data ? &initialData : 0, (ID3D11Buffer**)&buffer);

@@ -85,7 +85,7 @@ bool IndexBuffer::Define(size_t numIndices_, size_t indexSize_, bool dynamic, bo
         bufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
         bufferDesc.CPUAccessFlags = dynamic ? D3D11_CPU_ACCESS_WRITE : 0;
         bufferDesc.Usage = dynamic ? D3D11_USAGE_DYNAMIC : D3D11_USAGE_IMMUTABLE;
-        bufferDesc.ByteWidth = numIndices * indexSize;
+        bufferDesc.ByteWidth = (unsigned)(numIndices * indexSize);
 
         ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
         d3dDevice->CreateBuffer(&bufferDesc, data ? &initialData : 0, (ID3D11Buffer**)&buffer);
