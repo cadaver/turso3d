@@ -12,6 +12,9 @@
 
 #include "../../Debug/DebugNew.h"
 
+// Allow testing either Map/Unmap or UpdateSubResource
+#define USE_UPDATESUBRESOURCE
+
 namespace Turso3D
 {
 
@@ -23,7 +26,6 @@ const size_t ConstantBuffer::elementSize[] =
     sizeof(Vector3),
     sizeof(Vector4),
     sizeof(Color),
-    sizeof(Matrix3),
     sizeof(Matrix3x4),
     sizeof(Matrix4)
 };
@@ -87,6 +89,7 @@ bool ConstantBuffer::Define(size_t numConstants, const Constant* srcConstants)
     
     while (numConstants--)
     {
+        /// \todo Pad variables automatically if they cross 16 byte borders
         Constant newConstant;
         newConstant.type = srcConstants->type;
         newConstant.name = srcConstants->name;
@@ -98,6 +101,10 @@ bool ConstantBuffer::Define(size_t numConstants, const Constant* srcConstants)
         byteSize += newConstant.elementSize * newConstant.numElements;
         ++srcConstants;
     }
+
+    // Align the final buffer size to a multiple of 16 bytes
+    if (byteSize & 15)
+        byteSize += 16 - (byteSize & 15);
     
     shadowData = new unsigned char[byteSize];
 
@@ -106,10 +113,15 @@ bool ConstantBuffer::Define(size_t numConstants, const Constant* srcConstants)
         D3D11_BUFFER_DESC bufferDesc;
         memset(&bufferDesc, 0, sizeof bufferDesc);
         
+        bufferDesc.ByteWidth = (unsigned)byteSize;
         bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+#ifdef USE_UPDATESUBRESOURCE
+        bufferDesc.CPUAccessFlags = 0;
+        bufferDesc.Usage = D3D11_USAGE_DEFAULT;
+#else
         bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
         bufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-        bufferDesc.ByteWidth = (unsigned)byteSize;
+#endif
 
         ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
         d3dDevice->CreateBuffer(&bufferDesc, 0, (ID3D11Buffer**)&buffer);
@@ -162,12 +174,13 @@ bool ConstantBuffer::Apply()
     if (!dirty || !buffer)
         return true;
     
-    PROFILE(UpdateConstantBuffer);
-    
+    ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->DeviceContext();
+#ifdef USE_UPDATESUBRESOURCE
+    d3dDeviceContext->UpdateSubresource((ID3D11Buffer*)buffer, 0, 0, shadowData.Get(), 0, 0);
+#else
     D3D11_MAPPED_SUBRESOURCE mappedData;
     mappedData.pData = 0;
 
-    ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->DeviceContext();
     d3dDeviceContext->Map((ID3D11Buffer*)buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedData);
     if (mappedData.pData)
     {
@@ -179,6 +192,7 @@ bool ConstantBuffer::Apply()
         LOGERROR("Failed to map constant buffer for update");
         return false;
     }
+#endif
 
     dirty = false;
     return true;

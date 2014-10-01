@@ -28,9 +28,9 @@ public:
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &GraphicsTest::HandleCloseRequest);
         
         float vertexData[] = {
-            0.0f, 0.5f, 0.0f,
-            0.5f, -0.5f, 0.0f,
-            -0.5f, -0.5f, 0.0f
+            0.0f, 0.005f, 0.0f,
+            0.005f, -0.005f, 0.0f,
+            -0.005f, -0.005f, 0.0f
         };
 
         unsigned short indexData[] = {
@@ -39,9 +39,15 @@ public:
             2
         };
 
-        Constant c(C_COLOR, "Color");
+        Constant vc(C_VECTOR3, "Position");
+        Constant pc(C_COLOR, "Color");
         
         String vsCode = 
+            "cbuffer ConstantBuffer : register(b0)"
+            "{"
+            "   float3 ObjectPosition;"
+            "}"
+            ""
             "struct VOut"
             "{"
             "   float4 position : SV_POSITION;"
@@ -50,7 +56,7 @@ public:
             "VOut main(float3 position : POSITION)"
             "{"
             "   VOut output;"
-            "   output.position = float4(position, 1);"
+            "   output.position = float4(position + ObjectPosition, 1);"
             "   return output;"
             "}";
 
@@ -71,8 +77,11 @@ public:
         AutoPtr<IndexBuffer> ib = new IndexBuffer();
         ib->Define(3, sizeof(unsigned short), false, true, indexData);
         
-        AutoPtr<ConstantBuffer> cb = new ConstantBuffer();
-        cb->Define(1, &c);
+        AutoPtr<ConstantBuffer> vcb = new ConstantBuffer();
+        vcb->Define(1, &vc);
+
+        AutoPtr<ConstantBuffer> pcb = new ConstantBuffer();
+        pcb->Define(1, &pc);
 
         AutoPtr<Shader> vs = new Shader();
         AutoPtr<Shader> ps = new Shader();
@@ -83,8 +92,8 @@ public:
         ShaderVariation* vsv = vs->CreateVariation();
         ShaderVariation* psv = ps->CreateVariation();
 
-        cb->SetConstant("Color", Color::YELLOW);
-        cb->Apply();
+        pcb->SetConstant("Color", Color::YELLOW);
+        pcb->Apply();
 
         while (graphics->RenderWindow()->IsOpen())
         {
@@ -98,12 +107,19 @@ public:
                 break;
             }
 
-            graphics->Clear(CLEAR_COLOR | CLEAR_DEPTH, Color(Random(), Random(), Random()));
+            graphics->Clear(CLEAR_COLOR | CLEAR_DEPTH, Color(0.0f, 0.0f, 0.5f));
             graphics->SetVertexBuffer(0, vb);
             graphics->SetIndexBuffer(ib);
-            graphics->SetConstantBuffer(SHADER_PS, 0, cb);
+            graphics->SetConstantBuffer(SHADER_VS, 0, vcb);
+            graphics->SetConstantBuffer(SHADER_PS, 0, pcb);
             graphics->SetShaders(vsv, psv);
-            graphics->DrawIndexed(TRIANGLE_LIST, 0, 3);
+
+            for (int i = 0; i < 10000; ++i)
+            {
+                vcb->SetConstant("Position", Vector3(Random() * 2.0f - 1.0f, Random() * 2.0f - 1.0f, 0.0f));
+                vcb->Apply();
+                graphics->DrawIndexed(TRIANGLE_LIST, 0, 3);
+            }
             graphics->Present();
         }
     }

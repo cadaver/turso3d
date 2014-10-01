@@ -63,7 +63,6 @@ enum ConstantType
     C_VECTOR3,
     C_VECTOR4,
     C_COLOR,
-    C_MATRIX3,
     C_MATRIX3X4,
     C_MATRIX4
 };
