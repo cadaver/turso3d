@@ -11,9 +11,12 @@ namespace Turso3D
 {
 
 struct GraphicsImpl;
+class BlendState;
 class ConstantBuffer;
+class DepthState;
 class GPUObject;
 class IndexBuffer;
+class RasterizerState;
 class ShaderVariation;
 class VertexBuffer;
 class Window;
@@ -55,6 +58,8 @@ public:
     void ResetConstantBuffers();
     /// Bind vertex and pixel shaders.
     void SetShaders(ShaderVariation* vs, ShaderVariation* ps);
+    /// Bind blend state object.
+    void SetBlendState(BlendState* state);
     /// Draw non-indexed geometry.
     void Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount);
     /// Draw indexed geometry.
@@ -75,15 +80,21 @@ public:
     /// Return the D3D11 immediate device context.
     void* DeviceContext() const;
     /// Return currently bound vertex buffer by index.
-    VertexBuffer* CurrentVertexBuffer(size_t index) const;
+    VertexBuffer* GetVertexBuffer(size_t index) const;
     /// Return currently bound index buffer.
-    IndexBuffer* CurrentIndexBuffer() const { return indexBuffer; }
+    IndexBuffer* GetIndexBuffer() const { return indexBuffer; }
     /// Return currently bound constant buffer by shader stage and index.
-    ConstantBuffer* CurrentConstantBuffer(ShaderStage stage, size_t index) const;
+    ConstantBuffer* GetConstantBuffer(ShaderStage stage, size_t index) const;
     /// Return currently bound vertex shader.
-    ShaderVariation* CurrentVertexShader() const { return vertexShader; }
+    ShaderVariation* GetVertexShader() const { return vertexShader; }
     /// Return currently bound pixel shader.
-    ShaderVariation* CurrentPixelShader() const { return pixelShader; }
+    ShaderVariation* GetPixelShader() const { return pixelShader; }
+    /// Return currently bound blend state.
+    BlendState* GetBlendState() const { return blendState; }
+    /// Return currently bound depth state.
+    DepthState* GetDepthState() const { return depthState; }
+    /// Return currently bound rasterizer state.
+    RasterizerState* GetRasterizerState() const { return rasterizerState; }
 
     /// Register a GPU object to keep track of.
     void AddGPUObject(GPUObject* object);
@@ -122,6 +133,12 @@ private:
     ShaderVariation* vertexShader;
     /// Bound pixel shader.
     ShaderVariation* pixelShader;
+    /// Bound blend state.
+    BlendState* blendState;
+    /// Bound depth state.
+    DepthState* depthState;
+    /// Bound rasterizer state.
+    RasterizerState* rasterizerState;
     /// Current primitive type.
     PrimitiveType primitiveType;
     /// Current input layout: vertex buffers' element mask and vertex shader's element mask combined.

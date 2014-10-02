@@ -11,6 +11,7 @@
 #include "Base/SharedPtr.h"
 #include "Debug/Log.h"
 #include "Debug/Profiler.h"
+#include "Graphics/BlendState.h"
 #include "Graphics/ConstantBuffer.h"
 #include "Graphics/Graphics.h"
 #include "Graphics/IndexBuffer.h"

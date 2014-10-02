@@ -28,9 +28,9 @@ public:
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &GraphicsTest::HandleCloseRequest);
         
         float vertexData[] = {
-            0.0f, 0.005f, 0.0f,
-            0.005f, -0.005f, 0.0f,
-            -0.005f, -0.005f, 0.0f
+            0.0f, 0.05f, 0.0f,
+            0.05f, -0.05f, 0.0f,
+            -0.05f, -0.05f, 0.0f
         };
 
         unsigned short indexData[] = {
@@ -92,7 +92,7 @@ public:
         ShaderVariation* vsv = vs->CreateVariation();
         ShaderVariation* psv = ps->CreateVariation();
 
-        pcb->SetConstant("Color", Color::YELLOW);
+        pcb->SetConstant("Color", Color(0.25f, 0.25f, 0.25f));
         pcb->Apply();
 
         while (graphics->RenderWindow()->IsOpen())
@@ -114,7 +114,7 @@ public:
             graphics->SetConstantBuffer(SHADER_PS, 0, pcb);
             graphics->SetShaders(vsv, psv);
 
-            for (int i = 0; i < 10000; ++i)
+            for (int i = 0; i < 100; ++i)
             {
                 vcb->SetConstant("Position", Vector3(Random() * 2.0f - 1.0f, Random() * 2.0f - 1.0f, 0.0f));
                 vcb->Apply();

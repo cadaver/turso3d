@@ -43,17 +43,6 @@ enum ShaderStage
     MAX_SHADER_STAGES
 };
 
-/// Primitive types.
-enum PrimitiveType
-{
-    TRIANGLE_LIST = 0,
-    LINE_LIST,
-    POINT_LIST,
-    TRIANGLE_STRIP,
-    LINE_STRIP,
-    MAX_PRIMITIVE_TYPES
-};
-
 /// Constant types in constant buffers.
 enum ConstantType
 {
@@ -65,6 +54,49 @@ enum ConstantType
     C_COLOR,
     C_MATRIX3X4,
     C_MATRIX4
+};
+
+/// Primitive types.
+enum PrimitiveType
+{
+    POINT_LIST = 1,
+    LINE_LIST,
+    LINE_STRIP,
+    TRIANGLE_LIST,
+    TRIANGLE_STRIP,
+    MAX_PRIMITIVE_TYPES
+};
+
+/// Blend factors.
+enum BlendFactor
+{
+    BLEND_ZERO = 1,
+    BLEND_ONE,
+    BLEND_SRC_COLOR,
+    BLEND_INV_SRC_COLOR,
+    BLEND_SRC_ALPHA,
+    BLEND_INV_SRC_ALPHA,
+    BLEND_DEST_ALPHA,
+    BLEND_INV_DEST_ALPHA,
+    BLEND_DEST_COLOR,
+    BLEND_INV_DEST_COLOR,
+    BLEND_SRC_ALPHA_SAT,
+    BLEND_BLEND_FACTOR,
+    BLEND_INV_BLEND_FACTOR,
+    BLEND_SRC1_COLOR,
+    BLEND_INV_SRC1_COLOR,
+    BLEND_SRC1_ALPHA,
+    BLEND_INV_SRC1_ALPHA
+};
+
+/// Blend operations.
+enum BlendOperation
+{
+    BLEND_OP_ADD = 1,
+    BLEND_OP_SUBTRACT,
+    BLEND_OP_REV_SUBTRACT,
+    BLEND_OP_MIN,
+    BLEND_OP_MAX
 };
 
 static const unsigned MASK_POSITION = 0x1;
@@ -83,5 +115,12 @@ static const unsigned MASK_INSTANCEMATRIX3 = 0x1000;
 
 static const size_t MAX_VERTEX_STREAMS = 4;
 static const size_t MAX_CONSTANT_BUFFERS = 15;
+
+static const unsigned char COLORMASK_NONE = 0x0;
+static const unsigned char COLORMASK_R = 0x1;
+static const unsigned char COLORMASK_G = 0x2;
+static const unsigned char COLORMASK_B = 0x4;
+static const unsigned char COLORMASK_A = 0x8;
+static const unsigned char COLORMASK_ALL = 0xf;
 
 }

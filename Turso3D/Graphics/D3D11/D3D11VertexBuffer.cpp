@@ -97,7 +97,7 @@ void VertexBuffer::Release()
     {
         for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
         {
-            if (graphics->CurrentVertexBuffer(i) == this)
+            if (graphics->GetVertexBuffer(i) == this)
                 graphics->SetVertexBuffer(i, 0);
         }
     }

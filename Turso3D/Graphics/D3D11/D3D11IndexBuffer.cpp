@@ -27,7 +27,7 @@ IndexBuffer::~IndexBuffer()
 
 void IndexBuffer::Release()
 {
-    if (graphics && graphics->CurrentIndexBuffer() == this)
+    if (graphics && graphics->GetIndexBuffer() == this)
         graphics->SetIndexBuffer(0);
     
     if (buffer)

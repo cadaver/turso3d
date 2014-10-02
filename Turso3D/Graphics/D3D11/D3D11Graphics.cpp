@@ -3,6 +3,7 @@
 #include "../../Debug/Log.h"
 #include "../../Window/Window.h"
 #include "../GPUObject.h"
+#include "D3D11BlendState.h"
 #include "D3D11Graphics.h"
 #include "D3D11ConstantBuffer.h"
 #include "D3D11IndexBuffer.h"
@@ -17,14 +18,6 @@
 
 namespace Turso3D
 {
-
-D3D11_PRIMITIVE_TOPOLOGY primitiveTopology[] = {
-    D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
-    D3D11_PRIMITIVE_TOPOLOGY_LINELIST,
-    D3D11_PRIMITIVE_TOPOLOGY_POINTLIST,
-    D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP,
-    D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP
-};
 
 /// %Graphics implementation. Holds OS-specific rendering API objects.
 struct GraphicsImpl
@@ -52,6 +45,12 @@ struct GraphicsImpl
     ID3D11Texture2D* depthTexture;
     /// Default depth stencil view.
     ID3D11DepthStencilView* depthStencilView;
+    /// Current D3D11 blend state object.
+    ID3D11BlendState* blendState;
+    /// Current D3D11 depth stencil state object.
+    ID3D11DepthStencilState* depthStencilState;
+    /// Current D3D11 rasterizer state object.
+    ID3D11RasterizerState* rasterizerState;
 };
 
 Graphics::Graphics() :
@@ -166,28 +165,6 @@ void* Graphics::Device() const
 void* Graphics::DeviceContext() const
 {
     return impl->deviceContext;
-}
-
-VertexBuffer* Graphics::CurrentVertexBuffer(size_t index) const
-{
-    return index < MAX_VERTEX_STREAMS ? vertexBuffers[index] : (VertexBuffer*)0;
-}
-
-ConstantBuffer* Graphics::CurrentConstantBuffer(ShaderStage stage, size_t index) const
-{
-    return (stage < MAX_SHADER_STAGES && index < MAX_CONSTANT_BUFFERS) ? constantBuffers[stage][index] : (ConstantBuffer*)0;
-}
-
-void Graphics::AddGPUObject(GPUObject* object)
-{
-    if (object)
-        gpuObjects.Push(object);
-}
-
-void Graphics::RemoveGPUObject(GPUObject* object)
-{
-    // Note: implies a linear search, needs to be profiled whether becomes a problem with a large number of objects
-    gpuObjects.Remove(object);
 }
 
 void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDepth, unsigned char clearStencil)
@@ -310,6 +287,17 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
     }
 }
 
+void Graphics::SetBlendState(BlendState* state)
+{
+    if (state != blendState)
+    {
+        ID3D11BlendState* d3dBlendState = state ? (ID3D11BlendState*)state->StateObject() : (ID3D11BlendState*)0;
+        if (d3dBlendState != impl->blendState)
+            impl->deviceContext->OMSetBlendState(d3dBlendState, 0, 0xffffffff);
+        blendState = state;
+    }
+}
+
 void Graphics::Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount)
 {
     PrepareDraw(type);
@@ -320,6 +308,28 @@ void Graphics::DrawIndexed(PrimitiveType type, size_t indexStart, size_t indexCo
 {
     PrepareDraw(type);
     impl->deviceContext->DrawIndexed((unsigned)indexCount, (unsigned)indexStart, (unsigned)vertexStart);
+}
+
+VertexBuffer* Graphics::GetVertexBuffer(size_t index) const
+{
+    return index < MAX_VERTEX_STREAMS ? vertexBuffers[index] : (VertexBuffer*)0;
+}
+
+ConstantBuffer* Graphics::GetConstantBuffer(ShaderStage stage, size_t index) const
+{
+    return (stage < MAX_SHADER_STAGES && index < MAX_CONSTANT_BUFFERS) ? constantBuffers[stage][index] : (ConstantBuffer*)0;
+}
+
+void Graphics::AddGPUObject(GPUObject* object)
+{
+    if (object)
+        gpuObjects.Push(object);
+}
+
+void Graphics::RemoveGPUObject(GPUObject* object)
+{
+    // Note: implies a linear search, needs to be profiled whether becomes a problem with a large number of objects
+    gpuObjects.Remove(object);
 }
 
 bool Graphics::CreateDevice()
@@ -494,7 +504,7 @@ void Graphics::PrepareDraw(PrimitiveType type)
 {
     if (primitiveType != type)
     {
-        impl->deviceContext->IASetPrimitiveTopology(primitiveTopology[type]);
+        impl->deviceContext->IASetPrimitiveTopology((D3D11_PRIMITIVE_TOPOLOGY)type);
         primitiveType = type;
     }
 
@@ -582,6 +592,12 @@ void Graphics::ResetState()
     indexBuffer = 0;
     vertexShader = 0;
     pixelShader = 0;
+    blendState = 0;
+    depthState = 0;
+    rasterizerState = 0;
+    impl->blendState = 0;
+    impl->depthStencilState = 0;
+    impl->rasterizerState = 0;
     inputLayout.first = 0;
     inputLayout.second = 0;
     inputLayoutDirty = false;
