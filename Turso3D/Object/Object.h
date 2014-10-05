@@ -46,7 +46,7 @@ public:
     static Object* Subsystem(StringHash type);
     /// Register an object factory.
     static void RegisterFactory(ObjectFactory* factory);
-    /// Create and return an object through a factory. Return null if no factory registered.
+    /// Create and return an object through a factory. The caller is assumed to take ownership of the object. Return null if no factory registered. 
     static Object* Create(StringHash type);
     /// Return a type name from hash, or empty if not known. Requires a registered object factory.
     static const String& TypeNameFromType(StringHash type);

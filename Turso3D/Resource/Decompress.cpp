@@ -179,29 +179,29 @@ static void DecompressAlphaDXT5( unsigned char* rgba, void const* block )
         rgba[4*i + 3] = codes[indices[i]];
 }
 
-static void DecompressDXT( unsigned char* rgba, const void* block, CompressedFormat format)
+static void DecompressDXT( unsigned char* rgba, const void* block, ImageFormat format)
 {
     // get the block locations
     void const* colourBlock = block;
     void const* alphaBock = block;
-    if( format == CF_DXT3 || format == CF_DXT5)
+    if( format == FMT_DXT3 || format == FMT_DXT5)
         colourBlock = reinterpret_cast< unsigned char const* >( block ) + 8;
 
     // decompress colour
-    DecompressColourDXT( rgba, colourBlock, format == CF_DXT1 );
+    DecompressColourDXT( rgba, colourBlock, format == FMT_DXT1 );
 
     // decompress alpha separately if necessary
-    if( format == CF_DXT3 )
+    if( format == FMT_DXT3 )
         DecompressAlphaDXT3( rgba, alphaBock );
-    else if ( format == CF_DXT5 )
+    else if ( format == FMT_DXT5 )
         DecompressAlphaDXT5( rgba, alphaBock );
 }
 
-void DecompressImageDXT( unsigned char* rgba, const void* blocks, int width, int height, CompressedFormat format )
+void DecompressImageDXT( unsigned char* rgba, const void* blocks, int width, int height, ImageFormat format )
 {
     // initialise the block input
     unsigned char const* sourceBlock = reinterpret_cast< unsigned char const* >( blocks );
-    int bytesPerBlock = format == CF_DXT1 ? 8 : 16;
+    int bytesPerBlock = format == FMT_DXT1 ? 8 : 16;
 
     // loop over blocks
     for( int y = 0; y < height; y += 4 )
@@ -774,11 +774,11 @@ static unsigned TwiddleUV(unsigned YSize, unsigned XSize, unsigned YPos, unsigne
     return Twiddled;
 }
 
-void DecompressImagePVRTC(unsigned char* dest, const void *blocks, int width, int height, CompressedFormat format)
+void DecompressImagePVRTC(unsigned char* dest, const void *blocks, int width, int height, ImageFormat format)
 {
     AMTC_BLOCK_STRUCT* pCompressedData = (AMTC_BLOCK_STRUCT*)blocks;
     int AssumeImageTiles = 1;
-    int Do2bitMode = format == CF_PVRTC_RGB_2BPP || format == CF_PVRTC_RGBA_2BPP;
+    int Do2bitMode = format == FMT_PVRTC_RGB_2BPP || format == FMT_PVRTC_RGBA_2BPP;
 
     int x, y;
     int i, j;

@@ -30,6 +30,45 @@
 namespace Turso3D
 {
 
+const size_t Image::pixelByteSize[] =
+{
+    0,      // FMT_NONE
+    1,      // FMT_L8
+    2,      // FMT_LA8
+    3,      // FMT_RGB8
+    4,      // FMT_RGBA8
+    1,      // FMT_A8
+    2,      // FMT_R16
+    4,      // FMT_RG16
+    6,      // FMT_RGB16
+    8,      // FMT_RGBA16
+    4,      // FMT_R32
+    8,      // FMT_RG32
+    12,     // FMT_RGB32
+    16,     // FMT_RGBA32
+    2,      // FMT_R16F
+    4,      // FMT_RG16F
+    6,      // FMT_RGB16F
+    8,      // FMT_RGBA16F
+    4,      // FMT_R32F
+    8,      // FMT_RG32F
+    12,     // FMT_RGB32F
+    16,     // FMT_RGBA32F
+    2,      // FMT_D16
+    3,      // FMT_D24
+    4,      // FMT_D32
+    4,      // FMT_D24S8
+    0,      // FMT_DXT1
+    0,      // FMT_DXT3
+    0,      // FMT_DXT5
+    0,      // FMT_ETC1
+    0,      // FMT_PVRTC_RGB_2BPP
+    0,      // FMT_PVRTC_RGBA_2BPP
+    0,      // FMT_PVRTC_RGB_4BPP
+    0       // FMT_PVRTC_RGBA_4BPP
+};
+
+
 /// DirectDraw color key definition.
 struct DDColorKey
 {
@@ -156,20 +195,20 @@ bool CompressedLevel::Decompress(unsigned char* dest)
 
     switch (format)
     {
-    case CF_DXT1:
-    case CF_DXT3:
-    case CF_DXT5:
+    case FMT_DXT1:
+    case FMT_DXT3:
+    case FMT_DXT5:
         DecompressImageDXT(dest, data, width, height, format);
         return true;
 
-    case CF_ETC1:
+    case FMT_ETC1:
         DecompressImageETC(dest, data, width, height);
         return true;
 
-    case CF_PVRTC_RGB_2BPP:
-    case CF_PVRTC_RGBA_2BPP:
-    case CF_PVRTC_RGB_4BPP:
-    case CF_PVRTC_RGBA_4BPP:
+    case FMT_PVRTC_RGB_2BPP:
+    case FMT_PVRTC_RGBA_2BPP:
+    case FMT_PVRTC_RGB_4BPP:
+    case FMT_PVRTC_RGBA_4BPP:
         DecompressImagePVRTC(dest, data, width, height, format);
         return true;
 
@@ -182,7 +221,7 @@ bool CompressedLevel::Decompress(unsigned char* dest)
 Image::Image() :
     width(0),
     height(0),
-    components(0)
+    format(FMT_NONE)
 {
 }
 
@@ -211,18 +250,15 @@ bool Image::BeginLoad(Stream& source)
         switch (ddsd.ddpfPixelFormat.dwFourCC)
         {
         case FOURCC_DXT1:
-            compressedFormat = CF_DXT1;
-            components = 3;
+            format = FMT_DXT1;
             break;
 
         case FOURCC_DXT3:
-            compressedFormat = CF_DXT3;
-            components = 4;
+            format = FMT_DXT3;
             break;
 
         case FOURCC_DXT5:
-            compressedFormat = CF_DXT5;
-            components = 4;
+            format = FMT_DXT5;
             break;
 
         default:
@@ -281,51 +317,43 @@ bool Image::BeginLoad(Stream& source)
             return false;
         }
 
-        compressedFormat = CF_NONE;
+        format = FMT_NONE;
         switch (internalFormat)
         {
         case 0x83f1:
-            compressedFormat = CF_DXT1;
-            components = 4;
+            format = FMT_DXT1;
             break;
 
         case 0x83f2:
-            compressedFormat = CF_DXT3;
-            components = 4;
+            format = FMT_DXT3;
             break;
 
         case 0x83f3:
-            compressedFormat = CF_DXT5;
-            components = 4;
+            format = FMT_DXT5;
             break;
 
         case 0x8d64:
-            compressedFormat = CF_ETC1;
-            components = 3;
+            format = FMT_ETC1;
             break;
 
         case 0x8c00:
-            compressedFormat = CF_PVRTC_RGB_4BPP;
-            components = 3;
+            format = FMT_PVRTC_RGB_4BPP;
             break;
 
         case 0x8c01:
-            compressedFormat = CF_PVRTC_RGB_2BPP;
-            components = 3;
+            format = FMT_PVRTC_RGB_2BPP;
             break;
 
         case 0x8c02:
-            compressedFormat = CF_PVRTC_RGBA_4BPP;
-            components = 4;
+            format = FMT_PVRTC_RGBA_4BPP;
             break;
 
         case 0x8c03:
-            compressedFormat = CF_PVRTC_RGBA_2BPP;
-            components = 4;
+            format = FMT_PVRTC_RGBA_2BPP;
             break;
         }
 
-        if (compressedFormat == CF_NONE)
+        if (format == FMT_NONE)
         {
             LOGERROR("Unsupported texture format in KTX file");
             return false;
@@ -382,51 +410,43 @@ bool Image::BeginLoad(Stream& source)
             return false;
         }
 
-        compressedFormat = CF_NONE;
+        format = FMT_NONE;
         switch (pixelFormatLo)
         {
         case 0:
-            compressedFormat = CF_PVRTC_RGB_2BPP;
-            components = 3;
+            format = FMT_PVRTC_RGB_2BPP;
             break;
 
         case 1:
-            compressedFormat = CF_PVRTC_RGBA_2BPP;
-            components = 4;
+            format = FMT_PVRTC_RGBA_2BPP;
             break;
 
         case 2:
-            compressedFormat = CF_PVRTC_RGB_4BPP;
-            components = 3;
+            format = FMT_PVRTC_RGB_4BPP;
             break;
 
         case 3:
-            compressedFormat = CF_PVRTC_RGBA_4BPP;
-            components = 4;
+            format = FMT_PVRTC_RGBA_4BPP;
             break;
 
         case 6:
-            compressedFormat = CF_ETC1;
-            components = 3;
+            format = FMT_ETC1;
             break;
 
         case 7:
-            compressedFormat = CF_DXT1;
-            components = 4;
+            format = FMT_DXT1;
             break;
 
         case 9:
-            compressedFormat = CF_DXT3;
-            components = 4;
+            format = FMT_DXT3;
             break;
 
         case 11:
-            compressedFormat = CF_DXT5;
-            components = 4;
+            format = FMT_DXT5;
             break;
         }
 
-        if (compressedFormat == CF_NONE)
+        if (format == FMT_NONE)
         {
             LOGERROR("Unsupported texture format in PVR file");
             return false;
@@ -454,7 +474,7 @@ bool Image::BeginLoad(Stream& source)
             LOGERROR("Could not load image " + source.Name() + ": " + String(stbi_failure_reason()));
             return false;
         }
-        SetSize(imageWidth, imageHeight, imageComponents);
+        SetSize(imageWidth, imageHeight, (ImageFormat)imageComponents); // The first formats correspond to 1-4 bytes, 8 bits per component
         SetData(pixelData);
         FreePixelData(pixelData);
     }
@@ -478,6 +498,13 @@ bool Image::Save(Stream& dest) const
         return false;
     }
 
+    int components = (int)PixelByteSize();
+    if (components < 1 || components > 4)
+    {
+        LOGERROR("Unsupported pixel format for PNG save on image " + Name());
+        return false;
+    }
+
     int len;
     unsigned char *png = stbi_write_png_to_mem(data.Get(), 0, width, height, components, &len);
     bool success = dest.Write(png, len) == (size_t)len;
@@ -485,26 +512,33 @@ bool Image::Save(Stream& dest) const
     return success;
 }
 
-void Image::SetSize(int newWidth, int newHeight, unsigned newComponents)
+void Image::SetSize(int newWidth, int newHeight, ImageFormat newFormat)
 {
-    if (newWidth == width && newHeight == height && newComponents == components)
+    if (newWidth == width && newHeight == height && newFormat == format)
         return;
 
     if (newWidth <= 0 || newHeight <= 0)
+    {
+        LOGERROR("Can not set negative image size");
         return;
+    }
+    if (pixelByteSize[newFormat] == 0)
+    {
+        LOGERROR("Can not set image size with unspecified pixel byte size (including compressed formats)");
+        return;
+    }
 
-    data = new unsigned char[newWidth * newHeight * newComponents];
+    data = new unsigned char[newWidth * newHeight * pixelByteSize[newFormat]];
     width = newWidth;
     height = newHeight;
-    components = newComponents;
-    compressedFormat = CF_NONE;
+    format = newFormat;
     numCompressedLevels = 0;
 }
 
 void Image::SetData(const unsigned char* pixelData)
 {
     if (!IsCompressed())
-        memcpy(data.Get(), pixelData, width * height * components);
+        memcpy(data.Get(), pixelData, width * height * PixelByteSize());
     else
         LOGERROR("Can not set pixel data of a compressed image");
 }
@@ -526,19 +560,22 @@ void Image::FreePixelData(unsigned char* pixelData)
     stbi_image_free(pixelData);
 }
 
-AutoPtr<Image> Image::GenerateNextMipLevel() const
+bool Image::GenerateNextMipLevel(Image& dest) const
 {
     PROFILE(GenerateMipLevel);
 
     if (IsCompressed())
     {
         LOGERROR("Can not generate mip level from compressed data");
-        return AutoPtr<Image>();
+        return false;
     }
+
+    int components = (int)PixelByteSize();
+    /// \todo Support for more formats
     if (components < 1 || components > 4)
     {
-        LOGERROR("Illegal number of image components for mip level generation");
-        return AutoPtr<Image>();
+        LOGERROR("Unsupported format for calculating the next mip level");
+        return false;
     }
 
     int widthOut = width / 2;
@@ -549,11 +586,10 @@ AutoPtr<Image> Image::GenerateNextMipLevel() const
     if (heightOut < 1)
         heightOut = 1;
 
-    AutoPtr<Image> ret(new Image());
-    ret->SetSize(widthOut, heightOut, components);
+    dest.SetSize(widthOut, heightOut, format);
 
     const unsigned char* pixelDataIn = data.Get();
-    unsigned char* pixelDataOut = ret->data.Get();
+    unsigned char* pixelDataOut = dest.data.Get();
 
     // 1D case
     if (height == 1 || width == 1)
@@ -666,14 +702,14 @@ AutoPtr<Image> Image::GenerateNextMipLevel() const
         }
     }
 
-    return ret;
+    return true;
 }
 
 CompressedLevel Image::CompressedMipLevel(size_t index) const
 {
     CompressedLevel level;
 
-    if (compressedFormat == CF_NONE)
+    if (format == FMT_NONE)
     {
         LOGERROR("Image is not compressed");
         return level;
@@ -684,13 +720,13 @@ CompressedLevel Image::CompressedMipLevel(size_t index) const
         return level;
     }
 
-    level.format = compressedFormat;
+    level.format = format;
     level.width = width;
     level.height = height;
 
-    if (compressedFormat < CF_PVRTC_RGB_2BPP)
+    if (format < FMT_PVRTC_RGB_2BPP)
     {
-        level.blockSize = (compressedFormat == CF_DXT1 || compressedFormat == CF_ETC1) ? 8 : 16;
+        level.blockSize = (format == FMT_DXT1 || format == FMT_ETC1) ? 8 : 16;
         size_t i = 0;
         size_t offset = 0;
 
@@ -717,7 +753,7 @@ CompressedLevel Image::CompressedMipLevel(size_t index) const
     }
     else
     {
-        level.blockSize = compressedFormat < CF_PVRTC_RGB_4BPP ? 2 : 4;
+        level.blockSize = format < FMT_PVRTC_RGB_4BPP ? 2 : 4;
         size_t i = 0;
         size_t offset = 0;
 

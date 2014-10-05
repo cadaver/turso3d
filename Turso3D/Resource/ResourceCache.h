@@ -30,8 +30,8 @@ public:
     bool AddManualResource(Resource* resource);
     /// Remove a resource directory.
     void RemoveResourceDir(const String& pathName);
-    /// Return a file from the resource directories, or null if not found.
-    AutoPtr<File> OpenFile(const String& name);
+    /// Open a file from the resource directories, or null if not found. Return true on success.
+    bool OpenFile(File& dest, const String& name);
     /// Load and return a resource.
     Resource* LoadResource(StringHash type, const String& name);
     /// Unload resource. Optionally force removal even if referenced.

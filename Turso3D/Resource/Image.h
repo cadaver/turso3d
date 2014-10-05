@@ -10,18 +10,43 @@ struct SDL_Surface;
 namespace Turso3D
 {
 
-/// Supported compressed image formats.
-enum CompressedFormat
+/// Image formats.
+enum ImageFormat
 {
-    CF_NONE = 0,
-    CF_DXT1,
-    CF_DXT3,
-    CF_DXT5,
-    CF_ETC1,
-    CF_PVRTC_RGB_2BPP,
-    CF_PVRTC_RGBA_2BPP,
-    CF_PVRTC_RGB_4BPP,
-    CF_PVRTC_RGBA_4BPP,
+    FMT_NONE = 0,
+    FMT_L8,
+    FMT_LA8,
+    FMT_RGB8,
+    FMT_RGBA8,
+    FMT_A8,
+    FMT_R16,
+    FMT_RG16,
+    FMT_RGB16,
+    FMT_RGBA16,
+    FMT_R32,
+    FMT_RG32,
+    FMT_RGB32,
+    FMT_RGBA32,
+    FMT_R16F,
+    FMT_RG16F,
+    FMT_RGB16F,
+    FMT_RGBA16F,
+    FMT_R32F,
+    FMT_RG32F,
+    FMT_RGB32F,
+    FMT_RGBA32F,
+    FMT_D16,
+    FMT_D24,
+    FMT_D32,
+    FMT_D24S8,
+    FMT_DXT1,
+    FMT_DXT3,
+    FMT_DXT5,
+    FMT_ETC1,
+    FMT_PVRTC_RGB_2BPP,
+    FMT_PVRTC_RGBA_2BPP,
+    FMT_PVRTC_RGB_4BPP,
+    FMT_PVRTC_RGBA_4BPP,
 };
 
 /// Compressed image mip level.
@@ -41,7 +66,7 @@ struct TURSO3D_API CompressedLevel
     bool Decompress(unsigned char* dest);
 
     unsigned char* data;
-    CompressedFormat format;
+    ImageFormat format;
     int width;
     int height;
     size_t blockSize;
@@ -69,8 +94,8 @@ public:
     /// Save the image to a stream. Regardless of original format, the image is saved as png. Compressed image data is not supported. Return true on success.
     virtual bool Save(Stream& dest) const;
 
-    /// Set new image pixel dimensions and number of components.
-    void SetSize(int newWidth, int newHeight, unsigned newComponents);
+    /// Set new image pixel dimensions and format. Setting a compressed format is not supported.
+    void SetSize(int newWidth, int newHeight, ImageFormat newFormat);
     /// Set new pixel data.
     void SetData(const unsigned char* pixelData);
 
@@ -78,20 +103,23 @@ public:
     int Width() const { return width; }
     /// Return image height in pixels.
     int Height() const { return height; }
-    /// Return number of components. RGB = 3, RGBA = 4.
-    unsigned Components() const { return components; }
+    /// Return byte size of a pixel. Will return 0 for compressed formats.
+    size_t PixelByteSize() const { return pixelByteSize[format]; } 
     /// Return pixel data.
     unsigned char* Data() const { return data; }
     /// Return whether is a compressed image.
-    bool IsCompressed() const { return compressedFormat != CF_NONE; }
-    /// Return the compressed format.
-    CompressedFormat Format() const { return compressedFormat; }
+    bool IsCompressed() const { return format >= FMT_DXT1; }
+    /// Return the image format.
+    ImageFormat Format() const { return format; }
     /// Return number of mipmaps if compressed.
     size_t NumCompressedLevels() const { return numCompressedLevels; }
-    /// Calculate the next mip level (uncompressed images only.)
-    AutoPtr<Image> GenerateNextMipLevel() const;
-    /// Return a compressed mip level (compressed images only.)
+    /// Calculate the next mip level. Supports uncompressed images only. Return true on success.
+    bool GenerateNextMipLevel(Image& dest) const;
+    /// Return a compressed mip level. Supports compressed images only.
     CompressedLevel CompressedMipLevel(size_t index) const;
+
+    /// Pixel byte sizes per format.
+    static const size_t pixelByteSize[];
 
 private:
     /// Decode image pixel data using the stb_image library.
@@ -103,12 +131,10 @@ private:
     int width;
     /// Image height in pixels.
     int height;
-    /// Number of components.
-    unsigned components;
+    /// Image format.
+    ImageFormat format;
     /// Number of compressed mip levels.
     size_t numCompressedLevels;
-    /// Compressed data format, or CF_NONE if not compressed
-    CompressedFormat compressedFormat;
     /// Image pixel data.
     AutoArrayPtr<unsigned char> data;
 };

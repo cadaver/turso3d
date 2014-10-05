@@ -171,14 +171,14 @@ bool ResourceCache::ReloadResource(Resource* resource)
         return false;
 
     bool success = false;
-    AutoPtr<File> file = OpenFile(resource->Name());
-    if (file)
-        success = resource->Load(*(file.Get()));
+    File file;
+    if (OpenFile(file, resource->Name()))
+        success = resource->Load(file);
 
     return success;
 }
 
-AutoPtr<File> ResourceCache::OpenFile(const String& nameIn)
+bool ResourceCache::OpenFile(File& dest, const String& nameIn)
 {
     String name = SanitateResourceName(nameIn);
 
@@ -188,14 +188,14 @@ AutoPtr<File> ResourceCache::OpenFile(const String& nameIn)
         {
             // Construct the file first with full path, then rename it to not contain the resource path,
             // so that the file's name can be used in further OpenFile() calls (for example over the network)
-            AutoPtr<File> file(new File(resourceDirs[i] + name));
-            file->SetName(name);
-            return file;
+            dest.Open(resourceDirs[i] + name);
+            return dest.IsOpen();
         }
     }
 
     // Fallback using absolute path
-    return FileExists(nameIn) ? AutoPtr<File>(new File(nameIn)) : AutoPtr<File>();
+    dest.Open(nameIn);
+    return dest.IsOpen();
 }
 
 Resource* ResourceCache::LoadResource(StringHash type, const String& nameIn)
@@ -226,13 +226,13 @@ Resource* ResourceCache::LoadResource(StringHash type, const String& nameIn)
     }
 
     // Attempt to load the resource
-    AutoPtr<File> file = OpenFile(name);
-    if (!file)
-        return 0;
-
+    File file;
+    if (!OpenFile(file, name))
+        return false;
+    
     LOGDEBUG("Loading resource " + name);
     newResource->SetName(name);
-    if (!newResource->Load(*(file.Get())))
+    if (!newResource->Load(file))
         return 0;
 
     // Store to cache
