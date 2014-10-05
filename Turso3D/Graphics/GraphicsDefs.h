@@ -90,13 +90,54 @@ enum BlendFactor
 };
 
 /// Blend operations.
-enum BlendOperation
+enum BlendOp
 {
     BLEND_OP_ADD = 1,
     BLEND_OP_SUBTRACT,
     BLEND_OP_REV_SUBTRACT,
     BLEND_OP_MIN,
     BLEND_OP_MAX
+};
+
+/// Fill modes.
+enum FillMode
+{
+    FILL_WIREFRAME = 2,
+    FILL_SOLID = 3
+};
+
+/// Triangle culling modes.
+enum CullMode
+{
+    CULL_NONE = 1,
+    CULL_FRONT,
+    CULL_BACK
+};
+
+/// Depth or stencil compare modes.
+enum CompareMode
+{
+    CMP_NEVER = 1,
+    CMP_LESS,
+    CMP_EQUAL,
+    CMP_LESS_EQUAL,
+    CMP_GREATER,
+    CMP_NOT_EQUAL,
+    CMP_GREATER_EQUAL,
+    CMP_ALWAYS
+};
+
+/// Stencil operations.
+enum StencilOp
+{
+    STENCIL_OP_KEEP = 1,
+    STENCIL_OP_ZERO,
+    STENCIL_OP_REPLACE,
+    STENCIL_OP_INCR_SAT,
+    STENCIL_OP_DECR_SAT,
+    STENCIL_OP_INVERT,
+    STENCIL_OP_INCR,
+    STENCIL_OP_DECR
 };
 
 static const unsigned MASK_POSITION = 0x1;

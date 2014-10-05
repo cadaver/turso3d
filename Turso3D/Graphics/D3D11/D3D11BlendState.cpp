@@ -38,8 +38,8 @@ void BlendState::Release()
     }
 }
 
-bool BlendState::Define(bool blendEnable_, BlendFactor srcBlend_, BlendFactor destBlend_, BlendOperation blendOp_,
-    BlendFactor srcBlendAlpha_, BlendFactor destBlendAlpha_, BlendOperation blendOpAlpha_, unsigned char colorWriteMask_,
+bool BlendState::Define(bool blendEnable_, BlendFactor srcBlend_, BlendFactor destBlend_, BlendOp blendOp_,
+    BlendFactor srcBlendAlpha_, BlendFactor destBlendAlpha_, BlendOp blendOpAlpha_, unsigned char colorWriteMask_,
     bool alphaToCoverage_)
 {
     Release();
@@ -56,22 +56,22 @@ bool BlendState::Define(bool blendEnable_, BlendFactor srcBlend_, BlendFactor de
 
     if (graphics && graphics->IsInitialized())
     {
-        D3D11_BLEND_DESC blendStateDesc;
-        memset(&blendStateDesc, 0, sizeof blendStateDesc);
+        D3D11_BLEND_DESC stateDesc;
+        memset(&stateDesc, 0, sizeof stateDesc);
 
-        blendStateDesc.AlphaToCoverageEnable = alphaToCoverage;
-        blendStateDesc.IndependentBlendEnable = false;
-        blendStateDesc.RenderTarget[0].BlendEnable = blendEnable;
-        blendStateDesc.RenderTarget[0].SrcBlend = (D3D11_BLEND)srcBlend;
-        blendStateDesc.RenderTarget[0].DestBlend = (D3D11_BLEND)destBlend;
-        blendStateDesc.RenderTarget[0].BlendOp = (D3D11_BLEND_OP)blendOp;
-        blendStateDesc.RenderTarget[0].SrcBlendAlpha =  (D3D11_BLEND)srcBlendAlpha;
-        blendStateDesc.RenderTarget[0].DestBlendAlpha =  (D3D11_BLEND)destBlendAlpha;
-        blendStateDesc.RenderTarget[0].BlendOpAlpha = (D3D11_BLEND_OP)blendOpAlpha;
-        blendStateDesc.RenderTarget[0].RenderTargetWriteMask = colorWriteMask & COLORMASK_ALL;
+        stateDesc.AlphaToCoverageEnable = alphaToCoverage;
+        stateDesc.IndependentBlendEnable = false;
+        stateDesc.RenderTarget[0].BlendEnable = blendEnable;
+        stateDesc.RenderTarget[0].SrcBlend = (D3D11_BLEND)srcBlend;
+        stateDesc.RenderTarget[0].DestBlend = (D3D11_BLEND)destBlend;
+        stateDesc.RenderTarget[0].BlendOp = (D3D11_BLEND_OP)blendOp;
+        stateDesc.RenderTarget[0].SrcBlendAlpha =  (D3D11_BLEND)srcBlendAlpha;
+        stateDesc.RenderTarget[0].DestBlendAlpha =  (D3D11_BLEND)destBlendAlpha;
+        stateDesc.RenderTarget[0].BlendOpAlpha = (D3D11_BLEND_OP)blendOpAlpha;
+        stateDesc.RenderTarget[0].RenderTargetWriteMask = colorWriteMask & COLORMASK_ALL;
 
         ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
-        d3dDevice->CreateBlendState(&blendStateDesc, (ID3D11BlendState**)&stateObject);
+        d3dDevice->CreateBlendState(&stateDesc, (ID3D11BlendState**)&stateObject);
 
         if (!stateObject)
         {

@@ -4,9 +4,11 @@
 #include "../../Window/Window.h"
 #include "../GPUObject.h"
 #include "D3D11BlendState.h"
+#include "D3D11DepthState.h"
 #include "D3D11Graphics.h"
 #include "D3D11ConstantBuffer.h"
 #include "D3D11IndexBuffer.h"
+#include "D3D11RasterizerState.h"
 #include "D3D11ShaderVariation.h"
 #include "D3D11VertexBuffer.h"
 
@@ -293,8 +295,40 @@ void Graphics::SetBlendState(BlendState* state)
     {
         ID3D11BlendState* d3dBlendState = state ? (ID3D11BlendState*)state->StateObject() : (ID3D11BlendState*)0;
         if (d3dBlendState != impl->blendState)
+        {
             impl->deviceContext->OMSetBlendState(d3dBlendState, 0, 0xffffffff);
+            impl->blendState = d3dBlendState;
+        }
         blendState = state;
+    }
+}
+
+void Graphics::SetDepthState(DepthState* state, unsigned newStencilRef)
+{
+    if (state != depthState || newStencilRef != stencilRef)
+    {
+        ID3D11DepthStencilState* d3dDepthStencilState = state ? (ID3D11DepthStencilState*)state->StateObject() : (ID3D11DepthStencilState*)0;
+        if (d3dDepthStencilState != impl->depthStencilState || newStencilRef != stencilRef)
+        {
+            impl->deviceContext->OMSetDepthStencilState(d3dDepthStencilState, newStencilRef);
+            impl->depthStencilState = d3dDepthStencilState;
+            stencilRef = newStencilRef;
+        }
+        depthState = state;
+    }
+}
+
+void Graphics::SetRasterizerState(RasterizerState* state)
+{
+    if (state != rasterizerState)
+    {
+        ID3D11RasterizerState* d3dRasterizerState = state ? (ID3D11RasterizerState*)state->StateObject() : (ID3D11RasterizerState*)0;
+        if (d3dRasterizerState != impl->rasterizerState)
+        {
+            impl->deviceContext->RSSetState(d3dRasterizerState);
+            impl->rasterizerState = d3dRasterizerState;
+        }
+        rasterizerState = state;
     }
 }
 
@@ -602,6 +636,7 @@ void Graphics::ResetState()
     inputLayout.second = 0;
     inputLayoutDirty = false;
     primitiveType = MAX_PRIMITIVE_TYPES;
+    stencilRef = 0;
 }
 
 }

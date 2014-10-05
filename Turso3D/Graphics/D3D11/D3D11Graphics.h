@@ -60,6 +60,10 @@ public:
     void SetShaders(ShaderVariation* vs, ShaderVariation* ps);
     /// Bind blend state object.
     void SetBlendState(BlendState* state);
+    /// Bind depth state object and set stencil ref value.
+    void SetDepthState(DepthState* state, unsigned stencilRef = 0);
+    /// Bind rasterizer state object.
+    void SetRasterizerState(RasterizerState* state);
     /// Draw non-indexed geometry.
     void Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount);
     /// Draw indexed geometry.
@@ -95,6 +99,8 @@ public:
     DepthState* GetDepthState() const { return depthState; }
     /// Return currently bound rasterizer state.
     RasterizerState* GetRasterizerState() const { return rasterizerState; }
+    /// Return current stencil ref value.
+    unsigned StencilRef() const { return stencilRef; }
 
     /// Register a GPU object to keep track of.
     void AddGPUObject(GPUObject* object);
@@ -143,6 +149,8 @@ private:
     PrimitiveType primitiveType;
     /// Current input layout: vertex buffers' element mask and vertex shader's element mask combined.
     InputLayoutDesc inputLayout;
+    /// Current stencil ref value.
+    unsigned stencilRef;
     /// Fullscreen flag.
     bool fullscreen;
     /// Resize handling flag to prevent recursion.

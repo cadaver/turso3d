@@ -28,9 +28,9 @@ public:
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &GraphicsTest::HandleCloseRequest);
         
         float vertexData[] = {
-            0.0f, 0.005f, 0.0f,
-            0.005f, -0.005f, 0.0f,
-            -0.005f, -0.005f, 0.0f
+            0.0f, 0.05f, 0.0f,
+            0.05f, -0.05f, 0.0f,
+            -0.05f, -0.05f, 0.0f
         };
 
         unsigned short indexData[] = {
@@ -92,8 +92,15 @@ public:
         ShaderVariation* vsv = vs->CreateVariation();
         ShaderVariation* psv = ps->CreateVariation();
 
-        pcb->SetConstant("Color", Color::YELLOW);
+        pcb->SetConstant("Color", Color(0.25f, 0.25f, 0.25f));
         pcb->Apply();
+
+        AutoPtr<BlendState> bs = new BlendState();
+        bs->Define(true);
+        AutoPtr<DepthState> ds = new DepthState();
+        ds->Define(false);
+        AutoPtr<RasterizerState> rs = new RasterizerState();
+        rs->Define(FILL_WIREFRAME);
 
         while (graphics->RenderWindow()->IsOpen())
         {
@@ -113,8 +120,11 @@ public:
             graphics->SetConstantBuffer(SHADER_VS, 0, vcb);
             graphics->SetConstantBuffer(SHADER_PS, 0, pcb);
             graphics->SetShaders(vsv, psv);
+            graphics->SetBlendState(bs);
+            graphics->SetDepthState(ds, 0);
+            graphics->SetRasterizerState(rs);
 
-            for (int i = 0; i < 10000; ++i)
+            for (int i = 0; i < 1000; ++i)
             {
                 vcb->SetConstant("Position", Vector3(Random() * 2.0f - 1.0f, Random() * 2.0f - 1.0f, 0.0f));
                 vcb->Apply();
