@@ -42,6 +42,8 @@ bool BlendState::Define(bool blendEnable_, BlendFactor srcBlend_, BlendFactor de
     BlendFactor srcBlendAlpha_, BlendFactor destBlendAlpha_, BlendOp blendOpAlpha_, unsigned char colorWriteMask_,
     bool alphaToCoverage_)
 {
+    PROFILE(DefineBlendState);
+
     Release();
 
     blendEnable = blendEnable_;

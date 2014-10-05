@@ -43,6 +43,8 @@ bool DepthState::Define(bool depthEnable_, bool depthWrite_, CompareMode depthFu
     StencilOp frontPass_, CompareMode frontFunc_, StencilOp backFail_, StencilOp backDepthFail_, StencilOp backPass_,
     CompareMode backFunc_)
 {
+    PROFILE(DefineDepthState);
+
     Release();
 
     depthEnable = depthEnable_;

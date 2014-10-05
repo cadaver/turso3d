@@ -43,6 +43,8 @@ bool RasterizerState::Define(FillMode fillMode_, CullMode cullMode_, int depthBi
     bool antialiasedLineEnable_)
 
 {
+    PROFILE(DefineRasterizerState);
+
     Release();
 
     fillMode = fillMode_;
