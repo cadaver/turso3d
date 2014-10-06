@@ -9,7 +9,7 @@ namespace Turso3D
 {
 
 /// Description of how to rasterize geometry into the framebuffer.
-class RasterizerState : public GPUObject
+class TURSO3D_API RasterizerState : public GPUObject
 {
 public:
     /// Construct.

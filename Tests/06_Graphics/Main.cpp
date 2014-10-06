@@ -121,7 +121,7 @@ public:
             graphics->SetConstantBuffer(SHADER_PS, 0, pcb);
             graphics->SetShaders(vsv, psv);
             graphics->SetBlendState(bs);
-            graphics->SetDepthState(ds, 0);
+            graphics->SetDepthState(ds);
             graphics->SetRasterizerState(rs);
 
             for (int i = 0; i < 1000; ++i)
