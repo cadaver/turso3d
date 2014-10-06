@@ -193,6 +193,25 @@ int main()
     }
 
     {
+        printf("\nTesting HashMap\n");
+        HashMap<int, int> testHashMap;
+
+        for (int i = 0; i < 10; ++i)
+            testHashMap.Insert(MakePair(i, rand() & 32767));
+
+        printf("Keys: ");
+        Vector<int> keys = testHashMap.Keys();
+        for (size_t i = 0; i < keys.Size(); ++i)
+            printf("%d ", keys[i]);
+        printf("\n");
+        printf("Values: ");
+        Vector<int> values = testHashMap.Values();
+        for (size_t i = 0; i < values.Size(); ++i)
+            printf("%d ", values[i]);
+        printf("\n");
+    }
+
+    {
         printf("\nTesting AutoPtr inside a vector\n");
         Vector<AutoPtr<Test> > vec;
         printf("Filling vector\n");

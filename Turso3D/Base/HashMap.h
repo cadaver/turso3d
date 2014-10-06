@@ -401,6 +401,16 @@ public:
         return result;
     }
 
+    /// Return all the values.
+    Vector<U> Values() const
+    {
+        Vector<U> result;
+        result.Reserve(Size());
+        for (ConstIterator it = Begin(); it != End(); ++it)
+            result.Push(it->second);
+        return result;
+    }
+
     /// Return iterator to the first element. Is not the lowest key unless the map has been sorted.
     Iterator Begin() { return Iterator(Head()); }
     /// Return const iterator to the beginning.
