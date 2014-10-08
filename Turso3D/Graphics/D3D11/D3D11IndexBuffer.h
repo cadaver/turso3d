@@ -2,15 +2,15 @@
 
 #pragma once
 
+#include "../../Base/AutoPtr.h"
 #include "../GPUObject.h"
 #include "../GraphicsDefs.h"
-#include "../../Base/AutoPtr.h"
 
 namespace Turso3D
 {
 
 /// GPU buffer for index data.
-class TURSO3D_API IndexBuffer : public GPUObject
+class TURSO3D_API IndexBuffer : public WeakRefCounted, public GPUObject
 {
 public:
     /// Construct.

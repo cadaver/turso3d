@@ -2,15 +2,15 @@
 
 #pragma once
 
+#include "../../Base/AutoPtr.h"
 #include "../GPUObject.h"
 #include "../GraphicsDefs.h"
-#include "../../Base/AutoPtr.h"
 
 namespace Turso3D
 {
 
 /// GPU buffer for vertex data.
-class TURSO3D_API VertexBuffer : public GPUObject
+class TURSO3D_API VertexBuffer : public WeakRefCounted, public GPUObject
 {
 public:
     /// Construct.

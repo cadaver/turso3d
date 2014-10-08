@@ -9,7 +9,7 @@ namespace Turso3D
 {
 
 /// Description of how to depth & stencil test fragments.
-class TURSO3D_API DepthState : public GPUObject
+class TURSO3D_API DepthState : public WeakRefCounted, public GPUObject
 {
 public:
     /// Construct.

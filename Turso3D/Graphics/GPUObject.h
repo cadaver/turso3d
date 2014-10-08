@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "../Base/WeakPtr.h"
+#include "../../Base/WeakPtr.h"
+#include "../../Turso3DConfig.h"
 
 namespace Turso3D
 {
@@ -10,7 +11,7 @@ namespace Turso3D
 class Graphics;
 
 /// Base class for objects that allocate GPU resources.
-class TURSO3D_API GPUObject : public WeakRefCounted
+class TURSO3D_API GPUObject
 {
 public:
     /// Construct. Acquire the %Graphics subsystem if available and register self.

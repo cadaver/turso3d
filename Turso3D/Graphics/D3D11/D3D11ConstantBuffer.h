@@ -2,15 +2,15 @@
 
 #pragma once
 
+#include "../../Base/AutoPtr.h"
 #include "../GPUObject.h"
 #include "../GraphicsDefs.h"
-#include "../../Base/AutoPtr.h"
 
 namespace Turso3D
 {
 
 /// Description of a shader constant.
-struct Constant
+struct TURSO3D_API Constant
 {
     /// Construct empty.
     Constant() :
@@ -47,7 +47,7 @@ struct Constant
 };
 
 /// GPU buffer for shader constant data.
-class TURSO3D_API ConstantBuffer : public GPUObject
+class TURSO3D_API ConstantBuffer : public WeakRefCounted, public GPUObject
 {
 public:
     /// Construct.
