@@ -46,11 +46,14 @@ bool AreaAllocator::Allocate(int width, int height, int& x, int& y)
     if (height < 0)
         height = 0;
     
-    Vector<IntRect>::Iterator best = freeAreas.End();
-    int bestFreeArea = M_MAX_INT;
+    Vector<IntRect>::Iterator best;
+    int bestFreeArea;
     
     for(;;)
     {
+        best = freeAreas.End();
+        bestFreeArea = M_MAX_INT;
+
         for (Vector<IntRect>::Iterator it = freeAreas.Begin(); it != freeAreas.End(); ++it)
         {
             int freeWidth = it->Width();
@@ -75,15 +78,29 @@ bool AreaAllocator::Allocate(int width, int height, int& x, int& y)
             {
                 int oldWidth = size.x;
                 size.x <<= 1;
-                IntRect newArea(oldWidth, 0, size.x, size.y);
-                freeAreas.Push(newArea);
+                // If no allocations yet, simply expand the single free area
+                IntRect& first = freeAreas.Front();
+                if (freeAreas.Size() == 1 && first.left == 0 && first.top == 0 && first.right == oldWidth && first.bottom == size.y)
+                    first.right = size.x;
+                else
+                {
+                    IntRect newArea(oldWidth, 0, size.x, size.y);
+                    freeAreas.Push(newArea);
+                }
             }
             else if (!doubleWidth && size.y < maxSize.y)
             {
                 int oldHeight = size.y;
                 size.y <<= 1;
-                IntRect newArea(0, oldHeight, size.x, size.y);
-                freeAreas.Push(newArea);
+                // If no allocations yet, simply expand the single free area
+                IntRect& first = freeAreas.Front();
+                if (freeAreas.Size() == 1 && first.left == 0 && first.top == 0 && first.right == size.x && first.bottom == oldHeight)
+                    first.bottom = size.y;
+                else
+                {
+                    IntRect newArea(0, oldHeight, size.x, size.y);
+                    freeAreas.Push(newArea);
+                }
             }
             else
                 return false;

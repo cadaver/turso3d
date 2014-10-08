@@ -21,12 +21,20 @@ public:
     
     /// Reset to given width and height and remove all previous allocations.
     void Reset(int width, int height);
-    /// Try to allocate an area. Return true on success, with x & y coordinates filled.
+    /// Try to allocate a rectangle. Return true on success, with x & y coordinates filled.
     bool Allocate(int width, int height, int& x, int& y);
+    /// Return the current size.
+    const IntVector2& Size() const { return size; }
     /// Return the current width.
-    int GetWidth() const { return size.x; }
+    int Width() const { return size.x; }
     /// Return the current height.
-    int GetHeight() const { return size.y; }
+    int Height() const { return size.y; }
+    /// Return the maximum size.
+    const IntVector2& MaxSize() const { return maxSize; }
+    /// Return the maximum width.
+    int MaxWidth() const { return maxSize.x; }
+    /// Return the maximum height.
+    int MaxHeight() const { return maxSize.y; }
 
 private:
     /// Free rectangles.
