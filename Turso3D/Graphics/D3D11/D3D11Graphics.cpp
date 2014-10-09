@@ -200,7 +200,7 @@ void Graphics::SetVertexBuffer(size_t index, VertexBuffer* buffer)
     if (index < MAX_VERTEX_STREAMS && vertexBuffers[index] != buffer)
     {
         vertexBuffers[index] = buffer;
-        ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->Buffer() : (ID3D11Buffer*)0;
+        ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->BufferObject() : (ID3D11Buffer*)0;
         unsigned stride = buffer ? (unsigned)buffer->VertexSize() : 0;
         unsigned offset = 0;
         impl->deviceContext->IASetVertexBuffers((unsigned)index, 1, &d3dBuffer, &stride, &offset);
@@ -213,7 +213,7 @@ void Graphics::SetConstantBuffer(ShaderStage stage, size_t index, ConstantBuffer
     if (stage < MAX_SHADER_STAGES &&index < MAX_CONSTANT_BUFFERS && constantBuffers[stage][index] != buffer)
     {
         constantBuffers[stage][index] = buffer;
-        ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->Buffer() : (ID3D11Buffer*)0;
+        ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->BufferObject() : (ID3D11Buffer*)0;
         switch (stage)
         {
         case SHADER_VS:
@@ -236,8 +236,8 @@ void Graphics::SetIndexBuffer(IndexBuffer* buffer)
     {
         indexBuffer = buffer;
         if (buffer)
-            impl->deviceContext->IASetIndexBuffer((ID3D11Buffer*)buffer->Buffer(), buffer->IndexSize() == sizeof(unsigned short) ?
-                DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
+            impl->deviceContext->IASetIndexBuffer((ID3D11Buffer*)buffer->BufferObject(), buffer->IndexSize() ==
+                sizeof(unsigned short) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
         else
             impl->deviceContext->IASetIndexBuffer(0, DXGI_FORMAT_UNKNOWN, 0);
     }

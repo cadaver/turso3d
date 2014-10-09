@@ -78,7 +78,7 @@ public:
     template <class T> bool SetConstant(const char* name, const T& data, size_t numElements = 0) { return SetConstant(name, (void*)&data, numElements); }
 
     /// Return the D3D11 buffer.
-    void* Buffer() const { return buffer; }
+    void* BufferObject() const { return buffer; }
     /// Return number of constants.
     size_t NumConstants() const { return constants.Size(); }
     /// Return the constant descriptions.

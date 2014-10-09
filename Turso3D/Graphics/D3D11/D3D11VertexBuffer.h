@@ -27,7 +27,7 @@ public:
     bool SetData(size_t firstVertex, size_t numVertices, const void* data);
 
     /// Return the D3D11 buffer.
-    void* Buffer() const { return buffer; }
+    void* BufferObject() const { return buffer; }
     /// Return CPU-side shadow data if exists.
     unsigned char* ShadowData() const { return shadowData.Get(); }
     /// Return number of vertices.

@@ -140,6 +140,41 @@ enum StencilOp
     STENCIL_OP_DECR
 };
 
+/// Texture types.
+enum TextureType
+{
+    TEX_1D = 0,
+    TEX_2D,
+    TEX_CUBE,
+};
+
+/// Texture usage modes.
+enum TextureUsage
+{
+    USAGE_STATIC = 0,
+    USAGE_DYNAMIC,
+    USAGE_RENDERTARGET
+};
+
+/// Texture filtering modes.
+enum TextureFilterMode
+{
+    FILTER_NEAREST = 0,
+    FILTER_BILINEAR,
+    FILTER_TRILINEAR,
+    FILTER_ANISOTROPIC,
+};
+
+/// Texture addressing modes.
+enum TextureAddressMode
+{
+    ADDRESS_WRAP = 1,
+    ADDRESS_MIRROR,
+    ADDRESS_CLAMP,
+    ADDRESS_BORDER,
+    ADDRESS_MIRROR_ONCE
+};
+
 static const unsigned MASK_POSITION = 0x1;
 static const unsigned MASK_NORMAL = 0x2;
 static const unsigned MASK_COLOR = 0x4;
