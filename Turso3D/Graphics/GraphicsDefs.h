@@ -191,6 +191,7 @@ static const unsigned MASK_INSTANCEMATRIX3 = 0x1000;
 
 static const size_t MAX_VERTEX_STREAMS = 4;
 static const size_t MAX_CONSTANT_BUFFERS = 15;
+static const size_t MAX_TEXTURE_UNITS = 16;
 
 static const unsigned char COLORMASK_NONE = 0x0;
 static const unsigned char COLORMASK_R = 0x1;

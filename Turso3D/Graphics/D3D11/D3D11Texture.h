@@ -37,6 +37,8 @@ public:
 
     /// Return the D3D11 texture object.
     void* TextureObject() const { return texture; }
+    /// Return the D3D11 shader resource view object.
+    void* ResourceViewObject() const { return resourceView; }
     /// Return the D3D11 texture sampler object.
     void* SamplerObject() const { return sampler; }
     /// Return texture type.
@@ -55,6 +57,8 @@ public:
 private: 
     /// D3D11 texture object.
     void* texture;
+    /// D3D11 resource view object.
+    void* resourceView;
     /// D3D11 texture sampler object.
     void* sampler;
     /// Texture type.

@@ -10,6 +10,7 @@ namespace Turso3D
 
 Texture::Texture() :
     texture(0),
+    resourceView(0),
     sampler(0)
 {
 }

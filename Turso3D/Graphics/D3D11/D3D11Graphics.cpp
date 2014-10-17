@@ -10,6 +10,7 @@
 #include "D3D11IndexBuffer.h"
 #include "D3D11RasterizerState.h"
 #include "D3D11ShaderVariation.h"
+#include "D3D11Texture.h"
 #include "D3D11VertexBuffer.h"
 
 #include <d3d11.h>
@@ -53,6 +54,10 @@ struct GraphicsImpl
     ID3D11DepthStencilState* depthStencilState;
     /// Current D3D11 rasterizer state object.
     ID3D11RasterizerState* rasterizerState;
+    /// Current D3D11 shader resource views.
+    ID3D11ShaderResourceView* resourceViews[MAX_TEXTURE_UNITS];
+    /// Current D3D11 sampler states.
+    ID3D11SamplerState* samplers[MAX_TEXTURE_UNITS];
 };
 
 Graphics::Graphics() :
@@ -230,6 +235,30 @@ void Graphics::SetConstantBuffer(ShaderStage stage, size_t index, ConstantBuffer
     }
 }
 
+void Graphics::SetTexture(size_t index, Texture* texture)
+{
+    if (index < MAX_TEXTURE_UNITS && textures[index] != texture)
+    {
+        textures[index] = texture;
+        ID3D11ShaderResourceView* d3dResourceView = texture ? (ID3D11ShaderResourceView*)texture->ResourceViewObject() :
+            (ID3D11ShaderResourceView*)0;
+        ID3D11SamplerState* d3dSampler = texture ? (ID3D11SamplerState*)texture->SamplerObject() : (ID3D11SamplerState*)0;
+        // Note: now both VS & PS resource views are set at the same time, to mimic OpenGL conventions
+        if (impl->resourceViews[index] != d3dResourceView)
+        {
+            impl->resourceViews[index] = d3dResourceView;
+            impl->deviceContext->VSSetShaderResources(index, 1, &d3dResourceView);
+            impl->deviceContext->PSSetShaderResources(index, 1, &d3dResourceView);
+        }
+        if (impl->samplers[index] != d3dSampler)
+        {
+            impl->samplers[index] = d3dSampler;
+            impl->deviceContext->VSSetSamplers(index, 1, &d3dSampler);
+            impl->deviceContext->PSSetSamplers(index, 1, &d3dSampler);
+        }
+    }
+}
+
 void Graphics::SetIndexBuffer(IndexBuffer* buffer)
 {
     if (indexBuffer != buffer)
@@ -240,21 +269,6 @@ void Graphics::SetIndexBuffer(IndexBuffer* buffer)
                 sizeof(unsigned short) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
         else
             impl->deviceContext->IASetIndexBuffer(0, DXGI_FORMAT_UNKNOWN, 0);
-    }
-}
-
-void Graphics::ResetVertexBuffers()
-{
-    for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
-        SetVertexBuffer(i, 0);
-}
-
-void Graphics::ResetConstantBuffers()
-{
-    for (size_t i = 0; i < MAX_SHADER_STAGES; ++i)
-    {
-        for (size_t j = 0; i < MAX_CONSTANT_BUFFERS; ++j)
-            SetConstantBuffer((ShaderStage)i, j, 0);
     }
 }
 
@@ -332,6 +346,21 @@ void Graphics::SetRasterizerState(RasterizerState* state)
     }
 }
 
+void Graphics::ResetVertexBuffers()
+{
+    for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
+        SetVertexBuffer(i, 0);
+}
+
+void Graphics::ResetConstantBuffers()
+{
+    for (size_t i = 0; i < MAX_SHADER_STAGES; ++i)
+    {
+        for (size_t j = 0; i < MAX_CONSTANT_BUFFERS; ++j)
+            SetConstantBuffer((ShaderStage)i, j, 0);
+    }
+}
+
 void Graphics::Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount)
 {
     PrepareDraw(type);
@@ -352,6 +381,11 @@ VertexBuffer* Graphics::GetVertexBuffer(size_t index) const
 ConstantBuffer* Graphics::GetConstantBuffer(ShaderStage stage, size_t index) const
 {
     return (stage < MAX_SHADER_STAGES && index < MAX_CONSTANT_BUFFERS) ? constantBuffers[stage][index] : (ConstantBuffer*)0;
+}
+
+Texture* Graphics::GetTexture(size_t index) const
+{
+    return (index < MAX_TEXTURE_UNITS) ? textures[index] : (Texture*)0;
 }
 
 void Graphics::AddGPUObject(GPUObject* object)
@@ -623,6 +657,13 @@ void Graphics::ResetState()
             constantBuffers[i][j] = 0;
     }
     
+    for (size_t i = 0; i < MAX_TEXTURE_UNITS; ++i)
+    {
+        textures[i] = 0;
+        impl->resourceViews[i] = 0;
+        impl->samplers[i] = 0;
+    }
+
     indexBuffer = 0;
     vertexShader = 0;
     pixelShader = 0;

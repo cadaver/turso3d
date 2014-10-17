@@ -18,6 +18,7 @@ class GPUObject;
 class IndexBuffer;
 class RasterizerState;
 class ShaderVariation;
+class Texture;
 class VertexBuffer;
 class Window;
 class WindowResizeEvent;
@@ -52,10 +53,8 @@ public:
     void SetIndexBuffer(IndexBuffer* buffer);
     /// Bind a constant buffer.
     void SetConstantBuffer(ShaderStage stage, size_t index, ConstantBuffer* buffer);
-    /// Clear all bound vertex buffers.
-    void ResetVertexBuffers();
-    /// Clear all bound constant buffers.
-    void ResetConstantBuffers();
+    /// Bind a texture.
+    void SetTexture(size_t index, Texture* texture);
     /// Bind vertex and pixel shaders.
     void SetShaders(ShaderVariation* vs, ShaderVariation* ps);
     /// Bind blend state object.
@@ -64,6 +63,10 @@ public:
     void SetDepthState(DepthState* state, unsigned stencilRef = 0);
     /// Bind rasterizer state object.
     void SetRasterizerState(RasterizerState* state);
+    /// Clear all bound vertex buffers.
+    void ResetVertexBuffers();
+    /// Clear all bound constant buffers.
+    void ResetConstantBuffers();
     /// Draw non-indexed geometry.
     void Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount);
     /// Draw indexed geometry.
@@ -89,6 +92,8 @@ public:
     IndexBuffer* GetIndexBuffer() const { return indexBuffer; }
     /// Return currently bound constant buffer by shader stage and index.
     ConstantBuffer* GetConstantBuffer(ShaderStage stage, size_t index) const;
+    /// Return currently bound texture by texture unit.
+    Texture* GetTexture(size_t index) const;
     /// Return currently bound vertex shader.
     ShaderVariation* GetVertexShader() const { return vertexShader; }
     /// Return currently bound pixel shader.
@@ -135,6 +140,8 @@ private:
     IndexBuffer* indexBuffer;
     /// Bound constant buffers by shader stage.
     ConstantBuffer* constantBuffers[MAX_SHADER_STAGES][MAX_CONSTANT_BUFFERS];
+    /// Bound textures by texture unit.
+    Texture* textures[MAX_TEXTURE_UNITS];
     /// Bound vertex shader.
     ShaderVariation* vertexShader;
     /// Bound pixel shader.
