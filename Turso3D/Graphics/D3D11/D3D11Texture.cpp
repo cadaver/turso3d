@@ -196,6 +196,9 @@ bool Texture::Define(TextureType type_, TextureUsage usage_, int width_, int hei
     if (numLevels_ < 1)
         numLevels_ = 1;
 
+    type = type_;
+    usage = usage_;
+
     if (graphics && graphics->IsInitialized())
     {
         ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
@@ -223,7 +226,7 @@ bool Texture::Define(TextureType type_, TextureUsage usage_, int width_, int hei
             for (size_t i = 0; i < numLevels_; ++i)
             {
                 subResourceData[i].pSysMem = initialData[i].data;
-                subResourceData[i].SysMemPitch = initialData[i].pitch;
+                subResourceData[i].SysMemPitch = (unsigned)initialData[i].pitch;
                 subResourceData[i].SysMemSlicePitch = 0;
             }
         }
@@ -231,22 +234,28 @@ bool Texture::Define(TextureType type_, TextureUsage usage_, int width_, int hei
         d3dDevice->CreateTexture2D(&textureDesc, subResourceData.Size() ? &subResourceData[0] : (D3D11_SUBRESOURCE_DATA*)0, (ID3D11Texture2D**)&texture);
         if (!texture)
         {
+            width = 0;
+            height = 0;
+            format = FMT_NONE;
+            numLevels = 0;
+
             LOGERROR("Failed to create texture");
             return false;
         }
         else
-            LOGDEBUGF("Created texture with width %d height %d format %d", width, height, (int)format);
+        {
+            width = width_;
+            height = height_;
+            format = format_;
+            numLevels = numLevels_;
 
-        width = width_;
-        height = height_;
-        type = type_;
-        usage = usage_;
-        numLevels = numLevels_;
+            LOGDEBUGF("Created texture width %d height %d format %d", width, height, (int)format);
+        }
 
         D3D11_SHADER_RESOURCE_VIEW_DESC resourceViewDesc;
         memset(&resourceViewDesc, 0, sizeof resourceViewDesc);
         resourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-        resourceViewDesc.Texture2D.MipLevels = numLevels;
+        resourceViewDesc.Texture2D.MipLevels = (unsigned)numLevels;
         resourceViewDesc.Texture2D.MostDetailedMip = 0;
         resourceViewDesc.Format = textureDesc.Format;
 
@@ -268,7 +277,7 @@ bool Texture::DefineSampler(TextureFilterMode filter, TextureAddressMode u, Text
     // Release the previous sampler first
     if (sampler)
     {
-        ID3D11SamplerState* d3dSampler = (ID3D11SamplerState*)d3dSampler;
+        ID3D11SamplerState* d3dSampler = (ID3D11SamplerState*)sampler;
         d3dSampler->Release();
         sampler = 0;
     }
