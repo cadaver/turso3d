@@ -7,34 +7,41 @@ cmake_minimum_required (VERSION 2.8)
 # Find DirectX SDK
 # Based on realXtend Tundra CMake build system (https://github.com/realXtend/tundra)
 if (MSVC)
-    set (DIRECTX_INC_SEARCH_PATH
-        "C:/Program Files (x86)/Microsoft DirectX SDK*/Include"
-        "C:/Program Files/Microsoft DirectX SDK*/Include"
-        "$ENV{DIRECTX_ROOT}/Include"
-        "$ENV{DXSDK_DIR}/Include")
-    find_path (DIRECT3D_INCLUDE_DIRS d3d11.h ${DIRECTX_INC_SEARCH_PATH})
+    # Use only Windows SDK from Visual Studio 2012 onward to avoid incompatibility
+    # between DirectX SDK and Windows SDK defines and the resulting warning spam
+    if (MSVC_VERSION LESS 1700)
+        set (DIRECTX_INC_SEARCH_PATH
+            "C:/Program Files (x86)/Microsoft DirectX SDK (June 2010)/Include"
+            "C:/Program Files/Microsoft DirectX SDK (June 2010)/Include"
+            "$ENV{DIRECTX_ROOT}/Include"
+            "$ENV{DXSDK_DIR}/Include")
+        find_path (DIRECT3D_INCLUDE_DIRS d3d11.h ${DIRECTX_INC_SEARCH_PATH})
+    
+        if (CMAKE_CL_64)
+            set (DIRECTX_LIB_SEARCH_PATH
+                "C:/Program Files (x86)/Microsoft DirectX SDK (June 2010)/Lib/x64"
+                "C:/Program Files/Microsoft DirectX SDK (June 2010)/Lib/x64"
+                "$ENV{DIRECTX_ROOT}/Lib/x64"
+                "$ENV{DXSDK_DIR}/Lib/x64")
+        else ()
+            set (DIRECTX_LIB_SEARCH_PATH
+                "C:/Program Files (x86)/Microsoft DirectX SDK (June 2010)/Lib"
+                "C:/Program Files (x86)/Microsoft DirectX SDK (June 2010)/Lib/x86"
+                "C:/Program Files/Microsoft DirectX SDK (June 2010)/Lib"
+                "C:/Program Files/Microsoft DirectX SDK (June 2010)/Lib/x86"
+                "$ENV{DIRECTX_ROOT}/Lib"
+                "$ENV{DIRECTX_ROOT}/Lib/x86"
+                "$ENV{DXSDK_DIR}/Lib"
+                "$ENV{DXSDK_DIR}/Lib/x86")
+        endif ()
 
-    if (CMAKE_CL_64)
-        set (DIRECTX_LIB_SEARCH_PATH
-            "C:/Program Files (x86)/Microsoft DirectX SDK*/Lib/x64"
-            "C:/Program Files/Microsoft DirectX SDK*/Lib/x64"
-            "$ENV{DIRECTX_ROOT}/Lib/x64"
-            "$ENV{DXSDK_DIR}/Lib/x64")
+        find_library (D3D11_LIBRARY d3d11 ${DIRECTX_LIB_SEARCH_PATH})
+        find_library (DXGI_LIBRARY dxgi ${DIRECTX_LIB_SEARCH_PATH})
+        find_library (DXGUID_LIBRARY dxguid ${DIRECTX_LIB_SEARCH_PATH})
+        find_library (D3DCOMPILER_LIBRARY d3dcompiler ${DIRECTX_LIB_SEARCH_PATH})
     else ()
-        set (DIRECTX_LIB_SEARCH_PATH
-            "C:/Program Files (x86)/Microsoft DirectX SDK*/Lib"
-            "C:/Program Files (x86)/Microsoft DirectX SDK*/Lib/x86"
-            "C:/Program Files/Microsoft DirectX SDK*/Lib"
-            "C:/Program Files/Microsoft DirectX SDK*/Lib/x86"
-            "$ENV{DIRECTX_ROOT}/Lib"
-            "$ENV{DIRECTX_ROOT}/Lib/x86"
-            "$ENV{DXSDK_DIR}/Lib"
-            "$ENV{DXSDK_DIR}/Lib/x86")
+        message (STATUS "MSVC 2012 or newer detected, skipping DirectX SDK search")
     endif ()
-    find_library (D3D11_LIBRARY d3d11 ${DIRECTX_LIB_SEARCH_PATH})
-    find_library (DXGI_LIBRARY dxgi ${DIRECTX_LIB_SEARCH_PATH})
-    find_library (DXGUID_LIBRARY dxguid ${DIRECTX_LIB_SEARCH_PATH})
-    find_library (D3DCOMPILER_LIBRARY d3dcompiler ${DIRECTX_LIB_SEARCH_PATH})
 
     if (DIRECT3D_INCLUDE_DIRS AND D3D11_LIBRARY AND DXGI_LIBRARY AND DXGUID_LIBRARY AND D3DCOMPILER_LIBRARY)
         set (DIRECT3D_FOUND 1)

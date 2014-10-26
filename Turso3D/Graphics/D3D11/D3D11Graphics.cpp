@@ -241,14 +241,14 @@ void Graphics::SetTexture(size_t index, Texture* texture)
         if (impl->resourceViews[index] != d3dResourceView)
         {
             impl->resourceViews[index] = d3dResourceView;
-            impl->deviceContext->VSSetShaderResources(index, 1, &d3dResourceView);
-            impl->deviceContext->PSSetShaderResources(index, 1, &d3dResourceView);
+            impl->deviceContext->VSSetShaderResources((unsigned)index, 1, &d3dResourceView);
+            impl->deviceContext->PSSetShaderResources((unsigned)index, 1, &d3dResourceView);
         }
         if (impl->samplers[index] != d3dSampler)
         {
             impl->samplers[index] = d3dSampler;
-            impl->deviceContext->VSSetSamplers(index, 1, &d3dSampler);
-            impl->deviceContext->PSSetSamplers(index, 1, &d3dSampler);
+            impl->deviceContext->VSSetSamplers((unsigned)index, 1, &d3dSampler);
+            impl->deviceContext->PSSetSamplers((unsigned)index, 1, &d3dSampler);
         }
     }
 }
