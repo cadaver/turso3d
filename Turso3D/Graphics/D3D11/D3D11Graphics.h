@@ -166,4 +166,7 @@ private:
     bool inputLayoutDirty;
 };
 
+/// Register Graphics related object factories and attributes.
+TURSO3D_API void RegisterGraphicsLibrary();
+
 }

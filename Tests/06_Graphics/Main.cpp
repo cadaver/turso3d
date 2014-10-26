@@ -19,8 +19,15 @@ class GraphicsTest : public Object
 public:
     void Run()
     {
+        RegisterGraphicsLibrary();
+        RegisterResourceLibrary();
+
+        cache = new ResourceCache();
+        cache->AddResourceDir(ExecutableDir() + "Data");
+
         log = new Log();
         input = new Input();
+
         graphics = new Graphics();
         graphics->RenderWindow()->SetTitle("Graphics test");
         graphics->SetMode(640, 480, false, true);
@@ -28,9 +35,10 @@ public:
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &GraphicsTest::HandleCloseRequest);
         
         float vertexData[] = {
-            0.0f, 0.05f, 0.0f,
-            0.05f, -0.05f, 0.0f,
-            -0.05f, -0.05f, 0.0f
+            // Position             // Texcoord
+            0.0f, 0.05f, 0.0f,      0.5f, 0.0f,
+            0.05f, -0.05f, 0.0f,    1.0f, 1.0f,
+            -0.05f, -0.05f, 0.0f,   0.0f, 1.0f
         };
 
         unsigned short indexData[] = {
@@ -45,19 +53,21 @@ public:
         String vsCode = 
             "cbuffer ConstantBuffer : register(b0)"
             "{"
-            "   float3 ObjectPosition;"
+            "    float3 ObjectPosition;"
             "}"
             ""
             "struct VOut"
             "{"
-            "   float4 position : SV_POSITION;"
+            "    float4 position : SV_POSITION;"
+            "    float2 texCoord : TEXCOORD0;"
             "};"
             ""
-            "VOut main(float3 position : POSITION)"
+            "VOut main(float3 position : POSITION, float2 texCoord : TEXCOORD0)"
             "{"
-            "   VOut output;"
-            "   output.position = float4(position + ObjectPosition, 1);"
-            "   return output;"
+            "    VOut output;"
+            "    output.position = float4(position + ObjectPosition, 1);"
+            "    output.texCoord = texCoord;"
+            "    return output;"
             "}";
 
         String psCode =
@@ -66,13 +76,16 @@ public:
             "   float4 Color;"
             "}"
             ""
-            "float4 main(float4 position : SV_POSITION) : SV_TARGET"
+            "Texture2D Texture : register(t0);"
+            "SamplerState Sampler : register(s0);"
+            ""
+            "float4 main(float4 position : SV_POSITION, float2 texCoord : TEXCOORD0) : SV_TARGET"
             "{"
-            "   return Color;"
+            "    return Color * Texture.Sample(Sampler, texCoord);"
             "}";
         
         AutoPtr<VertexBuffer> vb = new VertexBuffer();
-        vb->Define(3, MASK_POSITION, false, true, vertexData);
+        vb->Define(3, MASK_POSITION | MASK_TEXCOORD1, false, true, vertexData);
         
         AutoPtr<IndexBuffer> ib = new IndexBuffer();
         ib->Define(3, sizeof(unsigned short), false, true, indexData);
@@ -92,27 +105,29 @@ public:
         ShaderVariation* vsv = vs->CreateVariation();
         ShaderVariation* psv = ps->CreateVariation();
 
-        pcb->SetConstant("Color", Color(0.25f, 0.25f, 0.25f));
+        pcb->SetConstant("Color", Color::WHITE);
         pcb->Apply();
 
         AutoPtr<BlendState> bs = new BlendState();
-        bs->Define(true);
+        bs->Define(false);
         AutoPtr<DepthState> ds = new DepthState();
-        ds->Define(false);
+        ds->Define(true);
         AutoPtr<RasterizerState> rs = new RasterizerState();
-        rs->Define(FILL_WIREFRAME);
+        rs->Define();
 
-        while (graphics->RenderWindow()->IsOpen())
+        Texture* tex = cache->LoadResource<Texture>("Test.png");
+
+        for (;;)
         {
             input->Update();
-            // Switch fullscreen
             if (input->KeyPressed('F'))
                 graphics->SwitchFullscreen();
             if (input->KeyPressed(27))
-            {
                 graphics->Close();
+
+            // Drawing and state setting functions will not check Graphics initialization state, check now
+            if (!graphics->IsInitialized())
                 break;
-            }
 
             graphics->Clear(CLEAR_COLOR | CLEAR_DEPTH, Color(0.0f, 0.0f, 0.5f));
             graphics->SetVertexBuffer(0, vb);
@@ -123,6 +138,7 @@ public:
             graphics->SetBlendState(bs);
             graphics->SetDepthState(ds);
             graphics->SetRasterizerState(rs);
+            graphics->SetTexture(0, tex);
 
             for (int i = 0; i < 1000; ++i)
             {
@@ -130,6 +146,7 @@ public:
                 vcb->Apply();
                 graphics->DrawIndexed(TRIANGLE_LIST, 0, 3);
             }
+
             graphics->Present();
         }
     }
@@ -139,6 +156,7 @@ public:
         graphics->Close();
     }
 
+    AutoPtr<ResourceCache> cache;
     AutoPtr<Graphics> graphics;
     AutoPtr<Input> input;
     AutoPtr<Log> log;

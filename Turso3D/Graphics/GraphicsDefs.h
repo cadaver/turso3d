@@ -145,6 +145,7 @@ enum TextureType
 {
     TEX_1D = 0,
     TEX_2D,
+    TEX_3D,
     TEX_CUBE,
 };
 

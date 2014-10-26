@@ -12,6 +12,15 @@ namespace Turso3D
 
 class Image;
 
+/// %Texture mip level data definition.
+struct TextureData
+{
+    /// Pointer to pixel data.
+    void* data;
+    /// Row pitch.
+    size_t pitch;
+};
+
 /// %Texture on the GPU.
 class Texture : public Resource, public GPUObject
 {
@@ -23,6 +32,9 @@ public:
     /// Destruct.
     virtual ~Texture();
 
+    /// Register object factory.
+    static void RegisterObject();
+
     /// Load the texture image data from a stream. Return true on success.
     virtual bool BeginLoad(Stream& source);
     /// Finish texture loading by uploading to the GPU. Return true on success.
@@ -30,10 +42,10 @@ public:
     /// Release the texture and sampler objects.
     virtual void Release();
 
-    /// Define texture type and dimensions and set initial data. The initial data contains pointers to each mip level (or each face's mip levels for cube maps.) Return true on success.
-    bool Define(TextureType type, TextureUsage usage, int width, int height, ImageFormat format, bool useMipmaps, const Vector<void*>& initialData = Vector<void*>());
-    /// Define sampling parameters.
-    void DefineSampler(TextureFilterMode filter, TextureAddressMode u, TextureAddressMode v, TextureAddressMode w, float maxAnisotropy, float minLod, float maxLod, const Color& borderColor);
+    /// Define texture type and dimensions and set initial data. Return true on success.
+    bool Define(TextureType type, TextureUsage usage, int width, int height, ImageFormat format, size_t numLevels, TextureData* initialData = 0);
+    /// Define sampling parameters. Return true on success.
+    bool DefineSampler(TextureFilterMode filter, TextureAddressMode u, TextureAddressMode v, TextureAddressMode w, unsigned maxAnisotropy, float minLod, float maxLod, const Color& borderColor);
 
     /// Return the D3D11 texture object.
     void* TextureObject() const { return texture; }
@@ -73,6 +85,8 @@ private:
     ImageFormat format;
     /// Number of mipmap levels.
     size_t numLevels;
+    /// Images used for loading.
+    Vector<Image*> loadImages;
 };
 
 }

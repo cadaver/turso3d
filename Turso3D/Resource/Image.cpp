@@ -33,29 +33,21 @@ namespace Turso3D
 const size_t Image::pixelByteSize[] =
 {
     0,      // FMT_NONE
-    1,      // FMT_L8
-    2,      // FMT_LA8
-    3,      // FMT_RGB8
+    1,      // FMT_R8
+    2,      // FMT_RG8
     4,      // FMT_RGBA8
     1,      // FMT_A8
     2,      // FMT_R16
     4,      // FMT_RG16
-    6,      // FMT_RGB16
     8,      // FMT_RGBA16
-    4,      // FMT_R32
-    8,      // FMT_RG32
-    12,     // FMT_RGB32
-    16,     // FMT_RGBA32
     2,      // FMT_R16F
     4,      // FMT_RG16F
-    6,      // FMT_RGB16F
     8,      // FMT_RGBA16F
     4,      // FMT_R32F
     8,      // FMT_RG32F
     12,     // FMT_RGB32F
     16,     // FMT_RGBA32F
     2,      // FMT_D16
-    3,      // FMT_D24
     4,      // FMT_D32
     4,      // FMT_D24S8
     0,      // FMT_DXT1
@@ -68,6 +60,14 @@ const size_t Image::pixelByteSize[] =
     0       // FMT_PVRTC_RGBA_4BPP
 };
 
+static const ImageFormat componentsToFormat[] =
+{
+    FMT_NONE,
+    FMT_R8,
+    FMT_RG8,
+    FMT_RGBA8,
+    FMT_RGBA8
+};
 
 /// DirectDraw color key definition.
 struct DDColorKey
@@ -474,8 +474,28 @@ bool Image::BeginLoad(Stream& source)
             LOGERROR("Could not load image " + source.Name() + ": " + String(stbi_failure_reason()));
             return false;
         }
-        SetSize(imageWidth, imageHeight, (ImageFormat)imageComponents); // The first formats correspond to 1-4 bytes, 8 bits per component
-        SetData(pixelData);
+        
+        SetSize(imageWidth, imageHeight, componentsToFormat[imageComponents]);
+
+        if (imageComponents != 3)
+            SetData(pixelData);
+        else
+        {
+            // Convert RGB to RGBA as for example Direct3D 11 does not support 24-bit formats
+            AutoArrayPtr<unsigned char> rgbaData(new unsigned char[4 * imageWidth * imageHeight]);
+            unsigned char* src = pixelData;
+            unsigned char* dest = rgbaData.Get();
+            for (size_t i = 0; i < imageWidth * imageHeight; ++i)
+            {
+                *dest++ = *src++;
+                *dest++ = *src++;
+                *dest++ = *src++;
+                *dest++ = 0xff;
+            }
+
+            SetData(rgbaData);
+        }
+
         FreePixelData(pixelData);
     }
 

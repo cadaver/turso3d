@@ -19,6 +19,7 @@
 #include "Graphics/RasterizerState.h"
 #include "Graphics/Shader.h"
 #include "Graphics/ShaderVariation.h"
+#include "Graphics/Texture.h"
 #include "Graphics/VertexBuffer.h"
 #include "IO/Arguments.h"
 #include "IO/Console.h"

@@ -176,9 +176,6 @@ void* Graphics::DeviceContext() const
 
 void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDepth, unsigned char clearStencil)
 {
-    if (!impl->device)
-        return;
-
     if (clearFlags & CLEAR_COLOR)
         impl->deviceContext->ClearRenderTargetView(impl->backbufferView, clearColor.Data());
     if (clearFlags & (CLEAR_DEPTH|CLEAR_STENCIL))
@@ -194,9 +191,6 @@ void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDe
 
 void Graphics::Present()
 {
-    if (!impl->device)
-        return;
-
     impl->swapChain->Present(0, 0);
 }
 
@@ -237,7 +231,7 @@ void Graphics::SetConstantBuffer(ShaderStage stage, size_t index, ConstantBuffer
 
 void Graphics::SetTexture(size_t index, Texture* texture)
 {
-    if (index < MAX_TEXTURE_UNITS && textures[index] != texture)
+    if (index < MAX_TEXTURE_UNITS)
     {
         textures[index] = texture;
         ID3D11ShaderResourceView* d3dResourceView = texture ? (ID3D11ShaderResourceView*)texture->ResourceViewObject() :
@@ -678,6 +672,11 @@ void Graphics::ResetState()
     inputLayoutDirty = false;
     primitiveType = MAX_PRIMITIVE_TYPES;
     stencilRef = 0;
+}
+
+void RegisterGraphicsLibrary()
+{
+    Texture::RegisterObject();
 }
 
 }
