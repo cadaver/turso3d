@@ -41,29 +41,28 @@ enum ImageFormat
     FMT_PVRTC_RGBA_4BPP,
 };
 
-/// Compressed image mip level.
-struct TURSO3D_API CompressedLevel
+/// Description of image mip level data.
+struct TURSO3D_API ImageLevel
 {
-    CompressedLevel() :
+    /// Default construct.
+    ImageLevel() :
         data(0),
         width(0),
         height(0),
-        blockSize(0),
-        dataSize(0),
         rowSize(0),
         rows(0)
     {
     }
 
-    bool Decompress(unsigned char* dest);
-
+    /// Pointer to pixel data.
     unsigned char* data;
-    ImageFormat format;
+    /// Level width.
     int width;
+    /// Level height.
     int height;
-    size_t blockSize;
-    size_t dataSize;
+    /// Row size in bytes.
     size_t rowSize;
+    /// Number of rows.
     size_t rows;
 };
 
@@ -103,12 +102,14 @@ public:
     bool IsCompressed() const { return format >= FMT_DXT1; }
     /// Return the image format.
     ImageFormat Format() const { return format; }
-    /// Return number of mipmaps if compressed.
-    size_t NumCompressedLevels() const { return numCompressedLevels; }
-    /// Calculate the next mip level. Supports uncompressed images only. Return true on success.
-    bool GenerateNextMipLevel(Image& dest) const;
-    /// Return a compressed mip level. Supports compressed images only.
-    CompressedLevel CompressedMipLevel(size_t index) const;
+    /// Return number of mip levels. Always 1 for uncompressed images.
+    size_t NumLevels() const { return numLevels; }
+    /// Calculate the next mip image with halved with and height. Supports uncompressed images only. Return true on success.
+    bool GenerateMipImage(Image& dest) const;
+    /// Return the data for a mip level. Uncompressed images can only return the first (index 0) level.
+    ImageLevel Level(size_t levelIndex) const;
+    /// Decompress a mip level as 8-bit RGBA. Supports compressed images only. Return true on success.
+    bool DecompressLevel(unsigned char* dest, size_t levelIndex) const;
 
     /// Pixel byte sizes per format.
     static const size_t pixelByteSize[];
@@ -125,8 +126,8 @@ private:
     int height;
     /// Image format.
     ImageFormat format;
-    /// Number of compressed mip levels.
-    size_t numCompressedLevels;
+    /// Number of mip levels. 1 for uncompressed images.
+    size_t numLevels;
     /// Image pixel data.
     AutoArrayPtr<unsigned char> data;
 };

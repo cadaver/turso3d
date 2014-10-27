@@ -12,15 +12,6 @@ namespace Turso3D
 
 class Image;
 
-/// %Texture mip level data definition.
-struct TextureData
-{
-    /// Pointer to pixel data.
-    void* data;
-    /// Row pitch.
-    size_t pitch;
-};
-
 /// %Texture on the GPU.
 class Texture : public Resource, public GPUObject
 {
@@ -42,10 +33,10 @@ public:
     /// Release the texture and sampler objects.
     virtual void Release();
 
-    /// Define texture type and dimensions and set initial data. Return true on success.
-    bool Define(TextureType type, TextureUsage usage, int width, int height, ImageFormat format, size_t numLevels, TextureData* initialData = 0);
+    /// Define texture type and dimensions and set initial data. %ImageLevel structures only need the data pointer and row pitch filled. Return true on success.
+    bool Define(TextureType type, TextureUsage usage, int width, int height, ImageFormat format, size_t numLevels, const ImageLevel* initialData = 0);
     /// Define sampling parameters. Return true on success.
-    bool DefineSampler(TextureFilterMode filter, TextureAddressMode u, TextureAddressMode v, TextureAddressMode w, unsigned maxAnisotropy, float minLod, float maxLod, const Color& borderColor);
+    bool DefineSampler(TextureFilterMode filter = FILTER_TRILINEAR, TextureAddressMode u = ADDRESS_WRAP, TextureAddressMode v = ADDRESS_WRAP, TextureAddressMode w = ADDRESS_WRAP, unsigned maxAnisotropy = 16, float minLod = 0, float maxLod = M_INFINITY, const Color& borderColor = Color::BLACK);
 
     /// Return the D3D11 texture object.
     void* TextureObject() const { return texture; }

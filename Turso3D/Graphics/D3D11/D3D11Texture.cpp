@@ -2,7 +2,6 @@
 
 #include "../../Debug/Log.h"
 #include "../../Debug/Profiler.h"
-#include "../../Resource/Image.h"
 #include "D3D11Graphics.h"
 #include "D3D11Texture.h"
 
@@ -87,7 +86,7 @@ bool Texture::BeginLoad(Stream& source)
         while (image->Width() > 1 || image->Height() > 1)
         {
             Image* nextMipImage = new Image();
-            if (image->GenerateNextMipLevel(*nextMipImage))
+            if (image->GenerateMipImage(*nextMipImage))
             {
                 loadImages.Push(nextMipImage);
                 image = nextMipImage;
@@ -108,31 +107,15 @@ bool Texture::EndLoad()
     if (loadImages.IsEmpty())
         return false;
 
+    Vector<ImageLevel> initialData;
+
+    for (size_t i = 0; i < loadImages.Size(); ++i)
+    {
+        for (size_t j = 0; j < loadImages[i]->NumLevels(); ++j)
+            initialData.Push(loadImages[i]->Level(j));
+    }
+
     Image* image = loadImages[0];
-    Vector<TextureData> initialData;
-
-    if (image->IsCompressed())
-    {
-        for (size_t i = 0; i < image->NumCompressedLevels(); ++i)
-        {
-            CompressedLevel compressedLevel = image->CompressedMipLevel(i);
-            TextureData level;
-            level.data = compressedLevel.data;
-            level.pitch = compressedLevel.rowSize;
-            initialData.Push(level);
-        }
-    }
-    else
-    {
-        for (size_t i = 0; i < loadImages.Size(); ++i)
-        {
-            TextureData level;
-            level.data = loadImages[i]->Data();
-            level.pitch = loadImages[i]->Width() * loadImages[i]->PixelByteSize();
-            initialData.Push(level);
-        }
-    }
-
     bool success = Define(TEX_2D, USAGE_STATIC, image->Width(), image->Height(), image->Format(), initialData.Size(), &initialData[0]);
     /// \todo Read a parameter file for the sampling parameters
     success &= DefineSampler(FILTER_TRILINEAR, ADDRESS_WRAP, ADDRESS_WRAP, ADDRESS_WRAP, 16, 0.0f, D3D11_FLOAT32_MAX, Color::BLACK);
@@ -175,7 +158,7 @@ void Texture::Release()
     }
 }
 
-bool Texture::Define(TextureType type_, TextureUsage usage_, int width_, int height_, ImageFormat format_, size_t numLevels_, TextureData* initialData)
+bool Texture::Define(TextureType type_, TextureUsage usage_, int width_, int height_, ImageFormat format_, size_t numLevels_, const ImageLevel* initialData)
 {
     PROFILE(DefineTexture);
 
@@ -226,7 +209,7 @@ bool Texture::Define(TextureType type_, TextureUsage usage_, int width_, int hei
             for (size_t i = 0; i < numLevels_; ++i)
             {
                 subResourceData[i].pSysMem = initialData[i].data;
-                subResourceData[i].SysMemPitch = (unsigned)initialData[i].pitch;
+                subResourceData[i].SysMemPitch = (unsigned)initialData[i].rowSize;
                 subResourceData[i].SysMemSlicePitch = 0;
             }
         }

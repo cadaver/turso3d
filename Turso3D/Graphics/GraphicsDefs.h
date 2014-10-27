@@ -160,7 +160,7 @@ enum TextureUsage
 /// Texture filtering modes.
 enum TextureFilterMode
 {
-    FILTER_NEAREST = 0,
+    FILTER_POINT = 0,
     FILTER_BILINEAR,
     FILTER_TRILINEAR,
     FILTER_ANISOTROPIC,

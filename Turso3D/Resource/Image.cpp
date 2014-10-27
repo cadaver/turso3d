@@ -186,42 +186,11 @@ struct DDSurfaceDesc2
     unsigned dwTextureStage;
 };
 
-bool CompressedLevel::Decompress(unsigned char* dest)
-{
-    PROFILE(DecompressImage);
-
-    if (!data)
-        return false;
-
-    switch (format)
-    {
-    case FMT_DXT1:
-    case FMT_DXT3:
-    case FMT_DXT5:
-        DecompressImageDXT(dest, data, width, height, format);
-        return true;
-
-    case FMT_ETC1:
-        DecompressImageETC(dest, data, width, height);
-        return true;
-
-    case FMT_PVRTC_RGB_2BPP:
-    case FMT_PVRTC_RGBA_2BPP:
-    case FMT_PVRTC_RGB_4BPP:
-    case FMT_PVRTC_RGBA_4BPP:
-        DecompressImagePVRTC(dest, data, width, height, format);
-        return true;
-
-    default:
-         // Unknown format
-         return false;
-    }
-}
-
 Image::Image() :
     width(0),
     height(0),
-    format(FMT_NONE)
+    format(FMT_NONE),
+    numLevels(1)
 {
 }
 
@@ -270,9 +239,7 @@ bool Image::BeginLoad(Stream& source)
         data = new unsigned char[dataSize];
         width = ddsd.dwWidth;
         height = ddsd.dwHeight;
-        numCompressedLevels = ddsd.dwMipMapCount;
-        if (!numCompressedLevels)
-            numCompressedLevels = 1;
+        numLevels = ddsd.dwMipMapCount ? ddsd.dwMipMapCount : 1;
         source.Read(data.Get(), dataSize);
     }
     else if (fileID == "\253KTX")
@@ -365,7 +332,7 @@ bool Image::BeginLoad(Stream& source)
         data = new unsigned char[dataSize];
         width = imageWidth;
         height = imageHeight;
-        numCompressedLevels = mipmaps;
+        numLevels = mipmaps;
 
         size_t dataOffset = 0;
         for (size_t i = 0; i < mipmaps; ++i)
@@ -458,7 +425,7 @@ bool Image::BeginLoad(Stream& source)
         data = new unsigned char[dataSize];
         width = imageWidth;
         height = imageHeight;
-        numCompressedLevels = mipmapCount;
+        numLevels = mipmapCount;
 
         source.Read(data.Get(), dataSize);
     }
@@ -552,7 +519,7 @@ void Image::SetSize(int newWidth, int newHeight, ImageFormat newFormat)
     width = newWidth;
     height = newHeight;
     format = newFormat;
-    numCompressedLevels = 0;
+    numLevels = 1;
 }
 
 void Image::SetData(const unsigned char* pixelData)
@@ -580,9 +547,9 @@ void Image::FreePixelData(unsigned char* pixelData)
     stbi_image_free(pixelData);
 }
 
-bool Image::GenerateNextMipLevel(Image& dest) const
+bool Image::GenerateMipImage(Image& dest) const
 {
-    PROFILE(GenerateMipLevel);
+    PROFILE(GenerateMipImage);
 
     if (IsCompressed())
     {
@@ -633,15 +600,6 @@ bool Image::GenerateNextMipLevel(Image& dest) const
             }
             break;
 
-        case 3:
-            for (int x = 0; x < widthOut*3; x += 3)
-            {
-                pixelDataOut[x] = ((unsigned)pixelDataIn[x*2] + pixelDataIn[x*2+3]) >> 1;
-                pixelDataOut[x+1] = ((unsigned)pixelDataIn[x*2+1] + pixelDataIn[x*2+4]) >> 1;
-                pixelDataOut[x+2] = ((unsigned)pixelDataIn[x*2+2] + pixelDataIn[x*2+5]) >> 1;
-            }
-            break;
-
         case 4:
             for (int x = 0; x < widthOut*4; x += 4)
             {
@@ -666,9 +624,7 @@ bool Image::GenerateNextMipLevel(Image& dest) const
                 unsigned char* out = &pixelDataOut[y*widthOut];
 
                 for (int x = 0; x < widthOut; ++x)
-                {
                     out[x] = ((unsigned)inUpper[x*2] + inUpper[x*2+1] + inLower[x*2] + inLower[x*2+1]) >> 2;
-                }
             }
             break;
 
@@ -683,22 +639,6 @@ bool Image::GenerateNextMipLevel(Image& dest) const
                 {
                     out[x] = ((unsigned)inUpper[x*2] + inUpper[x*2+2] + inLower[x*2] + inLower[x*2+2]) >> 2;
                     out[x+1] = ((unsigned)inUpper[x*2+1] + inUpper[x*2+3] + inLower[x*2+1] + inLower[x*2+3]) >> 2;
-                }
-            }
-            break;
-
-        case 3:
-            for (int y = 0; y < heightOut; ++y)
-            {
-                const unsigned char* inUpper = &pixelDataIn[(y*2)*width*3];
-                const unsigned char* inLower = &pixelDataIn[(y*2+1)*width*3];
-                unsigned char* out = &pixelDataOut[y*widthOut*3];
-
-                for (int x = 0; x < widthOut*3; x += 3)
-                {
-                    out[x] = ((unsigned)inUpper[x*2] + inUpper[x*2+3] + inLower[x*2] + inLower[x*2+3]) >> 2;
-                    out[x+1] = ((unsigned)inUpper[x*2+1] + inUpper[x*2+4] + inLower[x*2+1] + inLower[x*2+4]) >> 2;
-                    out[x+2] = ((unsigned)inUpper[x*2+2] + inUpper[x*2+5] + inLower[x*2+2] + inLower[x*2+5]) >> 2;
                 }
             }
             break;
@@ -725,28 +665,27 @@ bool Image::GenerateNextMipLevel(Image& dest) const
     return true;
 }
 
-CompressedLevel Image::CompressedMipLevel(size_t index) const
+ImageLevel Image::Level(size_t index) const
 {
-    CompressedLevel level;
+    ImageLevel level;
 
-    if (format == FMT_NONE)
-    {
-        LOGERROR("Image is not compressed");
+    if (index >= numLevels)
         return level;
-    }
-    if (index >= numCompressedLevels)
-    {
-        LOGERROR("Compressed image mip level out of bounds");
-        return level;
-    }
 
-    level.format = format;
     level.width = width;
     level.height = height;
 
+    if (!IsCompressed())
+    {
+        level.rows = height;
+        level.rowSize = PixelByteSize() * width;
+        level.data = data.Get();
+        return level;
+    }
+
     if (format < FMT_PVRTC_RGB_2BPP)
     {
-        level.blockSize = (format == FMT_DXT1 || format == FMT_ETC1) ? 8 : 16;
+        size_t blockSize = (format == FMT_DXT1 || format == FMT_ETC1) ? 8 : 16;
         size_t i = 0;
         size_t offset = 0;
 
@@ -757,15 +696,14 @@ CompressedLevel Image::CompressedMipLevel(size_t index) const
             if (!level.height)
                 level.height = 1;
 
-            level.rowSize = ((level.width + 3) / 4) * level.blockSize;
+            level.rowSize = ((level.width + 3) / 4) * blockSize;
             level.rows = ((level.height + 3) / 4);
             level.data = data.Get() + offset;
-            level.dataSize = level.rows * level.rowSize;
 
             if (i == index)
                 return level;
 
-            offset += level.dataSize;
+            offset += level.rows * level.rowSize;
             level.width /= 2;
             level.height /= 2;
             ++i;
@@ -773,7 +711,7 @@ CompressedLevel Image::CompressedMipLevel(size_t index) const
     }
     else
     {
-        level.blockSize = format < FMT_PVRTC_RGB_4BPP ? 2 : 4;
+        size_t blockSize = format < FMT_PVRTC_RGB_4BPP ? 2 : 4;
         size_t i = 0;
         size_t offset = 0;
 
@@ -784,22 +722,67 @@ CompressedLevel Image::CompressedMipLevel(size_t index) const
             if (!level.height)
                 level.height = 1;
 
-            int dataWidth = Max(level.width, level.blockSize == 2 ? 16 : 8);
+            int dataWidth = Max(level.width, blockSize == 2 ? 16 : 8);
             int dataHeight = Max(level.height, 8);
+            size_t dataSize = (dataWidth * dataHeight * blockSize + 7) >> 3;
+
             level.data = data.Get() + offset;
-            level.dataSize = (dataWidth * dataHeight * level.blockSize + 7) >> 3;
             level.rows = dataHeight;
-            level.rowSize = level.dataSize / level.rows;
+            level.rowSize = dataSize / level.rows;
 
             if (i == index)
                 return level;
 
-            offset += level.dataSize;
+            offset += dataSize;
             level.width /= 2;
             level.height /= 2;
             ++i;
         }
     }
+}
+
+bool Image::DecompressLevel(unsigned char* dest, size_t index) const
+{
+    PROFILE(DecompressImageLevel);
+
+    if (!dest)
+    {
+        LOGERROR("Null destination data for DecompressLevel");
+        return false;
+    }
+
+    if (index >= numLevels)
+    {
+        LOGERROR("Mip level index out of bounds for DecompressLevel");
+        return false;
+    }
+
+    ImageLevel level = Level(index);
+    switch (format)
+    {
+    case FMT_DXT1:
+    case FMT_DXT3:
+    case FMT_DXT5:
+        DecompressImageDXT(dest, level.data, level.width, level.height, format);
+        break;
+
+    case FMT_ETC1:
+        DecompressImageETC(dest, level.data, level.width, level.height);
+        break;
+
+    case FMT_PVRTC_RGB_2BPP:
+    case FMT_PVRTC_RGBA_2BPP:
+    case FMT_PVRTC_RGB_4BPP:
+    case FMT_PVRTC_RGBA_4BPP:
+        DecompressImagePVRTC(dest, level.data, level.width, level.height, format);
+        break;
+
+    default:
+        LOGERROR("Unsupported format for DecompressLevel");
+        return false;
+    }
+
+    return true;
 }
 
 }
