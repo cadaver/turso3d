@@ -174,6 +174,11 @@ void* Graphics::DeviceContext() const
     return impl->deviceContext;
 }
 
+void Graphics::Present()
+{
+    impl->swapChain->Present(0, 0);
+}
+
 void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDepth, unsigned char clearStencil)
 {
     if (clearFlags & CLEAR_COLOR)
@@ -189,9 +194,23 @@ void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDe
     }
 }
 
-void Graphics::Present()
+void Graphics::SetViewport(const IntRect& viewport_)
 {
-    impl->swapChain->Present(0, 0);
+    /// \todo Test against current rendertarget once rendertarget switching is in place
+    viewport.left = Clamp(viewport_.left, 0, backbufferSize.x - 1);
+    viewport.top = Clamp(viewport_.top, 0, backbufferSize.y - 1);
+    viewport.right = Clamp(viewport_.right, viewport.left + 1, backbufferSize.x);
+    viewport.bottom = Clamp(viewport_.bottom, viewport.top + 1, backbufferSize.y);
+
+    D3D11_VIEWPORT d3dViewport;
+    d3dViewport.TopLeftX = (float)viewport.left;
+    d3dViewport.TopLeftY = (float)viewport.top;
+    d3dViewport.Width = (float)(viewport.right - viewport.left);
+    d3dViewport.Height = (float)(viewport.bottom - viewport.top);
+    d3dViewport.MinDepth = 0.0f;
+    d3dViewport.MaxDepth = 1.0f;
+
+    impl->deviceContext->RSSetViewports(1, &d3dViewport);
 }
 
 void Graphics::SetVertexBuffer(size_t index, VertexBuffer* buffer)
@@ -535,22 +554,14 @@ bool Graphics::UpdateSwapChain(int width, int height, bool fullscreen_)
         success = false;
     }
 
-    D3D11_VIEWPORT vp;
-    vp.TopLeftX = 0.0f;
-    vp.TopLeftY = 0.0f;
-    vp.Width = (float)width;
-    vp.Height = (float)height;
-    vp.MinDepth = 0.0f;
-    vp.MaxDepth = 1.0f;
-
-    impl->deviceContext->OMSetRenderTargets(1, &impl->backbufferView, impl->depthStencilView);
-    impl->deviceContext->RSSetViewports(1, &vp);
-    
     // Update internally held backbuffer size and fullscreen state
     backbufferSize.x = width;
     backbufferSize.y = height;
     fullscreen = fullscreen_;
 
+    impl->deviceContext->OMSetRenderTargets(1, &impl->backbufferView, impl->depthStencilView);
+    SetViewport(IntRect(0, 0, width, height));
+    
     inResize = false;
     return success;
 }

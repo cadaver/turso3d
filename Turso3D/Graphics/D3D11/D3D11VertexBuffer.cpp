@@ -166,7 +166,7 @@ bool VertexBuffer::Define(size_t numVertices_, unsigned elementMask_, bool dynam
             return false;
         }
         else
-            LOGDEBUGF("Created vertex buffer size %u vertexSize %u", (unsigned)numVertices, (unsigned)vertexSize);
+            LOGDEBUGF("Created vertex buffer numVertices %u vertexSize %u", (unsigned)numVertices, (unsigned)vertexSize);
     }
 
     return true;

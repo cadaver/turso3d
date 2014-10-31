@@ -96,7 +96,7 @@ bool IndexBuffer::Define(size_t numIndices_, size_t indexSize_, bool dynamic, bo
             return false;
         }
         else
-            LOGDEBUGF("Created index buffer size %u indexSize %u", (unsigned)numIndices, (unsigned)indexSize);
+            LOGDEBUGF("Created index buffer numIndices %u indexSize %u", (unsigned)numIndices, (unsigned)indexSize);
     }
 
     return true;

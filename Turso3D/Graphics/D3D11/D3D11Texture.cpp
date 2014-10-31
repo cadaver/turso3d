@@ -232,7 +232,7 @@ bool Texture::Define(TextureType type_, TextureUsage usage_, int width_, int hei
             format = format_;
             numLevels = numLevels_;
 
-            LOGDEBUGF("Created texture width %d height %d format %d", width, height, (int)format);
+            LOGDEBUGF("Created texture width %d height %d format %d numLevels %d", width, height, (int)format, numLevels);
         }
 
         D3D11_SHADER_RESOURCE_VIEW_DESC resourceViewDesc;

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "../../Math/Color.h"
+#include "../../Math/IntRect.h"
 #include "../../Math/IntVector2.h"
 #include "../../Object/Object.h"
 #include "../GraphicsDefs.h"
@@ -43,10 +44,12 @@ public:
     bool SwitchFullscreen();
     /// Close the window and destroy the rendering context and GPU objects.
     void Close();
-    /// Clear the current rendertarget.
-    void Clear(unsigned clearFlags, const Color& clearColor = Color::BLACK, float clearDepth = 1.0f, unsigned char clearStencil = 0);
     /// Present the contents of the backbuffer.
     void Present();
+    /// Clear the current rendertarget. This is not affected by the defined viewport, but will always clear the whole target.
+    void Clear(unsigned clearFlags, const Color& clearColor = Color::BLACK, float clearDepth = 1.0f, unsigned char clearStencil = 0);
+    /// Set the viewport rectangle. On window resize the viewport will automatically revert to full window.
+    void SetViewport(const IntRect& viewport);
     /// Bind a vertex buffer.
     void SetVertexBuffer(size_t index, VertexBuffer* buffer);
     /// Bind an index buffer.
@@ -86,6 +89,8 @@ public:
     void* Device() const;
     /// Return the D3D11 immediate device context.
     void* DeviceContext() const;
+    /// Return the current viewport rectangle.
+    const IntRect Viewport() const { return viewport; }
     /// Return currently bound vertex buffer by index.
     VertexBuffer* GetVertexBuffer(size_t index) const;
     /// Return currently bound index buffer.
@@ -130,6 +135,8 @@ private:
     AutoPtr<Window> window;
     /// Current size of the backbuffer.
     IntVector2 backbufferSize;
+    /// Current viewport rectangle.
+    IntRect viewport;
     /// GPU objects.
     Vector<GPUObject*> gpuObjects;
     /// Input layouts.
