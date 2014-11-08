@@ -66,6 +66,8 @@ public:
     void SetDepthState(DepthState* state, unsigned stencilRef = 0);
     /// Bind rasterizer state object.
     void SetRasterizerState(RasterizerState* state);
+    /// Set scissor rectangle. Is only effective if scissor test is enabled in the rasterizer state.
+    void SetScissorRect(const IntRect& scissorRect);
     /// Clear all bound vertex buffers.
     void ResetVertexBuffers();
     /// Clear all bound constant buffers.
@@ -109,6 +111,8 @@ public:
     DepthState* GetDepthState() const { return depthState; }
     /// Return currently bound rasterizer state.
     RasterizerState* GetRasterizerState() const { return rasterizerState; }
+    /// Return current scissor rectangle.
+    IntRect ScissorRect() const { return scissorRect; }
     /// Return current stencil ref value.
     unsigned StencilRef() const { return stencilRef; }
 
@@ -163,6 +167,8 @@ private:
     PrimitiveType primitiveType;
     /// Current input layout: vertex buffers' element mask and vertex shader's element mask combined.
     InputLayoutDesc inputLayout;
+    /// Current scissor rectangle.
+    IntRect scissorRect;
     /// Current stencil ref value.
     unsigned stencilRef;
     /// Fullscreen flag.

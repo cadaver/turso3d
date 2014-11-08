@@ -194,13 +194,13 @@ void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDe
     }
 }
 
-void Graphics::SetViewport(const IntRect& viewport_)
+void Graphics::SetViewport(const IntRect& newViewport)
 {
     /// \todo Test against current rendertarget once rendertarget switching is in place
-    viewport.left = Clamp(viewport_.left, 0, backbufferSize.x - 1);
-    viewport.top = Clamp(viewport_.top, 0, backbufferSize.y - 1);
-    viewport.right = Clamp(viewport_.right, viewport.left + 1, backbufferSize.x);
-    viewport.bottom = Clamp(viewport_.bottom, viewport.top + 1, backbufferSize.y);
+    viewport.left = Clamp(newViewport.left, 0, backbufferSize.x - 1);
+    viewport.top = Clamp(newViewport.top, 0, backbufferSize.y - 1);
+    viewport.right = Clamp(newViewport.right, viewport.left + 1, backbufferSize.x);
+    viewport.bottom = Clamp(newViewport.bottom, viewport.top + 1, backbufferSize.y);
 
     D3D11_VIEWPORT d3dViewport;
     d3dViewport.TopLeftX = (float)viewport.left;
@@ -356,6 +356,25 @@ void Graphics::SetRasterizerState(RasterizerState* state)
             impl->rasterizerState = d3dRasterizerState;
         }
         rasterizerState = state;
+    }
+}
+
+void Graphics::SetScissorRect(const IntRect& newScissorRect)
+{
+    if (newScissorRect != scissorRect)
+    {
+        /// \todo Test against current rendertarget once rendertarget switching is in place
+        scissorRect.left = Clamp(newScissorRect.left, 0, backbufferSize.x - 1);
+        scissorRect.top = Clamp(newScissorRect.top, 0, backbufferSize.y - 1);
+        scissorRect.right = Clamp(newScissorRect.right, scissorRect.left + 1, backbufferSize.x);
+        scissorRect.bottom = Clamp(newScissorRect.bottom, scissorRect.top + 1, backbufferSize.y);
+
+        D3D11_RECT d3dRect;
+        d3dRect.left = scissorRect.left;
+        d3dRect.top = scissorRect.top;
+        d3dRect.right = scissorRect.right;
+        d3dRect.bottom = scissorRect.bottom;
+        impl->deviceContext->RSSetScissorRects(1, &d3dRect);
     }
 }
 
@@ -682,6 +701,7 @@ void Graphics::ResetState()
     inputLayout.second = 0;
     inputLayoutDirty = false;
     primitiveType = MAX_PRIMITIVE_TYPES;
+    scissorRect = IntRect();
     stencilRef = 0;
 }
 
