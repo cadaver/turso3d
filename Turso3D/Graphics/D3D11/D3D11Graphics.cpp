@@ -126,6 +126,11 @@ void Graphics::Close()
     }
     inputLayouts.Clear();
 
+    if (impl->deviceContext)
+    {
+        ID3D11RenderTargetView* nullView = 0;
+        impl->deviceContext->OMSetRenderTargets(1, &nullView, (ID3D11DepthStencilView*)0);
+    }
     if (impl->defaultRenderTargetView)
     {
         impl->defaultRenderTargetView->Release();
@@ -409,10 +414,10 @@ void Graphics::ResetConstantBuffers()
 
 void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDepth, unsigned char clearStencil)
 {
-    if (clearFlags & CLEAR_COLOR)
+    if ((clearFlags & CLEAR_COLOR) && impl->renderTargetViews[0])
         impl->deviceContext->ClearRenderTargetView(impl->renderTargetViews[0], clearColor.Data());
     
-    if (clearFlags & (CLEAR_DEPTH | CLEAR_STENCIL))
+    if ((clearFlags & (CLEAR_DEPTH | CLEAR_STENCIL)) && impl->depthStencilView)
     {
         unsigned depthClearFlags = 0;
         if (clearFlags & CLEAR_DEPTH)
@@ -622,7 +627,7 @@ bool Graphics::UpdateSwapChain(int width, int height, bool fullscreen_)
     depthDesc.MiscFlags = 0;
     impl->device->CreateTexture2D(&depthDesc, 0, &impl->defaultDepthTexture);
     if (impl->defaultDepthTexture)
-        impl->device->CreateDepthStencilView(impl->defaultDepthTexture, 0, &impl->depthStencilView);
+        impl->device->CreateDepthStencilView(impl->defaultDepthTexture, 0, &impl->defaultDepthStencilView);
     else
     {
         LOGERROR("Failed to create backbuffer depth-stencil texture");
