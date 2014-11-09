@@ -26,8 +26,6 @@ public:
     /// Redefine buffer data either completely or partially. Buffer must be dynamic. Return true on success.
     bool SetData(size_t firstIndex, size_t numIndices, const void* data);
 
-    /// Return the D3D11 buffer.
-    void* BufferObject() const { return buffer; }
     /// Return CPU-side shadow data if exists.
     unsigned char* ShadowData() const { return shadowData.Get(); }
     /// Return number of indices.
@@ -36,6 +34,9 @@ public:
     size_t IndexSize() const { return indexSize; }
     /// Return whether is dynamic.
     bool IsDynamic() const { return dynamic; }
+
+    /// Return the D3D11 buffer. Used internally and should not be called by portable application code.
+    void* BufferObject() const { return buffer; }
 
 private:
     /// D3D11 buffer.

@@ -32,14 +32,15 @@ public:
     String FullName() const;
     /// Return shader stage.
     ShaderStage Stage() const { return stage; }
-    /// Return the D3D11 shader byte blob. Null if not compiled yet or compile failed.
-    void* CompiledBlob() const { return blob; }
-    /// Return the D3D11 shader. Null if not compiled yet or compile failed.
-    void* CompiledShader() { return shader; }
     /// Return element mask for vertex shaders.
     unsigned ElementMask() const { return elementMask; }
     /// Return whether compile attempted.
     bool IsCompiled() const { return compiled; }
+
+    /// Return the D3D11 shader byte blob. Null if not compiled yet or compile failed. Used internally and should not be called by portable application code.
+    void* BlobObject() const { return blob; }
+    /// Return the D3D11 shader. Null if not compiled yet or compile failed. Used internally and should not be called by portable application code.
+    void* ShaderObject() { return shader; }
 
 private:
     /// Parent shader resource.

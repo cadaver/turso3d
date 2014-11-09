@@ -77,8 +77,6 @@ public:
     /// Set a constant by name, template version
     template <class T> bool SetConstant(const char* name, const T& data, size_t numElements = 0) { return SetConstant(name, (void*)&data, numElements); }
 
-    /// Return the D3D11 buffer.
-    void* BufferObject() const { return buffer; }
     /// Return number of constants.
     size_t NumConstants() const { return constants.Size(); }
     /// Return the constant descriptions.
@@ -87,6 +85,9 @@ public:
     size_t ByteSize() const { return byteSize; }
     /// Return whether buffer has unapplied changes.
     bool IsDirty() const { return dirty; }
+
+    /// Return the D3D11 buffer. Used internally and should not be called by portable application code.
+    void* BufferObject() const { return buffer; }
 
     /// Element sizes by type.
     static const size_t elementSize[];

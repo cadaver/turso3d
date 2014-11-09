@@ -38,14 +38,6 @@ public:
     /// Define sampling parameters. Return true on success.
     bool DefineSampler(TextureFilterMode filter = FILTER_TRILINEAR, TextureAddressMode u = ADDRESS_WRAP, TextureAddressMode v = ADDRESS_WRAP, TextureAddressMode w = ADDRESS_WRAP, unsigned maxAnisotropy = 16, float minLod = 0, float maxLod = M_INFINITY, const Color& borderColor = Color::BLACK);
 
-    /// Return the D3D11 texture object.
-    void* TextureObject() const { return texture; }
-    /// Return the D3D11 shader resource view object.
-    void* ResourceViewObject() const { return resourceView; }
-    /// Return the rendertarget or depth-stencil view object.
-    void* RenderTargetViewObject(size_t index = 0) const;
-    /// Return the D3D11 texture sampler object.
-    void* SamplerObject() const { return sampler; }
     /// Return texture type.
     TextureType TexType() const { return type; }
     /// Return width.
@@ -62,6 +54,15 @@ public:
     bool IsRenderTarget() const { return usage == USAGE_RENDERTARGET && (format < FMT_D16 || format > FMT_D24S8); }
     /// Return whether is a depth-stencil texture.
     bool IsDepthStencil() const { return usage == USAGE_RENDERTARGET && format >= FMT_D16 && format <= FMT_D24S8; }
+
+    /// Return the D3D11 texture object. Used internally and should not be called by portable application code.
+    void* TextureObject() const { return texture; }
+    /// Return the D3D11 shader resource view object. Used internally and should not be called by portable application code.
+    void* ResourceViewObject() const { return resourceView; }
+    /// Return the D3D11 rendertarget or depth-stencil view object. Used internally and should not be called by portable application code.
+    void* RenderTargetViewObject(size_t index = 0) const;
+    /// Return the D3D11 texture sampler object. Used internally and should not be called by portable application code.
+    void* SamplerObject() const { return sampler; }
 
 private: 
     /// D3D11 texture object.

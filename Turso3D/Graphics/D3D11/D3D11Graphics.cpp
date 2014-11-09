@@ -307,7 +307,7 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
         {
             if (!vs->IsCompiled())
                 vs->Compile();
-            impl->deviceContext->VSSetShader((ID3D11VertexShader*)vs->CompiledShader(), 0, 0);
+            impl->deviceContext->VSSetShader((ID3D11VertexShader*)vs->ShaderObject(), 0, 0);
         }
         else
             impl->deviceContext->VSSetShader(0, 0, 0);
@@ -321,7 +321,7 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
         {
             if (!ps->IsCompiled())
                 ps->Compile();
-            impl->deviceContext->PSSetShader((ID3D11PixelShader*)ps->CompiledShader(), 0, 0);
+            impl->deviceContext->PSSetShader((ID3D11PixelShader*)ps->ShaderObject(), 0, 0);
         }
         else
             impl->deviceContext->PSSetShader(0, 0, 0);
@@ -717,7 +717,7 @@ void Graphics::PrepareDraw(PrimitiveType type)
         }
 
         ID3D11InputLayout* d3dInputLayout = 0;
-        ID3DBlob* d3dBlob = (ID3DBlob*)vertexShader->CompiledBlob();
+        ID3DBlob* d3dBlob = (ID3DBlob*)vertexShader->BlobObject();
         impl->device->CreateInputLayout(&elementDescs[0], (unsigned)elementDescs.Size(), d3dBlob->GetBufferPointer(),
             d3dBlob->GetBufferSize(), &d3dInputLayout);
         if (d3dInputLayout)

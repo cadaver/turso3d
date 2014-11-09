@@ -26,8 +26,6 @@ public:
     /// Redefine buffer data either completely or partially. Buffer must be dynamic. Return true on success.
     bool SetData(size_t firstVertex, size_t numVertices, const void* data);
 
-    /// Return the D3D11 buffer.
-    void* BufferObject() const { return buffer; }
     /// Return CPU-side shadow data if exists.
     unsigned char* ShadowData() const { return shadowData.Get(); }
     /// Return number of vertices.
@@ -40,6 +38,9 @@ public:
     bool IsDynamic() const { return dynamic; }
     /// Return vertex element offset in bytes from beginning of vertex.
     size_t ElementOffset(VertexElement element) const;
+
+    /// Return the D3D11 buffer. Used internally and should not be called by portable application code.
+    void* BufferObject() const { return buffer; }
 
     /// Compute vertex size for a particular element mask.
     static size_t ComputeVertexSize(unsigned elementMask);

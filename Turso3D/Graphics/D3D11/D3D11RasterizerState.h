@@ -23,7 +23,7 @@ public:
     /// Define parameters and create the rasterizer state object. The existing state object (if any) will be destroyed. Return true on success.
     bool Define(FillMode fillMode = FILL_SOLID, CullMode cullMode = CULL_BACK, int depthBias = 0, float depthBiasClamp = 0.0f, float slopeScaledDepthBias = 0.0f, bool depthClipEnable = true, bool scissorEnable = false, bool multisampleEnable = false, bool antialiasedLineEnable = false);
 
-    /// Return the D3D11 state object.
+    /// Return the D3D11 state object. Used internally and should not be called by portable application code.
     void* StateObject() const { return stateObject; }
 
     /// Fill mode.
