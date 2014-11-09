@@ -46,8 +46,10 @@ public:
     void Close();
     /// Present the contents of the backbuffer.
     void Present();
-    /// Clear the current rendertarget. This is not affected by the defined viewport, but will always clear the whole target.
-    void Clear(unsigned clearFlags, const Color& clearColor = Color::BLACK, float clearDepth = 1.0f, unsigned char clearStencil = 0);
+    /// Set the color rendertarget and depth stencil buffer.
+    void SetRenderTarget(Texture* renderTarget, Texture* stencilBuffer);
+    /// Set multiple color rendertargets and the depth stencil buffer.
+    void SetRenderTargets(const Vector<Texture*>& renderTargets, Texture* stencilBuffer); 
     /// Set the viewport rectangle. On window resize the viewport will automatically revert to full window.
     void SetViewport(const IntRect& viewport);
     /// Bind a vertex buffer.
@@ -68,10 +70,14 @@ public:
     void SetRasterizerState(RasterizerState* state);
     /// Set scissor rectangle. Is only effective if scissor test is enabled in the rasterizer state.
     void SetScissorRect(const IntRect& scissorRect);
-    /// Clear all bound vertex buffers.
+    /// Reset rendertarget and depth stencil buffer to the backbuffer.
+    void ResetRenderTargets();
+    /// Reset all bound vertex buffers.
     void ResetVertexBuffers();
-    /// Clear all bound constant buffers.
+    /// Reset all bound constant buffers.
     void ResetConstantBuffers();
+    /// Clear the current rendertarget. This is not affected by the defined viewport, but will always clear the whole target.
+    void Clear(unsigned clearFlags, const Color& clearColor = Color::BLACK, float clearDepth = 1.0f, unsigned char clearStencil = 0);
     /// Draw non-indexed geometry.
     void Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount);
     /// Draw indexed geometry.
@@ -83,7 +89,11 @@ public:
     int Width() const { return backbufferSize.x; }
     /// Return backbuffer height, or 0 if not initialized.
     int Height() const { return backbufferSize.y; }
-    /// Return whether is using fullscreen mode
+    /// Return current rendertarget width.
+    int RenderTargetWidth() const { return renderTargetSize.x; }
+    /// Return current rendertarget height.
+    int RenderTargetHeight() const { return renderTargetSize.y; }
+    /// Return whether is using fullscreen mode.
     bool IsFullscreen() const { return fullscreen; }
     /// Return the rendering window.
     Window* RenderWindow() const;
@@ -91,6 +101,10 @@ public:
     void* Device() const;
     /// Return the D3D11 immediate device context.
     void* DeviceContext() const;
+    /// Return the current color rendertarget by index, or null if rendering to the backbuffer.
+    Texture* RenderTarget(size_t index) const;
+    /// Return the current depth-stencil buffer, or null if rendering to the backbuffer.
+    Texture* DepthStencil() const { return depthStencil; }
     /// Return the current viewport rectangle.
     const IntRect Viewport() const { return viewport; }
     /// Return currently bound vertex buffer by index.
@@ -139,6 +153,8 @@ private:
     AutoPtr<Window> window;
     /// Current size of the backbuffer.
     IntVector2 backbufferSize;
+    /// Current size of the active rendertarget.
+    IntVector2 renderTargetSize;
     /// Current viewport rectangle.
     IntRect viewport;
     /// GPU objects.
@@ -153,6 +169,12 @@ private:
     ConstantBuffer* constantBuffers[MAX_SHADER_STAGES][MAX_CONSTANT_BUFFERS];
     /// Bound textures by texture unit.
     Texture* textures[MAX_TEXTURE_UNITS];
+    /// Bound rendertarget textures.
+    Texture* renderTargets[MAX_RENDERTARGETS];
+    /// Bound depth-stencil texture.
+    Texture* depthStencil;
+    /// Helper vector for defining just one color rendertarget.
+    Vector<Texture*> renderTargetVector;
     /// Bound vertex shader.
     ShaderVariation* vertexShader;
     /// Bound pixel shader.

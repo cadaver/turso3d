@@ -42,6 +42,8 @@ public:
     void* TextureObject() const { return texture; }
     /// Return the D3D11 shader resource view object.
     void* ResourceViewObject() const { return resourceView; }
+    /// Return the rendertarget or depth-stencil view object.
+    void* RenderTargetViewObject(size_t index = 0) const;
     /// Return the D3D11 texture sampler object.
     void* SamplerObject() const { return sampler; }
     /// Return texture type.
@@ -56,12 +58,18 @@ public:
     size_t NumLevels() const { return numLevels; }
     /// Return usage mode.
     TextureUsage Usage() const { return usage; }
-    
+    /// Return whether is a color rendertarget texture.
+    bool IsRenderTarget() const { return usage == USAGE_RENDERTARGET && (format < FMT_D16 || format > FMT_D24S8); }
+    /// Return whether is a depth-stencil texture.
+    bool IsDepthStencil() const { return usage == USAGE_RENDERTARGET && format >= FMT_D16 && format <= FMT_D24S8; }
+
 private: 
     /// D3D11 texture object.
     void* texture;
     /// D3D11 resource view object.
     void* resourceView;
+    /// D3D11 rendertarget or depth-stencil view object.
+    void* renderTargetView;
     /// D3D11 texture sampler object.
     void* sampler;
     /// Texture type.
