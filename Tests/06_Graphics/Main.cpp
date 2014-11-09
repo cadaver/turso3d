@@ -116,12 +116,12 @@ public:
         rs->Define();
 
         Texture* tex = cache->LoadResource<Texture>("Test.png");
-
+        
         for (;;)
         {
             input->Update();
             if (input->KeyPressed('F'))
-                graphics->SwitchFullscreen();
+                graphics->SetFullscreen(!graphics->IsFullscreen());
             if (input->KeyPressed(27))
                 graphics->Close();
 

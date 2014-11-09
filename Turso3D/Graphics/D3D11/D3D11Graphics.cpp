@@ -71,6 +71,7 @@ Graphics::Graphics() :
     backbufferSize(IntVector2::ZERO),
     renderTargetSize(IntVector2::ZERO),
     fullscreen(false),
+    vsync(false),
     inResize(false)
 {
     RegisterSubsystem(this);
@@ -105,9 +106,17 @@ bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
     return UpdateSwapChain(width, height, fullscreen);
 }
 
-bool Graphics::SwitchFullscreen()
+bool Graphics::SetFullscreen(bool enable)
 {
-    return SetMode(backbufferSize.x, backbufferSize.y, !fullscreen, window->IsResizable());
+    if (!IsInitialized())
+        return false;
+    else
+        return SetMode(backbufferSize.x, backbufferSize.y, enable, window->IsResizable());
+}
+
+void Graphics::SetVSync(bool enable)
+{
+    vsync = enable;
 }
 
 void Graphics::Close()
@@ -169,7 +178,7 @@ void Graphics::Close()
 
 void Graphics::Present()
 {
-    impl->swapChain->Present(0, 0);
+    impl->swapChain->Present(vsync ? 1 : 0, 0);
 }
 
 void Graphics::SetRenderTarget(Texture* renderTarget_, Texture* depthStencil_)
@@ -443,7 +452,12 @@ void Graphics::DrawIndexed(PrimitiveType type, size_t indexStart, size_t indexCo
 
 bool Graphics::IsInitialized() const
 {
-    return window != 0 && impl->device != 0;
+    return window->IsOpen() && impl->device != 0;
+}
+
+bool Graphics::IsResizable() const
+{
+    return window->IsResizable();
 }
 
 Window* Graphics::RenderWindow() const

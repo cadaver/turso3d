@@ -40,8 +40,10 @@ public:
 
     /// Set graphics mode. Create the window and rendering context if not created yet. Return true on success.
     bool SetMode(int width, int height, bool fullscreen, bool resizable);
-    /// Switch between fullscreen/windowed while retaining previous resolution. Return true on success.
-    bool SwitchFullscreen();
+    /// Set fullscreen mode on/off while retaining previous resolution. The initial graphics mode must have been set first. Return true on success.
+    bool SetFullscreen(bool enable);
+    /// Set vertical sync on/off.
+    void SetVSync(bool enable);
     /// Close the window and destroy the rendering context and GPU objects.
     void Close();
     /// Present the contents of the backbuffer.
@@ -95,6 +97,10 @@ public:
     int RenderTargetHeight() const { return renderTargetSize.y; }
     /// Return whether is using fullscreen mode.
     bool IsFullscreen() const { return fullscreen; }
+    /// Return whether the window is resizable.
+    bool IsResizable() const;
+    /// Return whether is using vertical sync.
+    bool VSync() const { return vsync; }
     /// Return the rendering window.
     Window* RenderWindow() const;
     /// Return the D3D11 device.
@@ -195,6 +201,8 @@ private:
     unsigned stencilRef;
     /// Fullscreen flag.
     bool fullscreen;
+    /// Vertical sync flag.
+    bool vsync;
     /// Resize handling flag to prevent recursion.
     bool inResize;
     /// Input layout dirty flag.

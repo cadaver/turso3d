@@ -452,7 +452,7 @@ bool Image::BeginLoad(Stream& source)
             AutoArrayPtr<unsigned char> rgbaData(new unsigned char[4 * imageWidth * imageHeight]);
             unsigned char* src = pixelData;
             unsigned char* dest = rgbaData.Get();
-            for (size_t i = 0; i < imageWidth * imageHeight; ++i)
+            for (int i = 0; i < imageWidth * imageHeight; ++i)
             {
                 *dest++ = *src++;
                 *dest++ = *src++;
