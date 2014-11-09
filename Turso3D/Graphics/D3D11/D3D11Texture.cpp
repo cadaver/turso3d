@@ -37,12 +37,26 @@ static const DXGI_FORMAT textureFormat[] =
     DXGI_FORMAT_R32G32_FLOAT,
     DXGI_FORMAT_R32G32B32_FLOAT,
     DXGI_FORMAT_R32G32B32A32_FLOAT,
-    DXGI_FORMAT_D16_UNORM,
-    DXGI_FORMAT_D32_FLOAT,
-    DXGI_FORMAT_D24_UNORM_S8_UINT,
+    DXGI_FORMAT_R16_TYPELESS,
+    DXGI_FORMAT_R32_TYPELESS,
+    DXGI_FORMAT_R24G8_TYPELESS,
     DXGI_FORMAT_BC1_UNORM,
     DXGI_FORMAT_BC2_UNORM,
     DXGI_FORMAT_BC3_UNORM
+};
+
+static const DXGI_FORMAT depthStencilViewFormat[] =
+{
+    DXGI_FORMAT_D16_UNORM,
+    DXGI_FORMAT_D32_FLOAT,
+    DXGI_FORMAT_D24_UNORM_S8_UINT
+};
+
+static const DXGI_FORMAT depthStencilResourceViewFormat[] =
+{
+    DXGI_FORMAT_R16_UNORM,
+    DXGI_FORMAT_R32_FLOAT,
+    DXGI_FORMAT_R24_UNORM_X8_TYPELESS
 };
 
 static const D3D11_USAGE textureUsage[] =
@@ -164,16 +178,18 @@ void Texture::Release()
         d3dResourceView->Release();
         resourceView = 0;
     }
-    if (IsRenderTarget())
+    if (renderTargetView)
     {
-        ID3D11RenderTargetView* d3dRenderTargetView = (ID3D11RenderTargetView*)renderTargetView;
-        d3dRenderTargetView->Release();
-        renderTargetView = 0;
-    }
-    if (IsDepthStencil())
-    {
-        ID3D11DepthStencilView* d3dDepthStencilView = (ID3D11DepthStencilView*)renderTargetView;
-        d3dDepthStencilView->Release();
+        if (IsRenderTarget())
+        {
+            ID3D11RenderTargetView* d3dRenderTargetView = (ID3D11RenderTargetView*)renderTargetView;
+            d3dRenderTargetView->Release();
+        }
+        else if (IsDepthStencil())
+        {
+            ID3D11DepthStencilView* d3dDepthStencilView = (ID3D11DepthStencilView*)renderTargetView;
+            d3dDepthStencilView->Release();
+        }
         renderTargetView = 0;
     }
     if (sampler)
@@ -235,7 +251,7 @@ bool Texture::Define(TextureType type_, TextureUsage usage_, int width_, int hei
             if (format_ < FMT_D16 || format_ > FMT_D24S8)
                 textureDesc.BindFlags |= D3D11_BIND_RENDER_TARGET;
             else
-                textureDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+                textureDesc.BindFlags |= D3D11_BIND_DEPTH_STENCIL;
         }
         textureDesc.CPUAccessFlags = usage == USAGE_DYNAMIC ? D3D11_CPU_ACCESS_WRITE : 0;
 
@@ -272,6 +288,13 @@ bool Texture::Define(TextureType type_, TextureUsage usage_, int width_, int hei
             LOGDEBUGF("Created texture width %d height %d format %d numLevels %d", width, height, (int)format, numLevels);
         }
 
+        D3D11_SHADER_RESOURCE_VIEW_DESC resourceViewDesc;
+        memset(&resourceViewDesc, 0, sizeof resourceViewDesc);
+        resourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+        resourceViewDesc.Texture2D.MipLevels = (unsigned)numLevels;
+        resourceViewDesc.Texture2D.MostDetailedMip = 0;
+        resourceViewDesc.Format = textureDesc.Format;
+
         if (IsRenderTarget())
         {
             D3D11_RENDER_TARGET_VIEW_DESC renderTargetViewDesc;
@@ -288,7 +311,10 @@ bool Texture::Define(TextureType type_, TextureUsage usage_, int width_, int hei
         {
             D3D11_DEPTH_STENCIL_VIEW_DESC depthStencilViewDesc;
             memset(&depthStencilViewDesc, 0, sizeof depthStencilViewDesc);
-            depthStencilViewDesc.Format = textureDesc.Format;
+            // Readable depth textures are created typeless, while the actual format is specified for the depth stencil
+            // and shader resource views
+            resourceViewDesc.Format = depthStencilResourceViewFormat[format - FMT_D16];
+            depthStencilViewDesc.Format = depthStencilViewFormat[format - FMT_D16];
             depthStencilViewDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
             depthStencilViewDesc.Flags = 0;
 
@@ -297,19 +323,9 @@ bool Texture::Define(TextureType type_, TextureUsage usage_, int width_, int hei
                 LOGERROR("Failed to create depth-stencil view for texture");
         }
 
-        if (textureDesc.BindFlags & D3D11_BIND_SHADER_RESOURCE)
-        {
-            D3D11_SHADER_RESOURCE_VIEW_DESC resourceViewDesc;
-            memset(&resourceViewDesc, 0, sizeof resourceViewDesc);
-            resourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-            resourceViewDesc.Texture2D.MipLevels = (unsigned)numLevels;
-            resourceViewDesc.Texture2D.MostDetailedMip = 0;
-            resourceViewDesc.Format = textureDesc.Format;
-
-            d3dDevice->CreateShaderResourceView((ID3D11Resource*)texture, &resourceViewDesc, (ID3D11ShaderResourceView**)&resourceView);
-            if (!resourceView)
-                LOGERROR("Failed to create shader resource view for texture");
-        }
+        d3dDevice->CreateShaderResourceView((ID3D11Resource*)texture, &resourceViewDesc, (ID3D11ShaderResourceView**)&resourceView);
+        if (!resourceView)
+            LOGERROR("Failed to create shader resource view for texture");
     }
 
     return true;
@@ -356,7 +372,7 @@ bool Texture::DefineSampler(TextureFilterMode filter, TextureAddressMode u, Text
     return true;
 }
 
-void* Texture::RenderTargetViewObject(size_t index) const
+void* Texture::RenderTargetViewObject(size_t /*index*/) const
 {
     /// \todo Handle different indices for eg. cube maps
     return renderTargetView;

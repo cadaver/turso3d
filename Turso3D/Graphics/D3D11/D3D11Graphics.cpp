@@ -172,32 +172,32 @@ void Graphics::Present()
     impl->swapChain->Present(0, 0);
 }
 
-void Graphics::SetRenderTarget(Texture* newRenderTarget, Texture* newDepthStencil)
+void Graphics::SetRenderTarget(Texture* renderTarget_, Texture* depthStencil_)
 {
     renderTargetVector.Resize(1);
-    renderTargetVector[0] = newRenderTarget;
-    SetRenderTargets(renderTargetVector, newDepthStencil);
+    renderTargetVector[0] = renderTarget_;
+    SetRenderTargets(renderTargetVector, depthStencil_);
 }
 
-void Graphics::SetRenderTargets(const Vector<Texture*>& newRenderTargets, Texture* newDepthStencil)
+void Graphics::SetRenderTargets(const Vector<Texture*>& renderTargets_, Texture* depthStencil_)
 {
-    if (newRenderTargets.IsEmpty())
+    if (renderTargets_.IsEmpty())
         return;
 
-    for (size_t i = 0; i < MAX_RENDERTARGETS && i < newRenderTargets.Size(); ++i)
+    for (size_t i = 0; i < MAX_RENDERTARGETS && i < renderTargets_.Size(); ++i)
     {
-        renderTargets[i] = newRenderTargets[i];
-        impl->renderTargetViews[i] = renderTargets[i] ? (ID3D11RenderTargetView*)newRenderTargets[i]->RenderTargetViewObject() :
+        renderTargets[i] = renderTargets_[i];
+        impl->renderTargetViews[i] = renderTargets[i] ? (ID3D11RenderTargetView*)renderTargets_[i]->RenderTargetViewObject() :
             impl->defaultRenderTargetView;
     }
 
-    for (size_t i = newRenderTargets.Size(); i < MAX_RENDERTARGETS; ++i)
+    for (size_t i = renderTargets_.Size(); i < MAX_RENDERTARGETS; ++i)
     {
         renderTargets[i] = 0;
         impl->renderTargetViews[i] = 0;
     }
 
-    depthStencil = newDepthStencil;
+    depthStencil = depthStencil_;
     impl->depthStencilView = depthStencil ? (ID3D11DepthStencilView*)depthStencil->RenderTargetViewObject() :
         impl->defaultDepthStencilView;
 
@@ -206,15 +206,15 @@ void Graphics::SetRenderTargets(const Vector<Texture*>& newRenderTargets, Textur
     else
         renderTargetSize = backbufferSize;
 
-    impl->deviceContext->OMSetRenderTargets(Min((int)newRenderTargets.Size(), (int)MAX_RENDERTARGETS), impl->renderTargetViews, impl->depthStencilView);
+    impl->deviceContext->OMSetRenderTargets(Min((int)renderTargets_.Size(), (int)MAX_RENDERTARGETS), impl->renderTargetViews, impl->depthStencilView);
 }
 
-void Graphics::SetViewport(const IntRect& newViewport)
+void Graphics::SetViewport(const IntRect& viewport_)
 {
-    viewport.left = Clamp(newViewport.left, 0, renderTargetSize.x - 1);
-    viewport.top = Clamp(newViewport.top, 0, renderTargetSize.y - 1);
-    viewport.right = Clamp(newViewport.right, viewport.left + 1, renderTargetSize.x);
-    viewport.bottom = Clamp(newViewport.bottom, viewport.top + 1, renderTargetSize.y);
+    viewport.left = Clamp(viewport_.left, 0, renderTargetSize.x - 1);
+    viewport.top = Clamp(viewport_.top, 0, renderTargetSize.y - 1);
+    viewport.right = Clamp(viewport_.right, viewport.left + 1, renderTargetSize.x);
+    viewport.bottom = Clamp(viewport_.bottom, viewport.top + 1, renderTargetSize.y);
 
     D3D11_VIEWPORT d3dViewport;
     d3dViewport.TopLeftX = (float)viewport.left;
@@ -344,16 +344,16 @@ void Graphics::SetBlendState(BlendState* state)
     }
 }
 
-void Graphics::SetDepthState(DepthState* state, unsigned newStencilRef)
+void Graphics::SetDepthState(DepthState* state, unsigned stencilRef_)
 {
-    if (state != depthState || newStencilRef != stencilRef)
+    if (state != depthState || stencilRef_ != stencilRef)
     {
         ID3D11DepthStencilState* d3dDepthStencilState = state ? (ID3D11DepthStencilState*)state->StateObject() : (ID3D11DepthStencilState*)0;
-        if (d3dDepthStencilState != impl->depthStencilState || newStencilRef != stencilRef)
+        if (d3dDepthStencilState != impl->depthStencilState || stencilRef_ != stencilRef)
         {
-            impl->deviceContext->OMSetDepthStencilState(d3dDepthStencilState, newStencilRef);
+            impl->deviceContext->OMSetDepthStencilState(d3dDepthStencilState, stencilRef_);
             impl->depthStencilState = d3dDepthStencilState;
-            stencilRef = newStencilRef;
+            stencilRef = stencilRef_;
         }
         depthState = state;
     }
@@ -373,15 +373,15 @@ void Graphics::SetRasterizerState(RasterizerState* state)
     }
 }
 
-void Graphics::SetScissorRect(const IntRect& newScissorRect)
+void Graphics::SetScissorRect(const IntRect& scissorRect_)
 {
-    if (newScissorRect != scissorRect)
+    if (scissorRect_ != scissorRect)
     {
         /// \todo Test against current rendertarget once rendertarget switching is in place
-        scissorRect.left = Clamp(newScissorRect.left, 0, backbufferSize.x - 1);
-        scissorRect.top = Clamp(newScissorRect.top, 0, backbufferSize.y - 1);
-        scissorRect.right = Clamp(newScissorRect.right, scissorRect.left + 1, backbufferSize.x);
-        scissorRect.bottom = Clamp(newScissorRect.bottom, scissorRect.top + 1, backbufferSize.y);
+        scissorRect.left = Clamp(scissorRect_.left, 0, backbufferSize.x - 1);
+        scissorRect.top = Clamp(scissorRect_.top, 0, backbufferSize.y - 1);
+        scissorRect.right = Clamp(scissorRect_.right, scissorRect.left + 1, backbufferSize.x);
+        scissorRect.bottom = Clamp(scissorRect_.bottom, scissorRect.top + 1, backbufferSize.y);
 
         D3D11_RECT d3dRect;
         d3dRect.left = scissorRect.left;
