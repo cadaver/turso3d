@@ -89,12 +89,15 @@ bool ConstantBuffer::Define(size_t numConstants, const Constant* srcConstants)
     
     while (numConstants--)
     {
-        /// \todo Pad variables automatically if they cross 16 byte borders
         Constant newConstant;
         newConstant.type = srcConstants->type;
         newConstant.name = srcConstants->name;
         newConstant.numElements = srcConstants->numElements;
         newConstant.elementSize = elementSize[newConstant.type];
+        // If element crosses 16 byte boundary or is larger than 16 bytes, align to next 16 bytes
+        if ((newConstant.elementSize <= 16 && ((byteSize + newConstant.elementSize - 1) >> 4) != (byteSize >> 4)) ||
+            (newConstant.elementSize > 16 && (byteSize & 15)))
+            byteSize += 16 - (byteSize & 15);
         newConstant.offset = byteSize;
         constants.Push(newConstant);
         
@@ -196,6 +199,22 @@ bool ConstantBuffer::Apply()
 
     dirty = false;
     return true;
+}
+
+size_t ConstantBuffer::ConstantIndex(const String& name)
+{
+    return ConstantIndex(name.CString());
+}
+
+size_t ConstantBuffer::ConstantIndex(const char* name)
+{
+    for (size_t i = 0; i < constants.Size(); ++i)
+    {
+        if (constants[i].name == name)
+            return i;
+    }
+
+    return NPOS;
 }
 
 }

@@ -140,9 +140,11 @@ public:
             graphics->SetRasterizerState(rs);
             graphics->SetTexture(0, tex);
 
+            size_t positionIndex = vcb->ConstantIndex("Position");
+
             for (int i = 0; i < 1000; ++i)
             {
-                vcb->SetConstant("Position", Vector3(Random() * 2.0f - 1.0f, Random() * 2.0f - 1.0f, 0.0f));
+                vcb->SetConstant(positionIndex, Vector3(Random() * 2.0f - 1.0f, Random() * 2.0f - 1.0f, 0.0f));
                 vcb->Apply();
                 graphics->DrawIndexed(TRIANGLE_LIST, 0, 3);
             }

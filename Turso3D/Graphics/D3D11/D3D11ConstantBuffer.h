@@ -70,17 +70,21 @@ public:
     bool SetConstant(const char* name, void* data, size_t numElements = 0);
     /// Apply to the GPU-side buffer if has changes. Return true on success.
     bool Apply();
-    /// Set a constant by index, template version
+    /// Set a constant by index, template version.
     template <class T> bool SetConstant(size_t index, const T& data, size_t numElements = 0) { return SetConstant(index, (void*)&data, numElements); }
-    /// Set a constant by name, template version
+    /// Set a constant by name, template version.
     template <class T> bool SetConstant(const String& name, const T& data, size_t numElements = 0) { return SetConstant(name, (void*)&data, numElements); }
-    /// Set a constant by name, template version
+    /// Set a constant by name, template version.
     template <class T> bool SetConstant(const char* name, const T& data, size_t numElements = 0) { return SetConstant(name, (void*)&data, numElements); }
 
     /// Return number of constants.
     size_t NumConstants() const { return constants.Size(); }
     /// Return the constant descriptions.
     const Vector<Constant>& Constants() const { return constants; }
+    /// Return the index of a constant, or NPOS if not found.
+    size_t ConstantIndex(const String& name);
+    /// Return the index of a constant, or NPOS if not found.
+    size_t ConstantIndex(const char* name);
     /// Return total byte size of the buffer.
     size_t ByteSize() const { return byteSize; }
     /// Return whether buffer has unapplied changes.
@@ -92,6 +96,9 @@ public:
     /// Element sizes by type.
     static const size_t elementSize[];
     
+    /// Index for "constant not found."
+    static const size_t NPOS = (size_t)-1;
+
 private:
     /// D3D11 buffer.
     void* buffer;

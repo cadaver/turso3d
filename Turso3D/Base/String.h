@@ -343,7 +343,7 @@ public:
     #endif
 
     /// Position for "not found."
-    static const size_t NPOS = 0xffffffff;
+    static const size_t NPOS = (size_t)-1;
     /// Initial dynamic allocation size.
     static const size_t MIN_CAPACITY = 8;
     /// Empty string.
