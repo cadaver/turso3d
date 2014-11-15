@@ -15,7 +15,7 @@ namespace Turso3D
 
 #ifdef WIN32
 Condition::Condition() :
-    event(0)
+    event(nullptr)
 {
     event = CreateEvent(0, FALSE, FALSE, 0);
 }
@@ -23,7 +23,7 @@ Condition::Condition() :
 Condition::~Condition()
 {
     CloseHandle((HANDLE)event);
-    event = 0;
+    event = nullptr;
 }
 
 void Condition::Set()
@@ -53,8 +53,8 @@ Condition::~Condition()
     pthread_mutex_destroy(m);
     delete c;
     delete m;
-    event = 0;
-    mutex = 0;
+    event = nullptr;
+    mutex = nullptr;
 }
 
 void Condition::Set()

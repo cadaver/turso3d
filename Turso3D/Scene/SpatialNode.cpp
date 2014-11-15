@@ -295,7 +295,7 @@ void SpatialNode::OnTransformChanged()
     SetFlag(NF_WORLD_TRANSFORM_DIRTY, true);
 
     const Vector<Node*>& children = Children();
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (child->TestFlag(NF_SPATIAL))

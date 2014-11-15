@@ -43,20 +43,20 @@ template <class T> class SharedPtr
 public:
     /// Construct a null pointer.
     SharedPtr() :
-        ptr(0)
+        ptr(nullptr)
     {
     }
     
     /// Copy-construct.
     SharedPtr(const SharedPtr<T>& ptr_) :
-        ptr(0)
+        ptr(nullptr)
     {
         *this = ptr_;
     }
 
     /// Construct with an object pointer.
     SharedPtr(T* ptr_) :
-        ptr(0)
+        ptr(nullptr)
     {
         *this = ptr_;
     }
@@ -93,7 +93,7 @@ public:
         if (ptr)
         {
             ptr->ReleaseRef();
-            ptr = 0;
+            ptr = nullptr;
         }
     }
     
@@ -132,7 +132,7 @@ public:
     /// Return the number of references to the object.
     unsigned Refs() const { return ptr ? ptr->Refs() : 0; }
     /// Return whether is a null pointer.
-    bool IsNull() const { return ptr == 0; }
+    bool IsNull() const { return ptr == nullptr; }
     
 private:
     /// %Object pointer.

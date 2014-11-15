@@ -209,7 +209,7 @@ const JSONValue& JSONValue::operator [] (const String& key) const
     if (type == JSON_OBJECT)
     {
         const JSONObject& object = *(reinterpret_cast<const JSONObject*>(&data));
-        JSONObject::ConstIterator it = object.Find(key);
+        auto it = object.Find(key);
         return it != object.End() ? it->second : EMPTY;
     }
     else
@@ -281,7 +281,7 @@ void JSONValue::ToString(String& dest, int spacing, int indent) const
             if (array.Size())
             {
                 indent += spacing;
-                for (JSONArray::ConstIterator it = array.Begin(); it < array.End(); ++it)
+                for (auto it = array.Begin(); it < array.End(); ++it)
                 {
                     if (it != array.Begin())
                         dest += ',';
@@ -306,7 +306,7 @@ void JSONValue::ToString(String& dest, int spacing, int indent) const
             if (object.Size())
             {
                 indent += spacing;
-                for (JSONObject::ConstIterator it = object.Begin(); it != object.End(); ++it)
+                for (auto it = object.Begin(); it != object.End(); ++it)
                 {
                     if (it != object.Begin())
                         dest += ',';
@@ -608,7 +608,7 @@ void JSONValue::WriteJSONString(String& dest, const String& str)
 {
     dest += '\"';
     
-    for (String::ConstIterator it = str.Begin(); it != str.End(); ++it)
+    for (auto it = str.Begin(); it != str.End(); ++it)
     {
         char c = *it;
         

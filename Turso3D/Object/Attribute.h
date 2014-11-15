@@ -105,14 +105,14 @@ public:
     }
     
     /// Deserialize from binary.
-    virtual void FromBinary(Serializable* instance, Stream& source)
+    void FromBinary(Serializable* instance, Stream& source) override
     {
         T value = source.Read<T>();
         FromValue(instance, &value);
     }
     
     /// Serialize to binary.
-    virtual void ToBinary(Serializable* instance, Stream& dest)
+    void ToBinary(Serializable* instance, Stream& dest) override
     {
         T value;
         ToValue(instance, &value);
@@ -120,14 +120,14 @@ public:
     }
     
     /// Return whether is default value.
-    virtual bool IsDefault(Serializable* instance) { return Value(instance) == defaultValue; }
+    bool IsDefault(Serializable* instance) override { return Value(instance) == defaultValue; }
     
     /// Deserialize from JSON.
-    virtual void FromJSON(Serializable* instance, const JSONValue& source);
+    void FromJSON(Serializable* instance, const JSONValue& source) override;
     /// Serialize to JSON.
-    virtual void ToJSON(Serializable* instance, JSONValue& dest);
+    void ToJSON(Serializable* instance, JSONValue& dest) override;
     /// Return type.
-    virtual AttributeType Type() const;
+    AttributeType Type() const override;
     
     /// Set new attribute value.
     void SetValue(Serializable* instance, const T& source) { accessor->Set(instance, &source); }
@@ -167,7 +167,7 @@ public:
     }
 
     /// Get current value of the variable.
-    virtual void Get(const Serializable* instance, void* dest)
+    void Get(const Serializable* instance, void* dest) override
     {
         assert(instance);
 
@@ -177,7 +177,7 @@ public:
     }
 
     /// Set new value for the variable.
-    virtual void Set(Serializable* instance, const void* source)
+    void Set(Serializable* instance, const void* source) override
     {
         assert(instance);
 
@@ -210,7 +210,7 @@ public:
     }
 
     /// Get current value of the variable.
-    virtual void Get(const Serializable* instance, void* dest)
+    void Get(const Serializable* instance, void* dest) override
     {
         assert(instance);
 
@@ -220,7 +220,7 @@ public:
     }
 
     /// Set new value for the variable.
-    virtual void Set(Serializable* instance, const void* source)
+    void Set(Serializable* instance, const void* source) override
     {
         assert(instance);
 

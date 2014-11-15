@@ -26,11 +26,11 @@ bool CompareNodeDistances(const Pair<OctreeNode*, float>& lhs, const Pair<Octree
 }
 
 Octant::Octant() :
-    parent(0),
+    parent(nullptr),
     numNodes(0)
 {
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
-        children[i] = 0;
+        children[i] = nullptr;
 }
 
 void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, int level_)
@@ -83,7 +83,7 @@ void Octree::Update()
 {
     PROFILE(UpdateOctree);
 
-    for (Vector<OctreeNode*>::Iterator it = updateQueue.Begin(); it != updateQueue.End(); ++it)
+    for (auto it = updateQueue.Begin(); it != updateQueue.End(); ++it)
     {
         OctreeNode* node = *it;
         // If node was removed before update could happen, a null pointer will be in its place
@@ -115,7 +115,7 @@ void Octree::RemoveNode(OctreeNode* node)
     RemoveNode(node, node->octant);
     if (node->TestFlag(NF_OCTREE_UPDATE_QUEUED))
         CancelUpdate(node);
-    node->octant = 0;
+    node->octant = nullptr;
 }
 
 void Octree::QueueUpdate(OctreeNode* node)
@@ -128,9 +128,9 @@ void Octree::QueueUpdate(OctreeNode* node)
 void Octree::CancelUpdate(OctreeNode* node)
 {
     assert(node);
-    Vector<OctreeNode*>::Iterator it = updateQueue.Find(node);
+    auto it = updateQueue.Find(node);
     if (it != updateQueue.End())
-        *it = 0;
+        *it = nullptr;
     node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
 }
 
@@ -155,7 +155,7 @@ RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, fl
     // Then perform actual per-node ray tests and early-out when possible
     finalRes.Clear();
     float closestHit = M_INFINITY;
-    for (Vector<Pair<OctreeNode*, float> >::ConstIterator it = initialRes.Begin(); it != initialRes.End(); ++it)
+    for (auto it = initialRes.Begin(); it != initialRes.End(); ++it)
     {
         if (it->second < Min(closestHit, maxDistance))
         {
@@ -178,7 +178,7 @@ RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, fl
         RaycastResult emptyRes;
         emptyRes.position = emptyRes.normal = Vector3::ZERO;
         emptyRes.distance = M_INFINITY;
-        emptyRes.node = 0;
+        emptyRes.node = nullptr;
         emptyRes.extraData = 0;
         return emptyRes;
     }
@@ -308,18 +308,18 @@ Octant* Octree::CreateChildOctant(Octant* octant, size_t index)
 void Octree::DeleteChildOctant(Octant* octant, size_t index)
 {
     allocator.Free(octant->children[index]);
-    octant->children[index] = 0;
+    octant->children[index] = nullptr;
 }
 
 void Octree::DeleteChildOctants(Octant* octant, bool deletingOctree)
 {
-    for (Vector<OctreeNode*>::Iterator it = octant->nodes.Begin(); it != octant->nodes.End(); ++it)
+    for (auto it = octant->nodes.Begin(); it != octant->nodes.End(); ++it)
     {
         OctreeNode* node = *it;
-        node->octant = 0;
+        node->octant = nullptr;
         node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
         if (deletingOctree)
-            node->octree = 0;
+            node->octree = nullptr;
     }
     octant->nodes.Clear();
     octant->numNodes = 0;
@@ -329,7 +329,7 @@ void Octree::DeleteChildOctants(Octant* octant, bool deletingOctree)
         if (octant->children[i])
         {
             DeleteChildOctants(octant->children[i], deletingOctree);
-            octant->children[i] = 0;
+            octant->children[i] = nullptr;
         }
     }
 
@@ -351,7 +351,7 @@ void Octree::CollectNodes(Vector<OctreeNode*>& result, const Octant* octant) con
 void Octree::CollectNodes(Vector<OctreeNode*>& result, const Octant* octant, unsigned short nodeFlags, unsigned layerMask) const
 {
     const Vector<OctreeNode*>& octantNodes = octant->nodes;
-    for (Vector<OctreeNode*>::ConstIterator it = octantNodes.Begin(); it != octantNodes.End(); ++it)
+    for (auto it = octantNodes.Begin(); it != octantNodes.End(); ++it)
     {
         OctreeNode* node = *it;
         unsigned flags = node->Flags();
@@ -374,7 +374,7 @@ void Octree::CollectNodes(Vector<RaycastResult>& result, const Octant* octant, c
         return;
 
     const Vector<OctreeNode*>& octantNodes = octant->nodes;
-    for (Vector<OctreeNode*>::ConstIterator it = octantNodes.Begin(); it != octantNodes.End(); ++it)
+    for (auto it = octantNodes.Begin(); it != octantNodes.End(); ++it)
     {
         OctreeNode* node = *it;
         unsigned flags = node->Flags();
@@ -397,7 +397,7 @@ void Octree::CollectNodes(Vector<Pair<OctreeNode*, float> >& result, const Octan
         return;
 
     const Vector<OctreeNode*>& octantNodes = octant->nodes;
-    for (Vector<OctreeNode*>::ConstIterator it = octantNodes.Begin(); it != octantNodes.End(); ++it)
+    for (auto it = octantNodes.Begin(); it != octantNodes.End(); ++it)
     {
         OctreeNode* node = *it;
         unsigned flags = node->Flags();

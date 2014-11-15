@@ -13,7 +13,7 @@ namespace Turso3D
 {
 
 BlendState::BlendState() :
-    stateObject(0)
+    stateObject(nullptr)
 {
 }
 
@@ -27,14 +27,14 @@ void BlendState::Release()
     if (graphics)
     {
         if (graphics->GetBlendState() == this)
-            graphics->SetBlendState(0);
+            graphics->SetBlendState(nullptr);
     }
     
     if (stateObject)
     {
         ID3D11BlendState* d3dBlendState = (ID3D11BlendState*)stateObject;
         d3dBlendState->Release();
-        stateObject = 0;
+        stateObject = nullptr;
     }
 }
 

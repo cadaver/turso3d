@@ -13,7 +13,7 @@ namespace Turso3D
 {
 
 DepthState::DepthState() :
-    stateObject(0)
+    stateObject(nullptr)
 {
 }
 
@@ -34,7 +34,7 @@ void DepthState::Release()
     {
         ID3D11DepthStencilState* d3dDepthStencilState = (ID3D11DepthStencilState*)stateObject;
         d3dDepthStencilState->Release();
-        stateObject = 0;
+        stateObject = nullptr;
     }
 }
 

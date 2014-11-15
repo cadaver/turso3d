@@ -16,8 +16,8 @@ static AllocatorBlock* AllocatorGetBlock(AllocatorBlock* allocator, size_t nodeS
     AllocatorBlock* newBlock = reinterpret_cast<AllocatorBlock*>(blockPtr);
     newBlock->nodeSize = nodeSize;
     newBlock->capacity = capacity;
-    newBlock->free = 0;
-    newBlock->next = 0;
+    newBlock->free = nullptr;
+    newBlock->next = nullptr;
     
     if (!allocator)
         allocator = newBlock;
@@ -40,7 +40,7 @@ static AllocatorBlock* AllocatorGetBlock(AllocatorBlock* allocator, size_t nodeS
     // i == capacity - 1
     {
         AllocatorNode* newNode = reinterpret_cast<AllocatorNode*>(nodePtr);
-        newNode->next = 0;
+        newNode->next = nullptr;
     }
     
     allocator->free = firstNewNode;
@@ -80,7 +80,7 @@ void* AllocatorGet(AllocatorBlock* allocator)
     AllocatorNode* freeNode = allocator->free;
     void* ptr = (reinterpret_cast<unsigned char*>(freeNode)) + sizeof(AllocatorNode);
     allocator->free = freeNode->next;
-    freeNode->next = 0;
+    freeNode->next = nullptr;
     
     return ptr;
 }

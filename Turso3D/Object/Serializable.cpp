@@ -53,7 +53,7 @@ void Serializable::Save(Stream& dest)
         return;
     
     dest.WriteVLE(attributes->Size());
-    for (Vector<SharedPtr<Attribute> >::ConstIterator it = attributes->Begin(); it != attributes->End(); ++it)
+    for (auto it = attributes->Begin(); it != attributes->End(); ++it)
     {
         Attribute* attr = *it;
         dest.Write<unsigned char>((unsigned char)attr->Type());
@@ -69,10 +69,10 @@ void Serializable::LoadJSON(const JSONValue& source, ObjectResolver& resolver)
     
     const JSONObject& object = source.GetObject();
     
-    for (Vector<SharedPtr<Attribute> >::ConstIterator it = attributes->Begin(); it != attributes->End(); ++it)
+    for (auto it = attributes->Begin(); it != attributes->End(); ++it)
     {
         Attribute* attr = *it;
-        JSONObject::ConstIterator jsonIt = object.Find(attr->Name());
+        auto jsonIt = object.Find(attr->Name());
         if (jsonIt != object.End())
         {
             // Store object refs to the resolver instead of immediately setting
@@ -113,8 +113,8 @@ void Serializable::AttributeValue(Attribute* attr, void* dest)
 
 const Vector<SharedPtr<Attribute> >* Serializable::Attributes() const
 {
-    HashMap<StringHash, Vector<SharedPtr<Attribute> > >::ConstIterator it = classAttributes.Find(Type());
-    return it != classAttributes.End() ? &it->second : (Vector<SharedPtr<Attribute> >*)0;
+    auto it = classAttributes.Find(Type());
+    return it != classAttributes.End() ? &it->second : nullptr;
 }
 
 Attribute* Serializable::FindAttribute(const String& name) const

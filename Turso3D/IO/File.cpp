@@ -30,7 +30,7 @@ static const char* openMode[] =
 
 File::File() :
     mode(FILE_READ),
-    handle(0),
+    handle(nullptr),
     readSyncNeeded(false),
     writeSyncNeeded(false)
 {
@@ -38,7 +38,7 @@ File::File() :
 
 File::File(const String& fileName, FileMode mode) :
     mode(FILE_READ),
-    handle(0),
+    handle(nullptr),
     readSyncNeeded(false),
     writeSyncNeeded(false)
 {

@@ -80,7 +80,7 @@ public:
     void ApplyScale(float delta);
 
     /// Return the parent spatial node, or null if it is not spatial.
-    SpatialNode* SpatialParent() const { return TestFlag(NF_SPATIAL_PARENT) ? static_cast<SpatialNode*>(Parent()) : (SpatialNode*)0; }
+    SpatialNode* SpatialParent() const { return TestFlag(NF_SPATIAL_PARENT) ? static_cast<SpatialNode*>(Parent()) : nullptr; }
     /// Return position in parent space.
     const Vector3& Position() const { return position; }
     /// Return rotation in parent space.

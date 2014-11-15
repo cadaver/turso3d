@@ -22,7 +22,7 @@ public:
     static void RegisterObject();
 
     /// Save scene to binary stream.
-    virtual void Save(Stream& dest);
+    void Save(Stream& dest) override;
     
     /// Load scene from a binary stream. Existing nodes will be destroyed. Return true on success.
     bool Load(Stream& source);

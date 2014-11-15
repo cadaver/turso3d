@@ -17,7 +17,7 @@ namespace Turso3D
 
 unsigned InspectInputSignature(ID3DBlob* d3dBlob)
 {
-    ID3D11ShaderReflection* reflection = 0;
+    ID3D11ShaderReflection* reflection = nullptr;
     D3D11_SHADER_DESC shaderDesc;
     unsigned elementMask = 0;
 
@@ -53,8 +53,8 @@ ShaderVariation::ShaderVariation(Shader* parent_, const String& defines_) :
     parent(parent_),
     stage(parent->Stage()),
     defines(defines_),
-    blob(0),
-    shader(0),
+    blob(nullptr),
+    shader(nullptr),
     elementMask(0),
     compiled(false)
 {
@@ -74,7 +74,7 @@ void ShaderVariation::Release()
     {
         ID3DBlob* d3dBlob = (ID3DBlob*)blob;
         d3dBlob->Release();
-        blob = 0;
+        blob = nullptr;
     }
 
     if (shader)
@@ -89,7 +89,7 @@ void ShaderVariation::Release()
             ID3D11PixelShader* d3dShader = (ID3D11PixelShader*)shader;
             d3dShader->Release();
         }
-        shader = 0;
+        shader = nullptr;
     }
 
     elementMask = 0;
@@ -99,7 +99,7 @@ void ShaderVariation::Release()
 bool ShaderVariation::Compile()
 {
     if (compiled)
-        return shader != 0;
+        return shader != nullptr;
 
     PROFILE(CompileShaderVariation);
 
@@ -141,12 +141,12 @@ bool ShaderVariation::Compile()
         macros.Push(macro);
     }
     D3D_SHADER_MACRO endMacro;
-    endMacro.Name = 0;
-    endMacro.Definition = 0;
+    endMacro.Name = nullptr;
+    endMacro.Definition = nullptr;
     macros.Push(endMacro);
 
     DWORD flags = 0;
-    ID3DBlob* errorBlob = 0;
+    ID3DBlob* errorBlob = nullptr;
     if (FAILED(D3DCompile(parent->SourceCode().CString(), parent->SourceCode().Length(), "", &macros[0], 0, "main", 
         stage == SHADER_VS ? "vs_4_0" : "ps_4_0", flags, 0, (ID3DBlob**)&blob, &errorBlob)))
     {
@@ -162,7 +162,7 @@ bool ShaderVariation::Compile()
     if (errorBlob)
     {
         errorBlob->Release();
-        errorBlob = 0;
+        errorBlob = nullptr;
     }
     
     ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();

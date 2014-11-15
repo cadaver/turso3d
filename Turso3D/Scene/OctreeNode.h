@@ -41,9 +41,9 @@ public:
 
 protected:
     /// Search for an octree from the scene root and add self to it.
-    virtual void OnSceneSet(Scene* newScene, Scene* oldScene);
+    void OnSceneSet(Scene* newScene, Scene* oldScene) override;
     /// Handle the transform matrix changing.
-    virtual void OnTransformChanged();
+    void OnTransformChanged() override;
     /// Recalculate the world bounding box.
     virtual void OnWorldBoundingBoxUpdate() const;
 

@@ -8,7 +8,7 @@ namespace Turso3D
 {
 
 WeakRefCounted::WeakRefCounted() :
-    refCount(0)
+    refCount(nullptr)
 {
 }
 

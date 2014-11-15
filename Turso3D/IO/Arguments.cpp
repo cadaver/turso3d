@@ -20,7 +20,7 @@ const Vector<String>& ParseArguments(const String& cmdLine, bool skipFirstArgume
     bool inCmd = false;
     bool inQuote = false;
 
-    for (unsigned i = 0; i < cmdLine.Length(); ++i)
+    for (size_t i = 0; i < cmdLine.Length(); ++i)
     {
         if (cmdLine[i] == '\"')
             inQuote = !inQuote;
@@ -53,7 +53,7 @@ const Vector<String>& ParseArguments(const String& cmdLine, bool skipFirstArgume
     }
 
     // Strip double quotes from the arguments
-    for (unsigned i = 0; i < arguments.Size(); ++i)
+    for (size_t i = 0; i < arguments.Size(); ++i)
         arguments[i].Replace("\"", "");
 
     return arguments;

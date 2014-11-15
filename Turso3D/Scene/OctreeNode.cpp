@@ -8,8 +8,8 @@ namespace Turso3D
 {
 
 OctreeNode::OctreeNode() :
-    octree(0),
-    octant(0)
+    octree(nullptr),
+    octant(nullptr)
 {
     SetFlag(NF_BOUNDING_BOX_DIRTY, true);
 }
@@ -76,7 +76,7 @@ void OctreeNode::RemoveFromOctree()
     if (octree)
     {
         octree->RemoveNode(this);
-        octree = 0;
+        octree = nullptr;
     }
 }
 

@@ -25,7 +25,7 @@ public:
     /// Construct and register subsystem. The window is not yet opened.
     Window();
     /// Destruct. Close window if open.
-    virtual  ~Window();
+    ~Window();
 
     /// Set window title.
     void SetTitle(const String& newTitle);
@@ -51,7 +51,7 @@ public:
     /// Return window client area height.
     int Height() const { return size.y; }
     /// Return whether window is open.
-    bool IsOpen() const { return handle != 0; }
+    bool IsOpen() const { return handle != nullptr; }
     /// Return whether is resizable.
     bool IsResizable() const { return resizable; }
     /// Return whether is currently minimized.

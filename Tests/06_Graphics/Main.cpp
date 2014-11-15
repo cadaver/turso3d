@@ -120,9 +120,9 @@ public:
         for (;;)
         {
             input->Update();
-            if (input->KeyPressed('F'))
+            if (input->IsKeyPressed('F'))
                 graphics->SetFullscreen(!graphics->IsFullscreen());
-            if (input->KeyPressed(27))
+            if (input->IsKeyPressed(27))
                 graphics->Close();
 
             // Drawing and state setting functions will not check Graphics initialization state, check now
@@ -140,7 +140,7 @@ public:
             graphics->SetRasterizerState(rs);
             graphics->SetTexture(0, tex);
 
-            size_t positionIndex = vcb->ConstantIndex("Position");
+            size_t positionIndex = vcb->FindConstantIndex("Position");
 
             for (int i = 0; i < 1000; ++i)
             {

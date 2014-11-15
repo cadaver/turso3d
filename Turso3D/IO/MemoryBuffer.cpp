@@ -113,7 +113,7 @@ size_t MemoryBuffer::Write(const void* data, size_t numBytes)
 
 bool MemoryBuffer::IsReadable() const
 {
-    return buffer != 0;
+    return buffer != nullptr;
 }
 
 bool MemoryBuffer::IsWritable() const

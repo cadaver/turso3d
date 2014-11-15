@@ -144,7 +144,7 @@ template<> ResourceRefList Stream::Read<ResourceRefList>()
     ResourceRefList ret;
     ret.type = Read<StringHash>();
     ret.names.Resize(ReadVLE());
-    for (Vector<String>::Iterator it = ret.names.Begin(); it != ret.names.End(); ++it)
+    for (auto it = ret.names.Begin(); it != ret.names.End(); ++it)
         *it = Read<String>();
     return ret;
 }
@@ -327,7 +327,7 @@ template<> void Stream::Write<JSONValue>(const JSONValue& value)
         {
             const JSONArray& array = value.GetArray();
             WriteVLE(array.Size());
-            for (JSONArray::ConstIterator it = array.Begin(); it != array.End(); ++it)
+            for (auto it = array.Begin(); it != array.End(); ++it)
                 Write(*it);
         }
         break;
@@ -336,7 +336,7 @@ template<> void Stream::Write<JSONValue>(const JSONValue& value)
         {
             const JSONObject& object = value.GetObject();
             WriteVLE(object.Size());
-            for (JSONObject::ConstIterator it = object.Begin(); it != object.End(); ++it)
+            for (auto it = object.Begin(); it != object.End(); ++it)
             {
                 Write(it->first);
                 Write(it->second);

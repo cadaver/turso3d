@@ -19,32 +19,32 @@ char String::endZero = 0;
 const String String::EMPTY;
 
 String::String(const char* str, size_t numChars) :
-    buffer(0)
+    buffer(nullptr)
 {
     Resize(numChars);
     CopyChars(Buffer(), str, numChars);
 }
 
 String::String(const wchar_t* str) :
-    buffer(0)
+    buffer(nullptr)
 {
     SetUTF8FromWChar(str);
 }
 
 String::String(wchar_t* str) :
-    buffer(0)
+    buffer(nullptr)
 {
     SetUTF8FromWChar(str);
 }
 
 String::String(const WString& str) :
-    buffer(0)
+    buffer(nullptr)
 {
     SetUTF8FromWChar(str.CString());
 }
 
 String::String(int value) :
-    buffer(0)
+    buffer(nullptr)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%d", value);
@@ -52,7 +52,7 @@ String::String(int value) :
 }
 
 String::String(short value) :
-    buffer(0)
+    buffer(nullptr)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%d", value);
@@ -60,7 +60,7 @@ String::String(short value) :
 }
 
 String::String(long value) :
-    buffer(0)
+    buffer(nullptr)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%ld", value);
@@ -68,7 +68,7 @@ String::String(long value) :
 }
     
 String::String(long long value) :
-    buffer(0)
+    buffer(nullptr)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%lld", value);
@@ -76,7 +76,7 @@ String::String(long long value) :
 }
 
 String::String(unsigned value) :
-    buffer(0)
+    buffer(nullptr)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%u", value);
@@ -84,7 +84,7 @@ String::String(unsigned value) :
 }
 
 String::String(unsigned short value) :
-    buffer(0)
+    buffer(nullptr)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%u", value);
@@ -92,7 +92,7 @@ String::String(unsigned short value) :
 }
 
 String::String(unsigned long value) :
-    buffer(0)
+    buffer(nullptr)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%lu", value);
@@ -100,7 +100,7 @@ String::String(unsigned long value) :
 }
     
 String::String(unsigned long long value) :
-    buffer(0)
+    buffer(nullptr)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%llu", value);
@@ -108,7 +108,7 @@ String::String(unsigned long long value) :
 }
 
 String::String(float value) :
-    buffer(0)
+    buffer(nullptr)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%g", value);
@@ -116,7 +116,7 @@ String::String(float value) :
 }
 
 String::String(double value) :
-    buffer(0)
+    buffer(nullptr)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
     sprintf(tempBuffer, "%g", value);
@@ -124,7 +124,7 @@ String::String(double value) :
 }
 
 String::String(bool value) :
-    buffer(0)
+    buffer(nullptr)
 {
     if (value)
         *this = "true";
@@ -133,14 +133,14 @@ String::String(bool value) :
 }
 
 String::String(char value) :
-    buffer(0)
+    buffer(nullptr)
 {
     Resize(1);
     Buffer()[0] = value;
 }
 
 String::String(char value, size_t numChars) :
-    buffer(0)
+    buffer(nullptr)
 {
     Resize(numChars);
     for (Iterator it = Begin(); it != End(); ++it)

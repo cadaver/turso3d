@@ -12,13 +12,13 @@ namespace Turso3D
 
 WString::WString() :
     length(0),
-    buffer(0)
+    buffer(nullptr)
 {
 }
 
 WString::WString(const String& str) :
     length(0),
-    buffer(0)
+    buffer(nullptr)
 {
     #ifdef WIN32
     size_t neededSize = 0;
@@ -58,7 +58,7 @@ void WString::Resize(size_t newLength)
     if (!newLength)
     {
         delete[] buffer;
-        buffer = 0;
+        buffer = nullptr;
         length = 0;
     }
     else

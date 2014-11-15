@@ -16,7 +16,7 @@ template <class T> class AutoPtr
 public:
     /// Construct a null pointer.
     AutoPtr() :
-        ptr(0)
+        ptr(nullptr)
     {
     }
 
@@ -25,7 +25,7 @@ public:
         ptr(ptr_.ptr)
     {
         // Trick the compiler so that the AutoPtr can be copied to containers; the latest copy stays non-null
-        const_cast<AutoPtr<T>&>(ptr_).ptr = 0;
+        const_cast<AutoPtr<T>&>(ptr_).ptr = nullptr;
     }
 
     /// Construct with a raw pointer; take ownership of the object.
@@ -45,7 +45,7 @@ public:
     {
         delete ptr;
         ptr = rhs.ptr;
-        const_cast<AutoPtr<T>&>(rhs).ptr = 0;
+        const_cast<AutoPtr<T>&>(rhs).ptr = nullptr;
         return *this;
     }
 
@@ -61,14 +61,14 @@ public:
     T* Detach()
     {
         T* ret = ptr;
-        ptr = 0;
+        ptr = nullptr;
         return ret;
     }
 
     /// Reset to null. Destroys the object.
     void Reset()
     {
-        *this = 0;
+        *this = nullptr;
     }
     
     /// Point to the object.
@@ -80,7 +80,7 @@ public:
     /// Return the object.
     T* Get() const { return ptr; }
     /// Return whether is a null pointer.
-    bool IsNull() const { return ptr == 0; }
+    bool IsNull() const { return ptr == nullptr; }
     
 private:
     /// %Object pointer.
@@ -93,7 +93,7 @@ template <class T> class AutoArrayPtr
 public:
     /// Construct a null pointer.
     AutoArrayPtr() :
-        array(0)
+        array(nullptr)
     {
     }
 
@@ -101,7 +101,7 @@ public:
     AutoArrayPtr(AutoArrayPtr<T>& ptr) :
         array(ptr.array)
     {
-        ptr.array = 0;
+        ptr.array = nullptr;
     }
     
     /// Construct and take ownership of the array.
@@ -121,7 +121,7 @@ public:
     {
         delete array;
         array = rhs.array;
-        rhs.array = 0;
+        rhs.array = nullptr;
         return *this;
     }
 
@@ -137,14 +137,14 @@ public:
     T* Detach()
     {
         T* ret = array;
-        array = 0;
+        array = nullptr;
         return ret;
     }
 
     /// Reset to null. Destroys the array.
     void Reset()
     {
-        *this = 0;
+        *this = nullptr;
     }
 
     /// Point to the array.
@@ -160,7 +160,7 @@ public:
     /// Return the array.
     T* Get() const { return array; }
     /// Return whether is a null pointer.
-    bool IsNull() const { return array == 0; }
+    bool IsNull() const { return array == nullptr; }
     
 private:
     /// Array pointer.

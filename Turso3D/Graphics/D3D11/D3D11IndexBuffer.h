@@ -16,10 +16,10 @@ public:
     /// Construct.
     IndexBuffer();
     /// Destruct.
-    virtual ~IndexBuffer();
+    ~IndexBuffer();
 
     /// Release the index buffer and CPU shadow data.
-    virtual void Release();
+    void Release() override;
 
     /// Define buffer with initial data. Non-dynamic buffer must specify data here, as it will be immutable after creation. Return true on success.
     bool Define(size_t numIndices, size_t indexSize, bool dynamic, bool shadow, const void* data);

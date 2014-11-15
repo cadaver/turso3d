@@ -9,7 +9,7 @@ namespace Turso3D
 {
 
 VectorBase::VectorBase() :
-    buffer(0)
+    buffer(nullptr)
 {
 }
 

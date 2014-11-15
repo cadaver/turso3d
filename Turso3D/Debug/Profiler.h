@@ -74,7 +74,7 @@ public:
     /// Construct.
     Profiler();
     /// Destruct.
-    virtual ~Profiler();
+    ~Profiler();
 
     /// Begin a profiling block. The name must be persistent; string literals are recommended.
     void BeginBlock(const char* name);

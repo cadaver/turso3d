@@ -21,17 +21,17 @@ public:
     /// Construct.
     Texture();
     /// Destruct.
-    virtual ~Texture();
+    ~Texture();
 
     /// Register object factory.
     static void RegisterObject();
 
     /// Load the texture image data from a stream. Return true on success.
-    virtual bool BeginLoad(Stream& source);
+    bool BeginLoad(Stream& source) override;
     /// Finish texture loading by uploading to the GPU. Return true on success.
-    virtual bool EndLoad();
+    bool EndLoad() override;
     /// Release the texture and sampler objects.
-    virtual void Release();
+    void Release() override;
 
     /// Define texture type and dimensions and set initial data. %ImageLevel structures only need the data pointer and row pitch filled. Return true on success.
     bool Define(TextureType type, TextureUsage usage, int width, int height, ImageFormat format, size_t numLevels, const ImageLevel* initialData = 0);

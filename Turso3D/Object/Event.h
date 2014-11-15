@@ -46,7 +46,7 @@ public:
     }
 
     /// Invoke the handler function.
-    virtual void Invoke(Event& event)
+    void Invoke(Event& event) override
     {
         T* typedReceiver = static_cast<T*>(receiver.Get());
         U& typedEvent = static_cast<U&>(event);

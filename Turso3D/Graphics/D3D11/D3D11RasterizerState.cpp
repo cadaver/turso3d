@@ -13,7 +13,7 @@ namespace Turso3D
 {
 
 RasterizerState::RasterizerState() :
-    stateObject(0)
+    stateObject(nullptr)
 {
 }
 
@@ -27,14 +27,14 @@ void RasterizerState::Release()
     if (graphics)
     {
         if (graphics->GetRasterizerState() == this)
-            graphics->SetRasterizerState(0);
+            graphics->SetRasterizerState(nullptr);
     }
     
     if (stateObject)
     {
         ID3D11RasterizerState* d3dRasterizerState = (ID3D11RasterizerState*)stateObject;
         d3dRasterizerState->Release();
-        stateObject = 0;
+        stateObject = nullptr;
     }
 }
 

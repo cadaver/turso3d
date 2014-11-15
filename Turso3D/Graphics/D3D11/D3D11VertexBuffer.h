@@ -16,10 +16,10 @@ public:
     /// Construct.
     VertexBuffer();
     /// Destruct.
-    virtual ~VertexBuffer();
+    ~VertexBuffer();
 
     /// Release the vertex buffer and CPU shadow data.
-    virtual void Release();
+    void Release() override;
 
     /// Define buffer with initial data. Non-dynamic buffer must specify data here, as it will be immutable after creation. Return true on success.
     bool Define(size_t numVertices, unsigned elementMask, bool dynamic, bool shadow, const void* data);

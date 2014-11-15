@@ -78,7 +78,7 @@ const unsigned VertexBuffer::elementFormat[] = {
 };
 
 VertexBuffer::VertexBuffer() :
-    buffer(0),
+    buffer(nullptr),
     numVertices(0),
     vertexSize(0),
     elementMask(0),
@@ -106,7 +106,7 @@ void VertexBuffer::Release()
     {
         ID3D11Buffer* d3dBuffer = (ID3D11Buffer*)buffer;
         d3dBuffer->Release();
-        buffer = 0;
+        buffer = nullptr;
     }
 
     shadowData.Reset();
@@ -200,7 +200,7 @@ bool VertexBuffer::SetData(size_t firstVertex, size_t numVertices_, const void* 
     if (buffer)
     {
         D3D11_MAPPED_SUBRESOURCE mappedData;
-        mappedData.pData = 0;
+        mappedData.pData = nullptr;
 
         ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->DeviceContext();
         d3dDeviceContext->Map((ID3D11Buffer*)buffer, 0, numVertices_ == numVertices ? D3D11_MAP_WRITE_DISCARD : D3D11_MAP_WRITE, 0, &mappedData);

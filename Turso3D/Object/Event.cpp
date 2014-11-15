@@ -39,7 +39,7 @@ void Event::Send(WeakRefCounted* sender)
     WeakPtr<WeakRefCounted> safeCurrentSender = sender;
     currentSender = sender;
     
-    for (Vector<AutoPtr<EventHandler> >::Iterator it = handlers.Begin(); it != handlers.End();)
+    for (auto it = handlers.Begin(); it != handlers.End();)
     {
         EventHandler* handler = *it;
         bool remove = true;
@@ -72,7 +72,7 @@ void Event::Subscribe(EventHandler* handler)
         return;
     
     // Check if the same receiver already exists; in that case replace the handler data
-    for (Vector<AutoPtr<EventHandler> >::Iterator it = handlers.Begin(); it != handlers.End(); ++it)
+    for (auto it = handlers.Begin(); it != handlers.End(); ++it)
     {
         EventHandler* existing = *it;
         if (existing && existing->Receiver() == handler->Receiver())
@@ -87,7 +87,7 @@ void Event::Subscribe(EventHandler* handler)
 
 void Event::Unsubscribe(WeakRefCounted* receiver)
 {
-    for (Vector<AutoPtr<EventHandler> >::Iterator it = handlers.Begin(); it != handlers.End(); ++it)
+    for (auto it = handlers.Begin(); it != handlers.End(); ++it)
     {
         EventHandler* handler = *it;
         if (handler && handler->Receiver() == receiver)
@@ -95,7 +95,7 @@ void Event::Unsubscribe(WeakRefCounted* receiver)
             // If event sending is going on, only clear the pointer but do not remove the element from the handler vector
             // to not confuse the event sending iteration; the element will eventually be cleared by the next SendEvent().
             if (currentSender)
-                *it = (EventHandler*)0;
+                *it = nullptr;
             else
                 handlers.Erase(it);
             return;
@@ -105,7 +105,7 @@ void Event::Unsubscribe(WeakRefCounted* receiver)
 
 bool Event::HasReceivers() const
 {
-    for (Vector<AutoPtr<EventHandler> >::ConstIterator it = handlers.Begin(); it != handlers.End(); ++it)
+    for (auto it = handlers.Begin(); it != handlers.End(); ++it)
     {
         EventHandler* handler = *it;
         if (handler && handler->Receiver())
@@ -117,7 +117,7 @@ bool Event::HasReceivers() const
 
 bool Event::HasReceiver(const WeakRefCounted* receiver) const
 {
-    for (Vector<AutoPtr<EventHandler> >::ConstIterator it = handlers.Begin(); it != handlers.End(); ++it)
+    for (auto it = handlers.Begin(); it != handlers.End(); ++it)
     {
         EventHandler* handler = *it;
         if (handler && handler->Receiver() == receiver)

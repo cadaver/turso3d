@@ -53,10 +53,10 @@ public:
     /// Construct.
     ConstantBuffer();
     /// Destruct.
-    virtual ~ConstantBuffer();
+    ~ConstantBuffer();
 
     /// Release the buffer.
-    virtual void Release();
+    void Release() override;
 
     /// Define the constants being used and create the GPU-side buffer. Return true on success.
     bool Define(const Vector<Constant>& srcConstants);
@@ -82,9 +82,9 @@ public:
     /// Return the constant descriptions.
     const Vector<Constant>& Constants() const { return constants; }
     /// Return the index of a constant, or NPOS if not found.
-    size_t ConstantIndex(const String& name);
+    size_t FindConstantIndex(const String& name);
     /// Return the index of a constant, or NPOS if not found.
-    size_t ConstantIndex(const char* name);
+    size_t FindConstantIndex(const char* name);
     /// Return total byte size of the buffer.
     size_t ByteSize() const { return byteSize; }
     /// Return whether buffer has unapplied changes.

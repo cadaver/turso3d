@@ -26,7 +26,7 @@ int main()
     
     printf("Testing resource loading\n");
     
-    Image* image = 0;
+    Image* image = nullptr;
 
     {
         profiler.BeginFrame();

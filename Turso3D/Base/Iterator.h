@@ -14,7 +14,7 @@ template <class T> struct RandomAccessIterator
 {
     /// Construct with a null pointer.
     RandomAccessIterator() :
-        ptr(0)
+        ptr(nullptr)
     {
     }
 
@@ -76,7 +76,7 @@ template <class T> struct RandomAccessConstIterator
 {
     /// Construct.
     RandomAccessConstIterator() :
-        ptr(0)
+        ptr(nullptr)
     {
     }
 

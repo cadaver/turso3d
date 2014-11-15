@@ -27,16 +27,16 @@ struct GraphicsImpl
 {
     /// Construct.
     GraphicsImpl() :
-        device(0),
-        deviceContext(0),
-        swapChain(0),
-        defaultRenderTargetView(0),
-        defaultDepthTexture(0),
-        defaultDepthStencilView(0),
-        depthStencilView(0)
+        device(nullptr),
+        deviceContext(nullptr),
+        swapChain(nullptr),
+        defaultRenderTargetView(nullptr),
+        defaultDepthTexture(nullptr),
+        defaultDepthStencilView(nullptr),
+        depthStencilView(nullptr)
     {
         for (size_t i = 0; i < MAX_RENDERTARGETS; ++i)
-            renderTargetViews[i] = 0;
+            renderTargetViews[i] = nullptr;
     }
 
     /// Graphics device.
@@ -122,13 +122,13 @@ void Graphics::SetVSync(bool enable)
 void Graphics::Close()
 {
     // Release all GPU objects
-    for (Vector<GPUObject*>::Iterator it = gpuObjects.Begin(); it != gpuObjects.End(); ++it)
+    for (auto it = gpuObjects.Begin(); it != gpuObjects.End(); ++it)
     {
         GPUObject* object = *it;
         object->Release();
     }
 
-    for (InputLayoutMap::Iterator it = inputLayouts.Begin(); it != inputLayouts.End(); ++it)
+    for (auto it = inputLayouts.Begin(); it != inputLayouts.End(); ++it)
     {
         ID3D11InputLayout* d3dLayout = (ID3D11InputLayout*)it->second;
         d3dLayout->Release();
@@ -137,38 +137,38 @@ void Graphics::Close()
 
     if (impl->deviceContext)
     {
-        ID3D11RenderTargetView* nullView = 0;
-        impl->deviceContext->OMSetRenderTargets(1, &nullView, (ID3D11DepthStencilView*)0);
+        ID3D11RenderTargetView* nullView = nullptr;
+        impl->deviceContext->OMSetRenderTargets(1, &nullView, nullptr);
     }
     if (impl->defaultRenderTargetView)
     {
         impl->defaultRenderTargetView->Release();
-        impl->defaultRenderTargetView = 0;
+        impl->defaultRenderTargetView = nullptr;
     }
     if (impl->defaultDepthStencilView)
     {
         impl->defaultDepthStencilView->Release();
-        impl->defaultDepthStencilView = 0;
+        impl->defaultDepthStencilView = nullptr;
     }
     if (impl->defaultDepthTexture)
     {
         impl->defaultDepthTexture->Release();
-        impl->defaultDepthTexture = 0;
+        impl->defaultDepthTexture = nullptr;
     }
     if (impl->swapChain)
     {
         impl->swapChain->Release();
-        impl->swapChain = 0;
+        impl->swapChain = nullptr;
     }
     if (impl->deviceContext)
     {
         impl->deviceContext->Release();
-        impl->deviceContext = 0;
+        impl->deviceContext = nullptr;
     }
     if (impl->device)
     {
         impl->device->Release();
-        impl->device = 0;
+        impl->device = nullptr;
     }
     
     window->Close();
@@ -202,8 +202,8 @@ void Graphics::SetRenderTargets(const Vector<Texture*>& renderTargets_, Texture*
 
     for (size_t i = renderTargets_.Size(); i < MAX_RENDERTARGETS; ++i)
     {
-        renderTargets[i] = 0;
-        impl->renderTargetViews[i] = 0;
+        renderTargets[i] = nullptr;
+        impl->renderTargetViews[i] = nullptr;
     }
 
     depthStencil = depthStencil_;
@@ -241,7 +241,7 @@ void Graphics::SetVertexBuffer(size_t index, VertexBuffer* buffer)
     if (index < MAX_VERTEX_STREAMS && vertexBuffers[index] != buffer)
     {
         vertexBuffers[index] = buffer;
-        ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->BufferObject() : (ID3D11Buffer*)0;
+        ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->BufferObject() : nullptr;
         unsigned stride = buffer ? (unsigned)buffer->VertexSize() : 0;
         unsigned offset = 0;
         impl->deviceContext->IASetVertexBuffers((unsigned)index, 1, &d3dBuffer, &stride, &offset);
@@ -254,7 +254,7 @@ void Graphics::SetConstantBuffer(ShaderStage stage, size_t index, ConstantBuffer
     if (stage < MAX_SHADER_STAGES &&index < MAX_CONSTANT_BUFFERS && constantBuffers[stage][index] != buffer)
     {
         constantBuffers[stage][index] = buffer;
-        ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->BufferObject() : (ID3D11Buffer*)0;
+        ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->BufferObject() : nullptr;
         switch (stage)
         {
         case SHADER_VS:
@@ -277,8 +277,8 @@ void Graphics::SetTexture(size_t index, Texture* texture)
     {
         textures[index] = texture;
         ID3D11ShaderResourceView* d3dResourceView = texture ? (ID3D11ShaderResourceView*)texture->ResourceViewObject() :
-            (ID3D11ShaderResourceView*)0;
-        ID3D11SamplerState* d3dSampler = texture ? (ID3D11SamplerState*)texture->SamplerObject() : (ID3D11SamplerState*)0;
+            nullptr;
+        ID3D11SamplerState* d3dSampler = texture ? (ID3D11SamplerState*)texture->SamplerObject() : nullptr;
         // Note: now both VS & PS resource views are set at the same time, to mimic OpenGL conventions
         if (impl->resourceViews[index] != d3dResourceView)
         {
@@ -343,7 +343,7 @@ void Graphics::SetBlendState(BlendState* state)
 {
     if (state != blendState)
     {
-        ID3D11BlendState* d3dBlendState = state ? (ID3D11BlendState*)state->StateObject() : (ID3D11BlendState*)0;
+        ID3D11BlendState* d3dBlendState = state ? (ID3D11BlendState*)state->StateObject() : nullptr;
         if (d3dBlendState != impl->blendState)
         {
             impl->deviceContext->OMSetBlendState(d3dBlendState, 0, 0xffffffff);
@@ -357,7 +357,7 @@ void Graphics::SetDepthState(DepthState* state, unsigned stencilRef_)
 {
     if (state != depthState || stencilRef_ != stencilRef)
     {
-        ID3D11DepthStencilState* d3dDepthStencilState = state ? (ID3D11DepthStencilState*)state->StateObject() : (ID3D11DepthStencilState*)0;
+        ID3D11DepthStencilState* d3dDepthStencilState = state ? (ID3D11DepthStencilState*)state->StateObject() : nullptr;
         if (d3dDepthStencilState != impl->depthStencilState || stencilRef_ != stencilRef)
         {
             impl->deviceContext->OMSetDepthStencilState(d3dDepthStencilState, stencilRef_);
@@ -372,7 +372,7 @@ void Graphics::SetRasterizerState(RasterizerState* state)
 {
     if (state != rasterizerState)
     {
-        ID3D11RasterizerState* d3dRasterizerState = state ? (ID3D11RasterizerState*)state->StateObject() : (ID3D11RasterizerState*)0;
+        ID3D11RasterizerState* d3dRasterizerState = state ? (ID3D11RasterizerState*)state->StateObject() : nullptr;
         if (d3dRasterizerState != impl->rasterizerState)
         {
             impl->deviceContext->RSSetState(d3dRasterizerState);
@@ -452,7 +452,7 @@ void Graphics::DrawIndexed(PrimitiveType type, size_t indexStart, size_t indexCo
 
 bool Graphics::IsInitialized() const
 {
-    return window->IsOpen() && impl->device != 0;
+    return window->IsOpen() && impl->device != nullptr;
 }
 
 bool Graphics::IsResizable() const
@@ -477,22 +477,22 @@ void* Graphics::DeviceContext() const
 
 Texture* Graphics::RenderTarget(size_t index) const
 {
-    return index < MAX_RENDERTARGETS ? renderTargets[index] : 0;
+    return index < MAX_RENDERTARGETS ? renderTargets[index] : nullptr;
 }
 
 VertexBuffer* Graphics::GetVertexBuffer(size_t index) const
 {
-    return index < MAX_VERTEX_STREAMS ? vertexBuffers[index] : (VertexBuffer*)0;
+    return index < MAX_VERTEX_STREAMS ? vertexBuffers[index] : nullptr;
 }
 
 ConstantBuffer* Graphics::GetConstantBuffer(ShaderStage stage, size_t index) const
 {
-    return (stage < MAX_SHADER_STAGES && index < MAX_CONSTANT_BUFFERS) ? constantBuffers[stage][index] : (ConstantBuffer*)0;
+    return (stage < MAX_SHADER_STAGES && index < MAX_CONSTANT_BUFFERS) ? constantBuffers[stage][index] : nullptr;
 }
 
 Texture* Graphics::GetTexture(size_t index) const
 {
-    return (index < MAX_TEXTURE_UNITS) ? textures[index] : (Texture*)0;
+    return (index < MAX_TEXTURE_UNITS) ? textures[index] : nullptr;
 }
 
 void Graphics::AddGPUObject(GPUObject* object)
@@ -566,22 +566,22 @@ bool Graphics::UpdateSwapChain(int width, int height, bool fullscreen_)
     inResize = true;
     bool success = true;
 
-    ID3D11RenderTargetView* nullView = 0;
-    impl->deviceContext->OMSetRenderTargets(1, &nullView, (ID3D11DepthStencilView*)0);
+    ID3D11RenderTargetView* nullView = nullptr;
+    impl->deviceContext->OMSetRenderTargets(1, &nullView, nullptr);
     if (impl->defaultRenderTargetView)
     {
         impl->defaultRenderTargetView->Release();
-        impl->defaultRenderTargetView = 0;
+        impl->defaultRenderTargetView = nullptr;
     }
     if (impl->defaultDepthStencilView)
     {
         impl->defaultDepthStencilView->Release();
-        impl->defaultDepthStencilView = 0;
+        impl->defaultDepthStencilView = nullptr;
     }
     if (impl->defaultDepthTexture)
     {
         impl->defaultDepthTexture->Release();
-        impl->defaultDepthTexture = 0;
+        impl->defaultDepthTexture = nullptr;
     }
 
     DXGI_MODE_DESC modeDesc;
@@ -692,7 +692,7 @@ void Graphics::PrepareDraw(PrimitiveType type)
         inputLayoutDirty = false;
 
         // Check if layout already exists
-        InputLayoutMap::ConstIterator it = inputLayouts.Find(newInputLayout);
+        auto it = inputLayouts.Find(newInputLayout);
         if (it != inputLayouts.End())
         {
             impl->deviceContext->IASetInputLayout((ID3D11InputLayout*)it->second);
@@ -730,7 +730,7 @@ void Graphics::PrepareDraw(PrimitiveType type)
             }
         }
 
-        ID3D11InputLayout* d3dInputLayout = 0;
+        ID3D11InputLayout* d3dInputLayout = nullptr;
         ID3DBlob* d3dBlob = (ID3DBlob*)vertexShader->BlobObject();
         impl->device->CreateInputLayout(&elementDescs[0], (unsigned)elementDescs.Size(), d3dBlob->GetBufferPointer(),
             d3dBlob->GetBufferSize(), &d3dInputLayout);
@@ -748,34 +748,34 @@ void Graphics::PrepareDraw(PrimitiveType type)
 void Graphics::ResetState()
 {
     for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
-        vertexBuffers[i] = 0;
+        vertexBuffers[i] = nullptr;
     
     for (size_t i = 0; i < MAX_SHADER_STAGES; ++i)
     {
         for (size_t j = 0; j < MAX_CONSTANT_BUFFERS; ++j)
-            constantBuffers[i][j] = 0;
+            constantBuffers[i][j] = nullptr;
     }
     
     for (size_t i = 0; i < MAX_TEXTURE_UNITS; ++i)
     {
-        textures[i] = 0;
-        impl->resourceViews[i] = 0;
-        impl->samplers[i] = 0;
+        textures[i] = nullptr;
+        impl->resourceViews[i] = nullptr;
+        impl->samplers[i] = nullptr;
     }
 
     for (size_t i = 0; i < MAX_RENDERTARGETS; ++i)
-        impl->renderTargetViews[i] = 0;
+        impl->renderTargetViews[i] = nullptr;
 
-    indexBuffer = 0;
-    vertexShader = 0;
-    pixelShader = 0;
-    blendState = 0;
-    depthState = 0;
-    rasterizerState = 0;
-    impl->blendState = 0;
-    impl->depthStencilState = 0;
-    impl->rasterizerState = 0;
-    impl->depthStencilView = 0;
+    indexBuffer = nullptr;
+    vertexShader = nullptr;
+    pixelShader = nullptr;
+    blendState = nullptr;
+    depthState = nullptr;
+    rasterizerState = nullptr;
+    impl->blendState = nullptr;
+    impl->depthStencilState = nullptr;
+    impl->rasterizerState = nullptr;
+    impl->depthStencilView = nullptr;
     inputLayout.first = 0;
     inputLayout.second = 0;
     inputLayoutDirty = false;

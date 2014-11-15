@@ -13,8 +13,8 @@ struct TURSO3D_API ListNodeBase
 {
     /// Construct.
     ListNodeBase() :
-        prev(0),
-        next(0)
+        prev(nullptr),
+        next(nullptr)
     {
     }
     
@@ -29,7 +29,7 @@ struct TURSO3D_API ListIteratorBase
 {
     /// Construct.
     ListIteratorBase() :
-        ptr(0)
+        ptr(nullptr)
     {
     }
     
@@ -68,7 +68,7 @@ class TURSO3D_API ListBase
 public:
     /// Construct.
     ListBase() :
-        allocator(0),
+        allocator(nullptr),
         size(0)
     {
     }
@@ -331,7 +331,7 @@ public:
             for (Iterator it = Begin(); it != End(); )
             {
                 FreeNode(static_cast<Node*>(it++.ptr));
-                it.ptr->prev = 0;
+                it.ptr->prev = nullptr;
             }
             
             head = tail;

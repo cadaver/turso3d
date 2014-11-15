@@ -15,10 +15,10 @@ public:
     /// Construct.
     BlendState();
     /// Destruct.
-    virtual ~BlendState();
+    ~BlendState();
 
     /// Release the blend state object.
-    virtual void Release();
+    void Release() override;
 
     /// Define parameters and create the blend state object. The existing state object (if any) will be destroyed. Return true on success.
     bool Define(bool blendEnable = false, BlendFactor srcBlend = BLEND_ONE, BlendFactor destBlend = BLEND_ONE, BlendOp blendOp = BLEND_OP_ADD, BlendFactor srcBlendAlpha = BLEND_ONE, BlendFactor destBlendAlpha = BLEND_ONE, BlendOp blendOpAlpha = BLEND_OP_ADD, unsigned char colorWriteMask = COLORMASK_ALL, bool alphaToCoverage = false);

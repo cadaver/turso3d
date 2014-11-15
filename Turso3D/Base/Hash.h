@@ -94,9 +94,9 @@ struct TURSO3D_API HashNodeBase
 {
     /// Construct.
     HashNodeBase() :
-        down(0),
-        prev(0),
-        next(0)
+        down(nullptr),
+        prev(nullptr),
+        next(nullptr)
     {
     }
     
@@ -113,7 +113,7 @@ struct TURSO3D_API HashIteratorBase
 {
     /// Construct.
     HashIteratorBase() :
-        ptr(0)
+        ptr(nullptr)
     {
     }
     
@@ -157,8 +157,8 @@ public:
     
     /// Construct.
     HashBase() :
-        ptrs(0),
-        allocator(0)
+        ptrs(nullptr),
+        allocator(nullptr)
     {
     }
 

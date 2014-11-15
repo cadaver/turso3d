@@ -13,7 +13,7 @@ namespace Turso3D
 {
 
 IndexBuffer::IndexBuffer() :
-    buffer(0),
+    buffer(nullptr),
     numIndices(0),
     indexSize(0),
     dynamic(false)
@@ -28,13 +28,13 @@ IndexBuffer::~IndexBuffer()
 void IndexBuffer::Release()
 {
     if (graphics && graphics->GetIndexBuffer() == this)
-        graphics->SetIndexBuffer(0);
+        graphics->SetIndexBuffer(nullptr);
     
     if (buffer)
     {
         ID3D11Buffer* d3dBuffer = (ID3D11Buffer*)buffer;
         d3dBuffer->Release();
-        buffer = 0;
+        buffer = nullptr;
     }
 
     shadowData.Reset();
@@ -128,7 +128,7 @@ bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* dat
     if (buffer)
     {
         D3D11_MAPPED_SUBRESOURCE mappedData;
-        mappedData.pData = 0;
+        mappedData.pData = nullptr;
 
         ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->DeviceContext();
         d3dDeviceContext->Map((ID3D11Buffer*)buffer, 0, numIndices_ == numIndices ? D3D11_MAP_WRITE_DISCARD : D3D11_MAP_WRITE, 0, &mappedData);

@@ -48,7 +48,7 @@ bool AreaAllocator::Allocate(int width, int height, int& x, int& y)
     {
         best = freeAreas.End();
         bestFreeArea = M_MAX_INT;
-        for (Vector<IntRect>::Iterator i = freeAreas.Begin(); i != freeAreas.End(); ++i)
+        for (auto i = freeAreas.Begin(); i != freeAreas.End(); ++i)
         {
             int freeWidth = i->Width();
             int freeHeight = i->Height();

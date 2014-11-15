@@ -47,7 +47,7 @@ void Scene::Save(Stream& dest)
     
     LOGINFO("Saving scene to " + dest.Name());
     
-    /// \todo Write file ID
+    dest.WriteFileID("SCNE");
     Node::Save(dest);
 }
 
@@ -57,7 +57,13 @@ bool Scene::Load(Stream& source)
     
     LOGINFO("Loading scene from " + source.Name());
     
-    /// \todo Read file ID
+    String fileId = source.ReadFileID();
+    if (fileId != "SCNE")
+    {
+        LOGERROR("File is not a binary scene file");
+        return false;
+    }
+
     StringHash ownType = source.Read<StringHash>();
     unsigned ownId = source.Read<unsigned>();
     if (ownType != TypeStatic())
@@ -195,8 +201,8 @@ void Scene::Clear()
 
 Node* Scene::FindNode(unsigned id) const
 {
-    HashMap<unsigned, Node*>::ConstIterator it = nodes.Find(id);
-    return it != nodes.End() ? it->second : (Node*)0;
+    auto it = nodes.Find(id);
+    return it != nodes.End() ? it->second : nullptr;
 }
 
 void Scene::AddNode(Node* node)
@@ -227,7 +233,7 @@ void Scene::AddNode(Node* node)
     if (node->NumChildren())
     {
         const Vector<Node*>& children = node->Children();
-        for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+        for (auto it = children.Begin(); it != children.End(); ++it)
             AddNode(*it);
     }
 }
@@ -238,14 +244,14 @@ void Scene::RemoveNode(Node* node)
         return;
 
     nodes.Erase(node->Id());
-    node->SetScene(0);
+    node->SetScene(nullptr);
     node->SetId(0);
     
     // If node has children, remove them from the scene as well
     if (node->NumChildren())
     {
         const Vector<Node*>& children = node->Children();
-        for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+        for (auto it = children.Begin(); it != children.End(); ++it)
             RemoveNode(*it);
     }
 }
@@ -269,7 +275,7 @@ JSONValue Scene::LayerNamesAttr() const
     JSONValue ret;
 
     ret.SetEmptyArray();
-    for (Vector<String>::ConstIterator it = layerNames.Begin(); it != layerNames.End(); ++it)
+    for (auto it = layerNames.Begin(); it != layerNames.End(); ++it)
         ret.Push(*it);
     
     return ret;
@@ -294,7 +300,7 @@ JSONValue Scene::TagNamesAttr() const
     JSONValue ret;
 
     ret.SetEmptyArray();
-    for (Vector<String>::ConstIterator it = tagNames.Begin(); it != tagNames.End(); ++it)
+    for (auto it = tagNames.Begin(); it != tagNames.End(); ++it)
         ret.Push(*it);
 
     return ret;

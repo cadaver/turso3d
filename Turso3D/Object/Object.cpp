@@ -48,7 +48,7 @@ void Object::RemoveSubsystem(Object* subsystem)
     if (!subsystem)
         return;
     
-    HashMap<StringHash, Object*>::Iterator it = subsystems.Find(subsystem->Type());
+    auto it = subsystems.Find(subsystem->Type());
     if (it != subsystems.End() && it->second == subsystem)
         subsystems.Erase(it);
 }
@@ -60,8 +60,8 @@ void Object::RemoveSubsystem(StringHash type)
 
 Object* Object::Subsystem(StringHash type)
 {
-    HashMap<StringHash, Object*>::Iterator it = subsystems.Find(type);
-    return it != subsystems.End() ? it->second : (Object*)0;
+    auto it = subsystems.Find(type);
+    return it != subsystems.End() ? it->second : nullptr;
 }
 
 void Object::RegisterFactory(ObjectFactory* factory)
@@ -74,13 +74,13 @@ void Object::RegisterFactory(ObjectFactory* factory)
 
 Object* Object::Create(StringHash type)
 {
-    HashMap<StringHash, AutoPtr<ObjectFactory> >::Iterator it = factories.Find(type);
-    return it != factories.End() ? it->second->Create() : (Object*)0;
+    auto it = factories.Find(type);
+    return it != factories.End() ? it->second->Create() : nullptr;
 }
 
 const String& Object::TypeNameFromType(StringHash type)
 {
-    HashMap<StringHash, AutoPtr<ObjectFactory> >::Iterator it = factories.Find(type);
+    auto it = factories.Find(type);
     return it != factories.End() ? it->second->TypeName() : String::EMPTY;
 }
 

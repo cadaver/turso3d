@@ -88,8 +88,8 @@ void ResourceCache::RemoveResourceDir(const String& pathName)
 
 void ResourceCache::UnloadResource(StringHash type, const String& name, bool force)
 {
-    Pair<StringHash, StringHash> key = MakePair(type, StringHash(name));
-    ResourceMap::Iterator it = resources.Find(key);
+    auto key = MakePair(type, StringHash(name));
+    auto it = resources.Find(key);
     if (it == resources.End())
         return;
 
@@ -100,9 +100,9 @@ void ResourceCache::UnloadResource(StringHash type, const String& name, bool for
 
 void ResourceCache::UnloadResources(StringHash type, bool force)
 {
-    for (ResourceMap::Iterator it = resources.Begin(); it != resources.End();)
+    for (auto it = resources.Begin(); it != resources.End();)
     {
-        ResourceMap::Iterator current = it++;
+        auto current = it++;
         if (current->first.first == type)
         {
             Resource* resource = current->second;
@@ -114,9 +114,9 @@ void ResourceCache::UnloadResources(StringHash type, bool force)
 
 void ResourceCache::UnloadResources(StringHash type, const String& partialName, bool force)
 {
-    for (ResourceMap::Iterator it = resources.Begin(); it != resources.End();)
+    for (auto it = resources.Begin(); it != resources.End();)
     {
-        ResourceMap::Iterator current = it++;
+        auto current = it++;
         if (current->first.first == type)
         {
             Resource* resource = current->second;
@@ -134,9 +134,9 @@ void ResourceCache::UnloadResources(const String& partialName, bool force)
 
     while (repeat--)
     {
-        for (ResourceMap::Iterator it = resources.Begin(); it != resources.End();)
+        for (auto it = resources.Begin(); it != resources.End();)
         {
-            ResourceMap::Iterator current = it++;
+            auto current = it++;
             Resource* resource = current->second;
             if (resource->Name().StartsWith(partialName) && (!resource->WeakRefs() || force))
                 resources.Erase(current);
@@ -152,9 +152,9 @@ void ResourceCache::UnloadAllResources(bool force)
 
         while (repeat--)
         {
-            for (ResourceMap::Iterator it = resources.Begin(); it != resources.End();)
+            for (auto it = resources.Begin(); it != resources.End();)
             {
-                ResourceMap::Iterator current = it++;
+                auto current = it++;
                 Resource* resource = current->second;
                 if (!resource->WeakRefs())
                     resources.Erase(current);
@@ -207,8 +207,8 @@ Resource* ResourceCache::LoadResource(StringHash type, const String& nameIn)
         return 0;
 
     // Check for existing resource
-    Pair<StringHash, StringHash> key = MakePair(type, StringHash(name));
-    ResourceMap::Iterator it = resources.Find(key);
+    auto key = MakePair(type, StringHash(name));
+    auto it = resources.Find(key);
     if (it != resources.End())
         return it->second;
 
@@ -245,7 +245,7 @@ void ResourceCache::ResourcesByType(Vector<Resource*>& result, StringHash type) 
 {
     result.Clear();
 
-    for (ResourceMap::ConstIterator it = resources.Begin(); it != resources.End(); ++it)
+    for (auto it = resources.Begin(); it != resources.End(); ++it)
     {
         if (it->second->Type() == type)
             result.Push(it->second);

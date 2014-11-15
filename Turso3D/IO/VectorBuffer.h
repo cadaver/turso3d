@@ -22,15 +22,15 @@ public:
     VectorBuffer(Stream& source, size_t numBytes);
     
     /// Read bytes from the buffer. Return number of bytes actually read.
-    virtual size_t Read(void* dest, size_t size);
+    size_t Read(void* dest, size_t size) override;
     /// Set position in bytes from the beginning of the buffer.
-    virtual size_t Seek(size_t newPosition);
+    size_t Seek(size_t newPosition) override;
     /// Write bytes to the buffer. Return number of bytes actually written.
-    virtual size_t Write(const void* data, size_t size);
+    size_t Write(const void* data, size_t size) override;
     /// Return whether read operations are allowed.
-    virtual bool IsReadable() const;
+    bool IsReadable() const override;
     /// Return whether write operations are allowed.
-    virtual bool IsWritable() const;
+    bool IsWritable() const override;
 
     /// Set data from another buffer.
     void SetData(const Vector<unsigned char>& data);

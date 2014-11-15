@@ -67,9 +67,9 @@ static const D3D11_USAGE textureUsage[] =
 };
 
 Texture::Texture() :
-    texture(0),
-    resourceView(0),
-    sampler(0)
+    texture(nullptr),
+    resourceView(nullptr),
+    sampler(nullptr)
 {
 }
 
@@ -176,7 +176,7 @@ void Texture::Release()
     {
         ID3D11ShaderResourceView* d3dResourceView = (ID3D11ShaderResourceView*)resourceView;
         d3dResourceView->Release();
-        resourceView = 0;
+        resourceView = nullptr;
     }
     if (renderTargetView)
     {
@@ -190,19 +190,19 @@ void Texture::Release()
             ID3D11DepthStencilView* d3dDepthStencilView = (ID3D11DepthStencilView*)renderTargetView;
             d3dDepthStencilView->Release();
         }
-        renderTargetView = 0;
+        renderTargetView = nullptr;
     }
     if (sampler)
     {
         ID3D11SamplerState* d3dSampler = (ID3D11SamplerState*)sampler;
         d3dSampler->Release();
-        sampler = 0;
+        sampler = nullptr;
     }
     if (texture)
     {
         ID3D11Resource* d3dTexture = (ID3D11Resource*)texture;
         d3dTexture->Release();
-        texture = 0;
+        texture = nullptr;
     }
 }
 
@@ -340,7 +340,7 @@ bool Texture::DefineSampler(TextureFilterMode filter, TextureAddressMode u, Text
     {
         ID3D11SamplerState* d3dSampler = (ID3D11SamplerState*)sampler;
         d3dSampler->Release();
-        sampler = 0;
+        sampler = nullptr;
     }
 
     if (graphics && graphics->IsInitialized())

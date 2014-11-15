@@ -67,7 +67,7 @@ void ProfilerBlock::EndFrame()
     maxTime = 0;
     count = 0;
 
-    for (Vector<AutoPtr<ProfilerBlock> >::Iterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
         (*it)->EndFrame();
 }
 
@@ -77,20 +77,20 @@ void ProfilerBlock::BeginInterval()
     intervalMaxTime = 0;
     intervalCount = 0;
 
-    for (Vector<AutoPtr<ProfilerBlock> >::Iterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
         (*it)->BeginInterval();
 }
 
 ProfilerBlock* ProfilerBlock::FindOrCreateChild(const char* name_)
 {
     // First check using string pointers only, then resort to actual strcmp
-    for (Vector<AutoPtr<ProfilerBlock> >::Iterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         if ((*it)->name == name_)
             return *it;
     }
 
-    for (Vector<AutoPtr<ProfilerBlock> >::Iterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         if (!String::Compare((*it)->name, name_))
             return *it;
@@ -237,7 +237,7 @@ void Profiler::OutputResults(ProfilerBlock* block, String& output, size_t depth,
         ++depth;
     }
 
-    for (Vector<AutoPtr<ProfilerBlock> >::ConstIterator it = block->children.Begin(); it != block->children.End(); ++it)
+    for (auto it = block->children.Begin(); it != block->children.End(); ++it)
         OutputResults(*it, output, depth, maxDepth, showUnused, showTotal);
 }
 

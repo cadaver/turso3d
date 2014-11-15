@@ -143,7 +143,7 @@ private:
         else
         {
             const Vector<OctreeNode*>& octantNodes = octant->nodes;
-            for (Vector<OctreeNode*>::ConstIterator it = octantNodes.Begin(); it != octantNodes.End(); ++it)
+            for (auto it = octantNodes.Begin(); it != octantNodes.End(); ++it)
             {
                 OctreeNode* node = *it;
                 unsigned flags = node->Flags();

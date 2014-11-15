@@ -98,7 +98,7 @@ public:
     }
 
     /// Create and return an object of the specific type.
-    virtual Object* Create() { return new T(); }
+    Object* Create() override { return new T(); }
 };
 
 }
@@ -108,8 +108,8 @@ public:
         static const Turso3D::StringHash typeStatic; \
         static const Turso3D::String typeNameStatic; \
     public: \
-        virtual Turso3D::StringHash Type() const { return TypeStatic(); } \
-        virtual const Turso3D::String& TypeName() const { return TypeNameStatic(); } \
+        Turso3D::StringHash Type() const override { return TypeStatic(); } \
+        const Turso3D::String& TypeName() const override { return TypeNameStatic(); } \
         static Turso3D::StringHash TypeStatic() { static const Turso3D::StringHash type(#typeName); return type; } \
         static const Turso3D::String& TypeNameStatic() { static const Turso3D::String type(#typeName); return type; } \
 

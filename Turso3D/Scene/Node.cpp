@@ -17,8 +17,8 @@ Node::Node() :
     flags(NF_ENABLED),
     layer(LAYER_DEFAULT),
     tag(TAG_NONE),
-    parent(0),
-    scene(0),
+    parent(nullptr),
+    scene(nullptr),
     id(0)
 {
 }
@@ -73,7 +73,7 @@ void Node::Save(Stream& dest)
     Serializable::Save(dest);
     dest.WriteVLE(NumPersistentChildren());
 
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (!child->IsTemporary())
@@ -89,7 +89,7 @@ void Node::LoadJSON(const JSONValue& source, ObjectResolver& resolver)
     const JSONArray& children = source["children"].GetArray();
     if (children.Size())
     {
-        for (JSONArray::ConstIterator it = children.Begin(); it != children.End(); ++it)
+        for (auto it = children.Begin(); it != children.End(); ++it)
         {
             const JSONValue& childJSON = *it;
             StringHash childType(childJSON["type"].GetString());
@@ -113,7 +113,7 @@ void Node::SaveJSON(JSONValue& dest)
     if (NumPersistentChildren())
     {
         dest["children"].SetEmptyArray();
-        for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+        for (auto it = children.Begin(); it != children.End(); ++it)
         {
             Node* child = *it;
             if (!child->IsTemporary())
@@ -157,7 +157,7 @@ void Node::SetLayerName(const String& newLayerName)
         return;
     
     const HashMap<String, unsigned char>& layers = scene->Layers();
-    HashMap<String, unsigned char>::ConstIterator it = layers.Find(newLayerName);
+    auto it = layers.Find(newLayerName);
     if (it != layers.End())
         layer = it->second;
     else
@@ -175,7 +175,7 @@ void Node::SetTagName(const String& newTagName)
         return;
 
     const HashMap<String, unsigned char>& tags = scene->Tags();
-    HashMap<String, unsigned char>::ConstIterator it = tags.Find(newTagName);
+    auto it = tags.Find(newTagName);
     if (it != tags.End())
         tag = it->second;
     else
@@ -191,7 +191,7 @@ void Node::SetEnabled(bool enable)
 void Node::SetEnabledRecursive(bool enable)
 {
     SetEnabled(enable);
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         child->SetEnabledRecursive(enable);
@@ -300,7 +300,7 @@ Node* Node::DetachChild(size_t index)
     Node* child = children[index];
     children.Erase(index);
     // Detach from both the parent and the scene (removes id assignment)
-    child->parent = 0;
+    child->parent = nullptr;
     child->OnParentSet(this, 0);
     if (scene)
         scene->RemoveNode(child);
@@ -321,15 +321,15 @@ void Node::DestroyChild(size_t index)
 
 void Node::DestroyAllChildren()
 {
-    for (Vector<Node*>::Iterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
-        child->parent = 0;
+        child->parent = nullptr;
         child->OnParentSet(this, 0);
         if (scene)
             scene->RemoveNode(child);
         delete child;
-        *it = 0;
+        *it = nullptr;
     }
     
     children.Clear();
@@ -365,7 +365,7 @@ size_t Node::NumPersistentChildren() const
 {
     size_t ret = 0;
 
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (!child->IsTemporary())
@@ -377,7 +377,7 @@ size_t Node::NumPersistentChildren() const
 
 void Node::AllChildren(Vector<Node*>& result) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         result.Push(child);
@@ -392,7 +392,7 @@ Node* Node::FindChild(const String& childName, bool recursive) const
 
 Node* Node::FindChild(const char* childName, bool recursive) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (child->name == childName)
@@ -410,7 +410,7 @@ Node* Node::FindChild(const char* childName, bool recursive) const
 
 Node* Node::FindChild(StringHash childType, bool recursive) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (child->Type() == childType)
@@ -433,7 +433,7 @@ Node* Node::FindChild(StringHash childType, const String& childName, bool recurs
 
 Node* Node::FindChild(StringHash childType, const char* childName, bool recursive) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (child->Type() == childType && child->name == childName)
@@ -451,7 +451,7 @@ Node* Node::FindChild(StringHash childType, const char* childName, bool recursiv
 
 Node* Node::FindChildByLayer(unsigned layerMask, bool recursive) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (child->LayerMask() && layerMask)
@@ -469,7 +469,7 @@ Node* Node::FindChildByLayer(unsigned layerMask, bool recursive) const
 
 Node* Node::FindChildByTag(unsigned char tag_, bool recursive) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (child->tag == tag_)
@@ -492,7 +492,7 @@ Node* Node::FindChildByTag(const String& tagName, bool recursive) const
 
 Node* Node::FindChildByTag(const char* tagName, bool recursive) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (!String::Compare(child->TagName().CString(), tagName))
@@ -510,7 +510,7 @@ Node* Node::FindChildByTag(const char* tagName, bool recursive) const
 
 void Node::FindChildren(Vector<Node*>& result, StringHash childType, bool recursive) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (child->Type() == childType)
@@ -522,7 +522,7 @@ void Node::FindChildren(Vector<Node*>& result, StringHash childType, bool recurs
 
 void Node::FindChildrenByLayer(Vector<Node*>& result, unsigned layerMask, bool recursive) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (child->LayerMask() & layerMask)
@@ -534,7 +534,7 @@ void Node::FindChildrenByLayer(Vector<Node*>& result, unsigned layerMask, bool r
 
 void Node::FindChildrenByTag(Vector<Node*>& result, unsigned char tag_, bool recursive) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (child->tag == tag_)
@@ -551,7 +551,7 @@ void Node::FindChildrenByTag(Vector<Node*>& result, const String& tagName, bool 
 
 void Node::FindChildrenByTag(Vector<Node*>& result, const char* tagName, bool recursive) const
 {
-    for (Vector<Node*>::ConstIterator it = children.Begin(); it != children.End(); ++it)
+    for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;
         if (!String::Compare(child->TagName().CString(), tagName))

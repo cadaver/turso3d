@@ -22,7 +22,7 @@ public:
     /// Construct and register subsystem.
     ResourceCache();
     /// Destruct. Destroy all owned resources and unregister subsystem.
-    virtual ~ResourceCache();
+    ~ResourceCache();
 
     /// Add a resource directory. Return true on success.
     bool AddResourceDir(const String& pathName, bool addFirst = false);

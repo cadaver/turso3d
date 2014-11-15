@@ -21,7 +21,7 @@ public:
     ~ShaderVariation();
 
     /// Release the compiled shader.
-    virtual void Release();
+    void Release() override;
 
     /// Compile. Return true on success. No-op if compile already attempted.
     bool Compile();

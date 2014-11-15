@@ -35,43 +35,43 @@ void Input::Update()
         window->PumpMessages();
 }
 
-bool Input::KeyDown(unsigned keyCode) const
+bool Input::IsKeyDown(unsigned keyCode) const
 {
-    HashMap<unsigned, bool>::ConstIterator it = keyDown.Find(keyCode);
+    auto it = keyDown.Find(keyCode);
     return it != keyDown.End() ? it->second : false;
 }
 
-bool Input::KeyDownRaw(unsigned rawKeyCode) const
+bool Input::IsKeyDownRaw(unsigned rawKeyCode) const
 {
-    HashMap<unsigned, bool>::ConstIterator it = rawKeyDown.Find(rawKeyCode);
+    auto it = rawKeyDown.Find(rawKeyCode);
     return it != rawKeyDown.End() ? it->second : false;
 }
 
-bool Input::KeyPressed(unsigned keyCode) const
+bool Input::IsKeyPressed(unsigned keyCode) const
 {
-    HashMap<unsigned, bool>::ConstIterator it = keyPressed.Find(keyCode);
+    auto it = keyPressed.Find(keyCode);
     return it != keyPressed.End() ? it->second : false;
 }
 
-bool Input::KeyPressedRaw(unsigned rawKeyCode) const
+bool Input::IsKeyPressedRaw(unsigned rawKeyCode) const
 {
-    HashMap<unsigned, bool>::ConstIterator it = rawKeyPressed.Find(rawKeyCode);
+    auto it = rawKeyPressed.Find(rawKeyCode);
     return it != rawKeyPressed.End() ? it->second : false;
 }
 
-bool Input::MouseButtonDown(unsigned button) const
+bool Input::IsMouseButtonDown(unsigned button) const
 {
     return (mouseButtons & (1 << button)) != 0;
 }
 
-bool Input::MouseButtonPressed(unsigned button) const
+bool Input::IsMouseButtonPressed(unsigned button) const
 {
     return (mouseButtonsPressed & (1 << button)) != 0;
 }
 
 void Input::OnKey(unsigned keyCode, unsigned rawKeyCode, bool pressed)
 {
-    bool wasDown = KeyDown(keyCode);
+    bool wasDown = IsKeyDown(keyCode);
 
     keyDown[keyCode] = pressed;
     rawKeyDown[rawKeyCode] = pressed;

@@ -37,7 +37,7 @@ public:
     void SetPriority(int priority);
     
     /// Return whether thread exists.
-    bool IsStarted() const { return handle != 0; }
+    bool IsStarted() const { return handle != nullptr; }
 
     /// Sleep the current thread for the specified amount of milliseconds. 0 to just yield the timeslice.
     static void Sleep(unsigned mSec);

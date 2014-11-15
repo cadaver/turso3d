@@ -19,15 +19,15 @@ public:
     /// Construct.
     Shader();
     /// Destruct.
-    virtual ~Shader();
+    ~Shader();
 
     /// Register object factory.
     static void RegisterObject();
 
     /// Load shader code from a stream. Return true on success.
-    virtual bool BeginLoad(Stream& source);
+    bool BeginLoad(Stream& source) override;
     /// Finish shader loading in the main thread. Return true on success.
-    virtual bool EndLoad();
+    bool EndLoad() override;
 
     /// Define shader stage and source code. All existing variations are destroyed.
     void Define(ShaderStage stage, const String& code);

@@ -21,15 +21,15 @@ public:
     MemoryBuffer(const Vector<unsigned char>& data);
     
     /// Read bytes from the memory area. Return number of bytes actually read.
-    virtual size_t Read(void* dest, size_t numBytes);
+    size_t Read(void* dest, size_t numBytes) override;
     /// Set position in bytes from the beginning of the memory area.
-    virtual size_t Seek(size_t newPosition);
+    size_t Seek(size_t newPosition) override;
     /// Write bytes to the memory area.
-    virtual size_t Write(const void* data, size_t numBytes);
+    size_t Write(const void* data, size_t numBytes) override;
     /// Return whether read operations are allowed.
-    virtual bool IsReadable() const;
+    bool IsReadable() const override;
     /// Return whether write operations are allowed.
-    virtual bool IsWritable() const;
+    bool IsWritable() const override;
 
     /// Return memory area.
     unsigned char* Data() { return buffer; }

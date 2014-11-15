@@ -24,27 +24,27 @@ public:
     
     /// Construct empty.
     String() :
-        buffer(0)
+        buffer(nullptr)
     {
     }
     
     /// Copy-construct.
     String(const String& str) :
-        buffer(0)
+        buffer(nullptr)
     {
         *this = str;
     }
     
     /// Construct from a C string.
     String(const char* str) :
-        buffer(0)
+        buffer(nullptr)
     {
         *this = str;
     }
     
     /// Construct from a C string.
     String(char* str) :
-        buffer(0)
+        buffer(nullptr)
     {
         *this = (const char*)str;
     }
@@ -86,7 +86,7 @@ public:
     
     /// Construct from a convertible value.
     template <class T> explicit String(const T& value) :
-        buffer(0)
+        buffer(nullptr)
     {
         *this = value.ToString();
     }

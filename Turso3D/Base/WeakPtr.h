@@ -45,23 +45,23 @@ template <class T> class WeakPtr
 public:
     /// Construct a null pointer.
     WeakPtr() :
-        ptr(0),
-        refCount(0)
+        ptr(nullptr),
+        refCount(nullptr)
     {
     }
     
     /// Copy-construct.
     WeakPtr(const WeakPtr<T>& ptr_) :
-        ptr(0),
-        refCount(0)
+        ptr(nullptr),
+        refCount(nullptr)
     {
         *this = ptr_;
     }
 
     /// Construct with an object pointer.
     WeakPtr(T* ptr_) :
-        ptr(0),
-        refCount(0)
+        ptr(nullptr),
+        refCount(nullptr)
     {
         *this = ptr_;
     }
@@ -103,8 +103,8 @@ public:
             // If expired and no more weak references, destroy the reference count
             if (*refCount == WeakRefCounted::EXPIRED)
                 delete refCount;
-            ptr = 0;
-            refCount = 0;
+            ptr = nullptr;
+            refCount = nullptr;
         }
     }
     
@@ -150,7 +150,7 @@ public:
     /// Return the number of weak references to the object.
     unsigned WeakRefs() const { return refCount ? *refCount & WeakRefCounted::REFCOUNT_MASK : 0; }
     /// Return whether is a null pointer.
-    bool IsNull() const { return ptr == 0; }
+    bool IsNull() const { return ptr == nullptr; }
     /// Return whether the object has been destroyed. Returns false if the pointer is null.
     bool IsExpired() const { return refCount && *refCount >= WeakRefCounted::EXPIRED; }
     

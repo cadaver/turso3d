@@ -26,18 +26,18 @@ public:
     /// Construct and open a file.
     File(const String& fileName, FileMode fileMode = FILE_READ);
     /// Destruct. Close the file if open.
-    virtual ~File();
+    ~File();
     
     /// Read bytes from the file. Return number of bytes actually read.
-    virtual size_t Read(void* dest, size_t numBytes);
+    size_t Read(void* dest, size_t numBytes) override;
     /// Set position in bytes from the beginning of the file.
-    virtual size_t Seek(size_t newPosition);
+    size_t Seek(size_t newPosition) override;
     /// Write bytes to the file. Return number of bytes actually written.
-    virtual size_t Write(const void* data, size_t numBytes);
+    size_t Write(const void* data, size_t numBytes) override;
     /// Return whether read operations are allowed.
-    virtual bool IsReadable() const;
+    bool IsReadable() const override;
     /// Return whether write operations are allowed.
-    virtual bool IsWritable() const;
+    bool IsWritable() const override;
 
     /// Open a file. Return true on success.
     bool Open(const String& fileName, FileMode fileMode = FILE_READ);

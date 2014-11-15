@@ -117,7 +117,7 @@ int main()
             vec.Push(Rand());
         int sum = 0;
         int count = 0;
-        for (Vector<int>::ConstIterator it = vec.Begin(); it != vec.End(); ++it)
+        for (auto it = vec.Begin(); it != vec.End(); ++it)
         {
             sum += *it;
             ++count;
@@ -137,7 +137,7 @@ int main()
             list.Push(Rand());
         int sum = 0;
         int count = 0;
-        for (List<int>::ConstIterator it = list.Begin(); it != list.End(); ++it)
+        for (auto it = list.Begin(); it != list.End(); ++it)
         {
             sum += *it;
             ++count;
@@ -185,7 +185,7 @@ int main()
             if (testHashSet.Find(i) != testHashSet.End())
                 ++found;
         }
-        for (HashSet<int>::Iterator it = testHashSet.Begin(); it != testHashSet.End(); ++it)
+        for (auto it = testHashSet.Begin(); it != testHashSet.End(); ++it)
             sum += *it;
         int usec = (int)t.ElapsedUSec();
         printf("Set size and sum: %d %d\n", testHashSet.Size(), sum);

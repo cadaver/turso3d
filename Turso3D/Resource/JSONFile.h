@@ -17,9 +17,9 @@ class TURSO3D_API JSONFile : public Resource
 
 public:
     /// Load from a stream as text. Return true on success. Will contain partial data on failure.
-    virtual bool BeginLoad(Stream& source);
+    bool BeginLoad(Stream& source) override;
     /// Save to a stream as text. Return true on success.
-    virtual bool Save(Stream& dest) const;
+    bool Save(Stream& dest) const override;
     
     /// Register object factory.
     static void RegisterObject();

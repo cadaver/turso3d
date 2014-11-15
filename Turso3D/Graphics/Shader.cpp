@@ -35,7 +35,7 @@ bool Shader::BeginLoad(Stream& source)
 bool Shader::EndLoad()
 {
     // Release existing variations (if any) to allow them to be recompiled with changed code
-    for (HashMap<StringHash, AutoPtr<ShaderVariation> >::Iterator it = variations.Begin(); it != variations.End(); ++it)
+    for (auto it = variations.Begin(); it != variations.End(); ++it)
         it->second->Release();
     return true;
 }
@@ -50,7 +50,7 @@ void Shader::Define(ShaderStage stage_, const String& code)
 ShaderVariation* Shader::CreateVariation(const String& definesIn)
 {
     StringHash definesHash(definesIn);
-    HashMap<StringHash, AutoPtr<ShaderVariation> >::Iterator it = variations.Find(definesHash);
+    auto it = variations.Find(definesHash);
     if (it != variations.End())
         return it->second.Get();
     
@@ -104,7 +104,7 @@ String Shader::NormalizeDefines(const String& defines)
     Vector<String> definesVec = defines.ToUpper().Split(' ');
     Sort(definesVec.Begin(), definesVec.End());
 
-    for (Vector<String>::ConstIterator it = definesVec.Begin(); it != definesVec.End(); ++it)
+    for (auto it = definesVec.Begin(); it != definesVec.End(); ++it)
     {
         if (it != definesVec.Begin())
             ret += " ";

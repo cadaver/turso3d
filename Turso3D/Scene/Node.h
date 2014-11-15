@@ -32,21 +32,21 @@ public:
     /// Construct.
     Node();
     /// Destruct. Destroy any child nodes.
-    virtual ~Node();
+    ~Node();
     
     /// Register factory and attributes.
     static void RegisterObject();
     
     /// Load from binary stream. Store node references to be resolved later.
-    virtual void Load(Stream& source, ObjectResolver& resolver);
+    void Load(Stream& source, ObjectResolver& resolver) override;
     /// Save to binary stream.
-    virtual void Save(Stream& dest);
+    void Save(Stream& dest) override;
     /// Load from JSON data. Store node references to be resolved later.
-    virtual void LoadJSON(const JSONValue& source, ObjectResolver& resolver);
+    void LoadJSON(const JSONValue& source, ObjectResolver& resolver) override;
     /// Save as JSON data.
-    virtual void SaveJSON(JSONValue& dest);
+    void SaveJSON(JSONValue& dest) override;
     /// Return unique id within the scene, or 0 if not in a scene.
-    virtual unsigned Id() const { return id; }
+    unsigned Id() const override { return id; }
 
     /// Save as JSON text data to a binary stream. Return true on success.
     bool SaveJSON(Stream& dest);
@@ -122,7 +122,7 @@ public:
     /// Return number of immediate child nodes that are not temporary.
     size_t NumPersistentChildren() const;
     /// Return immediate child node by index.
-    Node* Child(size_t index) const { return index < children.Size() ? children[index] : (Node*)0; }
+    Node* Child(size_t index) const { return index < children.Size() ? children[index] : nullptr; }
     /// Return all immediate child nodes.
     const Vector<Node*>& Children() const { return children; }
     /// Return child nodes recursively.

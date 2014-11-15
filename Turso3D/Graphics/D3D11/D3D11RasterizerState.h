@@ -15,10 +15,10 @@ public:
     /// Construct.
     RasterizerState();
     /// Destruct.
-    virtual ~RasterizerState();
+    ~RasterizerState();
 
     /// Release the rasterizer state object.
-    virtual void Release();
+    void Release() override;
 
     /// Define parameters and create the rasterizer state object. The existing state object (if any) will be destroyed. Return true on success.
     bool Define(FillMode fillMode = FILL_SOLID, CullMode cullMode = CULL_BACK, int depthBias = 0, float depthBiasClamp = 0.0f, float slopeScaledDepthBias = 0.0f, bool depthClipEnable = true, bool scissorEnable = false, bool multisampleEnable = false, bool antialiasedLineEnable = false);

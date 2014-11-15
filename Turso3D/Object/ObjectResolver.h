@@ -16,8 +16,8 @@ struct TURSO3D_API StoredObjectRef
 {
     /// Construct undefined.
     StoredObjectRef() :
-        object(0),
-        attr(0),
+        object(nullptr),
+        attr(nullptr),
         oldId(0)
     {
     }

@@ -31,7 +31,7 @@ const size_t ConstantBuffer::elementSize[] =
 };
 
 ConstantBuffer::ConstantBuffer() :
-    buffer(0),
+    buffer(nullptr),
     byteSize(0),
     dirty(false)
 {
@@ -60,7 +60,7 @@ void ConstantBuffer::Release()
     {
         ID3D11Buffer* d3dBuffer = (ID3D11Buffer*)buffer;
         d3dBuffer->Release();
-        buffer = 0;
+        buffer = nullptr;
     }
 
     shadowData.Reset();
@@ -68,7 +68,7 @@ void ConstantBuffer::Release()
 
 bool ConstantBuffer::Define(const Vector<Constant>& srcConstants)
 {
-    return Define(srcConstants.Size(), srcConstants.Size() ? &srcConstants[0] : (const Constant*)0);
+    return Define(srcConstants.Size(), srcConstants.Size() ? &srcConstants[0] : nullptr);
 }
 
 bool ConstantBuffer::Define(size_t numConstants, const Constant* srcConstants)
@@ -182,7 +182,7 @@ bool ConstantBuffer::Apply()
     d3dDeviceContext->UpdateSubresource((ID3D11Buffer*)buffer, 0, 0, shadowData.Get(), 0, 0);
 #else
     D3D11_MAPPED_SUBRESOURCE mappedData;
-    mappedData.pData = 0;
+    mappedData.pData = nullptr;
 
     d3dDeviceContext->Map((ID3D11Buffer*)buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedData);
     if (mappedData.pData)
@@ -201,12 +201,12 @@ bool ConstantBuffer::Apply()
     return true;
 }
 
-size_t ConstantBuffer::ConstantIndex(const String& name)
+size_t ConstantBuffer::FindConstantIndex(const String& name)
 {
-    return ConstantIndex(name.CString());
+    return FindConstantIndex(name.CString());
 }
 
-size_t ConstantBuffer::ConstantIndex(const char* name)
+size_t ConstantBuffer::FindConstantIndex(const char* name)
 {
     for (size_t i = 0; i < constants.Size(); ++i)
     {

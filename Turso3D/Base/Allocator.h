@@ -50,7 +50,7 @@ template <class T> class Allocator
 public:
     /// Construct with optional initial capacity.
     Allocator(size_t capacity = 0) :
-        allocator(0)
+        allocator(nullptr)
     {
         if (capacity)
             Reserve(capacity);
@@ -102,7 +102,7 @@ public:
     void Reset()
     {
         AllocatorUninitialize(allocator);
-        allocator = 0;
+        allocator = nullptr;
     }
     
 private:

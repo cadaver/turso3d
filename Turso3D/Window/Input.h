@@ -72,19 +72,19 @@ public:
     /// Construct and register subsystem.
     Input();
     /// Destruct.
-    virtual ~Input();
+    ~Input();
 
     /// Poll the window (if any) for OS window messages and update input state.
     void Update();
 
     /// Return whether key is down by key code.
-    bool KeyDown(unsigned keyCode) const;
+    bool IsKeyDown(unsigned keyCode) const;
     /// Return whether key is down by raw key code.
-    bool KeyDownRaw(unsigned rawKeyCode) const;
+    bool IsKeyDownRaw(unsigned rawKeyCode) const;
     /// Return whether key was pressed on this frame by key code.
-    bool KeyPressed(unsigned keyCode) const;
+    bool IsKeyPressed(unsigned keyCode) const;
     /// Return whether key was pressed on this frame by raw key code.
-    bool KeyPressedRaw(unsigned rawKeyCode) const;
+    bool IsKeyPressedRaw(unsigned rawKeyCode) const;
     /// Return current mouse position.
     IntVector2 MousePosition() const { return mousePosition; }
     /// Return accumulated mouse movement since last frame.
@@ -92,9 +92,9 @@ public:
     /// Return pressed down mouse buttons bitmask.
     unsigned MouseButtons() const { return mouseButtons; }
     /// Return whether a mouse button is down.
-    bool MouseButtonDown(unsigned button) const;
+    bool IsMouseButtonDown(unsigned button) const;
     /// Return whether a mouse button was pressed on this frame.
-    bool MouseButtonPressed(unsigned button) const;
+    bool IsMouseButtonPressed(unsigned button) const;
 
     /// React to a key press or release. Called by window message handling.
     void OnKey(unsigned keyCode, unsigned rawKeyCode, bool pressed);

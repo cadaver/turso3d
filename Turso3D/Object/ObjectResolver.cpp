@@ -24,9 +24,9 @@ void ObjectResolver::StoreObjectRef(Serializable* object, Attribute* attr, const
 
 void ObjectResolver::Resolve()
 {
-    for (Vector<StoredObjectRef>::Iterator it = objectRefs.Begin(); it != objectRefs.End(); ++it)
+    for (auto it = objectRefs.Begin(); it != objectRefs.End(); ++it)
     {
-        HashMap<unsigned, Serializable*>::ConstIterator refIt = objects.Find(it->oldId);
+        auto refIt = objects.Find(it->oldId);
         // See if we can find the referred to object
         if (refIt != objects.End())
         {

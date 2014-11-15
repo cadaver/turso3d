@@ -16,7 +16,7 @@ namespace Turso3D
 static LRESULT CALLBACK WndProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 Window::Window() :
-    handle(0),
+    handle(nullptr),
     title("Turso3D Window"),
     minimized(false),
     focus(false),
@@ -64,7 +64,7 @@ bool Window::SetSize(int width, int height, bool resizable_)
         wc.hIcon = LoadIcon(0, IDI_APPLICATION);
         wc.hCursor = LoadCursor(0, IDC_ARROW);
         wc.hbrBackground = CreateSolidBrush(RGB(0, 0, 0));
-        wc.lpszMenuName = 0;
+        wc.lpszMenuName = nullptr;
         wc.lpszClassName = className.CString();
 
         RegisterClass(&wc);
@@ -106,7 +106,7 @@ void Window::Close()
     if (handle)
     {
         DestroyWindow((HWND)handle);
-        handle = 0;
+        handle = nullptr;
     }
 }
 
@@ -150,7 +150,7 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
     switch (msg)
     {
     case WM_DESTROY:
-        handle = 0;
+        handle = nullptr;
         break;
 
     case WM_CLOSE:

@@ -298,7 +298,7 @@ public:
 
         if (newCapacity != Capacity())
         {
-            unsigned char* newBuffer = 0;
+            unsigned char* newBuffer = nullptr;
             
             if (newCapacity)
             {

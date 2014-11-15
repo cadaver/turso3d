@@ -68,7 +68,7 @@ public:
     /// Construct and register subsystem.
     Log();
     /// Destruct. Close the log file if open.
-    virtual ~Log();
+    ~Log();
 
     /// Open the log file.
     void Open(const String& fileName);

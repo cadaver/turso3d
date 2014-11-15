@@ -266,7 +266,7 @@ public:
         
         unsigned hashKey = Hash(node->pair.first);
         
-        Node* previous = 0;
+        Node* previous = nullptr;
         Node* current = static_cast<Node*>(Ptrs()[hashKey]);
         while (current && current != node)
         {
@@ -293,7 +293,7 @@ public:
             for (Iterator it = Begin(); it != End(); )
             {
                 FreeNode(static_cast<Node*>(it++.ptr));
-                it.ptr->prev = 0;
+                it.ptr->prev = nullptr;
             }
             
             SetHead(Tail());
@@ -321,7 +321,7 @@ public:
         Turso3D::Sort(RandomAccessIterator<Node*>(ptrs), RandomAccessIterator<Node*>(ptrs + numKeys), CompareNodes);
         
         SetHead(ptrs[0]);
-        ptrs[0]->prev = 0;
+        ptrs[0]->prev = nullptr;
         for (size_t i = 1; i < numKeys; ++i)
         {
             ptrs[i - 1]->next = ptrs[i];
@@ -388,7 +388,7 @@ public:
             return false;
         
         unsigned hashKey = Hash(key);
-        return FindNode(key, hashKey) != 0;
+        return FindNode(key, hashKey) != nullptr;
     }
     
     /// Return all the keys.
@@ -460,7 +460,7 @@ private:
     /// Find a node and the previous node from the buckets.
     Node* FindNode(const T& key, unsigned hashKey, Node*& previous) const
     {
-        previous = 0;
+        previous = nullptr;
         if (!ptrs)
             return 0;
 

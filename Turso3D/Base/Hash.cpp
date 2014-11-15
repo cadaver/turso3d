@@ -43,7 +43,7 @@ void HashBase::ResetPtrs()
         size_t numBuckets = NumBuckets();
         HashNodeBase** data = Ptrs();
         for (size_t i = 0; i < numBuckets; ++i)
-            data[i] = 0;
+            data[i] = nullptr;
     }
 }
 

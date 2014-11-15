@@ -25,7 +25,7 @@ Mutex::~Mutex()
     CRITICAL_SECTION* cs = (CRITICAL_SECTION*)handle;
     DeleteCriticalSection(cs);
     delete cs;
-    handle = 0;
+    handle = nullptr;
 }
 
 void Mutex::Acquire()
@@ -53,7 +53,7 @@ Mutex::~Mutex()
     pthread_mutex_t* m = (pthread_mutex_t*)handle;
     pthread_mutex_destroy(m);
     delete m;
-    handle = 0;
+    handle = nullptr;
 }
 
 void Mutex::Acquire()
