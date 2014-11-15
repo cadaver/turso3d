@@ -86,7 +86,7 @@ bool Window::SetSize(int width, int height, bool resizable_)
         focus = false;
         resizable = resizable_;
 
-        SetWindowLongPtr((HWND)handle, GWLP_USERDATA, (LONG)this);
+        SetWindowLongPtr((HWND)handle, GWLP_USERDATA, (LONG_PTR)this);
         ShowWindow((HWND)handle, SW_SHOW);
         return true;
     }
