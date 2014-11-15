@@ -304,7 +304,7 @@ void Graphics::SetIndexBuffer(IndexBuffer* buffer)
             impl->deviceContext->IASetIndexBuffer((ID3D11Buffer*)buffer->BufferObject(), buffer->IndexSize() ==
                 sizeof(unsigned short) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
         else
-            impl->deviceContext->IASetIndexBuffer(0, DXGI_FORMAT_UNKNOWN, 0);
+            impl->deviceContext->IASetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
     }
 }
 
@@ -316,10 +316,10 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
         {
             if (!vs->IsCompiled())
                 vs->Compile();
-            impl->deviceContext->VSSetShader((ID3D11VertexShader*)vs->ShaderObject(), 0, 0);
+            impl->deviceContext->VSSetShader((ID3D11VertexShader*)vs->ShaderObject(), nullptr, 0);
         }
         else
-            impl->deviceContext->VSSetShader(0, 0, 0);
+            impl->deviceContext->VSSetShader(nullptr, nullptr, 0);
 
         vertexShader = vs;
     }
@@ -330,10 +330,10 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
         {
             if (!ps->IsCompiled())
                 ps->Compile();
-            impl->deviceContext->PSSetShader((ID3D11PixelShader*)ps->ShaderObject(), 0, 0);
+            impl->deviceContext->PSSetShader((ID3D11PixelShader*)ps->ShaderObject(), nullptr, 0);
         }
         else
-            impl->deviceContext->PSSetShader(0, 0, 0);
+            impl->deviceContext->PSSetShader(nullptr, nullptr, 0);
 
         pixelShader = ps;
     }
@@ -403,13 +403,13 @@ void Graphics::SetScissorRect(const IntRect& scissorRect_)
 
 void Graphics::ResetRenderTargets()
 {
-    SetRenderTarget(0, 0);
+    SetRenderTarget(nullptr, nullptr);
 }
 
 void Graphics::ResetVertexBuffers()
 {
     for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
-        SetVertexBuffer(i, 0);
+        SetVertexBuffer(i, nullptr);
 }
 
 void Graphics::ResetConstantBuffers()
@@ -417,7 +417,7 @@ void Graphics::ResetConstantBuffers()
     for (size_t i = 0; i < MAX_SHADER_STAGES; ++i)
     {
         for (size_t j = 0; i < MAX_CONSTANT_BUFFERS; ++j)
-            SetConstantBuffer((ShaderStage)i, j, 0);
+            SetConstantBuffer((ShaderStage)i, j, nullptr);
     }
 }
 
@@ -512,9 +512,29 @@ bool Graphics::CreateDevice()
     if (impl->device)
         return true; // Already exists
 
+    // Create device first
+    D3D11CreateDevice(
+        nullptr,
+        D3D_DRIVER_TYPE_HARDWARE,
+        0,
+        0,
+        nullptr,
+        0,
+        D3D11_SDK_VERSION,
+        &impl->device,
+        nullptr,
+        &impl->deviceContext
+    );
+
+    if (!impl->device || !impl->deviceContext)
+    {
+        LOGERROR("Failed to create D3D11 device");
+        return false;
+    }
+
+    // Create swap chain
     DXGI_SWAP_CHAIN_DESC swapChainDesc;
     memset(&swapChainDesc, 0, sizeof swapChainDesc);
-
     swapChainDesc.BufferCount = 1;
     swapChainDesc.BufferDesc.Width = window->Width();
     swapChainDesc.BufferDesc.Height = window->Height();
@@ -525,34 +545,25 @@ bool Graphics::CreateDevice()
     swapChainDesc.Windowed = TRUE;
     swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
-    D3D11CreateDeviceAndSwapChain(
-        0,
-        D3D_DRIVER_TYPE_HARDWARE,
-        0,
-        0,
-        0,
-        0,
-        D3D11_SDK_VERSION,
-        &swapChainDesc,
-        &impl->swapChain,
-        &impl->device,
-        0,
-        &impl->deviceContext
-    );
+    IDXGIDevice* dxgiDevice = nullptr;
+    impl->device->QueryInterface(IID_IDXGIDevice, (void **)&dxgiDevice);
+    IDXGIAdapter* dxgiAdapter = nullptr;
+    dxgiDevice->GetParent(IID_IDXGIAdapter, (void **)&dxgiAdapter);
+    IDXGIFactory* dxgiFactory = nullptr;
+    dxgiAdapter->GetParent(IID_IDXGIFactory, (void **)&dxgiFactory);
+    dxgiFactory->CreateSwapChain(impl->device, &swapChainDesc, &impl->swapChain);
+    // After creating the swap chain, disable automatic Alt-Enter fullscreen/windowed switching
+    // (the application will switch manually if it wants to)
+    dxgiFactory->MakeWindowAssociation((HWND)window->Handle(), DXGI_MWA_NO_ALT_ENTER);
 
-    if (!impl->device || !impl->deviceContext || !impl->swapChain)
+    dxgiFactory->Release();
+    dxgiAdapter->Release();
+    dxgiDevice->Release();
+
+    if (!impl->swapChain)
     {
-        LOGERROR("Failed to create D3D11 device");
+        LOGERROR("Failed to create D3D11 swap chain");
         return false;
-    }
-
-    // Disable automatic fullscreen switching
-    IDXGIFactory* factory;
-    impl->swapChain->GetParent(IID_IDXGIFactory, (void**)&factory);
-    if (factory)
-    {
-        factory->MakeWindowAssociation((HWND)window->Handle(), DXGI_MWA_NO_ALT_ENTER);
-        factory->Release();
     }
 
     return true;

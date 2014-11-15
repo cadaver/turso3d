@@ -204,7 +204,7 @@ Resource* ResourceCache::LoadResource(StringHash type, const String& nameIn)
 
     // If empty name, return null pointer immediately
     if (name.IsEmpty())
-        return 0;
+        return nullptr;
 
     // Check for existing resource
     auto key = MakePair(type, StringHash(name));
@@ -216,24 +216,24 @@ Resource* ResourceCache::LoadResource(StringHash type, const String& nameIn)
     if (!newObject)
     {
         LOGERROR("Could not load unknown resource type " + String(type));
-        return 0;
+        return nullptr;
     }
     Resource* newResource = dynamic_cast<Resource*>(newObject.Get());
     if (!newResource)
     {
         LOGERROR("Type " + String(type) + " is not a resource");
-        return 0;
+        return nullptr;
     }
 
     // Attempt to load the resource
     File file;
     if (!OpenFile(file, name))
-        return false;
-    
+        return nullptr;
+
     LOGDEBUG("Loading resource " + name);
     newResource->SetName(name);
     if (!newResource->Load(file))
-        return 0;
+        return nullptr;
 
     // Store to cache
     newObject.Detach();

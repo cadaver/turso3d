@@ -11,7 +11,7 @@
 namespace Turso3D
 {
 
-#ifdef WIN32
+#ifdef _WIN32
 typedef unsigned TLSKeyID;
 #else
 typedef pthread_key_t TLSKeyID;

@@ -2,6 +2,6 @@
 
 #pragma once
 
-#if defined(WIN32)
+#if defined(_WIN32)
     #include "D3D11/D3D11IndexBuffer.h"
 #endif

@@ -6,17 +6,17 @@ cmake_minimum_required (VERSION 2.8)
 
 # Find DirectX SDK
 # Based on realXtend Tundra CMake build system (https://github.com/realXtend/tundra)
-if (MSVC)
-    # Use only Windows SDK from Visual Studio 2012 onward to avoid incompatibility
+if (WIN32)
+    # Do not search for the SDK from Visual Studio 2012 onward to avoid incompatibility
     # between DirectX SDK and Windows SDK defines and the resulting warning spam
-    if (MSVC_VERSION LESS 1700)
+    if (MSVC AND MSVC_VERSION LESS 1700)
         set (DIRECTX_INC_SEARCH_PATH
             "C:/Program Files (x86)/Microsoft DirectX SDK (June 2010)/Include"
             "C:/Program Files/Microsoft DirectX SDK (June 2010)/Include"
             "$ENV{DIRECTX_ROOT}/Include"
             "$ENV{DXSDK_DIR}/Include")
         find_path (DIRECT3D_INCLUDE_DIRS d3d11.h ${DIRECTX_INC_SEARCH_PATH})
-    
+
         if (CMAKE_CL_64)
             set (DIRECTX_LIB_SEARCH_PATH
                 "C:/Program Files (x86)/Microsoft DirectX SDK (June 2010)/Lib/x64"
@@ -40,7 +40,7 @@ if (MSVC)
         find_library (DXGUID_LIBRARY dxguid ${DIRECTX_LIB_SEARCH_PATH})
         find_library (D3DCOMPILER_LIBRARY d3dcompiler ${DIRECTX_LIB_SEARCH_PATH})
     else ()
-        message (STATUS "MSVC 2012 or newer detected, skipping DirectX SDK search")
+        message (STATUS "Skipping DirectX SDK search as the used compiler does not require it")
     endif ()
 
     if (DIRECT3D_INCLUDE_DIRS AND D3D11_LIBRARY AND DXGI_LIBRARY AND DXGUID_LIBRARY AND D3DCOMPILER_LIBRARY)
@@ -49,7 +49,7 @@ if (MSVC)
         include (FindPackageMessage)
         FIND_PACKAGE_MESSAGE (Direct3D "Found DirectX SDK: ${DIRECT3D_LIBRARIES} ${DIRECT3D_INCLUDE_DIRS}" "[${DIRECT3D_LIBRARIES}][${DIRECT3D_INCLUDE_DIRS}]")
     else ()
-        # If DirectX SDK not found, assume the includes & libs are found in Windows SDK
+        # If DirectX SDK not found, assume the includes & libs are found in the compiler default directories
         set (DIRECT3D_LIBRARIES d3d11 dxgi dxguid d3dcompiler)
     endif ()
 endif ()
@@ -67,7 +67,7 @@ if (MSVC)
     set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /OPT:REF /OPT:ICF")
 elseif (NOT XCODE)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffast-math")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-invalid-offsetof -ffast-math")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wno-invalid-offsetof -ffast-math")
     if (WIN32)
         set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -static-libgcc -static")
         set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++ -static-libgcc -static")

@@ -28,8 +28,10 @@ TURSO3D_API bool RenameFile(const String& srcFileName, const String& destFileNam
 TURSO3D_API bool DeleteFile(const String& fileName);
 /// Return the absolute current working directory.
 TURSO3D_API String CurrentDir();
-/// Return the file's last modified time as seconds since 1.1.1970, or 0 if can not be accessed.
+/// Return the file's last modified time as seconds since epoch, or 0 if can not be accessed.
 TURSO3D_API unsigned LastModifiedTime(const String& fileName);
+/// Set the file's last modified time as seconds since epoch. Return true on success.
+TURSO3D_API bool SetLastModifiedTime(const String& fileName, unsigned newTime);
 /// Check if a file exists.
 TURSO3D_API bool FileExists(const String& fileName);
 /// Check if a directory exists.

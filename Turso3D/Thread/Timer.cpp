@@ -4,7 +4,7 @@
 
 #include <ctime>
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <Windows.h>
 #include <MMSystem.h>
 #else
@@ -25,7 +25,7 @@ public:
     TimerInitializer()
     {
         HiresTimer::Initialize();
-        #ifdef WIN32
+        #ifdef _WIN32
         timeBeginPeriod(1);
         #endif
     }
@@ -33,7 +33,7 @@ public:
     /// Destruct. Restore default resolution of the low-res timer (Windows only.)
     ~TimerInitializer()
     {
-        #ifdef WIN32
+        #ifdef _WIN32
         timeEndPeriod(1);
         #endif
     }
@@ -44,14 +44,6 @@ static TimerInitializer initializer;
 bool HiresTimer::supported = false;
 long long HiresTimer::frequency = 1000;
 
-String TimeStamp()
-{
-    time_t sysTime;
-    time(&sysTime);
-    const char* dateTime = ctime(&sysTime);
-    return String(dateTime).Replaced("\n", "");
-}
-
 Timer::Timer()
 {
     Reset();
@@ -59,7 +51,7 @@ Timer::Timer()
 
 unsigned Timer::ElapsedMSec(bool reset)
 {
-    #ifdef WIN32
+    #ifdef _WIN32
     unsigned currentTime = timeGetTime();
     #else
     struct timeval time;
@@ -76,7 +68,7 @@ unsigned Timer::ElapsedMSec(bool reset)
 
 void Timer::Reset()
 {
-    #ifdef WIN32
+    #ifdef _WIN32
     startTime = timeGetTime();
     #else
     struct timeval time;
@@ -94,7 +86,7 @@ long long HiresTimer::ElapsedUSec(bool reset)
 {
     long long currentTime;
     
-    #ifdef WIN32
+    #ifdef _WIN32
     if (supported)
     {
         LARGE_INTEGER counter;
@@ -123,7 +115,7 @@ long long HiresTimer::ElapsedUSec(bool reset)
 
 void HiresTimer::Reset()
 {
-    #ifdef WIN32
+    #ifdef _WIN32
     if (supported)
     {
         LARGE_INTEGER counter;
@@ -141,7 +133,7 @@ void HiresTimer::Reset()
 
 void HiresTimer::Initialize()
 {
-    #ifdef WIN32
+    #ifdef _WIN32
     LARGE_INTEGER frequency_;
     if (QueryPerformanceFrequency(&frequency_))
     {
@@ -152,6 +144,19 @@ void HiresTimer::Initialize()
     frequency = 1000000;
     supported = true;
     #endif
+}
+
+String TimeStamp()
+{
+    time_t sysTime;
+    time(&sysTime);
+    const char* dateTime = ctime(&sysTime);
+    return String(dateTime).Replaced("\n", "");
+}
+
+unsigned CurrentTime()
+{
+    return (unsigned)time(NULL);
 }
 
 }

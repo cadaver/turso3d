@@ -52,9 +52,9 @@ public:
     /// Vertex element D3D11 semantics.
     static const char* elementSemantic[];
     /// Vertex element D3D11 semantic indices (when more than one of the same element)
-    static const unsigned VertexBuffer::elementSemanticIndex[];
+    static const unsigned elementSemanticIndex[];
     /// Vertex element D3D11 formats
-    static const unsigned VertexBuffer::elementFormat[];
+    static const unsigned elementFormat[];
 
 private:
     /// D3D11 buffer.

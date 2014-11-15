@@ -444,7 +444,7 @@ private:
     Node* FindNode(const T& key, unsigned hashKey) const
     {
         if (!ptrs)
-            return 0;
+            return nullptr;
 
         Node* node = static_cast<Node*>(Ptrs()[hashKey]);
         while (node)
@@ -454,7 +454,7 @@ private:
             node = node->Down();
         }
         
-        return 0;
+        return nullptr;
     }
     
     /// Find a node and the previous node from the buckets.
@@ -462,7 +462,7 @@ private:
     {
         previous = nullptr;
         if (!ptrs)
-            return 0;
+            return nullptr;
 
         Node* node = static_cast<Node*>(Ptrs()[hashKey]);
         while (node)
@@ -473,7 +473,7 @@ private:
             node = node->Down();
         }
         
-        return 0;
+        return nullptr;
     }
     
     /// Insert a key and default value and return either the new or existing node.

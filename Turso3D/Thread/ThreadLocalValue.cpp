@@ -2,7 +2,7 @@
 
 #include "ThreadLocalValue.h"
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <Windows.h>
 #endif
 
@@ -13,7 +13,7 @@ namespace Turso3D
 
 ThreadLocalValue::ThreadLocalValue()
 {
-    #ifdef WIN32
+    #ifdef _WIN32
     key = TlsAlloc();
     valid = key != TLS_OUT_OF_INDEXES;
     #else
@@ -25,7 +25,7 @@ ThreadLocalValue::~ThreadLocalValue()
 {
     if (valid)
     {
-        #ifdef WIN32
+        #ifdef _WIN32
         TlsFree(key);
         #else
         pthread_key_delete(key);
@@ -37,7 +37,7 @@ void ThreadLocalValue::SetValue(void* value)
 {
     if (valid)
     {
-        #ifdef WIN32
+        #ifdef _WIN32
         TlsSetValue(key, value);
         #else
         pthread_setspecific(key, value);
@@ -49,7 +49,7 @@ void* ThreadLocalValue::Value() const
 {
     if (valid)
     {
-        #ifdef WIN32
+        #ifdef _WIN32
         return TlsGetValue(key);
         #else
         return pthread_getspecific(key);

@@ -20,7 +20,7 @@ WString::WString(const String& str) :
     length(0),
     buffer(nullptr)
 {
-    #ifdef WIN32
+    #ifdef _WIN32
     size_t neededSize = 0;
     wchar_t temp[3];
     

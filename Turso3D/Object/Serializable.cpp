@@ -126,7 +126,7 @@ Attribute* Serializable::FindAttribute(const char* name) const
 {
     const Vector<SharedPtr<Attribute> >* attributes = Attributes();
     if (!attributes)
-        return 0;
+        return nullptr;
     
     for (size_t i = 0; i < attributes->Size(); ++i)
     {
@@ -135,7 +135,7 @@ Attribute* Serializable::FindAttribute(const char* name) const
             return attr;
     }
     
-    return 0;
+    return nullptr;
 }
 
 void Serializable::RegisterAttribute(StringHash type, Attribute* attr)

@@ -144,7 +144,7 @@ public:
         if (refCount && *refCount < WeakRefCounted::EXPIRED)
             return ptr;
         else
-            return 0;
+            return nullptr;
     }
 
     /// Return the number of weak references to the object.

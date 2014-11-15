@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <fcntl.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <Windows.h>
 #include <io.h>
 #else
@@ -18,7 +18,7 @@
 namespace Turso3D
 {
 
-#ifdef WIN32
+#ifdef _WIN32
 static bool consoleOpened = false;
 #endif
 static String currentLine;
@@ -33,7 +33,7 @@ void ErrorExit(const String& message, int exitCode)
 
 void OpenConsoleWindow()
 {
-    #ifdef WIN32
+    #ifdef _WIN32
     if (consoleOpened)
         return;
 
@@ -58,7 +58,7 @@ void OpenConsoleWindow()
 void PrintUnicode(const String& str, bool error)
 {
     #if !defined(ANDROID) && !defined(IOS)
-    #ifdef WIN32
+    #ifdef _WIN32
     HANDLE stream = GetStdHandle(error ? STD_ERROR_HANDLE : STD_OUTPUT_HANDLE);
     if (stream == INVALID_HANDLE_VALUE)
         return;
@@ -87,7 +87,7 @@ String ReadLine()
 {
     String ret;
     
-    #ifdef WIN32
+    #ifdef _WIN32
     HANDLE input = GetStdHandle(STD_INPUT_HANDLE);
     HANDLE output = GetStdHandle(STD_OUTPUT_HANDLE);
     if (input == INVALID_HANDLE_VALUE || output == INVALID_HANDLE_VALUE)

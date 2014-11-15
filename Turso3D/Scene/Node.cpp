@@ -217,13 +217,13 @@ Node* Node::CreateChild(StringHash childType)
     if (!newObject)
     {
         LOGERROR("Could not create child node of unknown type " + childType.ToString());
-        return 0;
+        return nullptr;
     }
     Node* child = dynamic_cast<Node*>(newObject.Get());
     if (!child)
     {
         LOGERROR(newObject->TypeName() + " is not a Node subclass, could not add as a child");
-        return 0;
+        return nullptr;
     }
 
     newObject.Detach();
@@ -281,7 +281,7 @@ void Node::AddChild(Node* child)
 Node* Node::DetachChild(Node* child)
 {
     if (!child || child->parent != this)
-        return 0;
+        return nullptr;
 
     for (size_t i = 0; i < children.Size(); ++i)
     {
@@ -289,19 +289,19 @@ Node* Node::DetachChild(Node* child)
             return DetachChild(i);
     }
 
-    return 0;
+    return nullptr;
 }
 
 Node* Node::DetachChild(size_t index)
 {
     if (index >= children.Size())
-        return 0;
+        return nullptr;
 
     Node* child = children[index];
     children.Erase(index);
     // Detach from both the parent and the scene (removes id assignment)
     child->parent = nullptr;
-    child->OnParentSet(this, 0);
+    child->OnParentSet(this, nullptr);
     if (scene)
         scene->RemoveNode(child);
     return child;
@@ -325,7 +325,7 @@ void Node::DestroyAllChildren()
     {
         Node* child = *it;
         child->parent = nullptr;
-        child->OnParentSet(this, 0);
+        child->OnParentSet(this, nullptr);
         if (scene)
             scene->RemoveNode(child);
         delete child;
@@ -405,7 +405,7 @@ Node* Node::FindChild(const char* childName, bool recursive) const
         }
     }
 
-    return 0;
+    return nullptr;
 }
 
 Node* Node::FindChild(StringHash childType, bool recursive) const
@@ -423,7 +423,7 @@ Node* Node::FindChild(StringHash childType, bool recursive) const
         }
     }
 
-    return 0;
+    return nullptr;
 }
 
 Node* Node::FindChild(StringHash childType, const String& childName, bool recursive) const
@@ -446,7 +446,7 @@ Node* Node::FindChild(StringHash childType, const char* childName, bool recursiv
         }
     }
 
-    return 0;
+    return nullptr;
 }
 
 Node* Node::FindChildByLayer(unsigned layerMask, bool recursive) const
@@ -464,7 +464,7 @@ Node* Node::FindChildByLayer(unsigned layerMask, bool recursive) const
         }
     }
 
-    return 0;
+    return nullptr;
 }
 
 Node* Node::FindChildByTag(unsigned char tag_, bool recursive) const
@@ -482,7 +482,7 @@ Node* Node::FindChildByTag(unsigned char tag_, bool recursive) const
         }
     }
 
-    return 0;
+    return nullptr;
 }
 
 Node* Node::FindChildByTag(const String& tagName, bool recursive) const
@@ -505,7 +505,7 @@ Node* Node::FindChildByTag(const char* tagName, bool recursive) const
         }
     }
 
-    return 0;
+    return nullptr;
 }
 
 void Node::FindChildren(Vector<Node*>& result, StringHash childType, bool recursive) const

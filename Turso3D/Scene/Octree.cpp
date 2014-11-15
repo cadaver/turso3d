@@ -63,7 +63,7 @@ bool Octant::FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) cons
 
 Octree::Octree()
 {
-    root.Initialize(0, BoundingBox(-DEFAULT_OCTREE_SIZE, DEFAULT_OCTREE_SIZE), DEFAULT_OCTREE_LEVELS);
+    root.Initialize(nullptr, BoundingBox(-DEFAULT_OCTREE_SIZE, DEFAULT_OCTREE_SIZE), DEFAULT_OCTREE_LEVELS);
 }
 
 Octree::~Octree()
@@ -103,7 +103,7 @@ void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
     CollectNodes(updateQueue, &root);
     DeleteChildOctants(&root, false);
     allocator.Reset();
-    root.Initialize(0, boundingBox, Clamp(numLevels, 1, MAX_OCTREE_LEVELS));
+    root.Initialize(nullptr, boundingBox, Clamp(numLevels, 1, MAX_OCTREE_LEVELS));
 
     // Reinsert all nodes (recreates new child octants as necessary)
     Update();

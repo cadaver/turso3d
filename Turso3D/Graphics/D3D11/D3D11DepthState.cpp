@@ -27,7 +27,7 @@ void DepthState::Release()
     if (graphics)
     {
         if (graphics->GetDepthState() == this)
-            graphics->SetDepthState(0, 0);
+            graphics->SetDepthState(nullptr, 0);
     }
     
     if (stateObject)

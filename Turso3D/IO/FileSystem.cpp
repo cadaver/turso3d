@@ -9,14 +9,17 @@
 
 #include <cstdio>
 #include <cstring>
+#include <sys/stat.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <Windows.h>
+#include <sys/types.h>
+#include <sys/utime.h>
 #else
 #include <dirent.h>
 #include <errno.h>
 #include <unistd.h>
-#include <sys/stat.h>
+#include <utime.h>
 #include <sys/wait.h>
 #define MAX_PATH 256
 #endif
@@ -32,7 +35,7 @@ namespace Turso3D
 
 bool SetCurrentDir(const String& pathName)
 {
-    #ifdef WIN32
+    #ifdef _WIN32
     if (SetCurrentDirectoryW(WideNativePath(pathName).CString()) == FALSE)
         return false;
     #else
@@ -45,7 +48,7 @@ bool SetCurrentDir(const String& pathName)
 
 bool CreateDir(const String& pathName)
 {
-    #ifdef WIN32
+    #ifdef _WIN32
     bool success = (CreateDirectoryW(WideNativePath(RemoveTrailingSlash(pathName)).CString(), 0) == TRUE) ||
         (GetLastError() == ERROR_ALREADY_EXISTS);
     #else
@@ -75,7 +78,7 @@ bool CopyFile(const String& srcFileName, const String& destFileName)
 
 bool RenameFile(const String& srcFileName, const String& destFileName)
 {
-    #ifdef WIN32
+    #ifdef _WIN32
     return MoveFileW(WideNativePath(srcFileName).CString(), WideNativePath(destFileName).CString()) != 0;
     #else
     return rename(NativePath(srcFileName).CString(), NativePath(destFileName).CString()) == 0;
@@ -84,7 +87,7 @@ bool RenameFile(const String& srcFileName, const String& destFileName)
 
 bool DeleteFIle(const String& fileName)
 {
-    #ifdef WIN32
+    #ifdef _WIN32
     return DeleteFileW(WideNativePath(fileName).CString()) != 0;
     #else
     return remove(NativePath(fileName).CString()) == 0;
@@ -93,7 +96,7 @@ bool DeleteFIle(const String& fileName)
 
 String CurrentDir()
 {
-    #ifdef WIN32
+    #ifdef _WIN32
     wchar_t path[MAX_PATH];
     path[0] = 0;
     GetCurrentDirectoryW(MAX_PATH, path);
@@ -108,16 +111,13 @@ String CurrentDir()
 
 unsigned LastModifiedTime(const String& fileName)
 {
-    #ifdef WIN32
-    WIN32_FILE_ATTRIBUTE_DATA fileAttrData;
-    memset(&fileAttrData, 0, sizeof fileAttrData);
-    if (GetFileAttributesExW(WString(fileName).CString(), GetFileExInfoStandard, &fileAttrData))
-    {
-        ULARGE_INTEGER ull;
-        ull.LowPart = fileAttrData.ftLastWriteTime.dwLowDateTime;
-        ull.HighPart = fileAttrData.ftLastWriteTime.dwHighDateTime;
-        return (unsigned)(ull.QuadPart / 10000000ULL - 11644473600ULL);
-    }
+    if (fileName.IsEmpty())
+        return 0;
+
+    #ifdef _WIN32
+    struct _stat st;
+    if (!_stat(fileName.CString(), &st))
+        return (unsigned)st.st_mtime;
     else
         return 0;
     #else
@@ -129,11 +129,35 @@ unsigned LastModifiedTime(const String& fileName)
     #endif
 }
 
+bool SetLastModifiedTime(const String& fileName, unsigned newTime)
+{
+    if (fileName.IsEmpty())
+        return false;
+
+    #ifdef WIN32
+    struct _stat oldTime;
+    struct _utimbuf newTimes;
+    if (_stat(fileName.CString(), &oldTime) != 0)
+        return false;
+    newTimes.actime = oldTime.st_atime;
+    newTimes.modtime = newTime;
+    return _utime(fileName.CString(), &newTimes) == 0;
+    #else
+    struct stat oldTime;
+    struct utimbuf newTimes;
+    if (stat(fileName.CString(), &oldTime) != 0)
+        return false;
+    newTimes.actime = oldTime.st_atime;
+    newTimes.modtime = newTime;
+    return utime(fileName.CString(), &newTimes) == 0;
+    #endif
+}
+
 bool FileExists(const String& fileName)
 {
     String fixedName = NativePath(RemoveTrailingSlash(fileName));
 
-    #ifdef WIN32
+    #ifdef _WIN32
     DWORD attributes = GetFileAttributesW(WString(fixedName).CString());
     if (attributes == INVALID_FILE_ATTRIBUTES || attributes & FILE_ATTRIBUTE_DIRECTORY)
         return false;
@@ -156,7 +180,7 @@ bool DirExists(const String& pathName)
 
     String fixedName = NativePath(RemoveTrailingSlash(pathName));
 
-    #ifdef WIN32
+    #ifdef _WIN32
     DWORD attributes = GetFileAttributesW(WString(fixedName).CString());
     if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_DIRECTORY))
         return false;
@@ -181,7 +205,7 @@ static void ScanDirInternal(Vector<String>& result, String path, const String& s
     if (filterExtension.Contains('*'))
         filterExtension.Clear();
 
-#ifdef WIN32
+#ifdef _WIN32
     WIN32_FIND_DATAW info;
     HANDLE handle = FindFirstFileW(WString(path + "*").CString(), &info);
     if (handle != INVALID_HANDLE_VALUE)
@@ -256,7 +280,7 @@ String ExecutableDir()
 {
     String ret;
 
-    #if defined(WIN32)
+    #if defined(_WIN32)
     wchar_t exeName[MAX_PATH];
     exeName[0] = 0;
     GetModuleFileNameW(0, exeName, MAX_PATH);
@@ -380,7 +404,7 @@ String NormalizePath(const String& pathName)
 
 String NativePath(const String& pathName)
 {
-#ifdef WIN32
+#ifdef _WIN32
     return pathName.Replaced('/', '\\');
 #else
     return pathName;
@@ -389,7 +413,7 @@ String NativePath(const String& pathName)
 
 WString WideNativePath(const String& pathName)
 {
-#ifdef WIN32
+#ifdef _WIN32
     return WString(pathName.Replaced('/', '\\'));
 #else
     return WString(pathName);
@@ -406,7 +430,7 @@ bool IsAbsolutePath(const String& pathName)
     if (path[0] == '/')
         return true;
     
-#ifdef WIN32
+#ifdef _WIN32
     if (path.Length() > 1 && IsAlpha(path[0]) && path[1] == ':')
         return true;
 #endif

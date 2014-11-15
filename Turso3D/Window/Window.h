@@ -2,6 +2,6 @@
 
 #pragma once
 
-#ifdef WIN32
+#ifdef _WIN32
 #include "Win32/Win32Window.h"
 #endif

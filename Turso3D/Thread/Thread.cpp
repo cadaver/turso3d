@@ -2,7 +2,7 @@
 
 #include "Thread.h"
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <Windows.h>
 #else
 #include <unistd.h>
@@ -13,7 +13,7 @@
 namespace Turso3D
 {
 
-#ifdef WIN32
+#ifdef _WIN32
 DWORD WINAPI ThreadFunctionStatic(void* data)
 {
     Thread* thread = static_cast<Thread*>(data);
@@ -50,8 +50,8 @@ bool Thread::Run()
         return false;
     
     shouldRun = true;
-    #ifdef WIN32
-    handle = CreateThread(0, 0, ThreadFunctionStatic, this, 0, 0);
+    #ifdef _WIN32
+    handle = CreateThread(nullptr, 0, ThreadFunctionStatic, this, 0, nullptr);
     #else
     handle = new pthread_t;
     pthread_attr_t type;
@@ -69,7 +69,7 @@ void Thread::Stop()
         return;
     
     shouldRun = false;
-    #ifdef WIN32
+    #ifdef _WIN32
     WaitForSingleObject((HANDLE)handle, INFINITE);
     CloseHandle((HANDLE)handle);
     #else
@@ -83,7 +83,7 @@ void Thread::Stop()
 
 void Thread::SetPriority(int priority)
 {
-    #ifdef WIN32
+    #ifdef _WIN32
     if (handle)
         SetThreadPriority((HANDLE)handle, priority);
     #endif
@@ -96,7 +96,7 @@ void Thread::SetPriority(int priority)
 
 void Thread::Sleep(unsigned mSec)
 {
-    #ifdef WIN32
+    #ifdef _WIN32
     ::Sleep(mSec);
     #else
     usleep(mSec * 1000);
@@ -110,7 +110,7 @@ void Thread::SetMainThread()
 
 ThreadID Thread::CurrentThreadID()
 {
-    #ifdef WIN32
+    #ifdef _WIN32
     return GetCurrentThreadId();
     #else
     return pthread_self();

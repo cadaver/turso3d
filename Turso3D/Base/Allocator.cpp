@@ -49,7 +49,7 @@ static AllocatorBlock* AllocatorGetBlock(AllocatorBlock* allocator, size_t nodeS
 
 AllocatorBlock* AllocatorInitialize(size_t nodeSize, size_t initialCapacity)
 {
-    AllocatorBlock* block = AllocatorGetBlock(0, nodeSize, initialCapacity);
+    AllocatorBlock* block = AllocatorGetBlock(nullptr, nodeSize, initialCapacity);
     return block;
 }
 
@@ -66,7 +66,7 @@ void AllocatorUninitialize(AllocatorBlock* allocator)
 void* AllocatorGet(AllocatorBlock* allocator)
 {
     if (!allocator)
-        return 0;
+        return nullptr;
     
     if (!allocator->free)
     {

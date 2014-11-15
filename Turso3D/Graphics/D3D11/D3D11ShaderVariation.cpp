@@ -68,7 +68,7 @@ ShaderVariation::~ShaderVariation()
 void ShaderVariation::Release()
 {
     if (graphics && (graphics->GetVertexShader() == this || graphics->GetPixelShader() == this))
-        graphics->SetShaders(0, 0);
+        graphics->SetShaders(nullptr, nullptr);
 
     if (blob)
     {

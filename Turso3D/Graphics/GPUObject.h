@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "../../Base/WeakPtr.h"
-#include "../../Turso3DConfig.h"
+#include "../Base/WeakPtr.h"
+#include "../Turso3DConfig.h"
 
 namespace Turso3D
 {

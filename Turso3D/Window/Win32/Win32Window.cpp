@@ -72,7 +72,7 @@ bool Window::SetSize(int width, int height, bool resizable_)
         RECT rect = { 0, 0, width, height };
         AdjustWindowRect(&rect, windowStyle, false);
         handle = CreateWindowW(WString(className).CString(), WString(title).CString(), windowStyle, CW_USEDEFAULT, CW_USEDEFAULT,
-            rect.right, rect.bottom, 0, 0, GetModuleHandle(0), 0);
+            rect.right, rect.bottom, 0, 0, GetModuleHandle(0), nullptr);
         if (!handle)
         {
             LOGERROR("Failed to create window");

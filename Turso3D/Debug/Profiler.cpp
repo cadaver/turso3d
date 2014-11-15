@@ -106,7 +106,7 @@ Profiler::Profiler() :
     intervalFrames(0),
     totalFrames(0)
 {
-    root = new ProfilerBlock(0, "Root");
+    root = new ProfilerBlock(nullptr, "Root");
     current = root;
     RegisterSubsystem(this);
 }
