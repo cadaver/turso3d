@@ -36,21 +36,37 @@ public:
         
         float vertexData[] = {
             // Position             // Texcoord
-            0.0f, 0.05f, 0.0f,      0.5f, 0.0f,
-            0.05f, -0.05f, 0.0f,    1.0f, 1.0f,
-            -0.05f, -0.05f, 0.0f,   0.0f, 1.0f
+            0.0f, 0.05f, 0.0f, 0.5f, 0.0f,
+            0.05f, -0.05f, 0.0f, 1.0f, 1.0f,
+            -0.05f, -0.05f, 0.0f, 0.0f, 1.0f
         };
 
+        Vector<VertexElement> vertexDeclaration;
+        vertexDeclaration.Push(VertexElement(ELEM_VECTOR3, SEM_POSITION));
+        vertexDeclaration.Push(VertexElement(ELEM_VECTOR2, SEM_TEXCOORD));
+        AutoPtr<VertexBuffer> vb = new VertexBuffer();
+        vb->Define(3, vertexDeclaration, false, true, vertexData);
+        
         unsigned short indexData[] = {
             0,
             1,
             2
         };
 
-        Constant vc(C_VECTOR3, "Position");
-        Constant pc(C_COLOR, "Color");
+        AutoPtr<IndexBuffer> ib = new IndexBuffer();
+        ib->Define(3, sizeof(unsigned short), false, true, indexData);
         
-        String vsCode = 
+        Constant vc(ELEM_VECTOR3, "Position");
+        AutoPtr<ConstantBuffer> vcb = new ConstantBuffer();
+        vcb->Define(1, &vc);
+
+        Constant pc(ELEM_VECTOR4, "Color");
+        AutoPtr<ConstantBuffer> pcb = new ConstantBuffer();
+        pcb->Define(1, &pc);
+        pcb->SetConstant("Color", Color::WHITE);
+        pcb->Apply();
+
+        String vsCode =
             "cbuffer ConstantBuffer : register(b0)"
             "{"
             "    float3 ObjectPosition;"
@@ -70,6 +86,11 @@ public:
             "    return output;"
             "}";
 
+        AutoPtr<Shader> vs = new Shader();
+        vs->SetName("Test.vs");
+        vs->Define(SHADER_VS, vsCode);
+        ShaderVariation* vsv = vs->CreateVariation();
+
         String psCode =
             "cbuffer ConstantBuffer : register(b0)"
             "{"
@@ -83,30 +104,11 @@ public:
             "{"
             "    return Color * Texture.Sample(Sampler, texCoord);"
             "}";
-        
-        AutoPtr<VertexBuffer> vb = new VertexBuffer();
-        vb->Define(3, MASK_POSITION | MASK_TEXCOORD1, false, true, vertexData);
-        
-        AutoPtr<IndexBuffer> ib = new IndexBuffer();
-        ib->Define(3, sizeof(unsigned short), false, true, indexData);
-        
-        AutoPtr<ConstantBuffer> vcb = new ConstantBuffer();
-        vcb->Define(1, &vc);
 
-        AutoPtr<ConstantBuffer> pcb = new ConstantBuffer();
-        pcb->Define(1, &pc);
-
-        AutoPtr<Shader> vs = new Shader();
         AutoPtr<Shader> ps = new Shader();
-        vs->SetName("Test.vs");
         ps->SetName("Test.ps");
-        vs->Define(SHADER_VS, vsCode);
         ps->Define(SHADER_PS, psCode);
-        ShaderVariation* vsv = vs->CreateVariation();
         ShaderVariation* psv = ps->CreateVariation();
-
-        pcb->SetConstant("Color", Color::WHITE);
-        pcb->Apply();
 
         AutoPtr<BlendState> bs = new BlendState();
         bs->Define(false);
