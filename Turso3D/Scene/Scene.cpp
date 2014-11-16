@@ -27,7 +27,7 @@ Scene::Scene() :
 Scene::~Scene()
 {
     // Node destructor will also destroy children. But at that point the node<>id maps have been destroyed 
-    // so must destroy the scene tree already here
+    // so must tear down the scene tree already here
     DestroyAllChildren();
     RemoveNode(this);
     assert(nodes.IsEmpty());

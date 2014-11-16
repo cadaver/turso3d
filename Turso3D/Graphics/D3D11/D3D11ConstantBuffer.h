@@ -19,7 +19,7 @@ struct TURSO3D_API Constant
     }
 
     /// Construct with type, name and optional number of elements.
-    Constant(ConstantType type_, const String& name_, size_t numElements_ = 1) :
+    Constant(ElementType type_, const String& name_, size_t numElements_ = 1) :
         type(type_),
         name(name_),
         numElements(numElements_)
@@ -27,22 +27,22 @@ struct TURSO3D_API Constant
     }
 
     /// Construct with type, name and optional number of elements.
-    Constant(ConstantType type_, const char* name_, size_t numElements_ = 1) :
+    Constant(ElementType type_, const char* name_, size_t numElements_ = 1) :
         type(type_),
         name(name_),
         numElements(numElements_)
     {
     }
 
-    /// Type of constant.
-    ConstantType type;
+    /// Data type of constant.
+    ElementType type;
     /// Name of constant.
     String name;
     /// Number of elements. Default 1.
     size_t numElements;
     /// Element size. Filled by ConstantBuffer.
     size_t elementSize;
-    /// Start offset in the buffer. Filled by ConstantBuffer.
+    /// Offset from the beginning of the buffer. Filled by ConstantBuffer.
     size_t offset;
 };
 

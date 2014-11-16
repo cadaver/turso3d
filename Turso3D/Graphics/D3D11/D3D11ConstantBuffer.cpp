@@ -7,6 +7,7 @@
 #include "../../Math/Matrix3x4.h"
 #include "D3D11ConstantBuffer.h"
 #include "D3D11Graphics.h"
+#include "D3D11VertexBuffer.h"
 
 #include <d3d11.h>
 
@@ -17,18 +18,6 @@
 
 namespace Turso3D
 {
-
-const size_t ConstantBuffer::elementSize[] =
-{
-    sizeof(int),
-    sizeof(float),
-    sizeof(Vector2),
-    sizeof(Vector3),
-    sizeof(Vector4),
-    sizeof(Color),
-    sizeof(Matrix3x4),
-    sizeof(Matrix4)
-};
 
 ConstantBuffer::ConstantBuffer() :
     buffer(nullptr),
@@ -93,7 +82,7 @@ bool ConstantBuffer::Define(size_t numConstants, const Constant* srcConstants)
         newConstant.type = srcConstants->type;
         newConstant.name = srcConstants->name;
         newConstant.numElements = srcConstants->numElements;
-        newConstant.elementSize = elementSize[newConstant.type];
+        newConstant.elementSize = VertexBuffer::elementSize[newConstant.type];
         // If element crosses 16 byte boundary or is larger than 16 bytes, align to next 16 bytes
         if ((newConstant.elementSize <= 16 && ((byteSize + newConstant.elementSize - 1) >> 4) != (byteSize >> 4)) ||
             (newConstant.elementSize > 16 && (byteSize & 15)))

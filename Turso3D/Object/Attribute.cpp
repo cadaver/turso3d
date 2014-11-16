@@ -65,6 +65,10 @@ void Attribute::Skip(AttributeType type, Stream& source)
         source.Read<Vector3>();
         break;
         
+    case ATTR_VECTOR4:
+        source.Read<Vector4>();
+        break;
+        
     case ATTR_QUATERNION:
         source.Read<Quaternion>();
         break;
@@ -127,6 +131,11 @@ template<> void AttributeImpl<String>::FromJSON(Serializable* instance, const JS
 template<> void AttributeImpl<Vector3>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, Vector3(source.GetString()));
+}
+
+template<> void AttributeImpl<Vector4>::FromJSON(Serializable* instance, const JSONValue& source)
+{
+    SetValue(instance, Vector4(source.GetString()));
 }
 
 template<> void AttributeImpl<Quaternion>::FromJSON(Serializable* instance, const JSONValue& source)
@@ -194,6 +203,11 @@ template<> void AttributeImpl<Vector3>::ToJSON(Serializable* instance, JSONValue
     dest = Value(instance).ToString();
 }
 
+template<> void AttributeImpl<Vector4>::ToJSON(Serializable* instance, JSONValue& dest)
+{
+    dest = Value(instance).ToString();
+}
+
 template<> void AttributeImpl<Quaternion>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance).ToString();
@@ -257,6 +271,11 @@ template<> AttributeType AttributeImpl<String>::Type() const
 template<> AttributeType AttributeImpl<Vector3>::Type() const
 {
     return ATTR_VECTOR3;
+}
+
+template<> AttributeType AttributeImpl<Vector4>::Type() const
+{
+    return ATTR_VECTOR4;
 }
 
 template<> AttributeType AttributeImpl<Quaternion>::Type() const

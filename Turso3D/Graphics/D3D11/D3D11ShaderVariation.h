@@ -32,8 +32,8 @@ public:
     String FullName() const;
     /// Return shader stage.
     ShaderStage Stage() const { return stage; }
-    /// Return element mask for vertex shaders.
-    unsigned ElementMask() const { return elementMask; }
+    /// Return vertex element hash code for vertex shaders.
+    unsigned ElementHash() const { return elementHash; }
     /// Return whether compile attempted.
     bool IsCompiled() const { return compiled; }
 
@@ -53,8 +53,8 @@ private:
     void* blob;
     /// D3D11 shader.
     void* shader;
-    /// Vertex shader element mask.
-    unsigned elementMask;
+    /// Vertex shader element hash code.
+    unsigned elementHash;
     /// Compile attempted flag.
     bool compiled;
 };

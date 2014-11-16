@@ -690,11 +690,11 @@ void Graphics::PrepareDraw(PrimitiveType type)
     {
         InputLayoutDesc newInputLayout;
         newInputLayout.first = 0;
-        newInputLayout.second = vertexShader->ElementMask();
+        newInputLayout.second = vertexShader->ElementHash();
         for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
         {
             if (vertexBuffers[i])
-                newInputLayout.first |= (unsigned long long)vertexBuffers[i]->ElementMask() << (i * MAX_VERTEX_ELEMENTS);
+                newInputLayout.first |= (unsigned long long)vertexBuffers[i]->ElementHash() << (i * 16);
         }
 
         if (newInputLayout == inputLayout)
@@ -712,31 +712,26 @@ void Graphics::PrepareDraw(PrimitiveType type)
         }
 
         // Not found, create new
-        size_t currentOffset = 0;
         Vector<D3D11_INPUT_ELEMENT_DESC> elementDescs;
 
         for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
         {
             if (vertexBuffers[i])
             {
-                unsigned elementMask = vertexBuffers[i]->ElementMask();
+                const Vector<VertexElement>& elements = vertexBuffers[i]->Elements();
 
-                for (size_t j = 0; j < MAX_VERTEX_ELEMENTS; ++j)
+                for (size_t j = 0; j < elements.Size(); ++j)
                 {
-                    if (elementMask & (1 << j))
-                    {
-                        D3D11_INPUT_ELEMENT_DESC newDesc;
-                        newDesc.SemanticName = VertexBuffer::elementSemantic[j];
-                        newDesc.SemanticIndex = VertexBuffer::elementSemanticIndex[j];
-                        newDesc.Format = (DXGI_FORMAT)VertexBuffer::elementFormat[j];
-                        newDesc.InputSlot = (unsigned)i;
-                        newDesc.AlignedByteOffset = (unsigned)currentOffset;
-                        newDesc.InputSlotClass = j < ELEMENT_INSTANCEMATRIX1 ? D3D11_INPUT_PER_VERTEX_DATA :  D3D11_INPUT_PER_INSTANCE_DATA;
-                        newDesc.InstanceDataStepRate = j < ELEMENT_INSTANCEMATRIX1 ? 0 : 1;
-                        elementDescs.Push(newDesc);
-
-                        currentOffset += VertexBuffer::elementSize[j];
-                    }
+                    const VertexElement& element = elements[j];
+                    D3D11_INPUT_ELEMENT_DESC newDesc;
+                    newDesc.SemanticName = VertexBuffer::elementSemantic[element.semantic];
+                    newDesc.SemanticIndex = element.index;
+                    newDesc.Format = (DXGI_FORMAT)VertexBuffer::elementFormat[element.type];
+                    newDesc.InputSlot = (unsigned)i;
+                    newDesc.AlignedByteOffset = (unsigned)element.offset;
+                    newDesc.InputSlotClass = element.perInstance ? D3D11_INPUT_PER_INSTANCE_DATA : D3D11_INPUT_PER_VERTEX_DATA;
+                    newDesc.InstanceDataStepRate = element.perInstance ? 1 : 0;
+                    elementDescs.Push(newDesc);
                 }
             }
         }

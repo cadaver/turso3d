@@ -2,6 +2,7 @@
 
 #include "../../Debug/Log.h"
 #include "../../Debug/Profiler.h"
+#include "../../Math/Matrix3x4.h"
 #include "D3D11Graphics.h"
 #include "D3D11VertexBuffer.h"
 
@@ -14,74 +15,44 @@ namespace Turso3D
 
 const size_t VertexBuffer::elementSize[] =
 {
-    3 * sizeof(float), // Position
-    3 * sizeof(float), // Normal
-    4 * sizeof(unsigned char), // Color
-    2 * sizeof(float), // Texcoord1
-    2 * sizeof(float), // Texcoord2
-    3 * sizeof(float), // Cubetexcoord1
-    3 * sizeof(float), // Cubetexcoord2
-    4 * sizeof(float), // Tangent
-    4 * sizeof(float), // Blendweights
-    4 * sizeof(unsigned char), // Blendindices
-    4 * sizeof(float), // Instancematrix1
-    4 * sizeof(float), // Instancematrix2
-    4 * sizeof(float) // Instancematrix3
+    sizeof(int),
+    sizeof(float),
+    sizeof(Vector2),
+    sizeof(Vector3),
+    sizeof(Vector4),
+    sizeof(unsigned),
+    sizeof(Matrix3x4),
+    sizeof(Matrix4)
+};
+
+const unsigned VertexBuffer::elementFormat[] = {
+    DXGI_FORMAT_R32_SINT,
+    DXGI_FORMAT_R32_FLOAT,
+    DXGI_FORMAT_R32G32_FLOAT,
+    DXGI_FORMAT_R32G32B32_FLOAT,
+    DXGI_FORMAT_R32G32B32A32_FLOAT,
+    DXGI_FORMAT_R8G8B8A8_UNORM,
+    DXGI_FORMAT_R32G32B32A32_FLOAT, // Incorrect, but included to not cause out-of-range indexing
+    DXGI_FORMAT_R32G32B32A32_FLOAT  //                          --||--
 };
 
 const char* VertexBuffer::elementSemantic[] = {
     "POSITION",
     "NORMAL",
-    "COLOR",
-    "TEXCOORD",
-    "TEXCOORD",
-    "CUBETEXCOORD",
-    "CUBETEXCOORD",
+    "BINORMAL",
     "TANGENT",
-    "BLENDWEIGHTS",
+    "TEXCOORD",
+    "COLOR",
+    "BLENDWEIGHT",
     "BLENDINDICES",
-    "INSTANCEMATRIX",
-    "INSTANCEMATRIX",
-    "INSTANCEMATRIX"
-};
-
-const unsigned VertexBuffer::elementSemanticIndex[] = {
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    1,
-    2
-};
-
-const unsigned VertexBuffer::elementFormat[] = {
-    DXGI_FORMAT_R32G32B32_FLOAT,
-    DXGI_FORMAT_R32G32B32_FLOAT,
-    DXGI_FORMAT_R8G8B8A8_UNORM,
-    DXGI_FORMAT_R32G32_FLOAT,
-    DXGI_FORMAT_R32G32_FLOAT,
-    DXGI_FORMAT_R32G32B32_FLOAT,
-    DXGI_FORMAT_R32G32B32_FLOAT,
-    DXGI_FORMAT_R32G32B32A32_FLOAT,
-    DXGI_FORMAT_R32G32B32A32_FLOAT,
-    DXGI_FORMAT_R8G8B8A8_UNORM,
-    DXGI_FORMAT_R32G32B32A32_FLOAT,
-    DXGI_FORMAT_R32G32B32A32_FLOAT,
-    DXGI_FORMAT_R32G32B32A32_FLOAT
+    nullptr
 };
 
 VertexBuffer::VertexBuffer() :
     buffer(nullptr),
     numVertices(0),
     vertexSize(0),
-    elementMask(0),
+    elementHash(0),
     dynamic(false)
 {
 }
@@ -110,18 +81,28 @@ void VertexBuffer::Release()
     }
 
     shadowData.Reset();
+    elements.Clear();
     numVertices = 0;
     vertexSize = 0;
-    elementMask = 0;
+    elementHash = 0;
 }
 
-bool VertexBuffer::Define(size_t numVertices_, unsigned elementMask_, bool dynamic, bool shadow, const void* data)
+bool VertexBuffer::Define(size_t numVertices_, const Vector<VertexElement>& elements_, bool dynamic, bool shadow, const void* data)
+{
+    if (!numVertices_ || !elements_.Size())
+    {
+        LOGERROR("Can not define vertex buffer with no vertices or no elements");
+        return false;
+    }
+
+    return Define(numVertices_, elements_.Size(), &elements_[0], dynamic, shadow, data);
+}
+
+bool VertexBuffer::Define(size_t numVertices_, size_t numElements_, const VertexElement* elements_, bool dynamic, bool shadow, const void* data)
 {
     PROFILE(DefineVertexBuffer);
 
-    Release();
-
-    if (!numVertices_ || !elementMask_)
+    if (!numVertices_ || !numElements_ || !elements_)
     {
         LOGERROR("Can not define vertex buffer with no vertices or no elements");
         return false;
@@ -133,9 +114,30 @@ bool VertexBuffer::Define(size_t numVertices_, unsigned elementMask_, bool dynam
         return false;
     }
 
+    for (size_t i = 0; i < numElements_; ++i)
+    {
+        if (elements_[i].type >= ELEM_MATRIX3X4)
+        {
+            LOGERROR("Matrix elements are not allowed in vertex buffers");
+            return false;
+        }
+    }
+
+    Release();
+
     numVertices = numVertices_;
-    vertexSize = ComputeVertexSize(elementMask_);
-    elementMask = elementMask_;
+
+    // Determine offset of elements and the vertex size & element hash
+    vertexSize = 0;
+    elementHash = 0;
+    elements.Resize(numElements_);
+    for (size_t i = 0; i < numElements_; ++i)
+    {
+        elements[i] = elements_[i];
+        elements[i].offset = vertexSize;
+        vertexSize += elementSize[elements[i].type];
+        elementHash |= ElementHash(i, elements[i].semantic);
+    }
 
     if (shadow)
     {
@@ -217,37 +219,6 @@ bool VertexBuffer::SetData(size_t firstVertex, size_t numVertices_, const void* 
     }
 
     return true;
-}
-
-size_t VertexBuffer::ElementOffset(VertexElement element) const
-{
-    return ElementOffset(element, elementMask);
-}
-
-size_t VertexBuffer::ComputeVertexSize(unsigned elementMask)
-{
-    size_t vertexSize = 0;
-
-    for (size_t i = 0; i < MAX_VERTEX_ELEMENTS; ++i)
-    {
-        if (elementMask & (1 << i))
-            vertexSize += elementSize[i];
-    }
-
-    return vertexSize;
-}
-
-size_t VertexBuffer::ElementOffset(VertexElement element, unsigned elementMask)
-{
-    size_t offset = 0;
-
-    for (size_t i = 0; i != (size_t)element; ++i)
-    {
-        if (elementMask & (1 << i))
-            offset += elementSize[i];
-    }
-
-    return offset;
 }
 
 }
