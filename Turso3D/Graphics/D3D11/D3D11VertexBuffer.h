@@ -17,18 +17,18 @@ struct TURSO3D_API VertexElement
         type(ELEM_VECTOR3),
         semantic(SEM_POSITION),
         index(0),
-        offset(0),
-        perInstance(false)
+        perInstance(false),
+        offset(0)
     {
     }
 
     /// Construct with type, semantic, index and whether is per-instance data.
-    VertexElement(ElementType type_, ElementSemantic semantic_, size_t index_ = 0, bool perInstance_ = false) :
+    VertexElement(ElementType type_, ElementSemantic semantic_, unsigned char index_ = 0, bool perInstance_ = false) :
         type(type_),
         semantic(semantic_),
         index(index_),
-        offset(0),
-        perInstance(perInstance_)
+        perInstance(perInstance_),
+        offset(0)
     {
     }
 
@@ -37,11 +37,11 @@ struct TURSO3D_API VertexElement
     /// Semantic of element.
     ElementSemantic semantic;
     /// Index of element, for example for multiple texcoords.
-    size_t index;
-    /// Offset of element from vertex start. Filled by VertexBuffer.
-    size_t offset;
+    unsigned char index;
     /// Per-instance flag.
     bool perInstance;
+    /// Offset of element from vertex start. Filled by VertexBuffer.
+    size_t offset;
 };
 
 /// GPU buffer for vertex data.
