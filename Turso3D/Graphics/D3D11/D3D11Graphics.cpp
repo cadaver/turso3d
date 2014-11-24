@@ -220,6 +220,7 @@ void Graphics::SetRenderTargets(const Vector<Texture*>& renderTargets_, Texture*
 
 void Graphics::SetViewport(const IntRect& viewport_)
 {
+    /// \todo Implement a member function in IntRect for clipping
     viewport.left = Clamp(viewport_.left, 0, renderTargetSize.x - 1);
     viewport.top = Clamp(viewport_.top, 0, renderTargetSize.y - 1);
     viewport.right = Clamp(viewport_.right, viewport.left + 1, renderTargetSize.x);
@@ -386,9 +387,9 @@ void Graphics::SetScissorRect(const IntRect& scissorRect_)
 {
     if (scissorRect_ != scissorRect)
     {
-        /// \todo Test against current rendertarget once rendertarget switching is in place
-        scissorRect.left = Clamp(scissorRect_.left, 0, backbufferSize.x - 1);
-        scissorRect.top = Clamp(scissorRect_.top, 0, backbufferSize.y - 1);
+        /// \todo Implement a member function in IntRect for clipping
+        scissorRect.left = Clamp(scissorRect_.left, 0, renderTargetSize.x - 1);
+        scissorRect.top = Clamp(scissorRect_.top, 0, renderTargetSize.y - 1);
         scissorRect.right = Clamp(scissorRect_.right, scissorRect.left + 1, backbufferSize.x);
         scissorRect.bottom = Clamp(scissorRect_.bottom, scissorRect.top + 1, backbufferSize.y);
 

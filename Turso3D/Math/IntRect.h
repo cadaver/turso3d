@@ -95,6 +95,17 @@ public:
         else
             return INSIDE;
     }
+
+    /// Test whether another rect is inside or intersects.
+    Intersection IsInside(const IntRect& rect) const
+    {
+        if (rect.right <= left || rect.left >= right || rect.bottom <= top || rect.top >= bottom)
+            return OUTSIDE;
+        else if (rect.left >= left && rect.right <= right && rect.top >= top && rect.bottom <= bottom)
+            return INSIDE;
+        else
+            return INTERSECTS;
+    }
     
     /// Return integer data.
     const int* Data() const { return &left; }

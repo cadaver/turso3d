@@ -144,10 +144,11 @@ enum TextureType
     TEX_CUBE,
 };
 
-/// Texture usage modes.
-enum TextureUsage
+/// Resource usage modes. Rendertarget usage can only be used with textures.
+enum ResourceUsage
 {
-    USAGE_STATIC = 0,
+    USAGE_DEFAULT = 0,
+    USAGE_IMMUTABLE,
     USAGE_DYNAMIC,
     USAGE_RENDERTARGET
 };

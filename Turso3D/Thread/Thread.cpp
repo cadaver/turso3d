@@ -26,7 +26,7 @@ void* ThreadFunctionStatic(void* data)
     Thread* thread = static_cast<Thread*>(data);
     thread->ThreadFunction();
     pthread_exit(nullptr);
-    return 0;
+    return nullptr;
 }
 #endif
 

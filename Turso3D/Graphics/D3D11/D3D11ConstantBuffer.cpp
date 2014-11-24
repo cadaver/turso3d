@@ -13,15 +13,13 @@
 
 #include "../../Debug/DebugNew.h"
 
-// Allow testing either Map/Unmap or UpdateSubResource
-#define USE_UPDATESUBRESOURCE
-
 namespace Turso3D
 {
 
 ConstantBuffer::ConstantBuffer() :
     buffer(nullptr),
     byteSize(0),
+    usage(USAGE_DEFAULT),
     dirty(false)
 {
 }
@@ -55,12 +53,12 @@ void ConstantBuffer::Release()
     shadowData.Reset();
 }
 
-bool ConstantBuffer::Define(const Vector<Constant>& srcConstants)
+bool ConstantBuffer::Define(ResourceUsage usage_, const Vector<Constant>& srcConstants)
 {
-    return Define(srcConstants.Size(), srcConstants.Size() ? &srcConstants[0] : nullptr);
+    return Define(usage_, srcConstants.Size(), srcConstants.Size() ? &srcConstants[0] : nullptr);
 }
 
-bool ConstantBuffer::Define(size_t numConstants, const Constant* srcConstants)
+bool ConstantBuffer::Define(ResourceUsage usage_, size_t numConstants, const Constant* srcConstants)
 {
     PROFILE(DefineConstantBuffer);
     
@@ -71,10 +69,15 @@ bool ConstantBuffer::Define(size_t numConstants, const Constant* srcConstants)
         LOGERROR("Can not define constant buffer with no constants");
         return false;
     }
+    if (usage_ == USAGE_RENDERTARGET)
+    {
+        LOGERROR("Rendertarget usage is illegal for constant buffers");
+        return false;
+    }
     
     constants.Clear();
     byteSize = 0;
-    dirty = false;
+    usage = usage_;
     
     while (numConstants--)
     {
@@ -100,34 +103,10 @@ bool ConstantBuffer::Define(size_t numConstants, const Constant* srcConstants)
     
     shadowData = new unsigned char[byteSize];
 
-    if (graphics && graphics->IsInitialized())
-    {
-        D3D11_BUFFER_DESC bufferDesc;
-        memset(&bufferDesc, 0, sizeof bufferDesc);
-        
-        bufferDesc.ByteWidth = (unsigned)byteSize;
-        bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-#ifdef USE_UPDATESUBRESOURCE
-        bufferDesc.CPUAccessFlags = 0;
-        bufferDesc.Usage = D3D11_USAGE_DEFAULT;
-#else
-        bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-        bufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-#endif
-
-        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
-        d3dDevice->CreateBuffer(&bufferDesc, 0, (ID3D11Buffer**)&buffer);
-
-        if (!buffer)
-        {
-            LOGERROR("Failed to create constant buffer");
-            return false;
-        }
-        else
-            LOGDEBUGF("Created constant buffer size %u", (unsigned)byteSize);
-    }
-
-    return true;
+    if (usage != USAGE_IMMUTABLE)
+        return Create();
+    else
+        return true;
 }
 
 bool ConstantBuffer::SetConstant(size_t index, void* data, size_t numElements)
@@ -163,28 +142,40 @@ bool ConstantBuffer::SetConstant(const char* name, void* data, size_t numElement
 
 bool ConstantBuffer::Apply()
 {
+    if (usage == USAGE_IMMUTABLE)
+    {
+        if (!buffer)
+            return Create(shadowData.Get());
+        else
+        {
+            LOGERROR("Apply can only be called once on an immutable constant buffer");
+            return false;
+        }
+    }
+
     if (!dirty || !buffer)
         return true;
     
     ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->DeviceContext();
-#ifdef USE_UPDATESUBRESOURCE
-    d3dDeviceContext->UpdateSubresource((ID3D11Buffer*)buffer, 0, 0, shadowData.Get(), 0, 0);
-#else
-    D3D11_MAPPED_SUBRESOURCE mappedData;
-    mappedData.pData = nullptr;
-
-    d3dDeviceContext->Map((ID3D11Buffer*)buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedData);
-    if (mappedData.pData)
+    if (usage == USAGE_DYNAMIC)
     {
-        memcpy((unsigned char*)mappedData.pData, shadowData.Get(), byteSize);
-        d3dDeviceContext->Unmap((ID3D11Buffer*)buffer, 0);
+        D3D11_MAPPED_SUBRESOURCE mappedData;
+        mappedData.pData = nullptr;
+
+        d3dDeviceContext->Map((ID3D11Buffer*)buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedData);
+        if (mappedData.pData)
+        {
+            memcpy((unsigned char*)mappedData.pData, shadowData.Get(), byteSize);
+            d3dDeviceContext->Unmap((ID3D11Buffer*)buffer, 0);
+        }
+        else
+        {
+            LOGERROR("Failed to map constant buffer for update");
+            return false;
+        }
     }
     else
-    {
-        LOGERROR("Failed to map constant buffer for update");
-        return false;
-    }
-#endif
+        d3dDeviceContext->UpdateSubresource((ID3D11Buffer*)buffer, 0, nullptr, shadowData.Get(), 0, 0);
 
     dirty = false;
     return true;
@@ -204,6 +195,38 @@ size_t ConstantBuffer::FindConstantIndex(const char* name)
     }
 
     return NPOS;
+}
+
+bool ConstantBuffer::Create(const void* data)
+{
+    dirty = false;
+
+    if (graphics && graphics->IsInitialized())
+    {
+        D3D11_BUFFER_DESC bufferDesc;
+        D3D11_SUBRESOURCE_DATA initialData;
+        memset(&bufferDesc, 0, sizeof bufferDesc);
+        memset(&initialData, 0, sizeof initialData);
+        initialData.pSysMem = data;
+
+        bufferDesc.ByteWidth = (unsigned)byteSize;
+        bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        bufferDesc.CPUAccessFlags = (usage == USAGE_DYNAMIC) ? D3D11_CPU_ACCESS_WRITE : 0;
+        bufferDesc.Usage = (D3D11_USAGE)usage;
+
+        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
+        d3dDevice->CreateBuffer(&bufferDesc, data ? &initialData : nullptr, (ID3D11Buffer**)&buffer);
+
+        if (!buffer)
+        {
+            LOGERROR("Failed to create constant buffer");
+            return false;
+        }
+        else
+            LOGDEBUGF("Created constant buffer size %u", (unsigned)byteSize);
+    }
+
+    return true;
 }
 
 }

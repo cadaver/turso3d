@@ -53,7 +53,7 @@ VertexBuffer::VertexBuffer() :
     numVertices(0),
     vertexSize(0),
     elementHash(0),
-    dynamic(false)
+    usage(USAGE_DEFAULT)
 {
 }
 
@@ -87,7 +87,7 @@ void VertexBuffer::Release()
     elementHash = 0;
 }
 
-bool VertexBuffer::Define(size_t numVertices_, const Vector<VertexElement>& elements_, bool dynamic, bool shadow, const void* data)
+bool VertexBuffer::Define(ResourceUsage usage_, size_t numVertices_, const Vector<VertexElement>& elements_, bool useShadowData, const void* data)
 {
     if (!numVertices_ || !elements_.Size())
     {
@@ -95,10 +95,10 @@ bool VertexBuffer::Define(size_t numVertices_, const Vector<VertexElement>& elem
         return false;
     }
 
-    return Define(numVertices_, elements_.Size(), &elements_[0], dynamic, shadow, data);
+    return Define(usage_, numVertices_, elements_.Size(), &elements_[0], useShadowData, data);
 }
 
-bool VertexBuffer::Define(size_t numVertices_, size_t numElements_, const VertexElement* elements_, bool dynamic, bool shadow, const void* data)
+bool VertexBuffer::Define(ResourceUsage usage_, size_t numVertices_, size_t numElements_, const VertexElement* elements_, bool useShadowData, const void* data)
 {
     PROFILE(DefineVertexBuffer);
 
@@ -107,10 +107,14 @@ bool VertexBuffer::Define(size_t numVertices_, size_t numElements_, const Vertex
         LOGERROR("Can not define vertex buffer with no vertices or no elements");
         return false;
     }
-
-    if (!dynamic && !data)
+    if (usage_ == USAGE_RENDERTARGET)
     {
-        LOGERROR("Non-dynamic buffer must define initial data, as it will be immutable after creation");
+        LOGERROR("Rendertarget usage is illegal for vertex buffers");
+        return false;
+    }
+    if (usage_ == USAGE_IMMUTABLE && !data)
+    {
+        LOGERROR("Immutable vertex buffer must define initial data");
         return false;
     }
 
@@ -126,6 +130,7 @@ bool VertexBuffer::Define(size_t numVertices_, size_t numElements_, const Vertex
     Release();
 
     numVertices = numVertices_;
+    usage = usage_;
 
     // Determine offset of elements and the vertex size & element hash
     vertexSize = 0;
@@ -139,7 +144,7 @@ bool VertexBuffer::Define(size_t numVertices_, size_t numElements_, const Vertex
         elementHash |= ElementHash(i, elements[i].semantic);
     }
 
-    if (shadow)
+    if (useShadowData)
     {
         shadowData = new unsigned char[numVertices * vertexSize];
         if (data)
@@ -155,12 +160,12 @@ bool VertexBuffer::Define(size_t numVertices_, size_t numElements_, const Vertex
         initialData.pSysMem = data;
 
         bufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-        bufferDesc.CPUAccessFlags = dynamic ? D3D11_CPU_ACCESS_WRITE : 0;
-        bufferDesc.Usage = dynamic ? D3D11_USAGE_DYNAMIC : D3D11_USAGE_IMMUTABLE;
+        bufferDesc.CPUAccessFlags = (usage == USAGE_DYNAMIC) ? D3D11_CPU_ACCESS_WRITE : 0;
+        bufferDesc.Usage = (D3D11_USAGE)usage;
         bufferDesc.ByteWidth = (unsigned)(numVertices * vertexSize);
 
         ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
-        d3dDevice->CreateBuffer(&bufferDesc, data ? &initialData : 0, (ID3D11Buffer**)&buffer);
+        d3dDevice->CreateBuffer(&bufferDesc, data ? &initialData : nullptr, (ID3D11Buffer**)&buffer);
 
         if (!buffer)
         {
@@ -183,16 +188,14 @@ bool VertexBuffer::SetData(size_t firstVertex, size_t numVertices_, const void* 
         LOGERROR("Null source data for updating vertex buffer");
         return false;
     }
-
     if (firstVertex + numVertices_ > numVertices)
     {
         LOGERROR("Out of bounds range for updating vertex buffer");
         return false;
     }
-
-    if (buffer && !dynamic)
+    if (buffer && usage == USAGE_IMMUTABLE)
     {
-        LOGERROR("Can not update non-dynamic vertex buffer");
+        LOGERROR("Can not update immutable vertex buffer");
         return false;
     }
 
@@ -201,20 +204,36 @@ bool VertexBuffer::SetData(size_t firstVertex, size_t numVertices_, const void* 
 
     if (buffer)
     {
-        D3D11_MAPPED_SUBRESOURCE mappedData;
-        mappedData.pData = nullptr;
-
         ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->DeviceContext();
-        d3dDeviceContext->Map((ID3D11Buffer*)buffer, 0, numVertices_ == numVertices ? D3D11_MAP_WRITE_DISCARD : D3D11_MAP_WRITE, 0, &mappedData);
-        if (mappedData.pData)
+
+        if (usage == USAGE_DYNAMIC)
         {
-            memcpy((unsigned char*)mappedData.pData + firstVertex * vertexSize, data, numVertices_ * vertexSize);
-            d3dDeviceContext->Unmap((ID3D11Buffer*)buffer, 0);
+            D3D11_MAPPED_SUBRESOURCE mappedData;
+            mappedData.pData = nullptr;
+
+            d3dDeviceContext->Map((ID3D11Buffer*)buffer, 0, numVertices_ == numVertices ? D3D11_MAP_WRITE_DISCARD : D3D11_MAP_WRITE, 0, &mappedData);
+            if (mappedData.pData)
+            {
+                memcpy((unsigned char*)mappedData.pData + firstVertex * vertexSize, data, numVertices_ * vertexSize);
+                d3dDeviceContext->Unmap((ID3D11Buffer*)buffer, 0);
+            }
+            else
+            {
+                LOGERROR("Failed to map vertex buffer for update");
+                return false;
+            }
         }
         else
         {
-            LOGERROR("Failed to map vertex buffer for update");
-            return false;
+            D3D11_BOX destBox;
+            destBox.left = (unsigned)(firstVertex * vertexSize);
+            destBox.right = destBox.left + (unsigned)(numVertices_ * vertexSize);
+            destBox.top = 0;
+            destBox.bottom = 1;
+            destBox.front = 0;
+            destBox.back = 1;
+
+            d3dDeviceContext->UpdateSubresource((ID3D11Buffer*)buffer, 0, &destBox, data, 0, 0);
         }
     }
 

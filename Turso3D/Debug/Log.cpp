@@ -20,7 +20,7 @@ const char* logLevelPrefixes[] =
     "INFO",
     "WARNING",
     "ERROR",
-    0
+    nullptr
 };
 
 Log::Log() :

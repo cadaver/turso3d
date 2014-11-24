@@ -16,7 +16,7 @@ IndexBuffer::IndexBuffer() :
     buffer(nullptr),
     numIndices(0),
     indexSize(0),
-    dynamic(false)
+    usage(USAGE_DEFAULT)
 {
 }
 
@@ -42,32 +42,38 @@ void IndexBuffer::Release()
     indexSize = 0;
 }
 
-bool IndexBuffer::Define(size_t numIndices_, size_t indexSize_, bool dynamic, bool shadow, const void* data)
+bool IndexBuffer::Define(ResourceUsage usage_, size_t numIndices_, size_t indexSize_, bool useShadowData, const void* data)
 {
     PROFILE(DefineIndexBuffer);
 
     Release();
 
-    if (!numIndices_ || !indexSize_)
+    if (!numIndices_)
     {
-        LOGERROR("Can not define vertex buffer with no vertices or no elements");
+        LOGERROR("Can not define index buffer with no indices");
         return false;
     }
-    if (!dynamic && !data)
+    if (usage_ == USAGE_RENDERTARGET)
     {
-        LOGERROR("Non-dynamic buffer must define initial data, as it will be immutable after creation");
+        LOGERROR("Rendertarget usage is illegal for index buffers");
+        return false;
+    }
+    if (usage_ == USAGE_IMMUTABLE && !data)
+    {
+        LOGERROR("Immutable index buffer must define initial data");
         return false;
     }
     if (indexSize_ != sizeof(unsigned) && indexSize_ != sizeof(unsigned short))
     {
-        LOGERROR("Index size must be 2 or 4");
+        LOGERROR("Index buffer index size must be 2 or 4");
         return false;
     }
 
     numIndices = numIndices_;
     indexSize = indexSize_;
+    usage = usage_;
 
-    if (shadow)
+    if (useShadowData)
     {
         shadowData = new unsigned char[numIndices * indexSize];
         if (data)
@@ -83,12 +89,12 @@ bool IndexBuffer::Define(size_t numIndices_, size_t indexSize_, bool dynamic, bo
         initialData.pSysMem = data;
 
         bufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-        bufferDesc.CPUAccessFlags = dynamic ? D3D11_CPU_ACCESS_WRITE : 0;
-        bufferDesc.Usage = dynamic ? D3D11_USAGE_DYNAMIC : D3D11_USAGE_IMMUTABLE;
+        bufferDesc.CPUAccessFlags = (usage == USAGE_DYNAMIC) ? D3D11_CPU_ACCESS_WRITE : 0;
+        bufferDesc.Usage = (D3D11_USAGE)usage;
         bufferDesc.ByteWidth = (unsigned)(numIndices * indexSize);
 
         ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
-        d3dDevice->CreateBuffer(&bufferDesc, data ? &initialData : 0, (ID3D11Buffer**)&buffer);
+        d3dDevice->CreateBuffer(&bufferDesc, data ? &initialData : nullptr, (ID3D11Buffer**)&buffer);
 
         if (!buffer)
         {
@@ -116,9 +122,9 @@ bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* dat
         LOGERROR("Out of bounds range for updating index buffer");
         return false;
     }
-    if (buffer && !dynamic)
+    if (buffer && usage == USAGE_IMMUTABLE)
     {
-        LOGERROR("Can not update non-dynamic index buffer");
+        LOGERROR("Can not update immutable index buffer");
         return false;
     }
 
@@ -127,20 +133,36 @@ bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* dat
 
     if (buffer)
     {
-        D3D11_MAPPED_SUBRESOURCE mappedData;
-        mappedData.pData = nullptr;
-
         ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->DeviceContext();
-        d3dDeviceContext->Map((ID3D11Buffer*)buffer, 0, numIndices_ == numIndices ? D3D11_MAP_WRITE_DISCARD : D3D11_MAP_WRITE, 0, &mappedData);
-        if (mappedData.pData)
+
+        if (usage == USAGE_DYNAMIC)
         {
-            memcpy((unsigned char*)mappedData.pData + firstIndex * indexSize, data, numIndices_ * indexSize);
-            d3dDeviceContext->Unmap((ID3D11Buffer*)buffer, 0);
+            D3D11_MAPPED_SUBRESOURCE mappedData;
+            mappedData.pData = nullptr;
+            
+            d3dDeviceContext->Map((ID3D11Buffer*)buffer, 0, numIndices_ == numIndices ? D3D11_MAP_WRITE_DISCARD : D3D11_MAP_WRITE, 0, &mappedData);
+            if (mappedData.pData)
+            {
+                memcpy((unsigned char*)mappedData.pData + firstIndex * indexSize, data, numIndices_ * indexSize);
+                d3dDeviceContext->Unmap((ID3D11Buffer*)buffer, 0);
+            }
+            else
+            {
+                LOGERROR("Failed to map index buffer for update");
+                return false;
+            }
         }
         else
         {
-            LOGERROR("Failed to map index buffer for update");
-            return false;
+            D3D11_BOX destBox;
+            destBox.left = (unsigned)(firstIndex * indexSize);
+            destBox.right = destBox.left + (unsigned)(numIndices_ * indexSize);
+            destBox.top = 0;
+            destBox.bottom = 1;
+            destBox.front = 0;
+            destBox.back = 1;
+
+            d3dDeviceContext->UpdateSubresource((ID3D11Buffer*)buffer, 0, &destBox, data, 0, 0);
         }
     }
 

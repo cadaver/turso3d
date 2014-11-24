@@ -21,9 +21,9 @@ public:
     /// Release the index buffer and CPU shadow data.
     void Release() override;
 
-    /// Define buffer with initial data. Non-dynamic buffer must specify data here, as it will be immutable after creation. Return true on success.
-    bool Define(size_t numIndices, size_t indexSize, bool dynamic, bool shadow, const void* data);
-    /// Redefine buffer data either completely or partially. Buffer must be dynamic. Return true on success.
+    /// Define buffer. Immutable buffers must specify initial data here.  Return true on success.
+    bool Define(ResourceUsage usage, size_t numIndices, size_t indexSize, bool useShadowData, const void* data = nullptr);
+    /// Redefine buffer data either completely or partially. Not supported for immutable buffers. Return true on success.
     bool SetData(size_t firstIndex, size_t numIndices, const void* data);
 
     /// Return CPU-side shadow data if exists.
@@ -32,8 +32,12 @@ public:
     size_t NumIndices() const { return numIndices; }
     /// Return size of index in bytes.
     size_t IndexSize() const { return indexSize; }
+    /// Return resource usage type.
+    ResourceUsage Usage() const { return usage; }
     /// Return whether is dynamic.
-    bool IsDynamic() const { return dynamic; }
+    bool IsDynamic() const { return usage == USAGE_DYNAMIC; }
+    /// Return whether is immutable.
+    bool IsImmutable() const { return usage == USAGE_IMMUTABLE; }
 
     /// Return the D3D11 buffer. Used internally and should not be called by portable application code.
     void* BufferObject() const { return buffer; }
@@ -47,8 +51,8 @@ private:
     size_t numIndices;
     /// Size of index in bytes.
     size_t indexSize;
-    /// Dynamic flag.
-    bool dynamic;
+    /// Resource usage type.
+    ResourceUsage usage;
 };
 
 }

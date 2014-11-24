@@ -56,11 +56,11 @@ public:
     /// Release the vertex buffer and CPU shadow data.
     void Release() override;
 
-    /// Define buffer with initial data. Non-dynamic buffer must specify data here, as it will be immutable after creation. Return true on success.
-    bool Define(size_t numVertices, const Vector<VertexElement>& elements, bool dynamic, bool shadow, const void* data);
-    /// Define buffer with initial data. Non-dynamic buffer must specify data here, as it will be immutable after creation. Return true on success.
-    bool Define(size_t numVertices, size_t numElements, const VertexElement* elements, bool dynamic, bool shadow, const void* data);
-    /// Redefine buffer data either completely or partially. Buffer must be dynamic. Return true on success.
+    /// Define buffer. Immutable buffers must specify initial data here. Return true on success.
+    bool Define(ResourceUsage usage, size_t numVertices, const Vector<VertexElement>& elements, bool useShadowData, const void* data = nullptr);
+    /// Define buffer. Immutable buffers must specify initial data here. Return true on success.
+    bool Define(ResourceUsage usage, size_t numVertices, size_t numElements, const VertexElement* elements, bool useShadowData, const void* data = nullptr);
+    /// Redefine buffer data either completely or partially. Not supported for immutable buffers. Return true on success.
     bool SetData(size_t firstVertex, size_t numVertices, const void* data);
 
     /// Return CPU-side shadow data if exists.
@@ -75,8 +75,12 @@ public:
     size_t VertexSize() const { return vertexSize; }
     /// Return vertex declaration hash code.
     unsigned ElementHash() const { return elementHash; }
+    /// Return resource usage type.
+    ResourceUsage Usage() const { return usage; }
     /// Return whether is dynamic.
-    bool IsDynamic() const { return dynamic; }
+    bool IsDynamic() const { return usage == USAGE_DYNAMIC; }
+    /// Return whether is immutable.
+    bool IsImmutable() const { return usage == USAGE_IMMUTABLE; }
 
     /// Return the D3D11 buffer. Used internally and should not be called by portable application code.
     void* BufferObject() const { return buffer; }
@@ -104,8 +108,8 @@ private:
     Vector<VertexElement> elements;
     /// Vertex element hash code.
     unsigned elementHash;
-    /// Dynamic flag.
-    bool dynamic;
+    /// Resource usage type.
+    ResourceUsage usage;
 };
 
 }

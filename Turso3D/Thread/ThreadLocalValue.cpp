@@ -56,7 +56,7 @@ void* ThreadLocalValue::Value() const
         #endif
     }
     else
-        return 0;
+        return nullptr;
 }
 
 }

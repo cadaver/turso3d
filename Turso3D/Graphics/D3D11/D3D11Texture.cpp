@@ -59,13 +59,6 @@ static const DXGI_FORMAT depthStencilResourceViewFormat[] =
     DXGI_FORMAT_R24_UNORM_X8_TYPELESS
 };
 
-static const D3D11_USAGE textureUsage[] =
-{
-    D3D11_USAGE_IMMUTABLE,
-    D3D11_USAGE_DYNAMIC,
-    D3D11_USAGE_DEFAULT
-};
-
 Texture::Texture() :
     texture(nullptr),
     resourceView(nullptr),
@@ -130,7 +123,7 @@ bool Texture::EndLoad()
     }
 
     Image* image = loadImages[0];
-    bool success = Define(TEX_2D, USAGE_STATIC, image->Width(), image->Height(), image->Format(), initialData.Size(), &initialData[0]);
+    bool success = Define(TEX_2D, USAGE_IMMUTABLE, image->Width(), image->Height(), image->Format(), initialData.Size(), &initialData[0]);
     /// \todo Read a parameter file for the sampling parameters
     success &= DefineSampler(FILTER_TRILINEAR, ADDRESS_WRAP, ADDRESS_WRAP, ADDRESS_WRAP, 16, 0.0f, D3D11_FLOAT32_MAX, Color::BLACK);
 
@@ -206,7 +199,7 @@ void Texture::Release()
     }
 }
 
-bool Texture::Define(TextureType type_, TextureUsage usage_, int width_, int height_, ImageFormat format_, size_t numLevels_, const ImageLevel* initialData)
+bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int height_, ImageFormat format_, size_t numLevels_, const ImageLevel* initialData)
 {
     PROFILE(DefineTexture);
 
@@ -244,7 +237,7 @@ bool Texture::Define(TextureType type_, TextureUsage usage_, int width_, int hei
         /// \todo Support defining multisampled textures
         textureDesc.SampleDesc.Count = 1;
         textureDesc.SampleDesc.Quality = 0;
-        textureDesc.Usage = textureUsage[usage_];
+        textureDesc.Usage = (usage != USAGE_RENDERTARGET) ? (D3D11_USAGE)usage : D3D11_USAGE_DEFAULT;
         textureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
         if (usage == USAGE_RENDERTARGET)
         {
@@ -367,6 +360,83 @@ bool Texture::DefineSampler(TextureFilterMode filter, TextureAddressMode u, Text
         }
         else
             LOGDEBUG("Created sampler state");
+    }
+
+    return true;
+}
+
+bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
+{
+    PROFILE(UpdateTexture);
+
+    if (texture)
+    {
+        if (usage == USAGE_IMMUTABLE)
+        {
+            LOGERROR("Can not update immutable texture");
+            return false;
+        }
+        if (level > numLevels)
+        {
+            LOGERROR("Mipmap level to update out of bounds");
+            return false;
+        }
+
+        IntRect levelRect(0, 0, width, height);
+        size_t levelCounter = level;
+        while (levelCounter--)
+        {
+            levelRect.right >>= 1;
+            levelRect.bottom >>= 1;
+        }
+
+        if (levelRect.IsInside(rect) != INSIDE)
+        {
+            LOGERROR("Texture update region is outside level");
+            return false;
+        }
+
+        ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->DeviceContext();
+
+        if (usage == USAGE_DYNAMIC)
+        {
+            size_t pixelByteSize = Image::pixelByteSize[format];
+            if (!pixelByteSize)
+            {
+                LOGERROR("Updating dynamic compressed texture is not supported");
+                return false;
+            }
+
+            D3D11_MAPPED_SUBRESOURCE mappedData;
+            mappedData.pData = nullptr;
+
+            d3dDeviceContext->Map((ID3D11Resource*)texture, 0, rect == levelRect ? D3D11_MAP_WRITE_DISCARD : D3D11_MAP_WRITE, 0, &mappedData);
+            if (mappedData.pData)
+            {
+                for (int y = rect.top; y < rect.bottom; ++y)
+                {
+                    memcpy((unsigned char*)mappedData.pData + y * mappedData.RowPitch + rect.left + pixelByteSize, data.data +
+                        (y - rect.top) * data.rowSize, (rect.right - rect.left) * pixelByteSize);
+                }
+            }
+            else
+            {
+                LOGERROR("Failed to map texture for update");
+                return false;
+            }
+        }
+        else
+        {
+            D3D11_BOX destBox;
+            destBox.left = rect.left;
+            destBox.right = rect.right;
+            destBox.top = rect.top;
+            destBox.bottom = rect.bottom;
+            destBox.front = 0;
+            destBox.back = 1;
+
+            d3dDeviceContext->UpdateSubresource((ID3D11Resource*)texture, (unsigned)level, &destBox, data.data, (unsigned)data.rowSize, 0);
+        }
     }
 
     return true;

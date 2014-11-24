@@ -34,9 +34,11 @@ public:
     void Release() override;
 
     /// Define texture type and dimensions and set initial data. %ImageLevel structures only need the data pointer and row pitch filled. Return true on success.
-    bool Define(TextureType type, TextureUsage usage, int width, int height, ImageFormat format, size_t numLevels, const ImageLevel* initialData = 0);
+    bool Define(TextureType type, ResourceUsage usage, int width, int height, ImageFormat format, size_t numLevels, const ImageLevel* initialData = 0);
     /// Define sampling parameters. Return true on success.
     bool DefineSampler(TextureFilterMode filter = FILTER_TRILINEAR, TextureAddressMode u = ADDRESS_WRAP, TextureAddressMode v = ADDRESS_WRAP, TextureAddressMode w = ADDRESS_WRAP, unsigned maxAnisotropy = 16, float minLod = 0, float maxLod = M_INFINITY, const Color& borderColor = Color::BLACK);
+    /// Set data for a mipmap level. Not supported for immutable textures. Return true on success.
+    bool SetData(size_t level, IntRect rect, const ImageLevel& data);
 
     /// Return texture type.
     TextureType TexType() const { return type; }
@@ -48,8 +50,12 @@ public:
     ImageFormat Format() const { return format; }
     /// Return number of mipmap levels.
     size_t NumLevels() const { return numLevels; }
-    /// Return usage mode.
-    TextureUsage Usage() const { return usage; }
+    /// Return resource usage type.
+    ResourceUsage Usage() const { return usage; }
+    /// Return whether is dynamic.
+    bool IsDynamic() const { return usage == USAGE_DYNAMIC; }
+    /// Return whether is immutable.
+    bool IsImmutable() const { return usage == USAGE_IMMUTABLE; }
     /// Return whether is a color rendertarget texture.
     bool IsRenderTarget() const { return usage == USAGE_RENDERTARGET && (format < FMT_D16 || format > FMT_D24S8); }
     /// Return whether is a depth-stencil texture.
@@ -76,7 +82,7 @@ private:
     /// Texture type.
     TextureType type;
     /// Texture usage mode.
-    TextureUsage usage;
+    ResourceUsage usage;
     /// Texture width in pixels.
     int width;
     /// Texture height in pixels.
