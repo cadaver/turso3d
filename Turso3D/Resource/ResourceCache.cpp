@@ -170,32 +170,37 @@ bool ResourceCache::ReloadResource(Resource* resource)
     if (!resource)
         return false;
 
-    bool success = false;
-    File file;
-    if (OpenFile(file, resource->Name()))
-        success = resource->Load(file);
-
-    return success;
+    AutoPtr<Stream> stream = OpenResource(resource->Name());
+    return stream ? resource->Load(*stream) : false;
 }
 
-bool ResourceCache::OpenFile(File& dest, const String& nameIn)
+AutoPtr<Stream> ResourceCache::OpenResource(const String& nameIn)
 {
     String name = SanitateResourceName(nameIn);
+    AutoPtr<Stream> ret;
 
     for (size_t i = 0; i < resourceDirs.Size(); ++i)
     {
         if (FileExists(resourceDirs[i] + name))
         {
             // Construct the file first with full path, then rename it to not contain the resource path,
-            // so that the file's name can be used in further OpenFile() calls (for example over the network)
-            dest.Open(resourceDirs[i] + name);
-            return dest.IsOpen();
+            // so that the file's name can be used in further OpenResource() calls (for example over the network)
+            ret = new File(resourceDirs[i] + name);
+            break;
         }
     }
 
     // Fallback using absolute path
-    dest.Open(nameIn);
-    return dest.IsOpen();
+    if (!ret)
+        ret = new File(name);
+
+    if (!ret->IsReadable())
+    {
+        LOGERROR("Could not open resource file " + name);
+        ret.Reset();
+    }
+
+    return ret;
 }
 
 Resource* ResourceCache::LoadResource(StringHash type, const String& nameIn)
@@ -226,13 +231,13 @@ Resource* ResourceCache::LoadResource(StringHash type, const String& nameIn)
     }
 
     // Attempt to load the resource
-    File file;
-    if (!OpenFile(file, name))
+    AutoPtr<Stream> stream = OpenResource(name);
+    if (!stream)
         return nullptr;
 
     LOGDEBUG("Loading resource " + name);
     newResource->SetName(name);
-    if (!newResource->Load(file))
+    if (!newResource->Load(*stream))
         return nullptr;
 
     // Store to cache

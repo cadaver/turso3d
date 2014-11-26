@@ -77,12 +77,12 @@ bool Shader::ProcessIncludes(String& code, Stream& source)
         if (line.StartsWith("#include"))
         {
             String includeFileName = Path(source.Name()) + line.Substring(9).Replaced("\"", "").Trimmed();
-            File includeFile;
-            if (!cache->OpenFile(includeFile, includeFileName))
+            AutoPtr<Stream> includeStream = cache->OpenResource(includeFileName);
+            if (!includeStream)
                 return false;
 
             // Add the include file into the current code recursively
-            if (!ProcessIncludes(code, includeFile))
+            if (!ProcessIncludes(code, *includeStream))
                 return false;
         }
         else

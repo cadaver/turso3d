@@ -8,8 +8,8 @@
 namespace Turso3D
 {
 
-class File;
 class Resource;
+class Stream;
 
 typedef HashMap<Pair<StringHash, StringHash>, AutoPtr<Resource> > ResourceMap;
  
@@ -30,8 +30,8 @@ public:
     bool AddManualResource(Resource* resource);
     /// Remove a resource directory.
     void RemoveResourceDir(const String& pathName);
-    /// Open a file from the resource directories, or null if not found. Return true on success.
-    bool OpenFile(File& dest, const String& name);
+    /// Open a resource file stream from the resource directories. Return a pointer to the stream, or null if not found.
+    AutoPtr<Stream> OpenResource(const String& name);
     /// Load and return a resource.
     Resource* LoadResource(StringHash type, const String& name);
     /// Unload resource. Optionally force removal even if referenced.
