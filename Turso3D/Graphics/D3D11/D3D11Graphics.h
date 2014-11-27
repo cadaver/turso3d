@@ -83,7 +83,11 @@ public:
     /// Draw non-indexed geometry.
     void Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount);
     /// Draw indexed geometry.
-    void DrawIndexed(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart = 0);
+    void Draw(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart);
+    /// Draw instanced non-indexed geometry.
+    void DrawInstanced(PrimitiveType type, size_t vertexStart, size_t vertexCount, size_t instanceStart, size_t instanceCount);
+    /// Draw instanced indexed geometry.
+    void DrawInstanced(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart, size_t instanceStart, size_t instanceCount);
 
     /// Return whether has the rendering window and context.
     bool IsInitialized() const;

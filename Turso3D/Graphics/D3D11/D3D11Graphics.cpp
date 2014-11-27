@@ -444,12 +444,23 @@ void Graphics::Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount)
     impl->deviceContext->Draw((unsigned)vertexCount, (unsigned)vertexStart);
 }
 
-void Graphics::DrawIndexed(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart)
+void Graphics::Draw(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart)
 {
     PrepareDraw(type);
     impl->deviceContext->DrawIndexed((unsigned)indexCount, (unsigned)indexStart, (unsigned)vertexStart);
 }
 
+void Graphics::DrawInstanced(PrimitiveType type, size_t vertexStart, size_t vertexCount, size_t instanceStart, size_t instanceCount)
+{
+    PrepareDraw(type);
+    impl->deviceContext->DrawInstanced((unsigned)vertexCount, (unsigned)instanceCount, (unsigned)vertexStart, (unsigned)instanceStart);
+}
+
+void Graphics::DrawInstanced(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart, size_t instanceStart, size_t instanceCount)
+{
+    PrepareDraw(type);
+    impl->deviceContext->DrawIndexedInstanced((unsigned)indexCount, (unsigned)instanceCount, (unsigned)indexStart, (unsigned)vertexStart, (unsigned)instanceStart);
+}
 
 bool Graphics::IsInitialized() const
 {

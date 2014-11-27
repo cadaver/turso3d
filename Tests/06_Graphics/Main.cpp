@@ -34,6 +34,8 @@ public:
 
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &GraphicsTest::HandleCloseRequest);
         
+        const size_t NUM_OBJECTS = 1000;
+
         float vertexData[] = {
             // Position             // Texcoord
             0.0f, 0.05f, 0.0f, 0.5f, 0.0f,
@@ -47,6 +49,11 @@ public:
         AutoPtr<VertexBuffer> vb = new VertexBuffer();
         vb->Define(USAGE_IMMUTABLE, 3, vertexDeclaration, false, vertexData);
         
+        Vector<VertexElement> instanceVertexDeclaration;
+        instanceVertexDeclaration.Push(VertexElement(ELEM_VECTOR3, SEM_TEXCOORD, 1, true));
+        AutoPtr<VertexBuffer> ivb = new VertexBuffer();
+        ivb->Define(USAGE_DYNAMIC, NUM_OBJECTS, instanceVertexDeclaration, false);
+
         unsigned short indexData[] = {
             0,
             1,
@@ -56,10 +63,6 @@ public:
         AutoPtr<IndexBuffer> ib = new IndexBuffer();
         ib->Define(USAGE_IMMUTABLE, 3, sizeof(unsigned short), false, indexData);
         
-        Constant vc(ELEM_VECTOR3, "Position");
-        AutoPtr<ConstantBuffer> vcb = new ConstantBuffer();
-        vcb->Define(USAGE_DEFAULT, 1, &vc);
-
         Constant pc(ELEM_VECTOR4, "Color");
         AutoPtr<ConstantBuffer> pcb = new ConstantBuffer();
         pcb->Define(USAGE_IMMUTABLE, 1, &pc);
@@ -67,21 +70,16 @@ public:
         pcb->Apply();
 
         String vsCode =
-            "cbuffer ConstantBuffer : register(b0)"
-            "{"
-            "    float3 ObjectPosition;"
-            "}"
-            ""
             "struct VOut"
             "{"
             "    float4 position : SV_POSITION;"
             "    float2 texCoord : TEXCOORD0;"
             "};"
             ""
-            "VOut main(float3 position : POSITION, float2 texCoord : TEXCOORD0)"
+            "VOut main(float3 position : POSITION, float2 texCoord : TEXCOORD0, float3 objectPosition : TEXCOORD1)"
             "{"
             "    VOut output;"
-            "    output.position = float4(position + ObjectPosition, 1);"
+            "    output.position = float4(position + objectPosition, 1);"
             "    output.texCoord = texCoord;"
             "    return output;"
             "}";
@@ -131,10 +129,15 @@ public:
             if (!graphics->IsInitialized())
                 break;
 
+            Vector3 instanceData[NUM_OBJECTS];
+            for (size_t i = 0; i < NUM_OBJECTS; ++i)
+                instanceData[i] = Vector3(Random() * 2.0f - 1.0f, Random() * 2.0f - 1.0f, 0.0f);
+            ivb->SetData(0, NUM_OBJECTS, instanceData);
+
             graphics->Clear(CLEAR_COLOR | CLEAR_DEPTH, Color(0.0f, 0.0f, 0.5f));
             graphics->SetVertexBuffer(0, vb);
+            graphics->SetVertexBuffer(1, ivb);
             graphics->SetIndexBuffer(ib);
-            graphics->SetConstantBuffer(SHADER_VS, 0, vcb);
             graphics->SetConstantBuffer(SHADER_PS, 0, pcb);
             graphics->SetShaders(vsv, psv);
             graphics->SetBlendState(bs);
@@ -142,14 +145,7 @@ public:
             graphics->SetRasterizerState(rs);
             graphics->SetTexture(0, tex);
 
-            size_t positionIndex = vcb->FindConstantIndex("Position");
-
-            for (int i = 0; i < 1000; ++i)
-            {
-                vcb->SetConstant(positionIndex, Vector3(Random() * 2.0f - 1.0f, Random() * 2.0f - 1.0f, 0.0f));
-                vcb->Apply();
-                graphics->DrawIndexed(TRIANGLE_LIST, 0, 3);
-            }
+            graphics->DrawInstanced(TRIANGLE_LIST, 0, 3, 0, 0, NUM_OBJECTS);
 
             graphics->Present();
         }
