@@ -1,6 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../../Debug/Log.h"
+#include "../../Debug/Profiler.h"
 #include "../../Window/Window.h"
 #include "../GPUObject.h"
 #include "D3D11BlendState.h"
@@ -515,7 +516,7 @@ void Graphics::AddGPUObject(GPUObject* object)
 
 void Graphics::RemoveGPUObject(GPUObject* object)
 {
-    // Note: implies a linear search, needs to be profiled whether becomes a problem with a large number of objects
+    /// \todo Requires a linear search, needs to be profiled whether becomes a problem with a large number of objects
     gpuObjects.Remove(object);
 }
 
@@ -723,43 +724,47 @@ void Graphics::PrepareDraw(PrimitiveType type)
             return;
         }
 
-        // Not found, create new
-        Vector<D3D11_INPUT_ELEMENT_DESC> elementDescs;
-
-        for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
         {
-            if (vertexBuffers[i])
-            {
-                const Vector<VertexElement>& elements = vertexBuffers[i]->Elements();
+            PROFILE(DefineInputLayout);
+            
+            // Not found, create new
+            Vector<D3D11_INPUT_ELEMENT_DESC> elementDescs;
 
-                for (size_t j = 0; j < elements.Size(); ++j)
+            for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
+            {
+                if (vertexBuffers[i])
                 {
-                    const VertexElement& element = elements[j];
-                    D3D11_INPUT_ELEMENT_DESC newDesc;
-                    newDesc.SemanticName = VertexBuffer::elementSemantic[element.semantic];
-                    newDesc.SemanticIndex = element.index;
-                    newDesc.Format = (DXGI_FORMAT)VertexBuffer::elementFormat[element.type];
-                    newDesc.InputSlot = (unsigned)i;
-                    newDesc.AlignedByteOffset = (unsigned)element.offset;
-                    newDesc.InputSlotClass = element.perInstance ? D3D11_INPUT_PER_INSTANCE_DATA : D3D11_INPUT_PER_VERTEX_DATA;
-                    newDesc.InstanceDataStepRate = element.perInstance ? 1 : 0;
-                    elementDescs.Push(newDesc);
+                    const Vector<VertexElement>& elements = vertexBuffers[i]->Elements();
+
+                    for (size_t j = 0; j < elements.Size(); ++j)
+                    {
+                        const VertexElement& element = elements[j];
+                        D3D11_INPUT_ELEMENT_DESC newDesc;
+                        newDesc.SemanticName = VertexBuffer::elementSemantic[element.semantic];
+                        newDesc.SemanticIndex = element.index;
+                        newDesc.Format = (DXGI_FORMAT)VertexBuffer::elementFormat[element.type];
+                        newDesc.InputSlot = (unsigned)i;
+                        newDesc.AlignedByteOffset = (unsigned)element.offset;
+                        newDesc.InputSlotClass = element.perInstance ? D3D11_INPUT_PER_INSTANCE_DATA : D3D11_INPUT_PER_VERTEX_DATA;
+                        newDesc.InstanceDataStepRate = element.perInstance ? 1 : 0;
+                        elementDescs.Push(newDesc);
+                    }
                 }
             }
-        }
 
-        ID3D11InputLayout* d3dInputLayout = nullptr;
-        ID3DBlob* d3dBlob = (ID3DBlob*)vertexShader->BlobObject();
-        impl->device->CreateInputLayout(&elementDescs[0], (unsigned)elementDescs.Size(), d3dBlob->GetBufferPointer(),
-            d3dBlob->GetBufferSize(), &d3dInputLayout);
-        if (d3dInputLayout)
-        {
-            inputLayouts[newInputLayout] = d3dInputLayout;
-            impl->deviceContext->IASetInputLayout(d3dInputLayout);
-            inputLayout = newInputLayout;
+            ID3D11InputLayout* d3dInputLayout = nullptr;
+            ID3DBlob* d3dBlob = (ID3DBlob*)vertexShader->BlobObject();
+            impl->device->CreateInputLayout(&elementDescs[0], (unsigned)elementDescs.Size(), d3dBlob->GetBufferPointer(),
+                d3dBlob->GetBufferSize(), &d3dInputLayout);
+            if (d3dInputLayout)
+            {
+                inputLayouts[newInputLayout] = d3dInputLayout;
+                impl->deviceContext->IASetInputLayout(d3dInputLayout);
+                inputLayout = newInputLayout;
+            }
+            else
+                LOGERROR("Failed to create input layout");
         }
-        else
-            LOGERROR("Failed to create input layout");
     }
 }
 

@@ -21,6 +21,8 @@ public:
     
     /// Release the GPU resource.
     virtual void Release();
+    /// Return whether the contents have been lost due to graphics context having been destroyed.
+    virtual bool IsDataLost() const { return false; }
 
 protected:
     /// %Graphics subsystem pointer.
