@@ -4,6 +4,7 @@
 #include "../../Debug/Profiler.h"
 #include "../../Window/Window.h"
 #include "../GPUObject.h"
+#include "../Shader.h"
 #include "D3D11BlendState.h"
 #include "D3D11DepthState.h"
 #include "D3D11Graphics.h"
@@ -809,6 +810,7 @@ void Graphics::ResetState()
 
 void RegisterGraphicsLibrary()
 {
+    Shader::RegisterObject();
     Texture::RegisterObject();
 }
 
