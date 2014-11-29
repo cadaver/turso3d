@@ -59,12 +59,9 @@ public:
     /// Return whether is immutable.
     bool IsImmutable() const { return usage == USAGE_IMMUTABLE; }
 
-    /// Return the D3D11 buffer. Used internally and should not be called by portable application code.
-    void* BufferObject() const { return buffer; }
-
     /// Element sizes by type.
     static const size_t elementSize[];
-    
+
     /// Index for "constant not found."
     static const size_t NPOS = (size_t)-1;
 
@@ -72,8 +69,6 @@ private:
     /// Actually create the constant buffer. Called on the first Apply() if the buffer is immutable. Return true on success.
     bool Create(const void* data = nullptr);
 
-    /// D3D11 buffer.
-    void* buffer;
     /// Constant definitions.
     Vector<Constant> constants;
     /// CPU-side data where updates are collected before applying.

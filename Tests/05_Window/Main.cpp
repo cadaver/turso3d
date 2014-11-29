@@ -40,7 +40,7 @@ public:
             input->Update();
             Thread::Sleep(1);
         }
-
+        
         printf("Window closed\n");
     }
 

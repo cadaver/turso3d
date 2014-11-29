@@ -15,6 +15,8 @@ namespace Turso3D
 
 static LRESULT CALLBACK WndProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
+String Window::className("Turso3DWindow");
+
 Window::Window() :
     handle(nullptr),
     title("Turso3D Window"),
@@ -52,8 +54,6 @@ bool Window::SetSize(int width, int height, bool resizable_)
         BOOL (WINAPI* proc)() = (BOOL (WINAPI *)())(void*)GetProcAddress(GetModuleHandle("user32.dll"), "SetProcessDPIAware");
         if (proc)
             proc();
-        
-        String className("Turso3DWindow");
 
         WNDCLASS wc;
         wc.style = CS_HREDRAW | CS_VREDRAW;

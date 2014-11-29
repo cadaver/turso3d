@@ -77,6 +77,9 @@ public:
     /// Size changed event.
     WindowResizeEvent resizeEvent;
 
+    /// Window class name
+    static String className;
+
 private:
     /// Window handle.
     void* handle;

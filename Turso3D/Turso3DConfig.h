@@ -8,7 +8,7 @@ namespace Turso3D
 }
 
 // Shared library exports
-#cmakedefine TURSO3D_SHARED
+/* #undef TURSO3D_SHARED */
 #if defined(_WIN32) && defined(TURSO3D_SHARED)
 #ifdef _MSC_VER
 #pragma warning(disable:4251)
@@ -23,7 +23,7 @@ namespace Turso3D
 #endif
 
 // Turso3D build configuration
-#cmakedefine TURSO3D_LOGGING
-#cmakedefine TURSO3D_PROFILING
-#cmakedefine TURSO3D_D3D11
-#cmakedefine TURSO3D_OPENGL
+#define TURSO3D_LOGGING
+#define TURSO3D_PROFILING
+/* #undef TURSO3D_D3D11 */
+#define TURSO3D_OPENGL

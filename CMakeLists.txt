@@ -10,25 +10,16 @@ option (TURSO3D_SHARED "Build Turso3D as a shared library" FALSE)
 option (TURSO3D_LOGGING "Enable logging macros" TRUE)
 option (TURSO3D_PROFILING "Enable performance profiling" TRUE)
 cmake_dependent_option (TURSO3D_STATIC_RUNTIME "Use static C/C++ runtime library with MSVC" FALSE "MSVC" FALSE)
+cmake_dependent_option (TURSO3D_OPENGL "Use OpenGL instead of Direct3D11 on Windows" FALSE "WIN32" TRUE)
 
 # Set default configuration to Release for single-configuration generators
 if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
     set (CMAKE_BUILD_TYPE Release)
 endif ()
 
-if (MSVC)
-    if (TURSO3D_STATIC_RUNTIME)
-        set (RELEASE_RUNTIME /MT)
-        set (DEBUG_RUNTIME /MTd)
-    else ()
-        set (RELEASE_RUNTIME "")
-        set (DEBUG_RUNTIME "")
-    endif ()
-endif ()
-
 # Find DirectX SDK
 # Based on realXtend Tundra CMake build system (https://github.com/realXtend/tundra)
-if (WIN32)
+if (WIN32 AND NOT TURSO3D_OPENGL)
     # Do not search for the SDK from Visual Studio 2012 onward to avoid incompatibility
     # between DirectX SDK and Windows SDK defines and the resulting warning spam
     if (MSVC AND MSVC_VERSION LESS 1700)
@@ -69,7 +60,7 @@ if (WIN32)
         set (DIRECT3D_FOUND 1)
         set (DIRECT3D_LIBRARIES ${D3D11_LIBRARY} ${DXGI_LIBRARY} ${DXGUID_LIBRARY} ${D3DCOMPILER_LIBRARY})
         include (FindPackageMessage)
-        FIND_PACKAGE_MESSAGE (Direct3D "Found DirectX SDK: ${DIRECT3D_LIBRARIES} ${DIRECT3D_INCLUDE_DIRS}" "[${DIRECT3D_LIBRARIES}][${DIRECT3D_INCLUDE_DIRS}]")
+        find_package_message (Direct3D "Found DirectX SDK: ${DIRECT3D_LIBRARIES} ${DIRECT3D_INCLUDE_DIRS}" "[${DIRECT3D_LIBRARIES}][${DIRECT3D_INCLUDE_DIRS}]")
     else ()
         # If DirectX SDK not found, assume the includes & libs are found in the compiler default directories
         set (DIRECT3D_LIBRARIES d3d11 dxgi dxguid d3dcompiler)
@@ -78,6 +69,13 @@ endif ()
 
 # Compiler-specific setup
 if (MSVC)
+    if (TURSO3D_STATIC_RUNTIME)
+        set (RELEASE_RUNTIME /MT)
+        set (DEBUG_RUNTIME /MTd)
+    else ()
+        set (RELEASE_RUNTIME "")
+        set (DEBUG_RUNTIME "")
+    endif ()
     add_definitions (-D_CRT_SECURE_NO_WARNINGS)
     set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${DEBUG_RUNTIME}")
     set (CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELEASE} ${RELEASE_RUNTIME} /fp:fast /Zi /GS-")
@@ -114,7 +112,7 @@ endmacro ()
 # Set Turso3D as a global include directory
 include_directories (Turso3D)
 
-# Set output for executables
+# Set output directory for executables
 set_output_directories (${PROJECT_SOURCE_DIR}/Bin RUNTIME PDB)
 
 add_subdirectory (Turso3D)

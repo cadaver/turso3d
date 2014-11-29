@@ -11,10 +11,10 @@
 namespace Turso3D
 {
 
-struct GraphicsImpl;
 class BlendState;
 class ConstantBuffer;
 class DepthState;
+class GLContext;
 class GPUObject;
 class IndexBuffer;
 class RasterizerState;
@@ -140,25 +140,17 @@ public:
     void AddGPUObject(GPUObject* object);
     /// Remove a GPU object.
     void RemoveGPUObject(GPUObject* object);
-    /// Return the D3D11 device. Used internally and should not be called by portable application code.
-    void* Device() const;
-    /// Return the D3D11 immediate device context. Used internally and should not be called by portable application code.
-    void* DeviceContext() const;
 
 private:
-    /// Create the D3D11 device and swap chain. Requires an open window. Return true on success.
-    bool CreateDevice();
-    /// Update swap chain state for a new mode and create views for the backbuffer & default depth buffer.
-    bool UpdateSwapChain(int width, int height, bool fullscreen);
     /// Resize the backbuffer when window size changes.
     void HandleResize(WindowResizeEvent& event);
-    /// Set topology, and find or create an input layout for the currently set vertex buffers and vertex shader.
+    /// Prepare to execute a draw call.
     void PrepareDraw(PrimitiveType type);
     /// Reset internally tracked state.
     void ResetState();
 
-    /// Implementation for holding OS-specific API objects.
-    AutoPtr<GraphicsImpl> impl;
+    /// OpenGL context.
+    AutoPtr<GLContext> context;
     /// OS-level rendering window.
     AutoPtr<Window> window;
     /// Current size of the backbuffer.

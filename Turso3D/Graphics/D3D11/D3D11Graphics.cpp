@@ -392,8 +392,8 @@ void Graphics::SetScissorRect(const IntRect& scissorRect_)
         /// \todo Implement a member function in IntRect for clipping
         scissorRect.left = Clamp(scissorRect_.left, 0, renderTargetSize.x - 1);
         scissorRect.top = Clamp(scissorRect_.top, 0, renderTargetSize.y - 1);
-        scissorRect.right = Clamp(scissorRect_.right, scissorRect.left + 1, backbufferSize.x);
-        scissorRect.bottom = Clamp(scissorRect_.bottom, scissorRect.top + 1, backbufferSize.y);
+        scissorRect.right = Clamp(scissorRect_.right, scissorRect.left + 1, renderTargetSize.x);
+        scissorRect.bottom = Clamp(scissorRect_.bottom, scissorRect.top + 1, renderTargetSize.y);
 
         D3D11_RECT d3dRect;
         d3dRect.left = scissorRect.left;
@@ -479,16 +479,6 @@ Window* Graphics::RenderWindow() const
     return window;
 }
 
-void* Graphics::Device() const
-{
-    return impl->device;
-}
-
-void* Graphics::DeviceContext() const
-{
-    return impl->deviceContext;
-}
-
 Texture* Graphics::RenderTarget(size_t index) const
 {
     return index < MAX_RENDERTARGETS ? renderTargets[index] : nullptr;
@@ -519,6 +509,16 @@ void Graphics::RemoveGPUObject(GPUObject* object)
 {
     /// \todo Requires a linear search, needs to be profiled whether becomes a problem with a large number of objects
     gpuObjects.Remove(object);
+}
+
+void* Graphics::Device() const
+{
+    return impl->device;
+}
+
+void* Graphics::DeviceContext() const
+{
+    return impl->deviceContext;
 }
 
 bool Graphics::CreateDevice()

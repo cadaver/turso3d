@@ -172,6 +172,78 @@ enum TextureAddressMode
     ADDRESS_MIRROR_ONCE
 };
 
+/// Description of an element in a vertex declaration.
+struct TURSO3D_API VertexElement
+{
+    /// Default-construct.
+    VertexElement() :
+        type(ELEM_VECTOR3),
+        semantic(SEM_POSITION),
+        index(0),
+        perInstance(false),
+        offset(0)
+    {
+    }
+
+    /// Construct with type, semantic, index and whether is per-instance data.
+    VertexElement(ElementType type_, ElementSemantic semantic_, unsigned char index_ = 0, bool perInstance_ = false) :
+        type(type_),
+        semantic(semantic_),
+        index(index_),
+        perInstance(perInstance_),
+        offset(0)
+    {
+    }
+
+    /// Data type of element.
+    ElementType type;
+    /// Semantic of element.
+    ElementSemantic semantic;
+    /// Index of element, for example for multiple texcoords.
+    unsigned char index;
+    /// Per-instance flag.
+    bool perInstance;
+    /// Offset of element from vertex start. Filled by VertexBuffer.
+    size_t offset;
+};
+
+/// Description of a shader constant.
+struct TURSO3D_API Constant
+{
+    /// Construct empty.
+    Constant() :
+        numElements(1)
+    {
+    }
+
+    /// Construct with type, name and optional number of elements.
+    Constant(ElementType type_, const String& name_, size_t numElements_ = 1) :
+        type(type_),
+        name(name_),
+        numElements(numElements_)
+    {
+    }
+
+    /// Construct with type, name and optional number of elements.
+    Constant(ElementType type_, const char* name_, size_t numElements_ = 1) :
+        type(type_),
+        name(name_),
+        numElements(numElements_)
+    {
+    }
+
+    /// Data type of constant.
+    ElementType type;
+    /// Name of constant.
+    String name;
+    /// Number of elements. Default 1.
+    size_t numElements;
+    /// Element size. Filled by ConstantBuffer.
+    size_t elementSize;
+    /// Offset from the beginning of the buffer. Filled by ConstantBuffer.
+    size_t offset;
+};
+
 static const size_t MAX_VERTEX_STREAMS = 4;
 static const size_t MAX_CONSTANT_BUFFERS = 15;
 static const size_t MAX_TEXTURE_UNITS = 16;
