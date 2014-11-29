@@ -4,6 +4,28 @@ project (Turso3D)
 
 cmake_minimum_required (VERSION 2.8)
 
+# Define CMake options
+include (CMakeDependentOption)
+option (TURSO3D_SHARED "Build Turso3D as a shared library" FALSE)
+option (TURSO3D_LOGGING "Enable logging macros" TRUE)
+option (TURSO3D_PROFILING "Enable performance profiling" TRUE)
+cmake_dependent_option (TURSO3D_STATIC_RUNTIME "Use static C/C++ runtime library with MSVC" FALSE "MSVC" FALSE)
+
+# Set default configuration to Release for single-configuration generators
+if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+    set (CMAKE_BUILD_TYPE Release)
+endif ()
+
+if (MSVC)
+    if (TURSO3D_STATIC_RUNTIME)
+        set (RELEASE_RUNTIME /MT)
+        set (DEBUG_RUNTIME /MTd)
+    else ()
+        set (RELEASE_RUNTIME "")
+        set (DEBUG_RUNTIME "")
+    endif ()
+endif ()
+
 # Find DirectX SDK
 # Based on realXtend Tundra CMake build system (https://github.com/realXtend/tundra)
 if (WIN32)
@@ -57,11 +79,11 @@ endif ()
 # Compiler-specific setup
 if (MSVC)
     add_definitions (-D_CRT_SECURE_NO_WARNINGS)
-    set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MTd")
-    set (CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELEASE} /MT /fp:fast /Zi /GS-")
+    set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${DEBUG_RUNTIME}")
+    set (CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELEASE} ${RELEASE_RUNTIME} /fp:fast /Zi /GS-")
     set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
-    set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /W4 /MTd")
-    set (CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE} /W4 /MT /fp:fast /Zi /GS- ")
+    set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${DEBUG_RUNTIME} /W4")
+    set (CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE} ${RELEASE_RUNTIME} /W4 /fp:fast /Zi /GS- ")
     set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
     set (CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /OPT:REF /OPT:ICF /DEBUG")
     set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /OPT:REF /OPT:ICF")

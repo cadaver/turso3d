@@ -33,8 +33,10 @@ bool JSONFile::BeginLoad(Stream& source)
     /// \todo If fails, log the line number on which the error occurred
     bool success = root.Parse(pos, end);
     if (!success)
+    {
         LOGERROR("Parsing JSON from " + source.Name() + " failed; data may be partial");
-    
+    }
+
     return success;
 }
 

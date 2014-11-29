@@ -298,7 +298,9 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int he
 
             d3dDevice->CreateRenderTargetView((ID3D11Resource*)texture, &renderTargetViewDesc, (ID3D11RenderTargetView**)&renderTargetView);
             if (!renderTargetView)
+            {
                 LOGERROR("Failed to create rendertarget view for texture");
+            }
         }
         else if (IsDepthStencil())
         {
@@ -313,12 +315,16 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int he
 
             d3dDevice->CreateDepthStencilView((ID3D11Resource*)texture, &depthStencilViewDesc, (ID3D11DepthStencilView**)&renderTargetView);
             if (!renderTargetView)
+            {
                 LOGERROR("Failed to create depth-stencil view for texture");
+            }
         }
 
         d3dDevice->CreateShaderResourceView((ID3D11Resource*)texture, &resourceViewDesc, (ID3D11ShaderResourceView**)&resourceView);
         if (!resourceView)
+        {
             LOGERROR("Failed to create shader resource view for texture");
+        }
     }
 
     return true;

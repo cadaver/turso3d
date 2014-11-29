@@ -65,7 +65,7 @@ private:
 };
 
 /// Base class for object factories.
-class ObjectFactory
+class TURSO3D_API ObjectFactory
 {
 public:
     /// Destruct.

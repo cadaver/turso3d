@@ -11,7 +11,7 @@ namespace Turso3D
 class ShaderVariation;
 
 /// %Shader resource. Defines either vertex or pixel shader source code, from which variations can be compiled by specifying defines.
-class Shader : public Resource
+class TURSO3D_API Shader : public Resource
 {
     OBJECT(Shader);
 

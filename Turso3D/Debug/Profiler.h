@@ -12,7 +12,7 @@ namespace Turso3D
 {
 
 /// Profiling data for one block in the profiling tree.
-class ProfilerBlock
+class TURSO3D_API ProfilerBlock
 {
 public:
     /// Construct-
@@ -66,7 +66,7 @@ public:
 };
 
 /// Hierarchical performance profiler subsystem.
-class Profiler : public Object
+class TURSO3D_API Profiler : public Object
 {
     OBJECT(Profiler);
 
@@ -109,7 +109,7 @@ private:
 };
 
 /// Helper class for automatically beginning and ending a profiling block
-class AutoProfileBlock
+class TURSO3D_API AutoProfileBlock
 {
 public:
     /// Construct and begin a profiling block. The name must be persistent; string literals are recommended.

@@ -98,212 +98,212 @@ void Attribute::Skip(AttributeType type, Stream& source)
     }
 }
 
-template<> void AttributeImpl<bool>::FromJSON(Serializable* instance, const JSONValue& source)
+template<> TURSO3D_API void AttributeImpl<bool>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, source.GetBool());
 }
 
-template<> void AttributeImpl<int>::FromJSON(Serializable* instance, const JSONValue& source)
+template<> TURSO3D_API void AttributeImpl<int>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, (int)source.GetNumber());
 }
 
-template<> void AttributeImpl<unsigned>::FromJSON(Serializable* instance, const JSONValue& source)
+template<> TURSO3D_API void AttributeImpl<unsigned>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, (unsigned)source.GetNumber());
 }
 
-template<> void AttributeImpl<unsigned char>::FromJSON(Serializable* instance, const JSONValue& source)
+template<> TURSO3D_API void AttributeImpl<unsigned char>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, (unsigned char)source.GetNumber());
 }
 
-template<> void AttributeImpl<float>::FromJSON(Serializable* instance, const JSONValue& source)
+template<> TURSO3D_API void AttributeImpl<float>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, (float)source.GetNumber());
 }
 
-template<> void AttributeImpl<String>::FromJSON(Serializable* instance, const JSONValue& source)
+template<> TURSO3D_API void AttributeImpl<String>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, source.GetString());
 }
 
-template<> void AttributeImpl<Vector3>::FromJSON(Serializable* instance, const JSONValue& source)
+template<> TURSO3D_API void AttributeImpl<Vector3>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, Vector3(source.GetString()));
 }
 
-template<> void AttributeImpl<Vector4>::FromJSON(Serializable* instance, const JSONValue& source)
+template<> TURSO3D_API void AttributeImpl<Vector4>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, Vector4(source.GetString()));
 }
 
-template<> void AttributeImpl<Quaternion>::FromJSON(Serializable* instance, const JSONValue& source)
+template<> TURSO3D_API void AttributeImpl<Quaternion>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, Quaternion(source.GetString()));
 }
 
-template<> void AttributeImpl<BoundingBox>::FromJSON(Serializable* instance, const JSONValue& source)
+template<> TURSO3D_API void AttributeImpl<BoundingBox>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, BoundingBox(source.GetString()));
 }
 
-template<> void AttributeImpl<ResourceRef>::FromJSON(Serializable* instance, const JSONValue& source)
+template<> TURSO3D_API void AttributeImpl<ResourceRef>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, ResourceRef(source.GetString()));
 }
 
-template<> void AttributeImpl<ResourceRefList>::FromJSON(Serializable* instance, const JSONValue& source)
+template<> TURSO3D_API void AttributeImpl<ResourceRefList>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, ResourceRefList(source.GetString()));
 }
 
-template<> void AttributeImpl<ObjectRef>::FromJSON(Serializable* instance, const JSONValue& source)
+template<> TURSO3D_API void AttributeImpl<ObjectRef>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, ObjectRef((unsigned)source.GetNumber()));
 }
 
-template<> void AttributeImpl<JSONValue>::FromJSON(Serializable* instance, const JSONValue& source)
+template<> TURSO3D_API void AttributeImpl<JSONValue>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, source);
 }
 
-template<> void AttributeImpl<bool>::ToJSON(Serializable* instance, JSONValue& dest)
+template<> TURSO3D_API void AttributeImpl<bool>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance);
 }
 
-template<> void AttributeImpl<int>::ToJSON(Serializable* instance, JSONValue& dest)
+template<> TURSO3D_API void AttributeImpl<int>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance);
 }
 
-template<> void AttributeImpl<unsigned>::ToJSON(Serializable* instance, JSONValue& dest)
+template<> TURSO3D_API void AttributeImpl<unsigned>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance);
 }
 
-template<> void AttributeImpl<unsigned char>::ToJSON(Serializable* instance, JSONValue& dest)
+template<> TURSO3D_API void AttributeImpl<unsigned char>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance);
 }
 
-template<> void AttributeImpl<float>::ToJSON(Serializable* instance, JSONValue& dest)
+template<> TURSO3D_API void AttributeImpl<float>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance);
 }
 
-template<> void AttributeImpl<String>::ToJSON(Serializable* instance, JSONValue& dest)
+template<> TURSO3D_API void AttributeImpl<String>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance);
 }
 
-template<> void AttributeImpl<Vector3>::ToJSON(Serializable* instance, JSONValue& dest)
+template<> TURSO3D_API void AttributeImpl<Vector3>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance).ToString();
 }
 
-template<> void AttributeImpl<Vector4>::ToJSON(Serializable* instance, JSONValue& dest)
+template<> TURSO3D_API void AttributeImpl<Vector4>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance).ToString();
 }
 
-template<> void AttributeImpl<Quaternion>::ToJSON(Serializable* instance, JSONValue& dest)
+template<> TURSO3D_API void AttributeImpl<Quaternion>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance).ToString();
 }
 
-template<> void AttributeImpl<BoundingBox>::ToJSON(Serializable* instance, JSONValue& dest)
+template<> TURSO3D_API void AttributeImpl<BoundingBox>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance).ToString();
 }
 
-template<> void AttributeImpl<ResourceRef>::ToJSON(Serializable* instance, JSONValue& dest)
+template<> TURSO3D_API void AttributeImpl<ResourceRef>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance).ToString();
 }
 
-template<> void AttributeImpl<ResourceRefList>::ToJSON(Serializable* instance, JSONValue& dest)
+template<> TURSO3D_API void AttributeImpl<ResourceRefList>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance).ToString();
 }
 
-template<> void AttributeImpl<ObjectRef>::ToJSON(Serializable* instance, JSONValue& dest)
+template<> TURSO3D_API void AttributeImpl<ObjectRef>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance).id;
 }
 
-template<> void AttributeImpl<JSONValue>::ToJSON(Serializable* instance, JSONValue& dest)
+template<> TURSO3D_API void AttributeImpl<JSONValue>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance);
 }
 
-template<> AttributeType AttributeImpl<bool>::Type() const
+template<> TURSO3D_API AttributeType AttributeImpl<bool>::Type() const
 {
     return ATTR_BOOL;
 }
 
-template<> AttributeType AttributeImpl<int>::Type() const
+template<> TURSO3D_API AttributeType AttributeImpl<int>::Type() const
 {
     return ATTR_INT;
 }
 
-template<> AttributeType AttributeImpl<unsigned>::Type() const
+template<> TURSO3D_API AttributeType AttributeImpl<unsigned>::Type() const
 {
     return ATTR_UNSIGNED;
 }
 
-template<> AttributeType AttributeImpl<unsigned char>::Type() const
+template<> TURSO3D_API AttributeType AttributeImpl<unsigned char>::Type() const
 {
     return ATTR_BYTE;
 }
 
-template<> AttributeType AttributeImpl<float>::Type() const
+template<> TURSO3D_API AttributeType AttributeImpl<float>::Type() const
 {
     return ATTR_FLOAT;
 }
 
-template<> AttributeType AttributeImpl<String>::Type() const
+template<> TURSO3D_API AttributeType AttributeImpl<String>::Type() const
 {
     return ATTR_STRING;
 }
 
-template<> AttributeType AttributeImpl<Vector3>::Type() const
+template<> TURSO3D_API AttributeType AttributeImpl<Vector3>::Type() const
 {
     return ATTR_VECTOR3;
 }
 
-template<> AttributeType AttributeImpl<Vector4>::Type() const
+template<> TURSO3D_API AttributeType AttributeImpl<Vector4>::Type() const
 {
     return ATTR_VECTOR4;
 }
 
-template<> AttributeType AttributeImpl<Quaternion>::Type() const
+template<> TURSO3D_API AttributeType AttributeImpl<Quaternion>::Type() const
 {
     return ATTR_QUATERNION;
 }
 
-template<> AttributeType AttributeImpl<BoundingBox>::Type() const
+template<> TURSO3D_API AttributeType AttributeImpl<BoundingBox>::Type() const
 {
     return ATTR_BOUNDINGBOX;
 }
 
-template<> AttributeType AttributeImpl<ResourceRef>::Type() const
+template<> TURSO3D_API AttributeType AttributeImpl<ResourceRef>::Type() const
 {
     return ATTR_RESOURCEREF;
 }
 
-template<> AttributeType AttributeImpl<ResourceRefList>::Type() const
+template<> TURSO3D_API AttributeType AttributeImpl<ResourceRefList>::Type() const
 {
     return ATTR_RESOURCEREFLIST;
 }
 
-template<> AttributeType AttributeImpl<ObjectRef>::Type() const
+template<> TURSO3D_API AttributeType AttributeImpl<ObjectRef>::Type() const
 {
     return ATTR_OBJECTREF;
 }
 
-template<> AttributeType AttributeImpl<JSONValue>::Type() const
+template<> TURSO3D_API AttributeType AttributeImpl<JSONValue>::Type() const
 {
     return ATTR_JSONVALUE;
 }

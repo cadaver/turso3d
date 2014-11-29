@@ -8,6 +8,10 @@
 namespace Turso3D
 {
 
+Polyhedron::Polyhedron()
+{
+}
+
 Polyhedron::Polyhedron(const Polyhedron& polyhedron) :
     faces(polyhedron.faces)
 {

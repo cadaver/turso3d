@@ -14,7 +14,7 @@ struct AllocatorBlock;
 struct AllocatorNode;
 
 /// %Allocator memory block.
-struct AllocatorBlock
+struct TURSO3D_API AllocatorBlock
 {
     /// Size of a node.
     size_t nodeSize;
@@ -28,7 +28,7 @@ struct AllocatorBlock
 };
 
 /// %Allocator node.
-struct AllocatorNode
+struct TURSO3D_API AllocatorNode
 {
     /// Next free node.
     AllocatorNode* next;

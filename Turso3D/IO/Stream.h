@@ -90,19 +90,19 @@ protected:
     String name;
 };
 
-template<> bool Stream::Read();
-template<> String Stream::Read();
-template<> StringHash Stream::Read();
-template<> ResourceRef Stream::Read();
-template<> ResourceRefList Stream::Read();
-template<> ObjectRef Stream::Read();
-template<> JSONValue Stream::Read();
-template<> void Stream::Write(const bool& value);
-template<> void Stream::Write(const String& value);
-template<> void Stream::Write(const StringHash& value);
-template<> void Stream::Write(const ResourceRef& value);
-template<> void Stream::Write(const ResourceRefList& value);
-template<> void Stream::Write(const ObjectRef& value);
-template<> void Stream::Write(const JSONValue& value);
+template<> TURSO3D_API bool Stream::Read();
+template<> TURSO3D_API String Stream::Read();
+template<> TURSO3D_API StringHash Stream::Read();
+template<> TURSO3D_API ResourceRef Stream::Read();
+template<> TURSO3D_API ResourceRefList Stream::Read();
+template<> TURSO3D_API ObjectRef Stream::Read();
+template<> TURSO3D_API JSONValue Stream::Read();
+template<> TURSO3D_API void Stream::Write(const bool& value);
+template<> TURSO3D_API void Stream::Write(const String& value);
+template<> TURSO3D_API void Stream::Write(const StringHash& value);
+template<> TURSO3D_API void Stream::Write(const ResourceRef& value);
+template<> TURSO3D_API void Stream::Write(const ResourceRefList& value);
+template<> TURSO3D_API void Stream::Write(const ObjectRef& value);
+template<> TURSO3D_API void Stream::Write(const JSONValue& value);
 
 }

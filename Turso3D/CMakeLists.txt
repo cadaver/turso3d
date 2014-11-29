@@ -33,11 +33,22 @@ if (WIN32)
     add_engine_directory_group (Window/Win32 Window)
 endif ()
 
+# Set definitions
+if (TURSO3D_SHARED)
+    add_definitions (-DTURSO3D_EXPORTS)
+    set (TURSO3D_LIB_TYPE SHARED)
+else ()
+    set (TURSO3D_LIB_TYPE STATIC)
+endif ()
+
+# Generate the Turso3DConfig.h file
+configure_file (Turso3DConfig.h.in ${CMAKE_CURRENT_SOURCE_DIR}/Turso3DConfig.h)
+
 # Add root-level files
 file (GLOB TURSO3D_FILES *.h *.c *.cpp)
 list (APPEND SOURCE_FILES ${TURSO3D_FILES})
 
-add_library (${TARGET_NAME} STATIC ${SOURCE_FILES})
+add_library (${TARGET_NAME} ${TURSO3D_LIB_TYPE} ${SOURCE_FILES})
 
 # Add third party include directories. Only used internally
 include_directories (ThirdParty/STB)
