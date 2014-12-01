@@ -281,6 +281,7 @@ void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDe
         glFlags |= GL_STENCIL_BUFFER_BIT;
         glClearStencil(clearStencil);
     }
+    glClear(glFlags);
 }
 
 void Graphics::Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount)
