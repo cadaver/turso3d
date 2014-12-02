@@ -23,7 +23,7 @@ public:
     /// Release the compiled shader.
     void Release() override;
 
-    /// Compile. Return true on success. No-op if compile already attempted.
+    /// Compile. Return true on success. No-op that returns previous result if compile already attempted.
     bool Compile();
     
     /// Return the parent shader resource.

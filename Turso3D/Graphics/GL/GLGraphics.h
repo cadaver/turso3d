@@ -18,6 +18,7 @@ class GLContext;
 class GPUObject;
 class IndexBuffer;
 class RasterizerState;
+class ShaderProgram;
 class ShaderVariation;
 class Texture;
 class VertexBuffer;
@@ -26,6 +27,7 @@ class WindowResizeEvent;
 
 typedef Pair<unsigned long long, unsigned> InputLayoutDesc;
 typedef HashMap<InputLayoutDesc, void*> InputLayoutMap;
+typedef HashMap<Pair<ShaderVariation*, ShaderVariation*>, AutoPtr<ShaderProgram> > ShaderProgramMap;
 
 /// 3D graphics rendering context. Manages the rendering window and GPU objects.
 class TURSO3D_API Graphics : public Object
@@ -140,6 +142,8 @@ public:
     void AddGPUObject(GPUObject* object);
     /// Remove a GPU object.
     void RemoveGPUObject(GPUObject* object);
+    /// Cleanup shader programs when a vertex or pixel shader is destroyed.
+    void CleanupShaderPrograms(ShaderVariation* shader);
 
 private:
     /// Resize the backbuffer when window size changes.
@@ -163,6 +167,8 @@ private:
     Vector<GPUObject*> gpuObjects;
     /// Input layouts.
     InputLayoutMap inputLayouts;
+    /// Shader programs.
+    ShaderProgramMap shaderPrograms;
     /// Bound vertex buffers.
     VertexBuffer* vertexBuffers[MAX_VERTEX_STREAMS];
     /// Bound index buffer.

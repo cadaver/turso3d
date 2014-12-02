@@ -151,8 +151,7 @@ bool ShaderVariation::Compile()
     {
         if (errorBlob)
         {
-            String errorString((const char*)errorBlob->GetBufferPointer());
-            LOGERROR("Failed to compile shader " + FullName() + ": " + errorString);
+            LOGERRORF("Could not compile shader %s: %s", FullName().CString(), errorBlob->GetBufferPointer());
             errorBlob->Release();
         }
         return false;

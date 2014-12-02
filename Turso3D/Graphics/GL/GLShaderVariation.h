@@ -23,7 +23,7 @@ public:
     /// Release the compiled shader.
     void Release() override;
 
-    /// Compile. Return true on success. No-op if compile already attempted.
+    /// Compile. Return true on success. No-op that return previous result if compile already attempted.
     bool Compile();
     
     /// Return the parent shader resource.
@@ -32,20 +32,21 @@ public:
     String FullName() const;
     /// Return shader stage.
     ShaderStage Stage() const { return stage; }
-    /// Return vertex element hash code for vertex shaders.
-    unsigned ElementHash() const { return elementHash; }
     /// Return whether compile attempted.
     bool IsCompiled() const { return compiled; }
 
+    /// Return the OpenGL shader. Used internally and should not be called by portable application code.
+    unsigned ShaderObject() const { return shader; }
+
 private:
+    /// OpenGL shader object identifier.
+    unsigned shader;
     /// Parent shader resource.
     WeakPtr<Shader> parent;
     /// Shader stage.
     ShaderStage stage;
     /// Compilation defines.
     String defines;
-    /// Vertex shader element hash code.
-    unsigned elementHash;
     /// Compile attempted flag.
     bool compiled;
 };

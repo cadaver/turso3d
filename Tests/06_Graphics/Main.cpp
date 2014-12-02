@@ -70,19 +70,35 @@ public:
         pcb->Apply();
 
         String vsCode =
-            "struct VOut"
-            "{"
-            "    float4 position : SV_POSITION;"
-            "    float2 texCoord : TEXCOORD0;"
-            "};"
-            ""
-            "VOut main(float3 position : POSITION, float2 texCoord : TEXCOORD0, float3 objectPosition : TEXCOORD1)"
-            "{"
-            "    VOut output;"
-            "    output.position = float4(position + objectPosition, 1);"
-            "    output.texCoord = texCoord;"
-            "    return output;"
+#ifndef TURSO3D_OPENGL
+            "struct VOut\n"
+            "{\n"
+            "    float4 position : SV_POSITION;\n"
+            "    float2 texCoord : TEXCOORD0;\n"
+            "};\n"
+            "\n"
+            "VOut main(float3 position : POSITION, float2 texCoord : TEXCOORD0, float3 objectPosition : TEXCOORD1)\n"
+            "{\n"
+            "    VOut output;\n"
+            "    output.position = float4(position + objectPosition, 1.0);\n"
+            "    output.texCoord = texCoord;\n"
+            "    return output;\n"
             "}";
+#else
+            "#version 150\n"
+            "\n"
+            "in vec3 position;\n"
+            "in vec2 texCoord;\n"
+            "in vec3 texCoord1; // Object position\n"
+            "\n"
+            "out vec2 vTexCoord\n;"
+            "\n"
+            "void main()\n"
+            "{\n"
+            "    gl_Position = vec4(position + texCoord1, 1.0);\n"
+            "    vTexCoord = texCoord;\n"
+            "}\n";
+#endif
 
         AutoPtr<Shader> vs = new Shader();
         vs->SetName("Test.vs");
@@ -90,18 +106,36 @@ public:
         ShaderVariation* vsv = vs->CreateVariation();
 
         String psCode =
-            "cbuffer ConstantBuffer : register(b0)"
-            "{"
-            "   float4 Color;"
-            "}"
-            ""
-            "Texture2D Texture : register(t0);"
-            "SamplerState Sampler : register(s0);"
-            ""
-            "float4 main(float4 position : SV_POSITION, float2 texCoord : TEXCOORD0) : SV_TARGET"
-            "{"
-            "    return Color * Texture.Sample(Sampler, texCoord);"
-            "}";
+#ifndef TURSO3D_OPENGL
+            "cbuffer ConstantBuffer : register(b0)\n"
+            "{\n"
+            "    float4 color;\n"
+            "}\n"
+            "\n"
+            "Texture2D Texture : register(t0);\n"
+            "SamplerState Sampler : register(s0);\n"
+            "\n"
+            "float4 main(float4 position : SV_POSITION, float2 texCoord : TEXCOORD0) : SV_TARGET\n"
+            "{\n"
+            "    return color * Texture.Sample(Sampler, texCoord);\n"
+            "}\n";
+#else
+            "#version 150\n"
+            "\n"
+            "layout(std140) uniform ConstantBuffer0\n"
+            "{\n"
+            "    vec4 color;\n"
+            "}\n;"
+            "\n"
+            "uniform sampler2D Texture0\n;"
+            "in vec2 vTexCoord;\n"
+            "out vec4 fragColor;\n"
+            "\n"
+            "void main()\n"
+            "{\n"
+            "    //fragColor = color * texture(Texture0, vTexCoord);\n"
+            "}\n";
+#endif
 
         AutoPtr<Shader> ps = new Shader();
         ps->SetName("Test.ps");

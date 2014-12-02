@@ -27,7 +27,8 @@ void Shader::RegisterObject()
 
 bool Shader::BeginLoad(Stream& source)
 {
-    stage = Extension(source.Name()) == ".ps" ? SHADER_PS : SHADER_VS;
+    String extension = Extension(source.Name());
+    stage = (extension == ".vs" || extension == ".vert") ? SHADER_VS : SHADER_PS;
     sourceCode.Clear();
     return ProcessIncludes(sourceCode, source);
 }

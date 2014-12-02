@@ -12,6 +12,7 @@
 #include "GLConstantBuffer.h"
 #include "GLIndexBuffer.h"
 #include "GLRasterizerState.h"
+#include "GLShaderProgram.h"
 #include "GLShaderVariation.h"
 #include "GLTexture.h"
 #include "GLVertexBuffer.h"
@@ -78,6 +79,8 @@ void Graphics::SetVSync(bool enable)
 
 void Graphics::Close()
 {
+    shaderPrograms.Clear();
+
     // Release all GPU objects
     for (auto it = gpuObjects.Begin(); it != gpuObjects.End(); ++it)
     {
@@ -178,7 +181,9 @@ void Graphics::SetIndexBuffer(IndexBuffer* buffer)
 
 void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
 {
-    /// \todo Manage OpenGL shader linking
+    if (vs == vertexShader && ps == pixelShader)
+        return;
+
     if (vs != vertexShader)
     {
         if (vs && vs->Stage() == SHADER_VS)
@@ -200,6 +205,24 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
 
         pixelShader = ps;
     }
+
+    if (vertexShader && pixelShader && vertexShader->ShaderObject() && pixelShader->ShaderObject())
+    {
+        // Check if program already exists, if not, link now
+        auto key = MakePair(vertexShader, pixelShader);
+        auto it = shaderPrograms.Find(key);
+        if (it != shaderPrograms.End())
+            glUseProgram(it->second->ProgramObject());
+        else
+        {
+            ShaderProgram* newProgram = new ShaderProgram(vertexShader, pixelShader);
+            shaderPrograms[key] = newProgram;
+            if (newProgram->Link())
+                glUseProgram(newProgram->ProgramObject());
+        }
+    }
+    else
+        glUseProgram(0);
 }
 
 void Graphics::SetBlendState(BlendState* state)
@@ -353,6 +376,33 @@ void Graphics::RemoveGPUObject(GPUObject* object)
 {
     /// \todo Requires a linear search, needs to be profiled whether becomes a problem with a large number of objects
     gpuObjects.Remove(object);
+}
+
+void Graphics::CleanupShaderPrograms(ShaderVariation* shader)
+{
+    if (!shader)
+        return;
+
+    if (shader->Stage() == SHADER_VS)
+    {
+        for (auto it = shaderPrograms.Begin(); it != shaderPrograms.End();)
+        {
+            if (it->first.first == shader)
+                it = shaderPrograms.Erase(it);
+            else
+                ++it;
+        }
+    }
+    else
+    {
+        for (auto it = shaderPrograms.Begin(); it != shaderPrograms.End();)
+        {
+            if (it->first.second == shader)
+                it = shaderPrograms.Erase(it);
+            else
+                ++it;
+        }
+    }
 }
 
 void Graphics::HandleResize(WindowResizeEvent& /*event*/)
