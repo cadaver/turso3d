@@ -133,7 +133,7 @@ public:
             "\n"
             "void main()\n"
             "{\n"
-            "    //fragColor = color * texture(Texture0, vTexCoord);\n"
+            "    fragColor = color * texture(Texture0, vTexCoord);\n"
             "}\n";
 #endif
 

@@ -1,4 +1,4 @@
-// For conditions of distribution and use, see copyright notice in License.txt
+﻿// For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../../Debug/Log.h"
 #include "../../Debug/Profiler.h"
@@ -12,6 +12,8 @@
 
 namespace Turso3D
 {
+
+const size_t MAX_NAME_LENGTH = 256;
 
 ShaderProgram::ShaderProgram(ShaderVariation* vs_, ShaderVariation* ps_) :
     program(0),
@@ -88,6 +90,38 @@ bool ShaderProgram::Link()
     }
 
     LOGDEBUGF("Linked shaders %s and %s", vs->FullName().CString(), ps->FullName().CString());
+
+    char nameBuffer[MAX_NAME_LENGTH];
+    int numAttributes, numUniforms, numUniformBlocks, nameLength, numElements;
+    GLenum type;
+
+    glGetProgramiv(program, GL_ACTIVE_ATTRIBUTES, &numAttributes);
+    for (int i = 0; i < numAttributes; ++i)
+    {
+        glGetActiveAttrib(program, i, (GLsizei)MAX_NAME_LENGTH, &nameLength, &numElements, &type, nameBuffer);
+
+        String name(nameBuffer, nameLength);
+        //LOGINFOF("Attribute index %d: %s", i, name.CString());
+    }
+
+    glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &numUniforms);
+    for (int i = 0; i < numUniforms; ++i)
+    {
+        glGetActiveUniform(program, i, MAX_NAME_LENGTH, &nameLength, &numElements, &type, nameBuffer);
+
+        String name(nameBuffer, nameLength);
+        //LOGINFOF("Uniform index %d: %s (type %d)", i, name.CString(), type);
+    }
+
+    glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &numUniformBlocks);
+    for (int i = 0; i < numUniformBlocks; ++i)
+    {
+        glGetActiveUniformBlockName(program, i, (GLsizei)MAX_NAME_LENGTH, &nameLength, nameBuffer);
+        
+        String name(nameBuffer, nameLength);
+        //LOGINFOF("Uniform block %d: %s", i, name.CString());
+    }
+
     return true;
 }
 
