@@ -13,6 +13,7 @@ namespace Turso3D
 {
 
 IndexBuffer::IndexBuffer() :
+    buffer(0),
     numIndices(0),
     indexSize(0),
     usage(USAGE_DEFAULT)
@@ -29,7 +30,11 @@ void IndexBuffer::Release()
     if (graphics && graphics->GetIndexBuffer() == this)
         graphics->SetIndexBuffer(nullptr);
 
-    /// \todo Destroy OpenGL buffer
+    if (buffer)
+    {
+        glDeleteBuffers(1, &buffer);
+        buffer = 0;
+    }
 
     shadowData.Reset();
     numIndices = 0;
@@ -76,7 +81,16 @@ bool IndexBuffer::Define(ResourceUsage usage_, size_t numIndices_, size_t indexS
 
     if (graphics && graphics->IsInitialized())
     {
-        /// \todo Create OpenGL buffer
+        glGenBuffers(1, &buffer);
+        if (!buffer)
+        {
+            LOGERROR("Failed to create index buffer");
+            return false;
+        }
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, numIndices * indexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+        LOGDEBUGF("Created index buffer numIndices %u indexSize %u", (unsigned)numIndices, (unsigned)indexSize);
     }
 
     return true;
@@ -96,7 +110,7 @@ bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* dat
         LOGERROR("Out of bounds range for updating index buffer");
         return false;
     }
-    if (/*buffer && */ usage == USAGE_IMMUTABLE)
+    if (buffer && usage == USAGE_IMMUTABLE)
     {
         LOGERROR("Can not update immutable index buffer");
         return false;
@@ -105,7 +119,14 @@ bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* dat
     if (shadowData)
         memcpy(shadowData.Get() + firstIndex * indexSize, data, numIndices_ * indexSize);
 
-    /// \todo Set data to OpenGL buffer
+    if (buffer)
+    {
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer);
+        if (numIndices_ == numIndices)
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, numIndices * indexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+        else
+            glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, firstIndex * indexSize, numIndices * indexSize, data);
+    }
 
     return true;
 }

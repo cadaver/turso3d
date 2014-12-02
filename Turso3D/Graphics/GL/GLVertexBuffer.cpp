@@ -38,6 +38,7 @@ const char* VertexBuffer::elementSemantic[] = {
 };
 
 VertexBuffer::VertexBuffer() :
+    buffer(0),
     numVertices(0),
     vertexSize(0),
     elementHash(0),
@@ -61,7 +62,11 @@ void VertexBuffer::Release()
         }
     }
 
-    /// \todo Destroy OpenGL buffer
+    if (buffer)
+    {
+        glDeleteBuffers(1, &buffer);
+        buffer = 0;
+    }
 
     shadowData.Reset();
     elements.Clear();
@@ -134,7 +139,19 @@ bool VertexBuffer::Define(ResourceUsage usage_, size_t numVertices_, size_t numE
             memcpy(shadowData.Get(), data, numVertices * vertexSize);
     }
 
-    /// \todo Create OpenGL buffer
+    if (graphics && graphics->IsInitialized())
+    {
+        glGenBuffers(1, &buffer);
+        if (!buffer)
+        {
+            LOGERROR("Failed to create vertex buffer");
+            return false;
+        }
+
+        glBindBuffer(GL_ARRAY_BUFFER, buffer);
+        glBufferData(GL_ARRAY_BUFFER, numVertices * vertexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+        LOGDEBUGF("Created vertex buffer numVertices %u vertexSize %u", (unsigned)numVertices, (unsigned)vertexSize);
+    }
 
     return true;
 }
@@ -153,7 +170,7 @@ bool VertexBuffer::SetData(size_t firstVertex, size_t numVertices_, const void* 
         LOGERROR("Out of bounds range for updating vertex buffer");
         return false;
     }
-    if (/*buffer && */ usage == USAGE_IMMUTABLE)
+    if (buffer && usage == USAGE_IMMUTABLE)
     {
         LOGERROR("Can not update immutable vertex buffer");
         return false;
@@ -162,7 +179,14 @@ bool VertexBuffer::SetData(size_t firstVertex, size_t numVertices_, const void* 
     if (shadowData)
         memcpy(shadowData.Get() + firstVertex * vertexSize, data, numVertices_ * vertexSize);
 
-    /// \todo Apply to OpenGL buffer
+    if (buffer)
+    {
+        glBindBuffer(GL_ARRAY_BUFFER, buffer);
+        if (numVertices_ == numVertices)
+            glBufferData(GL_ARRAY_BUFFER, numVertices * vertexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+        else
+            glBufferSubData(GL_ARRAY_BUFFER, firstVertex * vertexSize, numVertices * vertexSize, data);
+    }
 
     return true;
 }

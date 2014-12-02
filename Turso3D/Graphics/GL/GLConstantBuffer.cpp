@@ -17,6 +17,7 @@ namespace Turso3D
 {
 
 ConstantBuffer::ConstantBuffer() :
+    buffer(0),
     byteSize(0),
     usage(USAGE_DEFAULT),
     dirty(false)
@@ -42,7 +43,11 @@ void ConstantBuffer::Release()
         }
     }
 
-    /// \todo Destroy OpenGL buffer
+    if (buffer)
+    {
+        glDeleteBuffers(1, &buffer);
+        buffer = 0;
+    }
 
     shadowData.Reset();
 }
@@ -138,18 +143,29 @@ bool ConstantBuffer::Apply()
 {
     if (usage == USAGE_IMMUTABLE)
     {
-        /*
+        if (!buffer)
+            return Create(shadowData.Get());
+        else
         {
             LOGERROR("Apply can only be called once on an immutable constant buffer");
             return false;
         }
-        */
     }
 
     if (!dirty)
         return true;
 
-    /// \todo Apply to OpenGL buffer
+    if (buffer)
+    {
+        /// \todo Investigate whether mapping or glBufferData / glBufferSubData gives better performance
+        glBindBuffer(GL_UNIFORM_BUFFER, buffer);
+        void* mappedData = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
+        if (mappedData)
+            memcpy(mappedData, shadowData.Get(), byteSize);
+        else
+            return false;
+        glUnmapBuffer(GL_UNIFORM_BUFFER);
+    }
 
     dirty = false;
     return true;
@@ -177,7 +193,15 @@ bool ConstantBuffer::Create(const void* data)
 
     if (graphics && graphics->IsInitialized())
     {
-        /// \todo Create OpenGL buffer
+        glGenBuffers(1, &buffer);
+        if (!buffer)
+        {
+            LOGERROR("Failed to create constant buffer");
+            return false;
+        }
+
+        glBindBuffer(GL_UNIFORM_BUFFER, buffer);
+        glBufferData(GL_UNIFORM_BUFFER, byteSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
     }
 
     return true;

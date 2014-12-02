@@ -3,6 +3,9 @@
 #pragma once
 
 #include "../../Turso3DConfig.h"
+
+#ifdef TURSO3D_OPENGL
+
 #include "../../Base/WeakPtr.h"
 
 namespace Turso3D
@@ -37,5 +40,7 @@ private:
     /// OpenGL context handle.
     void* contextHandle;
 };
+
+#endif
 
 }

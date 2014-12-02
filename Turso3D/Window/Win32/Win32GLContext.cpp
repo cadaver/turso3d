@@ -1,5 +1,9 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
+#include "../../Turso3DConfig.h"
+
+#ifdef TURSO3D_OPENGL
+
 #include "../../Base/WString.h"
 #include "../../Debug/Log.h"
 #include "Win32GLContext.h"
@@ -220,3 +224,5 @@ void GLContext::Present()
 }
 
 }
+
+#endif
