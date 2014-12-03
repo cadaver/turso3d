@@ -217,8 +217,9 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
         {
             ShaderProgram* newProgram = new ShaderProgram(vertexShader, pixelShader);
             shaderPrograms[key] = newProgram;
-            if (newProgram->Link())
-                glUseProgram(newProgram->ProgramObject());
+            // Note: if the linking is successful, glUseProgram() will have been called
+            if (!newProgram->Link())
+                glUseProgram(0);
         }
     }
     else

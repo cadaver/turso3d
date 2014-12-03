@@ -5,6 +5,7 @@
 #include "GLGraphics.h"
 #include "GLShaderProgram.h"
 #include "GLShaderVariation.h"
+#include "GLVertexBuffer.h"
 
 #include <flextGL.h>
 
@@ -18,8 +19,7 @@ const size_t MAX_NAME_LENGTH = 256;
 ShaderProgram::ShaderProgram(ShaderVariation* vs_, ShaderVariation* ps_) :
     program(0),
     vs(vs_),
-    ps(ps_),
-    linked(false)
+    ps(ps_)
 {
 }
 
@@ -35,26 +35,24 @@ void ShaderProgram::Release()
         glDeleteProgram(program);
         program = 0;
     }
-
-    linked = false;
 }
 
 bool ShaderProgram::Link()
 {
-    if (linked)
-        return program != 0;
-
     PROFILE(LinkShaderProgram);
 
-    // Do not retry without a Release() inbetween
-    linked = true;
+    Release();
 
+    if (!graphics || !graphics->IsInitialized())
+    {
+        LOGERROR("Can not link shader program without initialized Graphics subsystem");
+        return false;
+    }
     if (!vs || !ps)
     {
         LOGERROR("Shader(s) are null, can not link shader program");
         return false;
     }
-
     if (!vs->ShaderObject() || !ps->ShaderObject())
     {
         LOGERROR("Shaders have not been compiled, can not link shader program");
@@ -85,15 +83,19 @@ bool ShaderProgram::Link()
         glDeleteProgram(program);
         program = 0;
 
-        LOGERRORF("Could not link shaders %s and %s: %s", vs->FullName().CString(), ps->FullName().CString(), errorString.CString());
+        LOGERRORF("Could not link shaders %s: %s", FullName().CString(), errorString.CString());
         return false;
     }
 
-    LOGDEBUGF("Linked shaders %s and %s", vs->FullName().CString(), ps->FullName().CString());
+    LOGDEBUGF("Linked shaders %s", FullName().CString());
+
+    glUseProgram(program);
 
     char nameBuffer[MAX_NAME_LENGTH];
     int numAttributes, numUniforms, numUniformBlocks, nameLength, numElements;
     GLenum type;
+
+    attributes.Clear();
 
     glGetProgramiv(program, GL_ACTIVE_ATTRIBUTES, &numAttributes);
     for (int i = 0; i < numAttributes; ++i)
@@ -101,7 +103,28 @@ bool ShaderProgram::Link()
         glGetActiveAttrib(program, i, (GLsizei)MAX_NAME_LENGTH, &nameLength, &numElements, &type, nameBuffer);
 
         String name(nameBuffer, nameLength);
-        //LOGINFOF("Attribute index %d: %s", i, name.CString());
+        const char** semantics = VertexBuffer::elementSemantic;
+        Pair<ElementSemantic, unsigned char> newAttribute;
+        newAttribute.first = SEM_POSITION;
+        newAttribute.second = 0;
+
+        while (*semantics)
+        {
+            if (name.StartsWith(*semantics, false))
+            {
+                String indexStr = name.Substring(String::CStringLength(*semantics));
+                if (indexStr.Length())
+                    newAttribute.second = (unsigned char)indexStr.ToInt();
+                break;
+            }
+            newAttribute.first = (ElementSemantic)(newAttribute.first + 1);
+            ++semantics;
+        }
+
+        if (newAttribute.first == SEM_UNKNOWN)
+            LOGWARNINGF("Found vertex attribute %s with no known semantic in shader program %s", name.CString(), FullName().CString());
+        
+        attributes.Push(newAttribute);
     }
 
     glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &numUniforms);
@@ -110,7 +133,13 @@ bool ShaderProgram::Link()
         glGetActiveUniform(program, i, MAX_NAME_LENGTH, &nameLength, &numElements, &type, nameBuffer);
 
         String name(nameBuffer, nameLength);
-        //LOGINFOF("Uniform index %d: %s (type %d)", i, name.CString(), type);
+        if (type >= GL_SAMPLER_1D && type <= GL_SAMPLER_2D_SHADOW)
+        {
+            // Assign sampler uniforms to a texture unit according to the number appended to the sampler name
+            int location = glGetUniformLocation(program, name.CString());
+            int unit = name.ToInt();
+            glUniform1iv(location, 1, &unit);
+        }
     }
 
     glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &numUniformBlocks);
@@ -133,6 +162,11 @@ ShaderVariation* ShaderProgram::VertexShader() const
 ShaderVariation* ShaderProgram::PixelShader() const
 {
     return ps;
+}
+
+String ShaderProgram::FullName() const
+{
+    return (vs && ps) ? vs->FullName() + " " + ps->FullName() : String::EMPTY;
 }
 
 }

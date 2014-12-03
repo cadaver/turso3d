@@ -48,7 +48,8 @@ enum ElementSemantic
     SEM_TEXCOORD,
     SEM_COLOR,
     SEM_BLENDWEIGHT,
-    SEM_BLENDINDICES
+    SEM_BLENDINDICES,
+    SEM_UNKNOWN
 };
 
 /// Primitive types.

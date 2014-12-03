@@ -105,14 +105,14 @@ bool ShaderVariation::Compile()
     // Do not retry without a Release() inbetween
     compiled = true;
 
-    if (!parent)
-    {
-        LOGERROR("Can not compile shader without parent shader resource");
-        return false;
-    }
     if (!graphics || !graphics->IsInitialized())
     {
         LOGERROR("Can not compile shader without initialized Graphics subsystem");
+        return false;
+    }
+    if (!parent)
+    {
+        LOGERROR("Can not compile shader without parent shader resource");
         return false;
     }
 

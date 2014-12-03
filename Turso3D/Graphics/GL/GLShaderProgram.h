@@ -24,15 +24,17 @@ public:
     /// Release the linked shader program.
     void Release() override;
 
-    /// Attempt to link the shaders. Return true on success.
+    /// Attempt to link the shaders. Return true on success. Note: the shader program is bound if linking is successful.
     bool Link();
 
     /// Return the vertex shader.
     ShaderVariation* VertexShader() const;
     /// Return the pixel shader.
     ShaderVariation* PixelShader() const;
-    /// Return whether linking attempted.
-    bool IsLinked() const { return linked; }
+    /// Return vertex attribute semantics and indices.
+    const Vector<Pair<ElementSemantic, unsigned char> >& Attributes() const { return attributes; }
+    /// Return combined name of the shader program.
+    String FullName() const;
 
     /// Return the OpenGL shader program. Used internally and should not be called by portable application code.
     unsigned ProgramObject() const { return program; }
@@ -44,8 +46,8 @@ private:
     WeakPtr<ShaderVariation> vs;
     /// Pixel shader.
     WeakPtr<ShaderVariation> ps;
-    /// Linking attempted flag.
-    bool linked;
+    /// Vertex attribute semantics and indices.
+    Vector<Pair<ElementSemantic, unsigned char> > attributes;
 };
 
 }
