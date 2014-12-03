@@ -2,6 +2,7 @@
 
 #include "../../Debug/Log.h"
 #include "../../Debug/Profiler.h"
+#include "../Shader.h"
 #include "GLGraphics.h"
 #include "GLShaderProgram.h"
 #include "GLShaderVariation.h"
@@ -58,6 +59,9 @@ bool ShaderProgram::Link()
         LOGERROR("Shaders have not been compiled, can not link shader program");
         return false;
     }
+    
+    const String& vsSourceCode = vs->Parent() ? vs->Parent()->SourceCode() : String::EMPTY;
+    const String& psSourceCode = ps->Parent() ? ps->Parent()->SourceCode() : String::EMPTY;
 
     program = glCreateProgram();
     if (!program)
@@ -147,8 +151,23 @@ bool ShaderProgram::Link()
     {
         glGetActiveUniformBlockName(program, i, (GLsizei)MAX_NAME_LENGTH, &nameLength, nameBuffer);
         
+        // Determine whether uniform block belongs to vertex or pixel shader
         String name(nameBuffer, nameLength);
-        //LOGINFOF("Uniform block %d: %s", i, name.CString());
+        bool foundVs = vsSourceCode.Contains(name);
+        bool foundPs = psSourceCode.Contains(name);
+        if (foundVs && foundPs)
+        {
+            LOGWARNINGF("Found uniform block %s in both vertex and pixel shader in shader program %s");
+            continue;
+        }
+
+        // Vertex shader constant buffer bindings occupy slots starting from zero to maximum supported, pixel shader bindings
+        // from that point onward
+        unsigned blockIndex = glGetUniformBlockIndex(program, name.CString());
+        unsigned bindingIndex = name.ToUInt();
+        if (foundPs)
+            bindingIndex += graphics->NumVSConstantBuffers();
+        glUniformBlockBinding(program, blockIndex, bindingIndex);
     }
 
     return true;

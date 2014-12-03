@@ -137,6 +137,10 @@ public:
     IntRect ScissorRect() const { return scissorRect; }
     /// Return current stencil ref value.
     unsigned StencilRef() const { return stencilRef; }
+    /// Return number of supported constant buffer bindings for vertex shaders.
+    int NumVSConstantBuffers() const { return vsConstantBuffers; }
+    /// Return number of supported constant buffer bindings for pixel shaders.
+    int NumPSConstantBuffers() const { return psConstantBuffers; }
 
     /// Register a GPU object to keep track of.
     void AddGPUObject(GPUObject* object);
@@ -201,6 +205,10 @@ private:
     IntRect scissorRect;
     /// Current stencil ref value.
     unsigned stencilRef;
+    /// Number of supported constant buffer bindings for vertex shaders.
+    int vsConstantBuffers;
+    /// Number of supported constant buffer bindings for pixel shaders.
+    int psConstantBuffers;
     /// Fullscreen flag.
     bool fullscreen;
     /// Vertical sync flag.

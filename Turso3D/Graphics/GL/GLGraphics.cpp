@@ -58,9 +58,13 @@ bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
             context.Reset();
             return false;
         }
+
+        // Query OpenGL capabilities
+        glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, &vsConstantBuffers);
+        glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, &psConstantBuffers);
     }
 
-    /// \todo Set screen mode
+    /// \todo Set fullscreen screen mode
 }
 
 bool Graphics::SetFullscreen(bool enable)
