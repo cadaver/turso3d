@@ -25,9 +25,9 @@ class VertexBuffer;
 class Window;
 class WindowResizeEvent;
 
-typedef Pair<unsigned long long, unsigned> InputLayoutDesc;
-typedef HashMap<InputLayoutDesc, void*> InputLayoutMap;
 typedef HashMap<Pair<ShaderVariation*, ShaderVariation*>, AutoPtr<ShaderProgram> > ShaderProgramMap;
+
+static const size_t MAX_VERTEX_ATTRIBUTES = 16;
 
 /// 3D graphics rendering context. Manages the rendering window and GPU objects.
 class TURSO3D_API Graphics : public Object
@@ -138,9 +138,9 @@ public:
     /// Return current stencil ref value.
     unsigned StencilRef() const { return stencilRef; }
     /// Return number of supported constant buffer bindings for vertex shaders.
-    int NumVSConstantBuffers() const { return vsConstantBuffers; }
+    size_t NumVSConstantBuffers() const { return vsConstantBuffers; }
     /// Return number of supported constant buffer bindings for pixel shaders.
-    int NumPSConstantBuffers() const { return psConstantBuffers; }
+    size_t NumPSConstantBuffers() const { return psConstantBuffers; }
 
     /// Register a GPU object to keep track of.
     void AddGPUObject(GPUObject* object);
@@ -148,12 +148,16 @@ public:
     void RemoveGPUObject(GPUObject* object);
     /// Cleanup shader programs when a vertex or pixel shader is destroyed.
     void CleanupShaderPrograms(ShaderVariation* shader);
+    /// Bind a VBO for editing or applying as a vertex source. Avoids redundant assignment.
+    void BindVBO(unsigned vbo);
+    /// Return the currently bound VBO.
+    unsigned BoundVBO() const { return boundVBO; }
 
 private:
     /// Resize the backbuffer when window size changes.
     void HandleResize(WindowResizeEvent& event);
     /// Prepare to execute a draw call.
-    void PrepareDraw(PrimitiveType type);
+    void PrepareDraw(bool instanced = false, size_t instanceStart = 0);
     /// Reset internally tracked state.
     void ResetState();
 
@@ -169,12 +173,16 @@ private:
     IntRect viewport;
     /// GPU objects.
     Vector<GPUObject*> gpuObjects;
-    /// Input layouts.
-    InputLayoutMap inputLayouts;
     /// Shader programs.
     ShaderProgramMap shaderPrograms;
     /// Bound vertex buffers.
     VertexBuffer* vertexBuffers[MAX_VERTEX_STREAMS];
+    /// Enabled vertex attributes.
+    bool vertexAttributes[MAX_VERTEX_ATTRIBUTES];
+    /// Vertex attribute instancing divisors.
+    unsigned vertexAttributeDivisors[MAX_VERTEX_ATTRIBUTES];
+    /// Current mapping of vertex attributes by semantic
+    Vector<Vector<unsigned> > attributeBySemantic;
     /// Bound index buffer.
     IndexBuffer* indexBuffer;
     /// Bound constant buffers by shader stage.
@@ -203,26 +211,28 @@ private:
     RasterizerState* rasterizerState;
     /// Current primitive type.
     PrimitiveType primitiveType;
-    /// Current input layout: vertex buffers' element mask and vertex shader's element mask combined.
-    InputLayoutDesc inputLayout;
     /// Current scissor rectangle.
     IntRect scissorRect;
     /// Current stencil ref value.
     unsigned stencilRef;
     /// Number of supported constant buffer bindings for vertex shaders.
-    int vsConstantBuffers;
+    size_t vsConstantBuffers;
     /// Number of supported constant buffer bindings for pixel shaders.
-    int psConstantBuffers;
+    size_t psConstantBuffers;
     /// Last used OpenGL texture unit.
     unsigned activeTexture;
+    /// Last bound vertex buffer object.
+    unsigned boundVBO;
     /// Fullscreen flag.
     bool fullscreen;
     /// Vertical sync flag.
     bool vsync;
     /// Resize handling flag to prevent recursion.
     bool inResize;
-    /// Input layout dirty flag.
-    bool inputLayoutDirty;
+    /// Vertex attributes dirty (shader program changed) flag.
+    bool vertexAttributesDirty;
+    /// Vertex buffers dirty flag.
+    bool vertexBuffersDirty;
 };
 
 /// Register Graphics related object factories and attributes.

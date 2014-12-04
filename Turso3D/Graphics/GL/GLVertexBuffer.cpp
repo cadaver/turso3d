@@ -64,6 +64,9 @@ void VertexBuffer::Release()
 
     if (buffer)
     {
+        if (graphics && graphics->BoundVBO() == buffer)
+            graphics->BindVBO(0);
+
         glDeleteBuffers(1, &buffer);
         buffer = 0;
     }
@@ -148,7 +151,7 @@ bool VertexBuffer::Define(ResourceUsage usage_, size_t numVertices_, size_t numE
             return false;
         }
 
-        glBindBuffer(GL_ARRAY_BUFFER, buffer);
+        graphics->BindVBO(buffer);
         glBufferData(GL_ARRAY_BUFFER, numVertices * vertexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
         LOGDEBUGF("Created vertex buffer numVertices %u vertexSize %u", (unsigned)numVertices, (unsigned)vertexSize);
     }
@@ -181,7 +184,7 @@ bool VertexBuffer::SetData(size_t firstVertex, size_t numVertices_, const void* 
 
     if (buffer)
     {
-        glBindBuffer(GL_ARRAY_BUFFER, buffer);
+        graphics->BindVBO(buffer);
         if (numVertices_ == numVertices)
             glBufferData(GL_ARRAY_BUFFER, numVertices * vertexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
         else

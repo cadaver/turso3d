@@ -88,7 +88,7 @@ bool IndexBuffer::Define(ResourceUsage usage_, size_t numIndices_, size_t indexS
             return false;
         }
 
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer);
+        graphics->SetIndexBuffer(this);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, numIndices * indexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
         LOGDEBUGF("Created index buffer numIndices %u indexSize %u", (unsigned)numIndices, (unsigned)indexSize);
     }
@@ -121,7 +121,7 @@ bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* dat
 
     if (buffer)
     {
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer);
+        graphics->SetIndexBuffer(this);
         if (numIndices_ == numIndices)
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, numIndices * indexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
         else

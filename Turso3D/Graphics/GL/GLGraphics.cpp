@@ -25,9 +25,44 @@
 namespace Turso3D
 {
 
+static const unsigned elementGLType[] =
+{
+    GL_INT,
+    GL_FLOAT,
+    GL_FLOAT,
+    GL_FLOAT,
+    GL_FLOAT,
+    GL_UNSIGNED_BYTE,
+    GL_FLOAT,
+    GL_FLOAT
+};
+
+static const unsigned elementGLComponents[] =
+{
+    1,
+    1,
+    2,
+    3,
+    4,
+    4,
+    12,
+    16
+};
+
+static const unsigned glPrimitiveType[] = 
+{
+    0,
+    GL_POINTS,
+    GL_LINES,
+    GL_LINE_STRIP,
+    GL_TRIANGLES,
+    GL_TRIANGLE_STRIP
+};
+
 Graphics::Graphics() :
     backbufferSize(IntVector2::ZERO),
     renderTargetSize(IntVector2::ZERO),
+    attributeBySemantic(MAX_ELEMENT_SEMANTICS),
     fullscreen(false),
     vsync(false),
     inResize(false)
@@ -62,8 +97,17 @@ bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
         context->SetVSync(vsync);
 
         // Query OpenGL capabilities
-        glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, &vsConstantBuffers);
-        glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, &psConstantBuffers);
+        int numBlocks;
+        glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, &numBlocks);
+        vsConstantBuffers = numBlocks;
+        glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, &numBlocks);
+        psConstantBuffers = numBlocks;
+
+        // Create and bind a vertex array object that will stay in use throughout
+        /// \todo Investigate performance gain of using multiple VAO's
+        unsigned vertexArrayObject;
+        glGenVertexArrays(1, &vertexArrayObject);
+        glBindVertexArray(vertexArrayObject);
     }
 
     /// \todo Set fullscreen screen mode
@@ -156,7 +200,7 @@ void Graphics::SetVertexBuffer(size_t index, VertexBuffer* buffer)
     if (index < MAX_VERTEX_STREAMS && buffer != vertexBuffers[index])
     {
         vertexBuffers[index] = buffer;
-        inputLayoutDirty = true;
+        vertexBuffersDirty = true;
     }
 }
 
@@ -218,7 +262,7 @@ void Graphics::SetIndexBuffer(IndexBuffer* buffer)
     if (indexBuffer != buffer)
     {
         indexBuffer = buffer;
-        /// \todo Manage OpenGL index buffer change
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer ? buffer->BufferObject() : 0);
     }
 }
 
@@ -278,6 +322,8 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
         shaderProgram = nullptr;
         glUseProgram(0);
     }
+
+    vertexAttributesDirty = true;
 }
 
 void Graphics::SetBlendState(BlendState* state)
@@ -364,26 +410,58 @@ void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDe
 
 void Graphics::Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount)
 {
-    PrepareDraw(type);
-    /// \todo Implement
+    PrepareDraw();
+    glDrawArrays(glPrimitiveType[type], (unsigned)vertexStart, (unsigned)vertexCount);
 }
 
 void Graphics::Draw(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart)
 {
-    PrepareDraw(type);
-    /// \todo Implement
+    if (!indexBuffer)
+        return;
+    
+    size_t indexSize = indexBuffer->IndexSize();
+
+    PrepareDraw();
+    if (!vertexStart)
+    {
+        glDrawElements(glPrimitiveType[type], (unsigned)indexCount, indexSize == sizeof(unsigned short) ? GL_UNSIGNED_SHORT :
+            GL_UNSIGNED_INT, (const void*)(indexStart * indexSize));
+    }
+    else
+    {
+        glDrawElementsBaseVertex(glPrimitiveType[type], (unsigned)indexCount, indexSize == sizeof(unsigned short) ?
+            GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, (const void*)(indexStart * indexSize), (unsigned)vertexStart);
+    }
+
 }
 
-void Graphics::DrawInstanced(PrimitiveType type, size_t vertexStart, size_t vertexCount, size_t instanceStart, size_t instanceCount)
+void Graphics::DrawInstanced(PrimitiveType type, size_t vertexStart, size_t vertexCount, size_t instanceStart, size_t
+    instanceCount)
 {
-    PrepareDraw(type);
-    /// \todo Implement
+    PrepareDraw(true, instanceStart);
+    glDrawArraysInstanced(glPrimitiveType[type], (unsigned)vertexStart, (unsigned)vertexCount, (unsigned)instanceCount);
 }
 
-void Graphics::DrawInstanced(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart, size_t instanceStart, size_t instanceCount)
+void Graphics::DrawInstanced(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart, size_t instanceStart,
+    size_t instanceCount)
 {
-    PrepareDraw(type);
-    /// \todo Implement
+    if (!indexBuffer)
+        return;
+
+    size_t indexSize = indexBuffer->IndexSize();
+
+    PrepareDraw(true, instanceStart);
+    if (!vertexStart)
+    {
+        glDrawElementsInstanced(glPrimitiveType[type], (unsigned)indexCount, indexSize == sizeof(unsigned short) ?
+            GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, (const void*)(indexStart * indexSize), (unsigned)instanceCount);
+    }
+    else
+    {
+        glDrawElementsInstancedBaseVertex(glPrimitiveType[type], (unsigned)indexCount, indexSize == sizeof(unsigned short) ?
+            GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, (const void*)(indexStart * indexSize), (unsigned)instanceCount, 
+            (unsigned)vertexStart);
+    }
 }
 
 bool Graphics::IsInitialized() const
@@ -468,21 +546,114 @@ void Graphics::CleanupShaderPrograms(ShaderVariation* shader)
     }
 }
 
+void Graphics::BindVBO(unsigned vbo)
+{
+    if (vbo != boundVBO)
+    {
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        boundVBO = vbo;
+    }
+}
+
 void Graphics::HandleResize(WindowResizeEvent& /*event*/)
 {
     // Handle windowed mode resize
     /// \todo Implement
 }
 
-void Graphics::PrepareDraw(PrimitiveType type)
+void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
 {
-    /// \todo Implement
+    if (vertexAttributesDirty && shaderProgram)
+    {
+        for (size_t i = 0; i < attributeBySemantic.Size(); ++i)
+            attributeBySemantic[i].Clear();
+
+        const Vector<ElementSemanticWithIndex>& shaderAttributes = shaderProgram->Attributes();
+
+        // Enable attributes which are used by the shader and map to a known semantic, disable the rest
+        for (size_t i = 0; i < MAX_VERTEX_ATTRIBUTES; ++i)
+        {
+            if (i < shaderAttributes.Size() && shaderAttributes[i].first < MAX_ELEMENT_SEMANTICS)
+            {
+                const ElementSemanticWithIndex& attribute = shaderAttributes[i];
+
+                if (!vertexAttributes[i])
+                {
+                    glEnableVertexAttribArray(i);
+                    vertexAttributes[i] = true;
+                }
+                // Mark semantic as required
+                if (attributeBySemantic[attribute.first].Size() <= attribute.second)
+                    attributeBySemantic[attribute.first].Resize(attribute.second + 1);
+                attributeBySemantic[attribute.first][attribute.second] = (unsigned)i;
+            }
+            else if (vertexAttributes[i])
+            {
+                glDisableVertexAttribArray(i);
+                vertexAttributes[i] = false;
+            }
+        }
+
+        vertexAttributesDirty = false;
+        vertexBuffersDirty = true;
+    }
+
+    if (vertexBuffersDirty || instanced)
+    {
+        // Now go through currently bound vertex buffers and set the attribute pointers that are available & required
+        for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
+        {
+            if (vertexBuffers[i])
+            {
+                VertexBuffer* buffer = vertexBuffers[i];
+                const Vector<VertexElement>& elements = buffer->Elements();
+
+                for (size_t j = 0; j < elements.Size(); ++j)
+                {
+                    const VertexElement& element = elements[j];
+                    if (element.index < attributeBySemantic[element.semantic].Size())
+                    {
+                        // If making several instanced draw calls with the same vertex buffers, only need to update the instancing
+                        // data attribute pointers
+                        if (!vertexBuffersDirty && instanced && element.perInstance)
+                            continue;
+
+                        BindVBO(buffer->BufferObject());
+
+                        unsigned attributeIndex = attributeBySemantic[element.semantic][element.index];
+                        size_t dataStart = element.offset;
+                        if (element.perInstance)
+                            dataStart += instanceStart * buffer->VertexSize();
+
+                        glVertexAttribPointer(attributeIndex, elementGLComponents[element.type], elementGLType[element.type],
+                            element.semantic == SEM_COLOR ? GL_TRUE : GL_FALSE, buffer->VertexSize(),
+                            (const void *)dataStart);
+
+                        unsigned divisor = element.perInstance ? 1 : 0;
+                        if (divisor != vertexAttributeDivisors[attributeIndex])
+                        {
+                            glVertexAttribDivisorARB(attributeIndex, divisor);
+                            vertexAttributeDivisors[attributeIndex] = divisor;
+                        }
+                    }
+                }
+            }
+        }
+
+        vertexBuffersDirty = false;
+    }
 }
 
 void Graphics::ResetState()
 {
     for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
         vertexBuffers[i] = nullptr;
+
+    for (size_t i = 0; i < MAX_VERTEX_ATTRIBUTES; ++i)
+    {
+        vertexAttributes[i] = false;
+        vertexAttributeDivisors[i] = 0;
+    }
 
     for (size_t i = 0; i < MAX_SHADER_STAGES; ++i)
     {
@@ -503,13 +674,13 @@ void Graphics::ResetState()
     blendState = nullptr;
     depthState = nullptr;
     rasterizerState = nullptr;
-    inputLayout.first = 0;
-    inputLayout.second = 0;
-    inputLayoutDirty = false;
+    vertexAttributesDirty = false;
+    vertexBuffersDirty = false;
     primitiveType = MAX_PRIMITIVE_TYPES;
     scissorRect = IntRect();
     stencilRef = 0;
     activeTexture = 0;
+    boundVBO = 0;
 }
 
 void RegisterGraphicsLibrary()

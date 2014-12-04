@@ -12,6 +12,8 @@ namespace Turso3D
 class Graphics;
 class ShaderVariation;
 
+typedef Pair<ElementSemantic, unsigned char> ElementSemanticWithIndex;
+
 /// Linked shader program consisting of vertex and pixel shaders.
 class ShaderProgram : public GPUObject
 {
@@ -32,7 +34,7 @@ public:
     /// Return the pixel shader.
     ShaderVariation* PixelShader() const;
     /// Return vertex attribute semantics and indices.
-    const Vector<Pair<ElementSemantic, unsigned char> >& Attributes() const { return attributes; }
+    const Vector<ElementSemanticWithIndex>& Attributes() const { return attributes; }
     /// Return vertex element hash code.
     unsigned ElementHash() const { return elementHash; }
     /// Return combined name of the shader program.
@@ -49,7 +51,7 @@ private:
     /// Pixel shader.
     WeakPtr<ShaderVariation> ps;
     /// Vertex attribute semantics and indices.
-    Vector<Pair<ElementSemantic, unsigned char> > attributes;
+    Vector<ElementSemanticWithIndex> attributes;
     /// element hash code.
     unsigned elementHash;
 };

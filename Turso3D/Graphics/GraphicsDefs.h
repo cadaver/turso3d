@@ -27,7 +27,7 @@ enum ShaderStage
 /// Element types for constant buffers and vertex elements.
 enum ElementType
 {
-    ELEM_INT,
+    ELEM_INT = 0,
     ELEM_FLOAT,
     ELEM_VECTOR2,
     ELEM_VECTOR3,
