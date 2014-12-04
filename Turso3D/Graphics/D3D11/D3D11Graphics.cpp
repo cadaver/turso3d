@@ -744,7 +744,7 @@ void Graphics::PrepareDraw(PrimitiveType type)
                         D3D11_INPUT_ELEMENT_DESC newDesc;
                         newDesc.SemanticName = VertexBuffer::elementSemantic[element.semantic];
                         newDesc.SemanticIndex = element.index;
-                        newDesc.Format = (DXGI_FORMAT)VertexBuffer::elementFormat[element.type];
+                        newDesc.Format = (DXGI_FORMAT)VertexBuffer::d3dElementFormat[element.type];
                         newDesc.InputSlot = (unsigned)i;
                         newDesc.AlignedByteOffset = (unsigned)element.offset;
                         newDesc.InputSlotClass = element.perInstance ? D3D11_INPUT_PER_INSTANCE_DATA : D3D11_INPUT_PER_VERTEX_DATA;

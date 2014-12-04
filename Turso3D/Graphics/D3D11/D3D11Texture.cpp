@@ -378,7 +378,7 @@ bool Texture::DefineSampler(TextureFilterMode filter, TextureAddressMode u, Text
 
 bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
 {
-    PROFILE(UpdateTexture);
+    PROFILE(UpdateTextureLevel);
 
     if (texture)
     {
@@ -387,20 +387,13 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
             LOGERROR("Can not update immutable texture");
             return false;
         }
-        if (level > numLevels)
+        if (level >= numLevels)
         {
             LOGERROR("Mipmap level to update out of bounds");
             return false;
         }
 
-        IntRect levelRect(0, 0, width, height);
-        size_t levelCounter = level;
-        while (levelCounter--)
-        {
-            levelRect.right >>= 1;
-            levelRect.bottom >>= 1;
-        }
-
+        IntRect levelRect(0, 0, Max(width >> level, 1), Max(height >> level, 1));
         if (levelRect.IsInside(rect) != INSIDE)
         {
             LOGERROR("Texture update region is outside level");

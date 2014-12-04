@@ -25,17 +25,6 @@ const size_t VertexBuffer::elementSize[] =
     sizeof(Matrix4)
 };
 
-const unsigned VertexBuffer::elementFormat[] = {
-    DXGI_FORMAT_R32_SINT,
-    DXGI_FORMAT_R32_FLOAT,
-    DXGI_FORMAT_R32G32_FLOAT,
-    DXGI_FORMAT_R32G32B32_FLOAT,
-    DXGI_FORMAT_R32G32B32A32_FLOAT,
-    DXGI_FORMAT_R8G8B8A8_UNORM,
-    DXGI_FORMAT_R32G32B32A32_FLOAT, // Incorrect, but included to not cause out-of-range indexing
-    DXGI_FORMAT_R32G32B32A32_FLOAT  //                          --||--
-};
-
 const char* VertexBuffer::elementSemantic[] = {
     "POSITION",
     "NORMAL",
@@ -46,6 +35,17 @@ const char* VertexBuffer::elementSemantic[] = {
     "BLENDWEIGHT",
     "BLENDINDICES",
     nullptr
+};
+
+const unsigned VertexBuffer::d3dElementFormat[] = {
+    DXGI_FORMAT_R32_SINT,
+    DXGI_FORMAT_R32_FLOAT,
+    DXGI_FORMAT_R32G32_FLOAT,
+    DXGI_FORMAT_R32G32B32_FLOAT,
+    DXGI_FORMAT_R32G32B32A32_FLOAT,
+    DXGI_FORMAT_R8G8B8A8_UNORM,
+    DXGI_FORMAT_R32G32B32A32_FLOAT, // Incorrect, but included to not cause out-of-range indexing
+    DXGI_FORMAT_R32G32B32A32_FLOAT  //                          --||--
 };
 
 VertexBuffer::VertexBuffer() :

@@ -48,6 +48,8 @@ public:
     int Height() const { return height; }
     /// Return image format.
     ImageFormat Format() const { return format; }
+    /// Return whether uses a compressed format.
+    bool IsCompressed() const { return format >= FMT_DXT1; }
     /// Return number of mipmap levels.
     size_t NumLevels() const { return numLevels; }
     /// Return resource usage type.
@@ -68,6 +70,12 @@ public:
 
     /// OpenGL binding targets by texture type.
     static unsigned glTarget[];
+    /// OpenGL texture internal formats by image format.
+    static unsigned glInternalFormat[];
+    /// OpenGL texture external formats by image format.
+    static unsigned glFormat[];
+    /// OpenGL texture data types by image format.
+    static unsigned glDataType[];
 
 private:
     /// OpenGL texture object identifier.

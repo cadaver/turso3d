@@ -38,7 +38,7 @@ enum ImageFormat
     FMT_PVRTC_RGB_2BPP,
     FMT_PVRTC_RGBA_2BPP,
     FMT_PVRTC_RGB_4BPP,
-    FMT_PVRTC_RGBA_4BPP,
+    FMT_PVRTC_RGBA_4BPP
 };
 
 /// Description of image mip level data.
@@ -98,18 +98,21 @@ public:
     size_t PixelByteSize() const { return pixelByteSize[format]; } 
     /// Return pixel data.
     unsigned char* Data() const { return data; }
-    /// Return whether is a compressed image.
-    bool IsCompressed() const { return format >= FMT_DXT1; }
     /// Return the image format.
     ImageFormat Format() const { return format; }
+    /// Return whether is a compressed image.
+    bool IsCompressed() const { return format >= FMT_DXT1; }
     /// Return number of mip levels. Always 1 for uncompressed images.
     size_t NumLevels() const { return numLevels; }
-    /// Calculate the next mip image with halved with and height. Supports uncompressed images only. Return true on success.
+    /// Calculate the next mip image with halved width and height. Supports uncompressed images only. Return true on success.
     bool GenerateMipImage(Image& dest) const;
     /// Return the data for a mip level. Uncompressed images can only return the first (index 0) level.
     ImageLevel Level(size_t levelIndex) const;
     /// Decompress a mip level as 8-bit RGBA. Supports compressed images only. Return true on success.
     bool DecompressLevel(unsigned char* dest, size_t levelIndex) const;
+
+    /// Calculate the data size of an image level. Also handles compressed formats.
+    static size_t DataSize(int width, int height, ImageFormat format);
 
     /// Pixel byte sizes per format.
     static const size_t pixelByteSize[];

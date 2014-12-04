@@ -108,6 +108,10 @@ bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
         unsigned vertexArrayObject;
         glGenVertexArrays(1, &vertexArrayObject);
         glBindVertexArray(vertexArrayObject);
+
+        // Set up texture data read/write alignment. It is important that this is done before uploading any texture data
+        glPixelStorei(GL_PACK_ALIGNMENT, 1);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     }
 
     /// \todo Set fullscreen screen mode

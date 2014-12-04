@@ -1,2 +1,3 @@
 version 3.2 core
 extension ARB_instanced_arrays required
+extension EXT_texture_compression_s3tc required

@@ -911,6 +911,13 @@ typedef struct __GLsync *GLsync;
 
 #define GL_VERTEX_ATTRIB_ARRAY_DIVISOR_ARB 0x88FE
 
+/* GL_EXT_texture_compression_s3tc */
+
+#define GL_COMPRESSED_RGB_S3TC_DXT1_EXT 0x83F0
+#define GL_COMPRESSED_RGBA_S3TC_DXT1_EXT 0x83F1
+#define GL_COMPRESSED_RGBA_S3TC_DXT3_EXT 0x83F2
+#define GL_COMPRESSED_RGBA_S3TC_DXT5_EXT 0x83F3
+
 /* --------------------------- FUNCTION PROTOTYPES --------------------------- */
 
 
@@ -1811,6 +1818,12 @@ GLAPI PFNGLVERTEXATTRIBDIVISORARB_PROC *glpfVertexAttribDivisorARB;
 #define glVertexAttribDivisorARB glpfVertexAttribDivisorARB
 
 
+/* GL_EXT_texture_compression_s3tc */
+
+
+
+
+
 /* --------------------------- CATEGORY DEFINES ------------------------------ */
 
 #define GL_VERSION_1_0
@@ -1825,10 +1838,12 @@ GLAPI PFNGLVERTEXATTRIBDIVISORARB_PROC *glpfVertexAttribDivisorARB;
 #define GL_VERSION_3_1
 #define GL_VERSION_3_2
 #define GL_ARB_instanced_arrays
+#define GL_EXT_texture_compression_s3tc
 
 /* ---------------------- Flags for optional extensions ---------------------- */
 
 extern int FLEXT_ARB_instanced_arrays;
+extern int FLEXT_EXT_texture_compression_s3tc;
 
 int flextInit(void);
 

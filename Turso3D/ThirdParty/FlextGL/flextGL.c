@@ -65,6 +65,11 @@ int flextInit(void)
         fprintf(stderr, "       Try updating your graphics driver.\n");
         return GL_FALSE;
     }
+    if (!FLEXT_EXT_texture_compression_s3tc) {
+        fprintf(stderr, "Error: OpenGL extension GL_EXT_texture_compression_s3tc not supported.\n");
+        fprintf(stderr, "       Try updating your graphics driver.\n");
+        return GL_FALSE;
+    }
 
     return GL_TRUE;
 }
@@ -372,10 +377,15 @@ void flextLoadOpenGLFunctions(void)
     glpfVertexAttribDivisorARB = (PFNGLVERTEXATTRIBDIVISORARB_PROC*)get_proc("glVertexAttribDivisorARB");
 
 
+    /* GL_EXT_texture_compression_s3tc */
+
+
+
 }
 
 /* ----------------------- Extension flag definitions ---------------------- */
 int FLEXT_ARB_instanced_arrays = GL_FALSE;
+int FLEXT_EXT_texture_compression_s3tc = GL_FALSE;
 
 /* ---------------------- Function pointer definitions --------------------- */
 
@@ -671,6 +681,9 @@ static void add_extension(const char* extension)
 {
     if (strcmp("GL_ARB_instanced_arrays", extension) == 0) {
         FLEXT_ARB_instanced_arrays = GL_TRUE;
+    }
+    if (strcmp("GL_EXT_texture_compression_s3tc", extension) == 0) {
+        FLEXT_EXT_texture_compression_s3tc = GL_TRUE;
     }
 }
 

@@ -669,6 +669,7 @@ ImageLevel Image::Level(size_t index) const
 {
     ImageLevel level;
 
+    /// \todo Refactor to use DataSize()
     if (index >= numLevels)
         return level;
 
@@ -758,6 +759,7 @@ bool Image::DecompressLevel(unsigned char* dest, size_t index) const
     }
 
     ImageLevel level = Level(index);
+
     switch (format)
     {
     case FMT_DXT1:
@@ -783,6 +785,26 @@ bool Image::DecompressLevel(unsigned char* dest, size_t index) const
     }
 
     return true;
+}
+
+size_t Image::DataSize(int width, int height, ImageFormat format)
+{
+    if (format < FMT_DXT1)
+        return width * height * pixelByteSize[format];
+    else if (format < FMT_PVRTC_RGB_2BPP)
+    {
+        size_t blockSize = (format == FMT_DXT1 || format == FMT_ETC1) ? 8 : 16;
+        size_t rowSize = ((width + 3) / 4) * blockSize;
+        size_t rows = (height + 3) / 4;
+        return rows * rowSize;
+    }
+    else
+    {
+        size_t blockSize = format < FMT_PVRTC_RGB_4BPP ? 2 : 4;
+        size_t dataWidth = Max(width, blockSize == 2 ? 16 : 8);
+        size_t dataHeight = Max(height, 8);
+        return (dataWidth * dataHeight * blockSize + 7) >> 3;
+    }
 }
 
 }

@@ -55,10 +55,10 @@ public:
 
     /// Vertex element size by element type.
     static const size_t elementSize[];
-    /// Vertex element D3D11 format by element type.
-    static const unsigned elementFormat[];
-    /// Vertex element D3D11 semantic by element semantic.
+    /// Vertex element semantic names.
     static const char* elementSemantic[];
+    /// Vertex element D3D11 format by element type.
+    static const unsigned d3dElementFormat[];
 
 private:
     /// D3D11 buffer.
