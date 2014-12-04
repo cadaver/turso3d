@@ -20,8 +20,7 @@ const size_t MAX_NAME_LENGTH = 256;
 ShaderProgram::ShaderProgram(ShaderVariation* vs_, ShaderVariation* ps_) :
     program(0),
     vs(vs_),
-    ps(ps_),
-    elementHash(0)
+    ps(ps_)
 {
 }
 
@@ -101,36 +100,38 @@ bool ShaderProgram::Link()
     GLenum type;
 
     attributes.Clear();
-    elementHash = 0;
 
     glGetProgramiv(program, GL_ACTIVE_ATTRIBUTES, &numAttributes);
     for (int i = 0; i < numAttributes; ++i)
     {
         glGetActiveAttrib(program, i, (GLsizei)MAX_NAME_LENGTH, &nameLength, &numElements, &type, nameBuffer);
+        
+        VertexAttribute newAttribute;
+        newAttribute.name = String(nameBuffer, nameLength);
+        newAttribute.semantic = SEM_POSITION;
+        newAttribute.index = 0;
 
-        String name(nameBuffer, nameLength);
         const char** semantics = VertexBuffer::elementSemantic;
-        Pair<ElementSemantic, unsigned char> newAttribute;
-        newAttribute.first = SEM_POSITION;
-        newAttribute.second = 0;
-
         while (*semantics)
         {
-            if (name.StartsWith(*semantics, false))
+            if (newAttribute.name.StartsWith(*semantics, false))
             {
-                String indexStr = name.Substring(String::CStringLength(*semantics));
+                String indexStr = newAttribute.name.Substring(String::CStringLength(*semantics));
                 if (indexStr.Length())
-                    newAttribute.second = (unsigned char)indexStr.ToInt();
-                elementHash |= VertexBuffer::ElementHash(i, newAttribute.first);
+                    newAttribute.index = (unsigned char)indexStr.ToInt();
                 break;
             }
-            newAttribute.first = (ElementSemantic)(newAttribute.first + 1);
+            newAttribute.semantic = (ElementSemantic)(newAttribute.semantic + 1);
             ++semantics;
         }
 
-        if (newAttribute.first == MAX_ELEMENT_SEMANTICS)
-            LOGWARNINGF("Found vertex attribute %s with no known semantic in shader program %s", name.CString(), FullName().CString());
-        
+        if (newAttribute.semantic == MAX_ELEMENT_SEMANTICS)
+        {
+            LOGWARNINGF("Found vertex attribute %s with no known semantic in shader program %s", newAttribute.name.CString(), FullName().CString());
+            continue;
+        }
+
+        newAttribute.location = glGetAttribLocation(program, newAttribute.name.CString());
         attributes.Push(newAttribute);
     }
 
@@ -169,7 +170,7 @@ bool ShaderProgram::Link()
         unsigned blockIndex = glGetUniformBlockIndex(program, name.CString());
         unsigned bindingIndex = name.ToUInt();
         if (foundPs)
-            bindingIndex += graphics->NumVSConstantBuffers();
+            bindingIndex += (unsigned)graphics->NumVSConstantBuffers();
         glUniformBlockBinding(program, blockIndex, bindingIndex);
     }
 

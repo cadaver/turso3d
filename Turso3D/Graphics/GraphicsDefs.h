@@ -200,7 +200,7 @@ struct TURSO3D_API VertexElement
     ElementType type;
     /// Semantic of element.
     ElementSemantic semantic;
-    /// Index of element, for example for multiple texcoords.
+    /// Semantic index of element, for example multi-texcoords.
     unsigned char index;
     /// Per-instance flag.
     bool perInstance;

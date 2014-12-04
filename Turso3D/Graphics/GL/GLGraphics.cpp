@@ -215,12 +215,12 @@ void Graphics::SetConstantBuffer(ShaderStage stage, size_t index, ConstantBuffer
         {
         case SHADER_VS:
             if (index < vsConstantBuffers)
-                glBindBufferBase(GL_UNIFORM_BUFFER, index, bufferObject);
+                glBindBufferBase(GL_UNIFORM_BUFFER, (unsigned)index, bufferObject);
             break;
 
         case SHADER_PS:
             if (index < psConstantBuffers)
-                glBindBufferBase(GL_UNIFORM_BUFFER, index + vsConstantBuffers, bufferObject);
+                glBindBufferBase(GL_UNIFORM_BUFFER, (unsigned)(index + vsConstantBuffers), bufferObject);
             break;
 
         default:
@@ -237,7 +237,7 @@ void Graphics::SetTexture(size_t index, Texture* texture)
         
         if (index != activeTexture)
         {
-            glActiveTexture(GL_TEXTURE0 + index);
+            glActiveTexture(GL_TEXTURE0 + (unsigned)index);
             activeTexture = index;
         }
         if (texture)
@@ -565,33 +565,29 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
 {
     if (vertexAttributesDirty && shaderProgram)
     {
+        usedVertexAttributes = 0;
+
         for (size_t i = 0; i < attributeBySemantic.Size(); ++i)
             attributeBySemantic[i].Clear();
 
-        const Vector<ElementSemanticWithIndex>& shaderAttributes = shaderProgram->Attributes();
-
-        // Enable attributes which are used by the shader and map to a known semantic, disable the rest
-        for (size_t i = 0; i < MAX_VERTEX_ATTRIBUTES; ++i)
+        const Vector<VertexAttribute>& attributes = shaderProgram->Attributes();
+        for (size_t i = 0; i < attributes.Size(); ++i)
         {
-            if (i < shaderAttributes.Size() && shaderAttributes[i].first < MAX_ELEMENT_SEMANTICS)
-            {
-                const ElementSemanticWithIndex& attribute = shaderAttributes[i];
+            const VertexAttribute& attribute = attributes[i];
+            Vector<unsigned>& attributeVector = attributeBySemantic[attribute.semantic];
+            unsigned char index = attribute.index;
 
-                if (!vertexAttributes[i])
-                {
-                    glEnableVertexAttribArray(i);
-                    vertexAttributes[i] = true;
-                }
-                // Mark semantic as required
-                if (attributeBySemantic[attribute.first].Size() <= attribute.second)
-                    attributeBySemantic[attribute.first].Resize(attribute.second + 1);
-                attributeBySemantic[attribute.first][attribute.second] = (unsigned)i;
-            }
-            else if (vertexAttributes[i])
+            // Mark semantic as required
+            size_t size = attributeVector.Size();
+            if (size <= index)
             {
-                glDisableVertexAttribArray(i);
-                vertexAttributes[i] = false;
+                attributeVector.Resize(index + 1);
+                // If there are gaps, fill them with illegal index
+                for (size_t j = size; j < index; ++j)
+                    attributeVector[j] = M_MAX_UNSIGNED;
             }
+            attributeVector[index] = attribute.location;
+            usedVertexAttributes |= (1 << attribute.location);
         }
 
         vertexAttributesDirty = false;
@@ -611,7 +607,9 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
                 for (size_t j = 0; j < elements.Size(); ++j)
                 {
                     const VertexElement& element = elements[j];
-                    if (element.index < attributeBySemantic[element.semantic].Size())
+                    const Vector<unsigned>& attributeVector = attributeBySemantic[element.semantic];
+
+                    if (element.index < attributeVector.Size() && attributeVector[element.index] < MAX_VERTEX_ATTRIBUTES)
                     {
                         // If making several instanced draw calls with the same vertex buffers, only need to update the instancing
                         // data attribute pointers
@@ -620,27 +618,56 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
 
                         BindVBO(buffer->BufferObject());
 
-                        unsigned attributeIndex = attributeBySemantic[element.semantic][element.index];
+                        unsigned location = attributeVector[element.index];
+                        unsigned locationMask = 1 << location;
+
+                        // Enable attribute if not enabled yet
+                        if (!(enabledVertexAttributes & locationMask))
+                        {
+                            glEnableVertexAttribArray(location);
+                            enabledVertexAttributes |= locationMask;
+                        }
+
+                        // Enable/disable instancing divisor as necessary
                         size_t dataStart = element.offset;
                         if (element.perInstance)
-                            dataStart += instanceStart * buffer->VertexSize();
-
-                        glVertexAttribPointer(attributeIndex, elementGLComponents[element.type], elementGLType[element.type],
-                            element.semantic == SEM_COLOR ? GL_TRUE : GL_FALSE, buffer->VertexSize(),
-                            (const void *)dataStart);
-
-                        unsigned divisor = element.perInstance ? 1 : 0;
-                        if (divisor != vertexAttributeDivisors[attributeIndex])
                         {
-                            glVertexAttribDivisorARB(attributeIndex, divisor);
-                            vertexAttributeDivisors[attributeIndex] = divisor;
+                            dataStart += instanceStart * buffer->VertexSize();
+                            if (!(instancingVertexAttributes & locationMask))
+                            {
+                                glVertexAttribDivisorARB(location, 1);
+                                instancingVertexAttributes |= locationMask;
+                            }
                         }
+                        else
+                        {
+                            if (instancingVertexAttributes & locationMask)
+                            {
+                                glVertexAttribDivisorARB(location, 0);
+                                instancingVertexAttributes &= ~locationMask;
+                            }
+                        }
+
+                        glVertexAttribPointer(location, elementGLComponents[element.type], elementGLType[element.type],
+                            element.semantic == SEM_COLOR ? GL_TRUE : GL_FALSE, (unsigned)buffer->VertexSize(),
+                            (const void *)dataStart);
                     }
                 }
             }
         }
 
         vertexBuffersDirty = false;
+    }
+
+    // Finally disable unnecessary vertex attributes
+    unsigned disableVertexAttributes = enabledVertexAttributes & (~usedVertexAttributes);
+    unsigned location = 0;
+    while (disableVertexAttributes)
+    {
+        if (disableVertexAttributes & 1)
+            glDisableVertexAttribArray(location);
+        location++;
+        disableVertexAttributes >>= 1;
     }
 }
 
@@ -649,11 +676,9 @@ void Graphics::ResetState()
     for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
         vertexBuffers[i] = nullptr;
 
-    for (size_t i = 0; i < MAX_VERTEX_ATTRIBUTES; ++i)
-    {
-        vertexAttributes[i] = false;
-        vertexAttributeDivisors[i] = 0;
-    }
+    enabledVertexAttributes = 0;
+    usedVertexAttributes = 0;
+    instancingVertexAttributes = 0;
 
     for (size_t i = 0; i < MAX_SHADER_STAGES; ++i)
     {

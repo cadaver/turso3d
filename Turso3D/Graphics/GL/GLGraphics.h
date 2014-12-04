@@ -177,11 +177,13 @@ private:
     ShaderProgramMap shaderPrograms;
     /// Bound vertex buffers.
     VertexBuffer* vertexBuffers[MAX_VERTEX_STREAMS];
-    /// Enabled vertex attributes.
-    bool vertexAttributes[MAX_VERTEX_ATTRIBUTES];
-    /// Vertex attribute instancing divisors.
-    unsigned vertexAttributeDivisors[MAX_VERTEX_ATTRIBUTES];
-    /// Current mapping of vertex attributes by semantic
+    /// Enabled vertex attributes bitmask.
+    unsigned enabledVertexAttributes;
+    /// Used vertex attributes bitmask.
+    unsigned usedVertexAttributes;
+    /// Vertex attribute instancing bitmask for keeping track of divisors.
+    unsigned instancingVertexAttributes;
+    /// Current mapping of vertex attributes by semantic.
     Vector<Vector<unsigned> > attributeBySemantic;
     /// Bound index buffer.
     IndexBuffer* indexBuffer;
@@ -220,7 +222,7 @@ private:
     /// Number of supported constant buffer bindings for pixel shaders.
     size_t psConstantBuffers;
     /// Last used OpenGL texture unit.
-    unsigned activeTexture;
+    size_t activeTexture;
     /// Last bound vertex buffer object.
     unsigned boundVBO;
     /// Fullscreen flag.
