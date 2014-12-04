@@ -61,7 +61,17 @@ public:
     /// Return whether is a depth-stencil texture.
     bool IsDepthStencil() const { return usage == USAGE_RENDERTARGET && format >= FMT_D16 && format <= FMT_D24S8; }
 
+    /// Return the OpenGL texture. Used internally and should not be called by portable application code.
+    unsigned TextureObject() const { return texture; }
+    /// Return the OpenGL target of the texture.
+    unsigned Target() const { return target[type]; }
+
+    /// OpenGL targets by texture type.
+    static unsigned target[];
+
 private:
+    /// OpenGL texture object identifier.
+    unsigned texture;
     /// Texture type.
     TextureType type;
     /// Texture usage mode.

@@ -54,15 +54,14 @@ GLContext::GLContext(Window* window_) :
 
 GLContext::~GLContext()
 {
-    if (contextHandle)
-    {
-        wglMakeCurrent(nullptr, nullptr);
-        wglDeleteContext((HGLRC)contextHandle);
-    }
+    Release();
 }
 
 bool GLContext::Create()
 {
+    if (contextHandle)
+        return true;
+
     if (!window)
     {
         LOGERROR("Window is null, can not create OpenGL context");
@@ -190,23 +189,25 @@ bool GLContext::Create()
     };
 
     contextHandle = wglCreateContextAttribsARB((HDC)dcHandle, 0, contextAttrs);
+    wglMakeCurrent(0, 0);
+    wglDeleteContext(dummyContextHandle);
+    DestroyWindow(dummyWindowHandle);
+
     if (!contextHandle)
     {
         LOGERROR("Failed to create OpenGL context");
         return false;
     }
 
-    // Now set the created context to the window and delete the dummy context & window
-    wglMakeCurrent((HDC)dcHandle, (HGLRC)contextHandle);
-    wglDeleteContext(dummyContextHandle);
-    DestroyWindow(dummyWindowHandle);
-
     // Initialize extensions that are needed during runtime now
-    flextInit();
+    wglMakeCurrent((HDC)dcHandle, (HGLRC)contextHandle);
     wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC)wglGetProcAddress("wglSwapIntervalEXT");
-
-    // Default to no vsync
-    SetVSync(false);
+    if (!flextInit())
+    {
+        LOGERROR("Failed to acquire OpenGL function pointers and extensions");
+        Release();
+        return false;
+    }
 
     return true;
 }
@@ -221,6 +222,15 @@ void GLContext::Present()
 {
     if (contextHandle)
         SwapBuffers((HDC)dcHandle);
+}
+
+void GLContext::Release()
+{
+    if (contextHandle)
+    {
+        wglMakeCurrent(nullptr, nullptr);
+        wglDeleteContext((HGLRC)contextHandle);
+    }
 }
 
 }

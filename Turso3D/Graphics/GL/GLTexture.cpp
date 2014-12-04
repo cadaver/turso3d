@@ -12,7 +12,17 @@
 namespace Turso3D
 {
 
-Texture::Texture()
+unsigned Texture::target[] = {
+    GL_TEXTURE_2D
+};
+
+Texture::Texture() :
+    texture(0),
+    type(TEX_2D),
+    usage(USAGE_DEFAULT),
+    width(0),
+    height(0),
+    format(FMT_NONE)
 {
 }
 

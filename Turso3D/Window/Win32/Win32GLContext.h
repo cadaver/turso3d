@@ -19,10 +19,10 @@ class TURSO3D_API GLContext
 public:
     /// Construct. Associate with a window, but do not create the context yet.
     GLContext(Window* window);
-    /// Destruct. Destroy the context.
+    /// Destruct. Destroy the context if created.
     ~GLContext();
 
-    /// Create context. Return true on success.
+    /// Create context and initialize extensions. Return true on success. The pixel format can only be chosen once, so a context can not be created more than once to the same window.
     bool Create();
     /// Present the backbuffer.
     void Present();
@@ -33,6 +33,9 @@ public:
     bool IsInitialized() const { return contextHandle != nullptr; }
 
 private:
+    /// Destroy the context.
+    void Release();
+
     /// Associated window.
     WeakPtr<Window> window;
     /// Window device context handle.

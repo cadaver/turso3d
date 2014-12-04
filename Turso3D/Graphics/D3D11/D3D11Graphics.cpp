@@ -241,7 +241,7 @@ void Graphics::SetViewport(const IntRect& viewport_)
 
 void Graphics::SetVertexBuffer(size_t index, VertexBuffer* buffer)
 {
-    if (index < MAX_VERTEX_STREAMS && vertexBuffers[index] != buffer)
+    if (index < MAX_VERTEX_STREAMS && buffer != vertexBuffers[index])
     {
         vertexBuffers[index] = buffer;
         ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->BufferObject() : nullptr;
@@ -254,10 +254,11 @@ void Graphics::SetVertexBuffer(size_t index, VertexBuffer* buffer)
 
 void Graphics::SetConstantBuffer(ShaderStage stage, size_t index, ConstantBuffer* buffer)
 {
-    if (stage < MAX_SHADER_STAGES &&index < MAX_CONSTANT_BUFFERS && constantBuffers[stage][index] != buffer)
+    if (stage < MAX_SHADER_STAGES && index < MAX_CONSTANT_BUFFERS && buffer != constantBuffers[stage][index])
     {
         constantBuffers[stage][index] = buffer;
         ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->BufferObject() : nullptr;
+
         switch (stage)
         {
         case SHADER_VS:
@@ -283,13 +284,13 @@ void Graphics::SetTexture(size_t index, Texture* texture)
             nullptr;
         ID3D11SamplerState* d3dSampler = texture ? (ID3D11SamplerState*)texture->SamplerObject() : nullptr;
         // Note: now both VS & PS resource views are set at the same time, to mimic OpenGL conventions
-        if (impl->resourceViews[index] != d3dResourceView)
+        if (d3dResourceView != impl->resourceViews[index])
         {
             impl->resourceViews[index] = d3dResourceView;
             impl->deviceContext->VSSetShaderResources((unsigned)index, 1, &d3dResourceView);
             impl->deviceContext->PSSetShaderResources((unsigned)index, 1, &d3dResourceView);
         }
-        if (impl->samplers[index] != d3dSampler)
+        if (d3dSampler != impl->samplers[index])
         {
             impl->samplers[index] = d3dSampler;
             impl->deviceContext->VSSetSamplers((unsigned)index, 1, &d3dSampler);
@@ -300,7 +301,7 @@ void Graphics::SetTexture(size_t index, Texture* texture)
 
 void Graphics::SetIndexBuffer(IndexBuffer* buffer)
 {
-    if (indexBuffer != buffer)
+    if (buffer != indexBuffer)
     {
         indexBuffer = buffer;
         if (buffer)

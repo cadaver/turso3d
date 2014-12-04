@@ -907,6 +907,10 @@ typedef struct __GLsync *GLsync;
 #define GL_MAX_DEPTH_TEXTURE_SAMPLES 0x910F
 #define GL_MAX_INTEGER_SAMPLES 0x9110
 
+/* GL_ARB_instanced_arrays */
+
+#define GL_VERTEX_ATTRIB_ARRAY_DIVISOR_ARB 0x88FE
+
 /* --------------------------- FUNCTION PROTOTYPES --------------------------- */
 
 
@@ -1798,6 +1802,15 @@ GLAPI PFNGLSAMPLEMASKI_PROC *glpfSampleMaski;
 #define glSampleMaski glpfSampleMaski
 
 
+/* GL_ARB_instanced_arrays */
+
+typedef void (APIENTRY PFNGLVERTEXATTRIBDIVISORARB_PROC (GLuint index, GLuint divisor));
+
+GLAPI PFNGLVERTEXATTRIBDIVISORARB_PROC *glpfVertexAttribDivisorARB;
+
+#define glVertexAttribDivisorARB glpfVertexAttribDivisorARB
+
+
 /* --------------------------- CATEGORY DEFINES ------------------------------ */
 
 #define GL_VERSION_1_0
@@ -1811,9 +1824,11 @@ GLAPI PFNGLSAMPLEMASKI_PROC *glpfSampleMaski;
 #define GL_VERSION_3_0
 #define GL_VERSION_3_1
 #define GL_VERSION_3_2
+#define GL_ARB_instanced_arrays
 
 /* ---------------------- Flags for optional extensions ---------------------- */
 
+extern int FLEXT_ARB_instanced_arrays;
 
 int flextInit(void);
 

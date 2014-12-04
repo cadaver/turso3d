@@ -59,12 +59,15 @@ bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
             return false;
         }
 
+        context->SetVSync(vsync);
+
         // Query OpenGL capabilities
         glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, &vsConstantBuffers);
         glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, &psConstantBuffers);
     }
 
     /// \todo Set fullscreen screen mode
+    return true;
 }
 
 bool Graphics::SetFullscreen(bool enable)
@@ -78,7 +81,8 @@ bool Graphics::SetFullscreen(bool enable)
 void Graphics::SetVSync(bool enable)
 {
     vsync = enable;
-    /// \todo Set vsync through the GL context
+    if (context)
+        context->SetVSync(enable);
 }
 
 void Graphics::Close()
@@ -93,6 +97,7 @@ void Graphics::Close()
     }
 
     context.Reset();
+
     window->Close();
     backbufferSize = IntVector2::ZERO;
     ResetState();
@@ -143,34 +148,68 @@ void Graphics::SetViewport(const IntRect& viewport_)
     viewport.right = Clamp(viewport_.right, viewport.left + 1, renderTargetSize.x);
     viewport.bottom = Clamp(viewport_.bottom, viewport.top + 1, renderTargetSize.y);
 
-    /// \todo Set OpenGL viewport
+    glViewport(viewport.left, viewport.top, viewport.Width(), viewport.Height());
 }
 
 void Graphics::SetVertexBuffer(size_t index, VertexBuffer* buffer)
 {
-    if (index < MAX_VERTEX_STREAMS && vertexBuffers[index] != buffer)
+    if (index < MAX_VERTEX_STREAMS && buffer != vertexBuffers[index])
     {
         vertexBuffers[index] = buffer;
         inputLayoutDirty = true;
-        /// \todo Manage OpenGL vertex buffer changes
     }
 }
 
 void Graphics::SetConstantBuffer(ShaderStage stage, size_t index, ConstantBuffer* buffer)
 {
-    if (stage < MAX_SHADER_STAGES &&index < MAX_CONSTANT_BUFFERS && constantBuffers[stage][index] != buffer)
+    if (stage < MAX_SHADER_STAGES && index < MAX_CONSTANT_BUFFERS && buffer != constantBuffers[stage][index])
     {
         constantBuffers[stage][index] = buffer;
-        /// \todo Manage OpenGL constant buffer changes
+        unsigned bufferObject = buffer ? buffer->BufferObject() : 0;
+
+        switch (stage)
+        {
+        case SHADER_VS:
+            if (index < vsConstantBuffers)
+                glBindBufferBase(GL_UNIFORM_BUFFER, index, bufferObject);
+            break;
+
+        case SHADER_PS:
+            if (index < psConstantBuffers)
+                glBindBufferBase(GL_UNIFORM_BUFFER, index + vsConstantBuffers, bufferObject);
+            break;
+
+        default:
+            break;
+        }
     }
 }
 
 void Graphics::SetTexture(size_t index, Texture* texture)
 {
-    if (index < MAX_TEXTURE_UNITS)
+    if (index < MAX_TEXTURE_UNITS && texture != textures[index])
     {
         textures[index] = texture;
-        /// \odo Manage OpenGL texture change
+        
+        if (index != activeTexture)
+        {
+            glActiveTexture(GL_TEXTURE0 + index);
+            activeTexture = index;
+        }
+        if (texture)
+        {
+            unsigned target = texture->Target();
+            if (target != textureTargets[index])
+            {
+                if (textureTargets[index])
+                    glDisable(textureTargets[index]);
+                glEnable(target);
+                textureTargets[index] = target;
+            }
+            glBindTexture(target, texture->TextureObject());
+        }
+        else if (textureTargets[index])
+            glBindTexture(textureTargets[index], 0);
     }
 }
 
@@ -216,18 +255,29 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
         auto key = MakePair(vertexShader, pixelShader);
         auto it = shaderPrograms.Find(key);
         if (it != shaderPrograms.End())
+        {
+            shaderProgram = it->second;
             glUseProgram(it->second->ProgramObject());
+        }
         else
         {
             ShaderProgram* newProgram = new ShaderProgram(vertexShader, pixelShader);
             shaderPrograms[key] = newProgram;
             // Note: if the linking is successful, glUseProgram() will have been called
-            if (!newProgram->Link())
+            if (newProgram->Link())
+                shaderProgram = newProgram;
+            else
+            {
+                shaderProgram = nullptr;
                 glUseProgram(0);
+            }
         }
     }
     else
+    {
+        shaderProgram = nullptr;
         glUseProgram(0);
+    }
 }
 
 void Graphics::SetBlendState(BlendState* state)
@@ -393,7 +443,11 @@ void Graphics::CleanupShaderPrograms(ShaderVariation* shader)
         for (auto it = shaderPrograms.Begin(); it != shaderPrograms.End();)
         {
             if (it->first.first == shader)
+            {
+                if (shaderProgram == it->second)
+                    shaderProgram = nullptr;
                 it = shaderPrograms.Erase(it);
+            }
             else
                 ++it;
         }
@@ -403,7 +457,11 @@ void Graphics::CleanupShaderPrograms(ShaderVariation* shader)
         for (auto it = shaderPrograms.Begin(); it != shaderPrograms.End();)
         {
             if (it->first.second == shader)
+            {
+                if (shaderProgram == it->second)
+                    shaderProgram = nullptr;
                 it = shaderPrograms.Erase(it);
+            }
             else
                 ++it;
         }
@@ -435,11 +493,13 @@ void Graphics::ResetState()
     for (size_t i = 0; i < MAX_TEXTURE_UNITS; ++i)
     {
         textures[i] = nullptr;
+        textureTargets[i] = 0;
     }
 
     indexBuffer = nullptr;
     vertexShader = nullptr;
     pixelShader = nullptr;
+    shaderProgram = nullptr;
     blendState = nullptr;
     depthState = nullptr;
     rasterizerState = nullptr;
@@ -449,6 +509,7 @@ void Graphics::ResetState()
     primitiveType = MAX_PRIMITIVE_TYPES;
     scissorRect = IntRect();
     stencilRef = 0;
+    activeTexture = 0;
 }
 
 void RegisterGraphicsLibrary()

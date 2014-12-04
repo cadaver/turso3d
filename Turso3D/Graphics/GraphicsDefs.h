@@ -49,7 +49,7 @@ enum ElementSemantic
     SEM_COLOR,
     SEM_BLENDWEIGHT,
     SEM_BLENDINDICES,
-    SEM_UNKNOWN
+    MAX_ELEMENT_SEMANTICS
 };
 
 /// Primitive types.

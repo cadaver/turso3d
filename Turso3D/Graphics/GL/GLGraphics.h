@@ -181,6 +181,8 @@ private:
     ConstantBuffer* constantBuffers[MAX_SHADER_STAGES][MAX_CONSTANT_BUFFERS];
     /// Bound textures by texture unit.
     Texture* textures[MAX_TEXTURE_UNITS];
+    /// OpenGL active texture targets by texture unit.
+    unsigned textureTargets[MAX_TEXTURE_UNITS];
     /// Bound rendertarget textures.
     Texture* renderTargets[MAX_RENDERTARGETS];
     /// Bound depth-stencil texture.
@@ -191,6 +193,8 @@ private:
     ShaderVariation* vertexShader;
     /// Bound pixel shader.
     ShaderVariation* pixelShader;
+    /// Bound shader program.
+    ShaderProgram* shaderProgram;
     /// Bound blend state.
     BlendState* blendState;
     /// Bound depth state.
@@ -209,6 +213,8 @@ private:
     int vsConstantBuffers;
     /// Number of supported constant buffer bindings for pixel shaders.
     int psConstantBuffers;
+    /// Last used OpenGL texture unit.
+    unsigned activeTexture;
     /// Fullscreen flag.
     bool fullscreen;
     /// Vertical sync flag.

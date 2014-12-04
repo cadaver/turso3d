@@ -60,6 +60,11 @@ int flextInit(void)
         add_extension((const char*)glGetStringi(GL_EXTENSIONS, i));
     }
 
+    if (!FLEXT_ARB_instanced_arrays) {
+        fprintf(stderr, "Error: OpenGL extension GL_ARB_instanced_arrays not supported.\n");
+        fprintf(stderr, "       Try updating your graphics driver.\n");
+        return GL_FALSE;
+    }
 
     return GL_TRUE;
 }
@@ -362,9 +367,15 @@ void flextLoadOpenGLFunctions(void)
     glpfSampleMaski = (PFNGLSAMPLEMASKI_PROC*)get_proc("glSampleMaski");
 
 
+    /* GL_ARB_instanced_arrays */
+
+    glpfVertexAttribDivisorARB = (PFNGLVERTEXATTRIBDIVISORARB_PROC*)get_proc("glVertexAttribDivisorARB");
+
+
 }
 
 /* ----------------------- Extension flag definitions ---------------------- */
+int FLEXT_ARB_instanced_arrays = GL_FALSE;
 
 /* ---------------------- Function pointer definitions --------------------- */
 
@@ -650,10 +661,17 @@ PFNGLTEXIMAGE3DMULTISAMPLE_PROC* glpfTexImage3DMultisample = NULL;
 PFNGLGETMULTISAMPLEFV_PROC* glpfGetMultisamplefv = NULL;
 PFNGLSAMPLEMASKI_PROC* glpfSampleMaski = NULL;
 
+/* GL_ARB_instanced_arrays */
+
+PFNGLVERTEXATTRIBDIVISORARB_PROC* glpfVertexAttribDivisorARB = NULL;
+
 
 
 static void add_extension(const char* extension)
 {
+    if (strcmp("GL_ARB_instanced_arrays", extension) == 0) {
+        FLEXT_ARB_instanced_arrays = GL_TRUE;
+    }
 }
 
 

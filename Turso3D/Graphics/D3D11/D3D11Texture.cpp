@@ -62,7 +62,12 @@ static const DXGI_FORMAT depthStencilResourceViewFormat[] =
 Texture::Texture() :
     texture(nullptr),
     resourceView(nullptr),
-    sampler(nullptr)
+    sampler(nullptr),
+    type(TEX_2D),
+    usage(USAGE_DEFAULT),
+    width(0),
+    height(0),
+    format(FMT_NONE)
 {
 }
 

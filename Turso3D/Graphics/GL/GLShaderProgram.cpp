@@ -20,7 +20,8 @@ const size_t MAX_NAME_LENGTH = 256;
 ShaderProgram::ShaderProgram(ShaderVariation* vs_, ShaderVariation* ps_) :
     program(0),
     vs(vs_),
-    ps(ps_)
+    ps(ps_),
+    elementHash(0)
 {
 }
 
@@ -100,6 +101,7 @@ bool ShaderProgram::Link()
     GLenum type;
 
     attributes.Clear();
+    elementHash = 0;
 
     glGetProgramiv(program, GL_ACTIVE_ATTRIBUTES, &numAttributes);
     for (int i = 0; i < numAttributes; ++i)
@@ -119,13 +121,14 @@ bool ShaderProgram::Link()
                 String indexStr = name.Substring(String::CStringLength(*semantics));
                 if (indexStr.Length())
                     newAttribute.second = (unsigned char)indexStr.ToInt();
+                elementHash |= VertexBuffer::ElementHash(i, newAttribute.first);
                 break;
             }
             newAttribute.first = (ElementSemantic)(newAttribute.first + 1);
             ++semantics;
         }
 
-        if (newAttribute.first == SEM_UNKNOWN)
+        if (newAttribute.first == MAX_ELEMENT_SEMANTICS)
             LOGWARNINGF("Found vertex attribute %s with no known semantic in shader program %s", name.CString(), FullName().CString());
         
         attributes.Push(newAttribute);

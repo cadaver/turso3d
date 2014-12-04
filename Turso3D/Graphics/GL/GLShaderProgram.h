@@ -33,6 +33,8 @@ public:
     ShaderVariation* PixelShader() const;
     /// Return vertex attribute semantics and indices.
     const Vector<Pair<ElementSemantic, unsigned char> >& Attributes() const { return attributes; }
+    /// Return vertex element hash code.
+    unsigned ElementHash() const { return elementHash; }
     /// Return combined name of the shader program.
     String FullName() const;
 
@@ -48,6 +50,8 @@ private:
     WeakPtr<ShaderVariation> ps;
     /// Vertex attribute semantics and indices.
     Vector<Pair<ElementSemantic, unsigned char> > attributes;
+    /// element hash code.
+    unsigned elementHash;
 };
 
 }
