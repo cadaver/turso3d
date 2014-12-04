@@ -24,7 +24,7 @@ public:
     bool Define(bool blendEnable = false, BlendFactor srcBlend = BLEND_ONE, BlendFactor destBlend = BLEND_ONE, BlendOp blendOp = BLEND_OP_ADD, BlendFactor srcBlendAlpha = BLEND_ONE, BlendFactor destBlendAlpha = BLEND_ONE, BlendOp blendOpAlpha = BLEND_OP_ADD, unsigned char colorWriteMask = COLORMASK_ALL, bool alphaToCoverage = false);
 
     /// Return the D3D11 state object. Used internally and should not be called by portable application code.
-    void* StateObject() const { return stateObject; }
+    void* D3DState() const { return stateObject; }
 
     /// Source color blend factor.
     BlendFactor srcBlend;

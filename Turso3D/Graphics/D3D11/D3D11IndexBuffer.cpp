@@ -93,7 +93,7 @@ bool IndexBuffer::Define(ResourceUsage usage_, size_t numIndices_, size_t indexS
         bufferDesc.Usage = (D3D11_USAGE)usage;
         bufferDesc.ByteWidth = (unsigned)(numIndices * indexSize);
 
-        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
+        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->D3DDevice();
         d3dDevice->CreateBuffer(&bufferDesc, data ? &initialData : nullptr, (ID3D11Buffer**)&buffer);
 
         if (!buffer)
@@ -133,7 +133,7 @@ bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* dat
 
     if (buffer)
     {
-        ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->DeviceContext();
+        ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->D3DDeviceContext();
 
         if (usage == USAGE_DYNAMIC)
         {

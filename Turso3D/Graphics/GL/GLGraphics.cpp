@@ -209,7 +209,7 @@ void Graphics::SetConstantBuffer(ShaderStage stage, size_t index, ConstantBuffer
     if (stage < MAX_SHADER_STAGES && index < MAX_CONSTANT_BUFFERS && buffer != constantBuffers[stage][index])
     {
         constantBuffers[stage][index] = buffer;
-        unsigned bufferObject = buffer ? buffer->BufferObject() : 0;
+        unsigned bufferObject = buffer ? buffer->GLBuffer() : 0;
 
         switch (stage)
         {
@@ -242,7 +242,7 @@ void Graphics::SetTexture(size_t index, Texture* texture)
         }
         if (texture)
         {
-            unsigned target = texture->Target();
+            unsigned target = texture->GLTarget();
             if (target != textureTargets[index])
             {
                 if (textureTargets[index])
@@ -250,7 +250,7 @@ void Graphics::SetTexture(size_t index, Texture* texture)
                 glEnable(target);
                 textureTargets[index] = target;
             }
-            glBindTexture(target, texture->TextureObject());
+            glBindTexture(target, texture->GLTexture());
         }
         else if (textureTargets[index])
             glBindTexture(textureTargets[index], 0);
@@ -262,7 +262,7 @@ void Graphics::SetIndexBuffer(IndexBuffer* buffer)
     if (indexBuffer != buffer)
     {
         indexBuffer = buffer;
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer ? buffer->BufferObject() : 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer ? buffer->GLBuffer() : 0);
     }
 }
 
@@ -293,7 +293,7 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
         pixelShader = ps;
     }
 
-    if (vertexShader && pixelShader && vertexShader->ShaderObject() && pixelShader->ShaderObject())
+    if (vertexShader && pixelShader && vertexShader->GLShader() && pixelShader->GLShader())
     {
         // Check if program already exists, if not, link now
         auto key = MakePair(vertexShader, pixelShader);
@@ -301,7 +301,7 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
         if (it != shaderPrograms.End())
         {
             shaderProgram = it->second;
-            glUseProgram(it->second->ProgramObject());
+            glUseProgram(it->second->GLProgram());
         }
         else
         {
@@ -567,13 +567,13 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
     {
         usedVertexAttributes = 0;
 
-        for (size_t i = 0; i < attributeBySemantic.Size(); ++i)
-            attributeBySemantic[i].Clear();
+        for (auto it = attributeBySemantic.Begin(); it != attributeBySemantic.End(); ++it)
+            it->Clear();
 
         const Vector<VertexAttribute>& attributes = shaderProgram->Attributes();
-        for (size_t i = 0; i < attributes.Size(); ++i)
+        for (auto it = attributes.Begin(); it != attributes.End(); ++it)
         {
-            const VertexAttribute& attribute = attributes[i];
+            const VertexAttribute& attribute = *it;
             Vector<unsigned>& attributeVector = attributeBySemantic[attribute.semantic];
             unsigned char index = attribute.index;
 
@@ -582,7 +582,7 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
             if (size <= index)
             {
                 attributeVector.Resize(index + 1);
-                // If there are gaps, fill them with illegal index
+                // If there are gaps (eg. texcoord1 used without texcoord0), fill them with illegal index
                 for (size_t j = size; j < index; ++j)
                     attributeVector[j] = M_MAX_UNSIGNED;
             }
@@ -604,20 +604,16 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
                 VertexBuffer* buffer = vertexBuffers[i];
                 const Vector<VertexElement>& elements = buffer->Elements();
 
-                for (size_t j = 0; j < elements.Size(); ++j)
+                for (auto it = elements.Begin(); it != elements.End(); ++it)
                 {
-                    const VertexElement& element = elements[j];
+                    const VertexElement& element = *it;
                     const Vector<unsigned>& attributeVector = attributeBySemantic[element.semantic];
 
-                    if (element.index < attributeVector.Size() && attributeVector[element.index] < MAX_VERTEX_ATTRIBUTES)
+                    // If making several instanced draw calls with the same vertex buffers, only need to update the instancing
+                    // data attribute pointers
+                    if (element.index < attributeVector.Size() && attributeVector[element.index] < M_MAX_UNSIGNED &&
+                        (vertexBuffersDirty || (instanced && element.perInstance)))
                     {
-                        // If making several instanced draw calls with the same vertex buffers, only need to update the instancing
-                        // data attribute pointers
-                        if (!vertexBuffersDirty && instanced && element.perInstance)
-                            continue;
-
-                        BindVBO(buffer->BufferObject());
-
                         unsigned location = attributeVector[element.index];
                         unsigned locationMask = 1 << location;
 
@@ -648,6 +644,7 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
                             }
                         }
 
+                        BindVBO(buffer->GLBuffer());
                         glVertexAttribPointer(location, elementGLComponents[element.type], elementGLType[element.type],
                             element.semantic == SEM_COLOR ? GL_TRUE : GL_FALSE, (unsigned)buffer->VertexSize(),
                             (const void *)dataStart);

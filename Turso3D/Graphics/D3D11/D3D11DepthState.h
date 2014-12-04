@@ -24,7 +24,7 @@ public:
     bool Define(bool depthEnable = true, bool depthWrite = true, CompareMode depthFunc = CMP_LESS, bool stencilEnable = false, unsigned char stencilReadMask = 0xff, unsigned char stencilWriteMask = 0xff, StencilOp frontFail = STENCIL_OP_KEEP, StencilOp frontDepthFail = STENCIL_OP_KEEP, StencilOp frontPass = STENCIL_OP_KEEP, CompareMode frontFunc = CMP_ALWAYS, StencilOp backFail = STENCIL_OP_KEEP, StencilOp backDepthFail = STENCIL_OP_KEEP, StencilOp backPass = STENCIL_OP_KEEP, CompareMode backFunc = CMP_ALWAYS);
     
     /// Return the D3D11 state object. Used internally and should not be called by portable application code.
-    void* StateObject() const { return stateObject; }
+    void* D3DState() const { return stateObject; }
 
     /// Depth enable flag.
     bool depthEnable;

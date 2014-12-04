@@ -82,7 +82,7 @@ bool DepthState::Define(bool depthEnable_, bool depthWrite_, CompareMode depthFu
         stateDesc.BackFace.StencilPassOp = (D3D11_STENCIL_OP)backPass;
         stateDesc.BackFace.StencilFunc = (D3D11_COMPARISON_FUNC)backFunc;
 
-        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
+        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->D3DDevice();
         d3dDevice->CreateDepthStencilState(&stateDesc, (ID3D11DepthStencilState**)&stateObject);
 
         if (!stateObject)

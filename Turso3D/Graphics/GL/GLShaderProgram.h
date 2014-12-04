@@ -49,8 +49,8 @@ public:
     /// Return combined name of the shader program.
     String FullName() const;
 
-    /// Return the OpenGL shader program. Used internally and should not be called by portable application code.
-    unsigned ProgramObject() const { return program; }
+    /// Return the OpenGL shader program identifier. Used internally and should not be called by portable application code.
+    unsigned GLProgram() const { return program; }
 
 private:
     /// OpenGL shader program identifier.

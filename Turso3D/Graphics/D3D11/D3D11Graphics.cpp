@@ -101,7 +101,7 @@ bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
     // Create D3D11 device when setting mode for the first time
     if (!impl->device)
     {
-        if (!CreateDevice())
+        if (!CreateD3DDevice())
             return false;
     }
     
@@ -198,7 +198,7 @@ void Graphics::SetRenderTargets(const Vector<Texture*>& renderTargets_, Texture*
     for (size_t i = 0; i < MAX_RENDERTARGETS && i < renderTargets_.Size(); ++i)
     {
         renderTargets[i] = renderTargets_[i];
-        impl->renderTargetViews[i] = renderTargets[i] ? (ID3D11RenderTargetView*)renderTargets_[i]->RenderTargetViewObject() :
+        impl->renderTargetViews[i] = renderTargets[i] ? (ID3D11RenderTargetView*)renderTargets_[i]->D3DRenderTargetView() :
             impl->defaultRenderTargetView;
     }
 
@@ -209,7 +209,7 @@ void Graphics::SetRenderTargets(const Vector<Texture*>& renderTargets_, Texture*
     }
 
     depthStencil = depthStencil_;
-    impl->depthStencilView = depthStencil ? (ID3D11DepthStencilView*)depthStencil->RenderTargetViewObject() :
+    impl->depthStencilView = depthStencil ? (ID3D11DepthStencilView*)depthStencil->D3DRenderTargetView() :
         impl->defaultDepthStencilView;
 
     if (renderTargets[0])
@@ -244,7 +244,7 @@ void Graphics::SetVertexBuffer(size_t index, VertexBuffer* buffer)
     if (index < MAX_VERTEX_STREAMS && buffer != vertexBuffers[index])
     {
         vertexBuffers[index] = buffer;
-        ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->BufferObject() : nullptr;
+        ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->D3DBuffer() : nullptr;
         unsigned stride = buffer ? (unsigned)buffer->VertexSize() : 0;
         unsigned offset = 0;
         impl->deviceContext->IASetVertexBuffers((unsigned)index, 1, &d3dBuffer, &stride, &offset);
@@ -257,7 +257,7 @@ void Graphics::SetConstantBuffer(ShaderStage stage, size_t index, ConstantBuffer
     if (stage < MAX_SHADER_STAGES && index < MAX_CONSTANT_BUFFERS && buffer != constantBuffers[stage][index])
     {
         constantBuffers[stage][index] = buffer;
-        ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->BufferObject() : nullptr;
+        ID3D11Buffer* d3dBuffer = buffer ? (ID3D11Buffer*)buffer->D3DBuffer() : nullptr;
 
         switch (stage)
         {
@@ -280,9 +280,9 @@ void Graphics::SetTexture(size_t index, Texture* texture)
     if (index < MAX_TEXTURE_UNITS)
     {
         textures[index] = texture;
-        ID3D11ShaderResourceView* d3dResourceView = texture ? (ID3D11ShaderResourceView*)texture->ResourceViewObject() :
+        ID3D11ShaderResourceView* d3dResourceView = texture ? (ID3D11ShaderResourceView*)texture->D3DResourceView() :
             nullptr;
-        ID3D11SamplerState* d3dSampler = texture ? (ID3D11SamplerState*)texture->SamplerObject() : nullptr;
+        ID3D11SamplerState* d3dSampler = texture ? (ID3D11SamplerState*)texture->D3DSampler() : nullptr;
         // Note: now both VS & PS resource views are set at the same time, to mimic OpenGL conventions
         if (d3dResourceView != impl->resourceViews[index])
         {
@@ -305,7 +305,7 @@ void Graphics::SetIndexBuffer(IndexBuffer* buffer)
     {
         indexBuffer = buffer;
         if (buffer)
-            impl->deviceContext->IASetIndexBuffer((ID3D11Buffer*)buffer->BufferObject(), buffer->IndexSize() ==
+            impl->deviceContext->IASetIndexBuffer((ID3D11Buffer*)buffer->D3DBuffer(), buffer->IndexSize() ==
                 sizeof(unsigned short) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT, 0);
         else
             impl->deviceContext->IASetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
@@ -347,7 +347,7 @@ void Graphics::SetBlendState(BlendState* state)
 {
     if (state != blendState)
     {
-        ID3D11BlendState* d3dBlendState = state ? (ID3D11BlendState*)state->StateObject() : nullptr;
+        ID3D11BlendState* d3dBlendState = state ? (ID3D11BlendState*)state->D3DState() : nullptr;
         if (d3dBlendState != impl->blendState)
         {
             impl->deviceContext->OMSetBlendState(d3dBlendState, 0, 0xffffffff);
@@ -361,7 +361,7 @@ void Graphics::SetDepthState(DepthState* state, unsigned stencilRef_)
 {
     if (state != depthState || stencilRef_ != stencilRef)
     {
-        ID3D11DepthStencilState* d3dDepthStencilState = state ? (ID3D11DepthStencilState*)state->StateObject() : nullptr;
+        ID3D11DepthStencilState* d3dDepthStencilState = state ? (ID3D11DepthStencilState*)state->D3DState() : nullptr;
         if (d3dDepthStencilState != impl->depthStencilState || stencilRef_ != stencilRef)
         {
             impl->deviceContext->OMSetDepthStencilState(d3dDepthStencilState, stencilRef_);
@@ -376,7 +376,7 @@ void Graphics::SetRasterizerState(RasterizerState* state)
 {
     if (state != rasterizerState)
     {
-        ID3D11RasterizerState* d3dRasterizerState = state ? (ID3D11RasterizerState*)state->StateObject() : nullptr;
+        ID3D11RasterizerState* d3dRasterizerState = state ? (ID3D11RasterizerState*)state->D3DState() : nullptr;
         if (d3dRasterizerState != impl->rasterizerState)
         {
             impl->deviceContext->RSSetState(d3dRasterizerState);
@@ -512,17 +512,17 @@ void Graphics::RemoveGPUObject(GPUObject* object)
     gpuObjects.Remove(object);
 }
 
-void* Graphics::Device() const
+void* Graphics::D3DDevice() const
 {
     return impl->device;
 }
 
-void* Graphics::DeviceContext() const
+void* Graphics::D3DDeviceContext() const
 {
     return impl->deviceContext;
 }
 
-bool Graphics::CreateDevice()
+bool Graphics::CreateD3DDevice()
 {
     if (impl->device)
         return true; // Already exists

@@ -35,8 +35,8 @@ public:
     /// Return whether compile attempted.
     bool IsCompiled() const { return compiled; }
 
-    /// Return the OpenGL shader. Used internally and should not be called by portable application code.
-    unsigned ShaderObject() const { return shader; }
+    /// Return the OpenGL shader identifier. Used internally and should not be called by portable application code.
+    unsigned GLShader() const { return shader; }
 
 private:
     /// OpenGL shader object identifier.

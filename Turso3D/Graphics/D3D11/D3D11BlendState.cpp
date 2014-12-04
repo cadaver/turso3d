@@ -72,7 +72,7 @@ bool BlendState::Define(bool blendEnable_, BlendFactor srcBlend_, BlendFactor de
         stateDesc.RenderTarget[0].BlendOpAlpha = (D3D11_BLEND_OP)blendOpAlpha;
         stateDesc.RenderTarget[0].RenderTargetWriteMask = colorWriteMask & COLORMASK_ALL;
 
-        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
+        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->D3DDevice();
         d3dDevice->CreateBlendState(&stateDesc, (ID3D11BlendState**)&stateObject);
 
         if (!stateObject)

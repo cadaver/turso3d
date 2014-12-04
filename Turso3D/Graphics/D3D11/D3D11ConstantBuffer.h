@@ -60,7 +60,7 @@ public:
     bool IsImmutable() const { return usage == USAGE_IMMUTABLE; }
 
     /// Return the D3D11 buffer. Used internally and should not be called by portable application code.
-    void* BufferObject() const { return buffer; }
+    void* D3DBuffer() const { return buffer; }
 
     /// Element sizes by type.
     static const size_t elementSize[];

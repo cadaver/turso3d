@@ -230,7 +230,7 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int he
 
     if (graphics && graphics->IsInitialized())
     {
-        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
+        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->D3DDevice();
 
         D3D11_TEXTURE2D_DESC textureDesc;
         memset(&textureDesc, 0, sizeof textureDesc);
@@ -361,7 +361,7 @@ bool Texture::DefineSampler(TextureFilterMode filter, TextureAddressMode u, Text
         samplerDesc.MaxLOD = maxLod;
         memcpy(&samplerDesc.BorderColor, borderColor.Data(), 4 * sizeof(float));
 
-        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
+        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->D3DDevice();
         d3dDevice->CreateSamplerState(&samplerDesc, (ID3D11SamplerState**)&sampler);
 
         if (!sampler)
@@ -407,7 +407,7 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
             return false;
         }
 
-        ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->DeviceContext();
+        ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->D3DDeviceContext();
 
         if (usage == USAGE_DYNAMIC)
         {
@@ -453,7 +453,7 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
     return true;
 }
 
-void* Texture::RenderTargetViewObject(size_t /*index*/) const
+void* Texture::D3DRenderTargetView(size_t /*index*/) const
 {
     /// \todo Handle different indices for eg. cube maps
     return renderTargetView;

@@ -62,13 +62,13 @@ public:
     bool IsDepthStencil() const { return usage == USAGE_RENDERTARGET && format >= FMT_D16 && format <= FMT_D24S8; }
 
     /// Return the D3D11 texture object. Used internally and should not be called by portable application code.
-    void* TextureObject() const { return texture; }
+    void* D3DTexture() const { return texture; }
     /// Return the D3D11 shader resource view object. Used internally and should not be called by portable application code.
-    void* ResourceViewObject() const { return resourceView; }
+    void* D3DResourceView() const { return resourceView; }
     /// Return the D3D11 rendertarget or depth-stencil view object. Used internally and should not be called by portable application code.
-    void* RenderTargetViewObject(size_t index = 0) const;
+    void* D3DRenderTargetView(size_t index = 0) const;
     /// Return the D3D11 texture sampler object. Used internally and should not be called by portable application code.
-    void* SamplerObject() const { return sampler; }
+    void* D3DSampler() const { return sampler; }
 
 private: 
     /// D3D11 texture object.

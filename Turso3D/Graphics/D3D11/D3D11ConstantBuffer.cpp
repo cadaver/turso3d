@@ -156,7 +156,7 @@ bool ConstantBuffer::Apply()
     if (!dirty || !buffer)
         return true;
     
-    ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->DeviceContext();
+    ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->D3DDeviceContext();
     if (usage == USAGE_DYNAMIC)
     {
         D3D11_MAPPED_SUBRESOURCE mappedData;
@@ -214,7 +214,7 @@ bool ConstantBuffer::Create(const void* data)
         bufferDesc.CPUAccessFlags = (usage == USAGE_DYNAMIC) ? D3D11_CPU_ACCESS_WRITE : 0;
         bufferDesc.Usage = (D3D11_USAGE)usage;
 
-        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
+        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->D3DDevice();
         d3dDevice->CreateBuffer(&bufferDesc, data ? &initialData : nullptr, (ID3D11Buffer**)&buffer);
 
         if (!buffer)

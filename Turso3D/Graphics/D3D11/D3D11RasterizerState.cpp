@@ -73,7 +73,7 @@ bool RasterizerState::Define(FillMode fillMode_, CullMode cullMode_, int depthBi
         stateDesc.MultisampleEnable = multisampleEnable;
         stateDesc.AntialiasedLineEnable = antialiasedLineEnable;
 
-        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
+        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->D3DDevice();
         d3dDevice->CreateRasterizerState(&stateDesc, (ID3D11RasterizerState**)&stateObject);
 
         if (!stateObject)

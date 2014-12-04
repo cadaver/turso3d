@@ -163,7 +163,7 @@ bool ShaderVariation::Compile()
         errorBlob = nullptr;
     }
     
-    ID3D11Device* d3dDevice = (ID3D11Device*)graphics->Device();
+    ID3D11Device* d3dDevice = (ID3D11Device*)graphics->D3DDevice();
     ID3DBlob* d3dBlob = (ID3DBlob*)blob;
     
     if (stage == SHADER_VS)

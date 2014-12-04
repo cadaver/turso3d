@@ -54,7 +54,7 @@ bool ShaderProgram::Link()
         LOGERROR("Shader(s) are null, can not link shader program");
         return false;
     }
-    if (!vs->ShaderObject() || !ps->ShaderObject())
+    if (!vs->GLShader() || !ps->GLShader())
     {
         LOGERROR("Shaders have not been compiled, can not link shader program");
         return false;
@@ -70,8 +70,8 @@ bool ShaderProgram::Link()
         return false;
     }
 
-    glAttachShader(program, vs->ShaderObject());
-    glAttachShader(program, ps->ShaderObject());
+    glAttachShader(program, vs->GLShader());
+    glAttachShader(program, ps->GLShader());
     glLinkProgram(program);
 
     int linked;

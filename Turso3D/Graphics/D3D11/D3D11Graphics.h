@@ -141,13 +141,13 @@ public:
     /// Remove a GPU object.
     void RemoveGPUObject(GPUObject* object);
     /// Return the D3D11 device. Used internally and should not be called by portable application code.
-    void* Device() const;
+    void* D3DDevice() const;
     /// Return the D3D11 immediate device context. Used internally and should not be called by portable application code.
-    void* DeviceContext() const;
+    void* D3DDeviceContext() const;
 
 private:
     /// Create the D3D11 device and swap chain. Requires an open window. Return true on success.
-    bool CreateDevice();
+    bool CreateD3DDevice();
     /// Update swap chain state for a new mode and create views for the backbuffer & default depth buffer.
     bool UpdateSwapChain(int width, int height, bool fullscreen);
     /// Resize the backbuffer when window size changes.

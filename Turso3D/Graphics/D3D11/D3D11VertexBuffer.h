@@ -48,7 +48,7 @@ public:
     bool IsImmutable() const { return usage == USAGE_IMMUTABLE; }
 
     /// Return the D3D11 buffer. Used internally and should not be called by portable application code.
-    void* BufferObject() const { return buffer; }
+    void* D3DBuffer() const { return buffer; }
 
     /// Compute the hash code of one vertex element by index and semantic.
     static unsigned ElementHash(size_t index, ElementSemantic semantic) { return (semantic + 1) << (index * 3); }

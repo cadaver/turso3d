@@ -27,8 +27,6 @@ class WindowResizeEvent;
 
 typedef HashMap<Pair<ShaderVariation*, ShaderVariation*>, AutoPtr<ShaderProgram> > ShaderProgramMap;
 
-static const size_t MAX_VERTEX_ATTRIBUTES = 16;
-
 /// 3D graphics rendering context. Manages the rendering window and GPU objects.
 class TURSO3D_API Graphics : public Object
 {

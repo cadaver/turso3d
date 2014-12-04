@@ -47,8 +47,8 @@ public:
     /// Return whether is immutable.
     bool IsImmutable() const { return usage == USAGE_IMMUTABLE; }
 
-    /// Return the OpenGL buffer. Used internally and should not be called by portable application code.
-    unsigned BufferObject() const { return buffer; }
+    /// Return the OpenGL buffer identifier. Used internally and should not be called by portable application code.
+    unsigned GLBuffer() const { return buffer; }
 
     /// Compute the hash code of one vertex element by index and semantic.
     static unsigned ElementHash(size_t index, ElementSemantic semantic) { return (semantic + 1) << (index * 3); }

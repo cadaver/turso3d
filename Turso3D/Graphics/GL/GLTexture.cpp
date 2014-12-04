@@ -12,7 +12,7 @@
 namespace Turso3D
 {
 
-unsigned Texture::target[] = {
+unsigned Texture::glTarget[] = {
     GL_TEXTURE_1D,
     GL_TEXTURE_2D,
     GL_TEXTURE_3D,
