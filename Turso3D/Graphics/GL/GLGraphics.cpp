@@ -559,10 +559,19 @@ void Graphics::BindVBO(unsigned vbo)
     }
 }
 
-void Graphics::HandleResize(WindowResizeEvent& /*event*/)
+void Graphics::HandleResize(WindowResizeEvent& event)
 {
     // Handle windowed mode resize
-    /// \todo Implement
+    if (!fullscreen)
+    {
+        backbufferSize = event.size;
+        // Reset viewport in case the application does not set it
+        if (context)
+        {
+            ResetRenderTargets();
+            SetViewport(IntRect(0, 0, backbufferSize.x, backbufferSize.y));
+        }
+    }
 }
 
 void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
