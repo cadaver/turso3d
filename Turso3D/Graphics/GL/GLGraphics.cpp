@@ -675,8 +675,11 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
     while (disableVertexAttributes)
     {
         if (disableVertexAttributes & 1)
+        {
             glDisableVertexAttribArray(location);
-        location++;
+            enabledVertexAttributes &= ~(1 << location);
+        }
+        ++location;
         disableVertexAttributes >>= 1;
     }
 }
