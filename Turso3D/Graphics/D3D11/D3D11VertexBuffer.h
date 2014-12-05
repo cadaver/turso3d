@@ -3,6 +3,7 @@
 #pragma once
 
 #include "../../Base/AutoPtr.h"
+#include "../../Base/Vector.h"
 #include "../GPUObject.h"
 #include "../GraphicsDefs.h"
 

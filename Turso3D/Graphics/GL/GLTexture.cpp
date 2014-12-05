@@ -125,69 +125,6 @@ Texture::~Texture()
     Release();
 }
 
-void Texture::RegisterObject()
-{
-    RegisterFactory<Texture>();
-}
-
-bool Texture::BeginLoad(Stream& source)
-{
-    Image* image = new Image();
-    if (image->Load(source))
-        loadImages.Push(image);
-    else
-    {
-        delete image;
-        return false;
-    }
-
-    // Construct mip levels now if image is uncompressed
-    if (!image->IsCompressed())
-    {
-        while (image->Width() > 1 || image->Height() > 1)
-        {
-            Image* nextMipImage = new Image();
-            if (image->GenerateMipImage(*nextMipImage))
-            {
-                loadImages.Push(nextMipImage);
-                image = nextMipImage;
-            }
-            else
-            {
-                delete nextMipImage;
-                break;
-            }
-        }
-    }
-
-    return true;
-}
-
-bool Texture::EndLoad()
-{
-    if (loadImages.IsEmpty())
-        return false;
-
-    Vector<ImageLevel> initialData;
-
-    for (size_t i = 0; i < loadImages.Size(); ++i)
-    {
-        for (size_t j = 0; j < loadImages[i]->NumLevels(); ++j)
-            initialData.Push(loadImages[i]->Level(j));
-    }
-
-    Image* image = loadImages[0];
-    bool success = Define(TEX_2D, USAGE_IMMUTABLE, image->Width(), image->Height(), image->Format(), initialData.Size(), &initialData[0]);
-    /// \todo Read a parameter file for the sampling parameters
-    success &= DefineSampler(FILTER_TRILINEAR, ADDRESS_WRAP, ADDRESS_WRAP, ADDRESS_WRAP, 16, 0.0f, M_INFINITY, Color::BLACK);
-
-    for (size_t i = 0; i < loadImages.Size(); ++i)
-        delete loadImages[i];
-    loadImages.Clear();
-
-    return success;
-}
-
 void Texture::Release()
 {
     if (graphics)
@@ -218,7 +155,7 @@ void Texture::Release()
                 graphics->ResetRenderTargets();
         }
     }
-    
+
     if (texture)
     {
         glDeleteTextures(1, &texture);
@@ -237,7 +174,6 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int he
         LOGERROR("Only 2D textures supported for now");
         return false;
     }
-
     if (format_ > FMT_DXT5)
     {
         LOGERROR("ETC1 and PVRTC formats are unsupported");

@@ -2,7 +2,6 @@
 
 #include "../../Debug/Log.h"
 #include "../../Debug/Profiler.h"
-#include "../../Math/Matrix3x4.h"
 #include "GLGraphics.h"
 #include "GLVertexBuffer.h"
 
@@ -12,30 +11,6 @@
 
 namespace Turso3D
 {
-
-const size_t VertexBuffer::elementSize[] =
-{
-    sizeof(int),
-    sizeof(float),
-    sizeof(Vector2),
-    sizeof(Vector3),
-    sizeof(Vector4),
-    sizeof(unsigned),
-    sizeof(Matrix3x4),
-    sizeof(Matrix4)
-};
-
-const char* VertexBuffer::elementSemantic[] = {
-    "POSITION",
-    "NORMAL",
-    "BINORMAL",
-    "TANGENT",
-    "TEXCOORD",
-    "COLOR",
-    "BLENDWEIGHT",
-    "BLENDINDICES",
-    nullptr
-};
 
 VertexBuffer::VertexBuffer() :
     buffer(0),

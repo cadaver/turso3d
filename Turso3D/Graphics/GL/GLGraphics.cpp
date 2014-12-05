@@ -564,10 +564,10 @@ void Graphics::HandleResize(WindowResizeEvent& event)
     // Handle windowed mode resize
     if (!fullscreen)
     {
-        backbufferSize = event.size;
         // Reset viewport in case the application does not set it
         if (context)
         {
+            backbufferSize = event.size;
             ResetRenderTargets();
             SetViewport(IntRect(0, 0, backbufferSize.x, backbufferSize.y));
         }

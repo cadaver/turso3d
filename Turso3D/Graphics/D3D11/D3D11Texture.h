@@ -3,6 +3,7 @@
 #pragma once
 
 #include "../../Math/Color.h"
+#include "../../Math/IntRect.h"
 #include "../../Resource/Image.h"
 #include "../GPUObject.h"
 #include "../GraphicsDefs.h"
@@ -94,7 +95,7 @@ private:
     /// Number of mipmap levels.
     size_t numLevels;
     /// Images used for loading.
-    Vector<Image*> loadImages;
+    Vector<AutoPtr<Image> > loadImages;
 };
 
 }
