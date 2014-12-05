@@ -669,74 +669,33 @@ ImageLevel Image::Level(size_t index) const
 {
     ImageLevel level;
 
-    /// \todo Refactor to use DataSize()
     if (index >= numLevels)
         return level;
 
-    level.width = width;
-    level.height = height;
-
     if (!IsCompressed())
     {
-        level.rows = height;
-        level.rowSize = PixelByteSize() * width;
+        level.width = width;
+        level.height = height;
         level.data = data.Get();
+        CalculateDataSize(level.width, level.height, format, &level.rows, &level.rowSize);
         return level;
-    }
-
-    if (format < FMT_PVRTC_RGB_2BPP)
-    {
-        size_t blockSize = (format == FMT_DXT1 || format == FMT_ETC1) ? 8 : 16;
-        size_t i = 0;
-        size_t offset = 0;
-
-        for (;;)
-        {
-            if (!level.width)
-                level.width = 1;
-            if (!level.height)
-                level.height = 1;
-
-            level.rowSize = ((level.width + 3) / 4) * blockSize;
-            level.rows = ((level.height + 3) / 4);
-            level.data = data.Get() + offset;
-
-            if (i == index)
-                return level;
-
-            offset += level.rows * level.rowSize;
-            level.width /= 2;
-            level.height /= 2;
-            ++i;
-        }
     }
     else
     {
-        size_t blockSize = format < FMT_PVRTC_RGB_4BPP ? 2 : 4;
         size_t i = 0;
         size_t offset = 0;
 
         for (;;)
         {
-            if (!level.width)
-                level.width = 1;
-            if (!level.height)
-                level.height = 1;
-
-            int dataWidth = Max(level.width, blockSize == 2 ? 16 : 8);
-            int dataHeight = Max(level.height, 8);
-            size_t dataSize = (dataWidth * dataHeight * blockSize + 7) >> 3;
-
+            level.width = Max(width >> i, 1);
+            level.height = Max(height >> i, 1);
             level.data = data.Get() + offset;
-            level.rows = dataHeight;
-            level.rowSize = dataSize / level.rows;
 
+            size_t dataSize = CalculateDataSize(level.width, level.height, format, &level.rows, &level.rowSize);
             if (i == index)
                 return level;
 
             offset += dataSize;
-            level.width /= 2;
-            level.height /= 2;
             ++i;
         }
     }
@@ -787,24 +746,37 @@ bool Image::DecompressLevel(unsigned char* dest, size_t index) const
     return true;
 }
 
-size_t Image::DataSize(int width, int height, ImageFormat format)
+size_t Image::CalculateDataSize(int width, int height, ImageFormat format, size_t* dstRows, size_t* dstRowSize)
 {
+    size_t rows, rowSize, dataSize;
+
     if (format < FMT_DXT1)
-        return width * height * pixelByteSize[format];
+    {
+        rows = height;
+        rowSize = width * pixelByteSize[format];
+        dataSize = rows * rowSize;
+    }
     else if (format < FMT_PVRTC_RGB_2BPP)
     {
         size_t blockSize = (format == FMT_DXT1 || format == FMT_ETC1) ? 8 : 16;
-        size_t rowSize = ((width + 3) / 4) * blockSize;
-        size_t rows = (height + 3) / 4;
-        return rows * rowSize;
+        rows = (height + 3) / 4;
+        rowSize = ((width + 3) / 4) * blockSize;
+        dataSize = rows * rowSize;
     }
     else
     {
         size_t blockSize = format < FMT_PVRTC_RGB_4BPP ? 2 : 4;
         size_t dataWidth = Max(width, blockSize == 2 ? 16 : 8);
-        size_t dataHeight = Max(height, 8);
-        return (dataWidth * dataHeight * blockSize + 7) >> 3;
+        rows = Max(height, 8);
+        dataSize = (dataWidth * rows * blockSize + 7) >> 3;
+        rowSize = dataSize / rows;
     }
+
+    if (dstRows)
+        *dstRows = rows;
+    if (dstRowSize)
+        *dstRowSize = rowSize;
+    return dataSize;
 }
 
 }

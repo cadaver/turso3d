@@ -111,8 +111,8 @@ public:
     /// Decompress a mip level as 8-bit RGBA. Supports compressed images only. Return true on success.
     bool DecompressLevel(unsigned char* dest, size_t levelIndex) const;
 
-    /// Calculate the data size of an image level. Also handles compressed formats.
-    static size_t DataSize(int width, int height, ImageFormat format);
+    /// Calculate the data size of an image level.
+    static size_t CalculateDataSize(int width, int height, ImageFormat format, size_t* numRows = 0, size_t* rowSize = 0);
 
     /// Pixel byte sizes per format.
     static const size_t pixelByteSize[];

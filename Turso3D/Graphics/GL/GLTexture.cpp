@@ -346,12 +346,12 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
             if (wholeLevel)
             {
                 glCompressedTexImage2D(glTarget[type], level, glInternalFormat[format], rect.Width(), rect.Height(), 0,
-                    Image::DataSize(rect.Width(), rect.Height(), format), data.data);
+                    Image::CalculateDataSize(rect.Width(), rect.Height(), format), data.data);
             }
             else
             {
                 glCompressedTexSubImage2D(glTarget[type], level, rect.left, rect.top, rect.Width(), rect.Height(), glFormat[format],
-                    Image::DataSize(rect.Width(), rect.Height(), format), data.data);
+                    Image::CalculateDataSize(rect.Width(), rect.Height(), format), data.data);
             }
         }
     }
