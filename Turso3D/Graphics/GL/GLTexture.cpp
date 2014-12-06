@@ -12,7 +12,7 @@
 namespace Turso3D
 {
 
-unsigned Texture::glTarget[] = 
+static const unsigned glTargets[] = 
 {
     GL_TEXTURE_1D,
     GL_TEXTURE_2D,
@@ -20,7 +20,7 @@ unsigned Texture::glTarget[] =
     GL_TEXTURE_CUBE_MAP
 };
 
-unsigned Texture::glInternalFormat[] =
+static const unsigned glInternalFormats[] =
 {
     0,
     GL_R8,
@@ -50,7 +50,7 @@ unsigned Texture::glInternalFormat[] =
     0
 };
 
-unsigned Texture::glFormat[] =
+static const unsigned glFormats[] =
 {
     0,
     GL_RED,
@@ -80,7 +80,7 @@ unsigned Texture::glFormat[] =
     0
 };
 
-unsigned Texture::glDataType[] = 
+static const unsigned glDataTypes[] = 
 {
     0,
     GL_UNSIGNED_BYTE,
@@ -108,6 +108,16 @@ unsigned Texture::glDataType[] =
     0,
     0,
     0
+};
+
+static const unsigned glWrapModes[] = 
+{
+    0,
+    GL_REPEAT,
+    GL_MIRRORED_REPEAT,
+    GL_CLAMP_TO_EDGE,
+    GL_CLAMP_TO_BORDER,
+    GL_MIRROR_CLAMP_EXT
 };
 
 Texture::Texture() :
@@ -210,7 +220,7 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int he
 
         // If not compressed and no initial data, create the initial level 0 texture with null data
         if (!IsCompressed() && !initialData)
-            glTexImage2D(glTarget[type], 0, glInternalFormat[format], width, height, 0, glFormat[format], glDataType[format], 0);
+            glTexImage2D(glTargets[type], 0, glInternalFormats[format], width, height, 0, glFormats[format], glDataTypes[format], 0);
 
         if (initialData)
         {
@@ -221,8 +231,8 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int he
             usage = usage_;
         }
 
-        glTexParameteri(glTarget[type], GL_TEXTURE_BASE_LEVEL, 0);
-        glTexParameteri(glTarget[type], GL_TEXTURE_MAX_LEVEL, numLevels - 1);
+        glTexParameteri(glTargets[type], GL_TEXTURE_BASE_LEVEL, 0);
+        glTexParameteri(glTargets[type], GL_TEXTURE_MAX_LEVEL, numLevels - 1);
 
         LOGDEBUGF("Created texture width %d height %d format %d numLevels %d", width, height, (int)format, numLevels);
     }
@@ -230,11 +240,70 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int he
     return true;
 }
 
-bool Texture::DefineSampler(TextureFilterMode filter, TextureAddressMode u, TextureAddressMode v, TextureAddressMode w, unsigned maxAnisotropy, float minLod, float maxLod, const Color& borderColor)
+bool Texture::DefineSampler(TextureFilterMode filter_, TextureAddressMode u, TextureAddressMode v, TextureAddressMode w, unsigned maxAnisotropy_, float minLod_, float maxLod_, const Color& borderColor_)
 {
     PROFILE(DefineTextureSampler);
 
-    /// \todo Apply to OpenGL texture
+    filter = filter_;
+    addressModes[0] = u;
+    addressModes[1] = v;
+    addressModes[2] = w;
+    maxAnisotropy = maxAnisotropy_;
+    minLod = minLod_;
+    maxLod = maxLod_;
+    borderColor = borderColor_;
+
+    if (graphics && graphics->IsInitialized())
+    {
+        if (!texture)
+        {
+            LOGERROR("On OpenGL texture must be defined before defining sampling parameters");
+            return false;
+        }
+
+        // Bind for defining sampling parameters
+        graphics->SetTexture(0, this);
+
+        switch (filter)
+        {
+        case FILTER_POINT:
+            glTexParameteri(glTargets[type], GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(glTargets[type], GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            break;
+
+        case FILTER_BILINEAR:
+            if (numLevels < 2)
+                glTexParameteri(glTargets[type], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            else
+                glTexParameteri(glTargets[type], GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+            glTexParameteri(glTargets[type], GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            break;
+
+        case FILTER_ANISOTROPIC:
+        case FILTER_TRILINEAR:
+            if (numLevels < 2)
+                glTexParameteri(glTargets[type], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            else
+                glTexParameteri(glTargets[type], GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            glTexParameteri(glTargets[type], GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            break;
+
+        default:
+            break;
+        }
+
+        glTexParameteri(glTargets[type], GL_TEXTURE_WRAP_S, glWrapModes[addressModes[0]]);
+        glTexParameteri(glTargets[type], GL_TEXTURE_WRAP_T, glWrapModes[addressModes[1]]);
+        glTexParameteri(glTargets[type], GL_TEXTURE_WRAP_R, glWrapModes[addressModes[2]]);
+
+        glTexParameterf(glTargets[type], GL_TEXTURE_MAX_ANISOTROPY_EXT, filter == FILTER_ANISOTROPIC ?
+            maxAnisotropy : 1.0f);
+
+        glTexParameterf(glTargets[type], GL_TEXTURE_MIN_LOD, minLod);
+        glTexParameterf(glTargets[type], GL_TEXTURE_MAX_LOD, maxLod);
+
+        glTexParameterfv(glTargets[type], GL_TEXTURE_BORDER_COLOR, borderColor.Data());
+    }
 
     return true;
 }
@@ -263,36 +332,44 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
             return false;
         }
 
+        // Bind for updating
+        graphics->SetTexture(0, this);
+
         bool wholeLevel = rect == levelRect;
         if (!IsCompressed())
         {
             if (wholeLevel)
             {
-                glTexImage2D(glTarget[type], level, glInternalFormat[format], rect.Width(), rect.Height(), 0, glFormat[format],
-                    glDataType[format], data.data);
+                glTexImage2D(glTargets[type], level, glInternalFormats[format], rect.Width(), rect.Height(), 0, glFormats[format],
+                    glDataTypes[format], data.data);
             }
             else
             {
-                glTexSubImage2D(glTarget[type], level, rect.left, rect.top, rect.Width(), rect.Height(), glFormat[format],
-                    glDataType[format], data.data);
+                glTexSubImage2D(glTargets[type], level, rect.left, rect.top, rect.Width(), rect.Height(), glFormats[format],
+                    glDataTypes[format], data.data);
             }
         }
         else
         {
             if (wholeLevel)
             {
-                glCompressedTexImage2D(glTarget[type], level, glInternalFormat[format], rect.Width(), rect.Height(), 0,
+                glCompressedTexImage2D(glTargets[type], level, glInternalFormats[format], rect.Width(), rect.Height(), 0,
                     Image::CalculateDataSize(rect.Width(), rect.Height(), format), data.data);
             }
             else
             {
-                glCompressedTexSubImage2D(glTarget[type], level, rect.left, rect.top, rect.Width(), rect.Height(), glFormat[format],
+                glCompressedTexSubImage2D(glTargets[type], level, rect.left, rect.top, rect.Width(), rect.Height(), glFormats[format],
                     Image::CalculateDataSize(rect.Width(), rect.Height(), format), data.data);
             }
         }
     }
 
     return true;
+}
+
+unsigned Texture::GLTarget() const
+{
+    return glTargets[type];
 }
 
 }

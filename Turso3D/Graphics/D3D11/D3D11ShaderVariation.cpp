@@ -34,9 +34,9 @@ unsigned InspectInputSignature(ID3DBlob* d3dBlob)
         D3D11_SIGNATURE_PARAMETER_DESC paramDesc;
         reflection->GetInputParameterDesc((unsigned)i, &paramDesc);
 
-        for (size_t j = 0; VertexBuffer::elementSemantic[j]; ++j)
+        for (size_t j = 0; VertexBuffer::elementSemantics[j]; ++j)
         {
-            if (!String::Compare(paramDesc.SemanticName, VertexBuffer::elementSemantic[j]))
+            if (!String::Compare(paramDesc.SemanticName, VertexBuffer::elementSemantics[j]))
             {
                 elementHash |= VertexBuffer::ElementHash(i, (ElementSemantic)j);
                 break;

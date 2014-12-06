@@ -30,7 +30,7 @@
 namespace Turso3D
 {
 
-const size_t Image::pixelByteSize[] =
+const size_t Image::pixelByteSizes[] =
 {
     0,      // FMT_NONE
     1,      // FMT_R8
@@ -509,13 +509,13 @@ void Image::SetSize(int newWidth, int newHeight, ImageFormat newFormat)
         LOGERROR("Can not set negative image size");
         return;
     }
-    if (pixelByteSize[newFormat] == 0)
+    if (pixelByteSizes[newFormat] == 0)
     {
         LOGERROR("Can not set image size with unspecified pixel byte size (including compressed formats)");
         return;
     }
 
-    data = new unsigned char[newWidth * newHeight * pixelByteSize[newFormat]];
+    data = new unsigned char[newWidth * newHeight * pixelByteSizes[newFormat]];
     width = newWidth;
     height = newHeight;
     format = newFormat;
@@ -753,7 +753,7 @@ size_t Image::CalculateDataSize(int width, int height, ImageFormat format, size_
     if (format < FMT_DXT1)
     {
         rows = height;
-        rowSize = width * pixelByteSize[format];
+        rowSize = width * pixelByteSizes[format];
         dataSize = rows * rowSize;
     }
     else if (format < FMT_PVRTC_RGB_2BPP)

@@ -106,7 +106,7 @@ bool VertexBuffer::Define(ResourceUsage usage_, size_t numVertices_, size_t numE
     {
         elements[i] = elements_[i];
         elements[i].offset = vertexSize;
-        vertexSize += elementSize[elements[i].type];
+        vertexSize += elementSizes[elements[i].type];
         elementHash |= ElementHash(i, elements[i].semantic);
     }
 

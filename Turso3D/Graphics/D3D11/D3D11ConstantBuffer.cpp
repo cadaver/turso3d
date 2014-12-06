@@ -85,7 +85,7 @@ bool ConstantBuffer::Define(ResourceUsage usage_, size_t numConstants, const Con
         newConstant.type = srcConstants->type;
         newConstant.name = srcConstants->name;
         newConstant.numElements = srcConstants->numElements;
-        newConstant.elementSize = VertexBuffer::elementSize[newConstant.type];
+        newConstant.elementSize = VertexBuffer::elementSizes[newConstant.type];
         // If element crosses 16 byte boundary or is larger than 16 bytes, align to next 16 bytes
         if ((newConstant.elementSize <= 16 && ((byteSize + newConstant.elementSize - 1) >> 4) != (byteSize >> 4)) ||
             (newConstant.elementSize > 16 && (byteSize & 15)))

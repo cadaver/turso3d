@@ -55,11 +55,11 @@ public:
     static unsigned ElementHash(size_t index, ElementSemantic semantic) { return (semantic + 1) << (index * 3); }
 
     /// Vertex element size by element type.
-    static const size_t elementSize[];
+    static const size_t elementSizes[];
     /// Vertex element D3D11 format by element type.
-    static const unsigned elementFormat[];
+    static const unsigned elementFormats[];
     /// Vertex element D3D11 semantic by element semantic.
-    static const char* elementSemantic[];
+    static const char* elementSemantics[];
 
 private:
     /// OpenGL buffer object identifier.

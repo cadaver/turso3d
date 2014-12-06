@@ -63,7 +63,7 @@ public:
     unsigned GLBuffer() const { return buffer; }
 
     /// Element sizes by type.
-    static const size_t elementSize[];
+    static const size_t elementSizes[];
     /// Index for "constant not found."
     static const size_t NPOS = (size_t)-1;
 

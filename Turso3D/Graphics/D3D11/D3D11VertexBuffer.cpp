@@ -12,17 +12,6 @@
 namespace Turso3D
 {
 
-const unsigned VertexBuffer::d3dElementFormat[] = {
-    DXGI_FORMAT_R32_SINT,
-    DXGI_FORMAT_R32_FLOAT,
-    DXGI_FORMAT_R32G32_FLOAT,
-    DXGI_FORMAT_R32G32B32_FLOAT,
-    DXGI_FORMAT_R32G32B32A32_FLOAT,
-    DXGI_FORMAT_R8G8B8A8_UNORM,
-    DXGI_FORMAT_R32G32B32A32_FLOAT, // Incorrect, but included to not cause out-of-range indexing
-    DXGI_FORMAT_R32G32B32A32_FLOAT  //                          --||--
-};
-
 VertexBuffer::VertexBuffer() :
     buffer(nullptr),
     numVertices(0),
@@ -115,7 +104,7 @@ bool VertexBuffer::Define(ResourceUsage usage_, size_t numVertices_, size_t numE
     {
         elements[i] = elements_[i];
         elements[i].offset = vertexSize;
-        vertexSize += elementSize[elements[i].type];
+        vertexSize += elementSizes[elements[i].type];
         elementHash |= ElementHash(i, elements[i].semantic);
     }
 

@@ -111,7 +111,7 @@ bool ShaderProgram::Link()
         newAttribute.semantic = SEM_POSITION;
         newAttribute.index = 0;
 
-        const char** semantics = VertexBuffer::elementSemantic;
+        const char** semantics = VertexBuffer::elementSemantics;
         while (*semantics)
         {
             if (newAttribute.name.StartsWith(*semantics, false))

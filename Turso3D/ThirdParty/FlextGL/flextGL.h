@@ -918,6 +918,17 @@ typedef struct __GLsync *GLsync;
 #define GL_COMPRESSED_RGBA_S3TC_DXT3_EXT 0x83F2
 #define GL_COMPRESSED_RGBA_S3TC_DXT5_EXT 0x83F3
 
+/* GL_EXT_texture_mirror_clamp */
+
+#define GL_MIRROR_CLAMP_EXT 0x8742
+#define GL_MIRROR_CLAMP_TO_EDGE_EXT 0x8743
+#define GL_MIRROR_CLAMP_TO_BORDER_EXT 0x8912
+
+/* GL_EXT_texture_filter_anisotropic */
+
+#define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84FE
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
+
 /* --------------------------- FUNCTION PROTOTYPES --------------------------- */
 
 
@@ -1824,6 +1835,18 @@ GLAPI PFNGLVERTEXATTRIBDIVISORARB_PROC *glpfVertexAttribDivisorARB;
 
 
 
+/* GL_EXT_texture_mirror_clamp */
+
+
+
+
+
+/* GL_EXT_texture_filter_anisotropic */
+
+
+
+
+
 /* --------------------------- CATEGORY DEFINES ------------------------------ */
 
 #define GL_VERSION_1_0
@@ -1839,11 +1862,15 @@ GLAPI PFNGLVERTEXATTRIBDIVISORARB_PROC *glpfVertexAttribDivisorARB;
 #define GL_VERSION_3_2
 #define GL_ARB_instanced_arrays
 #define GL_EXT_texture_compression_s3tc
+#define GL_EXT_texture_mirror_clamp
+#define GL_EXT_texture_filter_anisotropic
 
 /* ---------------------- Flags for optional extensions ---------------------- */
 
 extern int FLEXT_ARB_instanced_arrays;
 extern int FLEXT_EXT_texture_compression_s3tc;
+extern int FLEXT_EXT_texture_mirror_clamp;
+extern int FLEXT_EXT_texture_filter_anisotropic;
 
 int flextInit(void);
 

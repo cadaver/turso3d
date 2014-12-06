@@ -67,16 +67,20 @@ public:
     /// Return the OpenGL texture identifier. Used internally and should not be called by portable application code.
     unsigned GLTexture() const { return texture; }
     /// Return the OpenGL binding target of the texture. Used internally and should not be called by portable application code.
-    unsigned GLTarget() const { return glTarget[type]; }
+    unsigned GLTarget() const;
 
-    /// OpenGL binding targets by texture type.
-    static unsigned glTarget[];
-    /// OpenGL texture internal formats by image format.
-    static unsigned glInternalFormat[];
-    /// OpenGL texture external formats by image format.
-    static unsigned glFormat[];
-    /// OpenGL texture data types by image format.
-    static unsigned glDataType[];
+    /// Texture filtering mode.
+    TextureFilterMode filter;
+    /// Texture addressing modes for each coordinate axis.
+    TextureAddressMode addressModes[3];
+    /// Maximum anisotropy.
+    unsigned maxAnisotropy;
+    /// Minimum LOD.
+    float minLod;
+    /// Maximum LOD.
+    float maxLod;
+    /// Border color. Only effective in border addressing mode.
+    Color borderColor;
 
 private:
     /// OpenGL texture object identifier.

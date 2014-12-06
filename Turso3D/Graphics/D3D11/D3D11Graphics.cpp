@@ -24,6 +24,17 @@
 namespace Turso3D
 {
 
+static const DXGI_FORMAT d3dElementFormats[] = {
+    DXGI_FORMAT_R32_SINT,
+    DXGI_FORMAT_R32_FLOAT,
+    DXGI_FORMAT_R32G32_FLOAT,
+    DXGI_FORMAT_R32G32B32_FLOAT,
+    DXGI_FORMAT_R32G32B32A32_FLOAT,
+    DXGI_FORMAT_R8G8B8A8_UNORM,
+    DXGI_FORMAT_R32G32B32A32_FLOAT, // Incorrect, but included to not cause out-of-range indexing
+    DXGI_FORMAT_R32G32B32A32_FLOAT  //                          --||--
+};
+
 /// %Graphics implementation. Holds OS-specific rendering API objects.
 struct GraphicsImpl
 {
@@ -742,9 +753,9 @@ void Graphics::PrepareDraw(PrimitiveType type)
                     {
                         const VertexElement& element = elements[j];
                         D3D11_INPUT_ELEMENT_DESC newDesc;
-                        newDesc.SemanticName = VertexBuffer::elementSemantic[element.semantic];
+                        newDesc.SemanticName = VertexBuffer::elementSemantics[element.semantic];
                         newDesc.SemanticIndex = element.index;
-                        newDesc.Format = (DXGI_FORMAT)VertexBuffer::d3dElementFormat[element.type];
+                        newDesc.Format = d3dElementFormats[element.type];
                         newDesc.InputSlot = (unsigned)i;
                         newDesc.AlignedByteOffset = (unsigned)element.offset;
                         newDesc.InputSlotClass = element.perInstance ? D3D11_INPUT_PER_INSTANCE_DATA : D3D11_INPUT_PER_VERTEX_DATA;

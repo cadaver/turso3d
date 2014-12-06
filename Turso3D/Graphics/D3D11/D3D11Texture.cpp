@@ -271,10 +271,19 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int he
     return true;
 }
 
-bool Texture::DefineSampler(TextureFilterMode filter, TextureAddressMode u, TextureAddressMode v, TextureAddressMode w, unsigned maxAnisotropy, float minLod, float maxLod, const Color& borderColor)
+bool Texture::DefineSampler(TextureFilterMode filter_, TextureAddressMode u, TextureAddressMode v, TextureAddressMode w, unsigned maxAnisotropy_, float minLod_, float maxLod_, const Color& borderColor_)
 {
     PROFILE(DefineTextureSampler);
 
+    filter = filter_;
+    addressModes[0] = u;
+    addressModes[1] = v;
+    addressModes[2] = w;
+    maxAnisotropy = maxAnisotropy_;
+    minLod = minLod_;
+    maxLod = maxLod_;
+    borderColor = borderColor;
+    
     // Release the previous sampler first
     if (sampler)
     {
@@ -340,7 +349,7 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
 
         if (usage == USAGE_DYNAMIC)
         {
-            size_t pixelByteSize = Image::pixelByteSize[format];
+            size_t pixelByteSize = Image::pixelByteSizes[format];
             if (!pixelByteSize)
             {
                 LOGERROR("Updating dynamic compressed texture is not supported");

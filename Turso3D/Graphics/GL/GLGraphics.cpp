@@ -25,7 +25,7 @@
 namespace Turso3D
 {
 
-static const unsigned elementGLType[] =
+static const unsigned elementGLTypes[] =
 {
     GL_INT,
     GL_FLOAT,
@@ -49,7 +49,7 @@ static const unsigned elementGLComponents[] =
     16
 };
 
-static const unsigned glPrimitiveType[] = 
+static const unsigned glPrimitiveTypes[] = 
 {
     0,
     GL_POINTS,
@@ -62,7 +62,7 @@ static const unsigned glPrimitiveType[] =
 Graphics::Graphics() :
     backbufferSize(IntVector2::ZERO),
     renderTargetSize(IntVector2::ZERO),
-    attributeBySemantic(MAX_ELEMENT_SEMANTICS),
+    attributesBySemantic(MAX_ELEMENT_SEMANTICS),
     fullscreen(false),
     vsync(false),
     inResize(false)
@@ -81,7 +81,6 @@ Graphics::~Graphics()
 
 bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
 {
-    // Setting window size only required if window not open yet, otherwise the swapchain takes care of resizing
     if (!window->SetSize(width, height, resizable))
         return false;
 
@@ -415,7 +414,7 @@ void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDe
 void Graphics::Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount)
 {
     PrepareDraw();
-    glDrawArrays(glPrimitiveType[type], (unsigned)vertexStart, (unsigned)vertexCount);
+    glDrawArrays(glPrimitiveTypes[type], (unsigned)vertexStart, (unsigned)vertexCount);
 }
 
 void Graphics::Draw(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart)
@@ -428,12 +427,12 @@ void Graphics::Draw(PrimitiveType type, size_t indexStart, size_t indexCount, si
     PrepareDraw();
     if (!vertexStart)
     {
-        glDrawElements(glPrimitiveType[type], (unsigned)indexCount, indexSize == sizeof(unsigned short) ? GL_UNSIGNED_SHORT :
+        glDrawElements(glPrimitiveTypes[type], (unsigned)indexCount, indexSize == sizeof(unsigned short) ? GL_UNSIGNED_SHORT :
             GL_UNSIGNED_INT, (const void*)(indexStart * indexSize));
     }
     else
     {
-        glDrawElementsBaseVertex(glPrimitiveType[type], (unsigned)indexCount, indexSize == sizeof(unsigned short) ?
+        glDrawElementsBaseVertex(glPrimitiveTypes[type], (unsigned)indexCount, indexSize == sizeof(unsigned short) ?
             GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, (const void*)(indexStart * indexSize), (unsigned)vertexStart);
     }
 
@@ -443,7 +442,7 @@ void Graphics::DrawInstanced(PrimitiveType type, size_t vertexStart, size_t vert
     instanceCount)
 {
     PrepareDraw(true, instanceStart);
-    glDrawArraysInstanced(glPrimitiveType[type], (unsigned)vertexStart, (unsigned)vertexCount, (unsigned)instanceCount);
+    glDrawArraysInstanced(glPrimitiveTypes[type], (unsigned)vertexStart, (unsigned)vertexCount, (unsigned)instanceCount);
 }
 
 void Graphics::DrawInstanced(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart, size_t instanceStart,
@@ -457,12 +456,12 @@ void Graphics::DrawInstanced(PrimitiveType type, size_t indexStart, size_t index
     PrepareDraw(true, instanceStart);
     if (!vertexStart)
     {
-        glDrawElementsInstanced(glPrimitiveType[type], (unsigned)indexCount, indexSize == sizeof(unsigned short) ?
+        glDrawElementsInstanced(glPrimitiveTypes[type], (unsigned)indexCount, indexSize == sizeof(unsigned short) ?
             GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, (const void*)(indexStart * indexSize), (unsigned)instanceCount);
     }
     else
     {
-        glDrawElementsInstancedBaseVertex(glPrimitiveType[type], (unsigned)indexCount, indexSize == sizeof(unsigned short) ?
+        glDrawElementsInstancedBaseVertex(glPrimitiveTypes[type], (unsigned)indexCount, indexSize == sizeof(unsigned short) ?
             GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, (const void*)(indexStart * indexSize), (unsigned)instanceCount, 
             (unsigned)vertexStart);
     }
@@ -580,14 +579,14 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
     {
         usedVertexAttributes = 0;
 
-        for (auto it = attributeBySemantic.Begin(); it != attributeBySemantic.End(); ++it)
+        for (auto it = attributesBySemantic.Begin(); it != attributesBySemantic.End(); ++it)
             it->Clear();
 
         const Vector<VertexAttribute>& attributes = shaderProgram->Attributes();
         for (auto it = attributes.Begin(); it != attributes.End(); ++it)
         {
             const VertexAttribute& attribute = *it;
-            Vector<unsigned>& attributeVector = attributeBySemantic[attribute.semantic];
+            Vector<unsigned>& attributeVector = attributesBySemantic[attribute.semantic];
             unsigned char index = attribute.index;
 
             // Mark semantic as required
@@ -620,7 +619,7 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
                 for (auto it = elements.Begin(); it != elements.End(); ++it)
                 {
                     const VertexElement& element = *it;
-                    const Vector<unsigned>& attributeVector = attributeBySemantic[element.semantic];
+                    const Vector<unsigned>& attributeVector = attributesBySemantic[element.semantic];
 
                     // If making several instanced draw calls with the same vertex buffers, only need to update the instancing
                     // data attribute pointers
@@ -658,7 +657,7 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
                         }
 
                         BindVBO(buffer->GLBuffer());
-                        glVertexAttribPointer(location, elementGLComponents[element.type], elementGLType[element.type],
+                        glVertexAttribPointer(location, elementGLComponents[element.type], elementGLTypes[element.type],
                             element.semantic == SEM_COLOR ? GL_TRUE : GL_FALSE, (unsigned)buffer->VertexSize(),
                             (const void *)dataStart);
                     }

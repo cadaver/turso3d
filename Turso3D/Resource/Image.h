@@ -95,7 +95,7 @@ public:
     /// Return image height in pixels.
     int Height() const { return height; }
     /// Return byte size of a pixel. Will return 0 for compressed formats.
-    size_t PixelByteSize() const { return pixelByteSize[format]; } 
+    size_t PixelByteSize() const { return pixelByteSizes[format]; } 
     /// Return pixel data.
     unsigned char* Data() const { return data; }
     /// Return the image format.
@@ -115,7 +115,7 @@ public:
     static size_t CalculateDataSize(int width, int height, ImageFormat format, size_t* numRows = 0, size_t* rowSize = 0);
 
     /// Pixel byte sizes per format.
-    static const size_t pixelByteSize[];
+    static const size_t pixelByteSizes[];
 
 private:
     /// Decode image pixel data using the stb_image library.

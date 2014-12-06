@@ -381,11 +381,21 @@ void flextLoadOpenGLFunctions(void)
 
 
 
+    /* GL_EXT_texture_mirror_clamp */
+
+
+
+    /* GL_EXT_texture_filter_anisotropic */
+
+
+
 }
 
 /* ----------------------- Extension flag definitions ---------------------- */
 int FLEXT_ARB_instanced_arrays = GL_FALSE;
 int FLEXT_EXT_texture_compression_s3tc = GL_FALSE;
+int FLEXT_EXT_texture_mirror_clamp = GL_FALSE;
+int FLEXT_EXT_texture_filter_anisotropic = GL_FALSE;
 
 /* ---------------------- Function pointer definitions --------------------- */
 
@@ -684,6 +694,12 @@ static void add_extension(const char* extension)
     }
     if (strcmp("GL_EXT_texture_compression_s3tc", extension) == 0) {
         FLEXT_EXT_texture_compression_s3tc = GL_TRUE;
+    }
+    if (strcmp("GL_EXT_texture_mirror_clamp", extension) == 0) {
+        FLEXT_EXT_texture_mirror_clamp = GL_TRUE;
+    }
+    if (strcmp("GL_EXT_texture_filter_anisotropic", extension) == 0) {
+        FLEXT_EXT_texture_filter_anisotropic = GL_TRUE;
     }
 }
 

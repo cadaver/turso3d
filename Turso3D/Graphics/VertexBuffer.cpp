@@ -8,7 +8,7 @@
 namespace Turso3D
 {
 
-const size_t VertexBuffer::elementSize[] =
+const size_t VertexBuffer::elementSizes[] =
 {
     sizeof(int),
     sizeof(float),
@@ -20,7 +20,8 @@ const size_t VertexBuffer::elementSize[] =
     sizeof(Matrix4)
 };
 
-const char* VertexBuffer::elementSemantic[] = {
+const char* VertexBuffer::elementSemantics[] =
+{
     "POSITION",
     "NORMAL",
     "BINORMAL",

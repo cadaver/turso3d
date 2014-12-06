@@ -73,7 +73,20 @@ public:
     /// Return the D3D11 texture sampler object. Used internally and should not be called by portable application code.
     void* D3DSampler() const { return sampler; }
 
-private: 
+    /// Texture filtering mode.
+    TextureFilterMode filter;
+    /// Texture addressing modes for each coordinate axis.
+    TextureAddressMode addressModes[3];
+    /// Maximum anisotropy.
+    unsigned maxAnisotropy;
+    /// Minimum LOD.
+    float minLod;
+    /// Maximum LOD.
+    float maxLod;
+    /// Border color. Only effective in border addressing mode.
+    Color borderColor;
+
+private:
     /// D3D11 texture object.
     void* texture;
     /// D3D11 resource view object.

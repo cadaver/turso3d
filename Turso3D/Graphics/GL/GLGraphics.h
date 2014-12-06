@@ -182,7 +182,7 @@ private:
     /// Vertex attribute instancing bitmask for keeping track of divisors.
     unsigned instancingVertexAttributes;
     /// Current mapping of vertex attributes by semantic.
-    Vector<Vector<unsigned> > attributeBySemantic;
+    Vector<Vector<unsigned> > attributesBySemantic;
     /// Bound index buffer.
     IndexBuffer* indexBuffer;
     /// Bound constant buffers by shader stage.
