@@ -208,7 +208,7 @@ void Graphics::SetRenderTargets(const Vector<Texture*>& renderTargets_, Texture*
 
     for (size_t i = 0; i < MAX_RENDERTARGETS && i < renderTargets_.Size(); ++i)
     {
-        renderTargets[i] = renderTargets_[i];
+        renderTargets[i] = (renderTargets_[i] && renderTargets_[i]->IsRenderTarget()) ? renderTargets_[i] : nullptr;
         impl->renderTargetViews[i] = renderTargets[i] ? (ID3D11RenderTargetView*)renderTargets_[i]->D3DRenderTargetView() :
             impl->defaultRenderTargetView;
     }
@@ -219,12 +219,14 @@ void Graphics::SetRenderTargets(const Vector<Texture*>& renderTargets_, Texture*
         impl->renderTargetViews[i] = nullptr;
     }
 
-    depthStencil = depthStencil_;
+    depthStencil = (depthStencil_ && depthStencil_->IsDepthStencil()) ? depthStencil_ : nullptr;
     impl->depthStencilView = depthStencil ? (ID3D11DepthStencilView*)depthStencil->D3DRenderTargetView() :
         impl->defaultDepthStencilView;
 
     if (renderTargets[0])
         renderTargetSize = IntVector2(renderTargets[0]->Width(), renderTargets[0]->Height());
+    else if (depthStencil)
+        renderTargetSize = IntVector2(depthStencil->Width(), depthStencil->Height());
     else
         renderTargetSize = backbufferSize;
 
@@ -421,6 +423,11 @@ void Graphics::ResetRenderTargets()
     SetRenderTarget(nullptr, nullptr);
 }
 
+void Graphics::ResetViewport()
+{
+    SetViewport(IntRect(0, 0, renderTargetSize.x, renderTargetSize.y));
+}
+
 void Graphics::ResetVertexBuffers()
 {
     for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
@@ -434,6 +441,12 @@ void Graphics::ResetConstantBuffers()
         for (size_t j = 0; i < MAX_CONSTANT_BUFFERS; ++j)
             SetConstantBuffer((ShaderStage)i, j, nullptr);
     }
+}
+
+void Graphics::ResetTextures()
+{
+    for (size_t i = 0; i < MAX_TEXTURE_UNITS; ++i)
+        SetTexture(i, nullptr);
 }
 
 void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDepth, unsigned char clearStencil)
@@ -691,8 +704,8 @@ bool Graphics::UpdateSwapChain(int width, int height, bool fullscreen_)
     fullscreen = fullscreen_;
 
     ResetRenderTargets();
-    SetViewport(IntRect(0, 0, width, height));
-    
+    ResetViewport();
+
     inResize = false;
     return success;
 }

@@ -20,6 +20,7 @@ String Window::className("Turso3DWindow");
 Window::Window() :
     handle(nullptr),
     title("Turso3D Window"),
+    windowStyle(0),
     minimized(false),
     focus(false),
     resizable(false)
@@ -44,9 +45,12 @@ bool Window::SetSize(int width, int height, bool resizable_)
 {
     width = Max(width, 0);
     height = Max(height, 0);
-    DWORD windowStyle = WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME & ~WS_MAXIMIZEBOX;
+    windowStyle = WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME & ~WS_MAXIMIZEBOX;
     if (resizable_)
         windowStyle |= WS_THICKFRAME | WS_MAXIMIZEBOX;
+    
+    RECT rect = { 0, 0, width, height };
+    AdjustWindowRect(&rect, windowStyle, false);
 
     if (!handle)
     {
@@ -69,26 +73,19 @@ bool Window::SetSize(int width, int height, bool resizable_)
 
         RegisterClass(&wc);
 
-        RECT rect = { 0, 0, width, height };
-        AdjustWindowRect(&rect, windowStyle, false);
         handle = CreateWindowW(WString(className).CString(), WString(title).CString(), windowStyle, CW_USEDEFAULT, CW_USEDEFAULT,
-            rect.right, rect.bottom, 0, 0, GetModuleHandle(0), nullptr);
+            rect.right - rect.left, rect.bottom - rect.top, 0, 0, GetModuleHandle(0), nullptr);
         if (!handle)
         {
             LOGERROR("Failed to create window");
             return false;
         }
 
-        GetClientRect((HWND)handle, &rect);
-        size.x = rect.right;
-        size.y = rect.bottom;
         minimized = false;
         focus = false;
-        resizable = resizable_;
 
         SetWindowLongPtr((HWND)handle, GWLP_USERDATA, (LONG_PTR)this);
         ShowWindow((HWND)handle, SW_SHOW);
-        return true;
     }
     else
     {
@@ -96,9 +93,15 @@ bool Window::SetSize(int width, int height, bool resizable_)
         WINDOWPLACEMENT placement;
         placement.length = sizeof(placement);
         GetWindowPlacement((HWND)handle, &placement);
-        SetWindowPos((HWND)handle, HWND_TOP, placement.rcNormalPosition.left, placement.rcNormalPosition.top, width, height, SWP_NOZORDER);
-        return true;
+        SetWindowPos((HWND)handle, HWND_TOP, placement.rcNormalPosition.left, placement.rcNormalPosition.top, rect.right -
+            rect.left, rect.bottom - rect.top, SWP_NOZORDER);
     }
+
+    GetClientRect((HWND)handle, &rect);
+    size.x = rect.right;
+    size.y = rect.bottom;
+    resizable = resizable_;
+    return true;
 }
 
 void Window::Close()

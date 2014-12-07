@@ -119,6 +119,44 @@ static const unsigned glFillModes[] =
     GL_FILL
 };
 
+static unsigned MAX_FRAMEBUFFER_AGE = 16;
+
+/// OpenGL framebuffer.
+class Framebuffer
+{
+public:
+    /// Construct.
+    Framebuffer() :
+        depthStencil(nullptr),
+        drawBuffers(0),
+        framesSinceUse(0),
+        firstUse(true)
+    {
+        glGenFramebuffers(1, &buffer);
+        for (size_t i = 0; i < MAX_RENDERTARGETS; ++i)
+            renderTargets[i] = nullptr;
+    }
+
+    /// Destruct.
+    ~Framebuffer()
+    {
+        glDeleteFramebuffers(1, &buffer);
+    }
+
+    /// OpenGL FBO handle.
+    unsigned buffer;
+    /// Color rendertargets bound to this FBO.
+    Texture* renderTargets[MAX_RENDERTARGETS];
+    /// Depth-stencil texture bound to this FBO.
+    Texture* depthStencil;
+    /// Enabled draw buffers.
+    unsigned drawBuffers;
+    /// Time since use in frames.
+    unsigned framesSinceUse;
+    /// First use flag, for setting up readbuffers.
+    bool firstUse;
+};
+
 Graphics::Graphics() :
     backbufferSize(IntVector2::ZERO),
     renderTargetSize(IntVector2::ZERO),
@@ -177,6 +215,10 @@ bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     }
 
+    backbufferSize = window->Size();
+    ResetRenderTargets();
+    ResetViewport();
+
     /// \todo Set fullscreen screen mode
     return true;
 }
@@ -217,6 +259,7 @@ void Graphics::Close()
 void Graphics::Present()
 {
     context->Present();
+    CleanupFramebuffers();
 }
 
 void Graphics::SetRenderTarget(Texture* renderTarget_, Texture* depthStencil_)
@@ -232,27 +275,27 @@ void Graphics::SetRenderTargets(const Vector<Texture*>& renderTargets_, Texture*
         return;
 
     for (size_t i = 0; i < MAX_RENDERTARGETS && i < renderTargets_.Size(); ++i)
-    {
-        renderTargets[i] = renderTargets_[i];
-    }
+        renderTargets[i] = (renderTargets_[i] && renderTargets_[i]->IsRenderTarget()) ? renderTargets_[i] : nullptr;
 
     for (size_t i = renderTargets_.Size(); i < MAX_RENDERTARGETS; ++i)
-    {
         renderTargets[i] = nullptr;
-    }
 
-    depthStencil = depthStencil_;
+    depthStencil = (depthStencil_ && depthStencil_->IsDepthStencil()) ? depthStencil_ : nullptr;
 
     if (renderTargets[0])
         renderTargetSize = IntVector2(renderTargets[0]->Width(), renderTargets[0]->Height());
+    else if (depthStencil)
+        renderTargetSize = IntVector2(depthStencil->Width(), depthStencil->Height());
     else
         renderTargetSize = backbufferSize;
 
-    /// \todo Manage OpenGL rendertarget changes
+    framebufferDirty = true;
 }
 
 void Graphics::SetViewport(const IntRect& viewport_)
 {
+    PrepareFramebuffer();
+
     /// \todo Implement a member function in IntRect for clipping
     viewport.left = Clamp(viewport_.left, 0, renderTargetSize.x - 1);
     viewport.top = Clamp(viewport_.top, 0, renderTargetSize.y - 1);
@@ -260,7 +303,7 @@ void Graphics::SetViewport(const IntRect& viewport_)
     viewport.bottom = Clamp(viewport_.bottom, viewport.top + 1, renderTargetSize.y);
 
     // Use Direct3D convention with the vertical coordinates ie. 0 is top
-    glViewport(viewport.left, renderTargetSize.y - viewport.top, viewport.Width(), viewport.Height());
+    glViewport(viewport.left, renderTargetSize.y - viewport.bottom, viewport.Width(), viewport.Height());
 }
 
 void Graphics::SetVertexBuffer(size_t index, VertexBuffer* buffer)
@@ -308,20 +351,18 @@ void Graphics::SetTexture(size_t index, Texture* texture)
             glActiveTexture(GL_TEXTURE0 + (unsigned)index);
             activeTexture = index;
         }
+
         if (texture)
         {
             unsigned target = texture->GLTarget();
-            if (target != textureTargets[index])
-            {
-                if (textureTargets[index])
-                    glDisable(textureTargets[index]);
-                glEnable(target);
-                textureTargets[index] = target;
-            }
             glBindTexture(target, texture->GLTexture());
+            textureTargets[index] = target;
         }
         else if (textureTargets[index])
+        {
             glBindTexture(textureTargets[index], 0);
+            textureTargets[index] = 0;
+        }
     }
 }
 
@@ -433,13 +474,18 @@ void Graphics::SetScissorRect(const IntRect& scissorRect_)
         scissorRect.bottom = Clamp(scissorRect_.bottom, scissorRect.top + 1, renderTargetSize.y);
 
         // Use Direct3D convention with the vertical coordinates ie. 0 is top
-        glScissor(scissorRect.left, renderTargetSize.y - scissorRect.top, scissorRect.Width(), scissorRect.Height());
+        glScissor(scissorRect.left, renderTargetSize.y - scissorRect.bottom, scissorRect.Width(), scissorRect.Height());
     }
 }
 
 void Graphics::ResetRenderTargets()
 {
     SetRenderTarget(nullptr, nullptr);
+}
+
+void Graphics::ResetViewport()
+{
+    SetViewport(IntRect(0, 0, renderTargetSize.x, renderTargetSize.y));
 }
 
 void Graphics::ResetVertexBuffers()
@@ -457,8 +503,16 @@ void Graphics::ResetConstantBuffers()
     }
 }
 
+void Graphics::ResetTextures()
+{
+    for (size_t i = 0; i < MAX_TEXTURE_UNITS; ++i)
+        SetTexture(i, nullptr);
+}
+
 void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDepth, unsigned char clearStencil)
 {
+    PrepareFramebuffer();
+
     unsigned glFlags = 0;
     if (clearFlags & CLEAR_COLOR)
     {
@@ -478,13 +532,8 @@ void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDe
 
     if ((clearFlags & CLEAR_COLOR) && colorWriteMask != COLORMASK_ALL)
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    if ((clearFlags & CLEAR_DEPTH) && (!depthWrite || !depthEnable))
-    {
-        if (!depthEnable)
-            glEnable(GL_DEPTH);
-        if (!depthWrite)
-            glDepthMask(GL_TRUE);
-    }
+    if ((clearFlags & CLEAR_DEPTH) && !depthWrite)
+        glDepthMask(GL_TRUE);
     if ((clearFlags & CLEAR_STENCIL) && stencilWriteMask != 0xff)
         glStencilMask(0xff);
 
@@ -499,13 +548,8 @@ void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDe
             (colorWriteMask & COLORMASK_A) ? GL_TRUE : GL_FALSE
         );
     }
-    if ((clearFlags & CLEAR_DEPTH) && (!depthWrite || !depthEnable))
-    {
-        if (!depthEnable)
-            glDisable(GL_DEPTH);
-        if (!depthWrite)
-            glDepthMask(GL_FALSE);
-    }
+    if ((clearFlags & CLEAR_DEPTH) && !depthWrite)
+        glDepthMask(GL_FALSE);
     if ((clearFlags & CLEAR_STENCIL) && stencilWriteMask != 0xff)
         glStencilMask(stencilWriteMask);
 }
@@ -648,6 +692,25 @@ void Graphics::CleanupShaderPrograms(ShaderVariation* shader)
     }
 }
 
+void Graphics::CleanupFramebuffers(Texture* texture)
+{
+    if (!texture)
+        return;
+
+    for (auto it = framebuffers.Begin(); it != framebuffers.End(); ++it)
+    {
+        Framebuffer* framebuffer = it->second;
+
+        for (size_t i = 0; i < MAX_RENDERTARGETS; ++i)
+        {
+            if (framebuffer->renderTargets[i] == texture)
+                framebuffer->renderTargets[i] = nullptr;
+        }
+        if (framebuffer->depthStencil == texture)
+            framebuffer->depthStencil = nullptr;
+    }
+}
+
 void Graphics::BindVBO(unsigned vbo)
 {
     if (vbo != boundVBO)
@@ -667,13 +730,150 @@ void Graphics::HandleResize(WindowResizeEvent& event)
         {
             backbufferSize = event.size;
             ResetRenderTargets();
-            SetViewport(IntRect(0, 0, backbufferSize.x, backbufferSize.y));
+            ResetViewport();
         }
+    }
+}
+
+void Graphics::PrepareFramebuffer()
+{
+    if (framebufferDirty)
+    {
+        framebufferDirty = false;
+        
+        unsigned newDrawBuffers = 0;
+        bool useBackbuffer = true;
+
+        for (size_t i = 0; i < MAX_RENDERTARGETS; ++i)
+        {
+            if (renderTargets[i])
+            {
+                useBackbuffer = false;
+                newDrawBuffers |= (1 << i);
+            }
+        }
+        if (depthStencil)
+            useBackbuffer = false;
+
+        if (useBackbuffer)
+        {
+            if (framebuffer)
+            {
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                framebuffer = nullptr;
+            }
+            return;
+        }
+
+        // Search for a new framebuffer based on format & size, or create new
+        ImageFormat format = FMT_NONE;
+        if (renderTargets[0])
+            format = renderTargets[0]->Format();
+        else if (depthStencil)
+            format = depthStencil->Format();
+        unsigned long long key = (renderTargetSize.x << 16 | renderTargetSize.y) | (((unsigned long long)format) << 32);
+        
+        auto it = framebuffers.Find(key);
+        if (it == framebuffers.End())
+            it = framebuffers.Insert(MakePair(key, AutoPtr<Framebuffer>(new Framebuffer())));
+
+        if (it->second != framebuffer)
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, it->second->buffer);
+            framebuffer = it->second;
+        }
+
+        framebuffer->framesSinceUse = 0;
+
+        // Setup readbuffers & drawbuffers
+        if (framebuffer->firstUse)
+        {
+            glReadBuffer(GL_NONE);
+            framebuffer->firstUse = false;
+        }
+
+        if (newDrawBuffers != framebuffer->drawBuffers)
+        {
+            if (!newDrawBuffers)
+                glDrawBuffer(GL_NONE);
+            else
+            {
+                int drawBufferIds[MAX_RENDERTARGETS];
+                unsigned drawBufferCount = 0;
+
+                for (unsigned i = 0; i < MAX_RENDERTARGETS; ++i)
+                {
+                    if (newDrawBuffers & (1 << i))
+                        drawBufferIds[drawBufferCount++] = GL_COLOR_ATTACHMENT0 + i;
+                }
+                glDrawBuffers(drawBufferCount, (const GLenum*)drawBufferIds);
+            }
+
+            framebuffer->drawBuffers = newDrawBuffers;
+        }
+
+        // Setup color attachments
+        for (size_t i = 0; i < MAX_RENDERTARGETS; ++i)
+        {
+            if (renderTargets[i] != framebuffer->renderTargets[i])
+            {
+                if (renderTargets[i])
+                {
+                    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, renderTargets[i]->GLTarget(),
+                        renderTargets[i]->GLTexture(), 0);
+                }
+                else
+                    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, 0, 0);
+                
+                framebuffer->renderTargets[i] = renderTargets[i];
+            }
+        }
+
+        // Setup depth & stencil attachments
+        if (depthStencil != framebuffer->depthStencil)
+        {
+            if (depthStencil)
+            {
+                bool hasStencil = depthStencil->Format() == FMT_D24S8;
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthStencil->GLTarget(), 
+                    depthStencil->GLTexture(), 0);
+                if (hasStencil)
+                {
+                    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, depthStencil->GLTarget(),
+                        depthStencil->GLTexture(), 0);
+                }
+                else
+                    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
+            }
+            else
+            {
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
+            }
+        }
+    }
+}
+
+void Graphics::CleanupFramebuffers()
+{
+    // Never clean up the framebuffer currently in use
+    if (framebuffer)
+        framebuffer->framesSinceUse = 0;
+
+    for (auto it = framebuffers.Begin(); it != framebuffers.End();)
+    {
+        if (it->second->framesSinceUse > MAX_FRAMEBUFFER_AGE)
+            it = framebuffers.Erase(it);
+        else
+            it->second->framesSinceUse++;
     }
 }
 
 void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
 {
+    if (framebufferDirty)
+        PrepareFramebuffer();
+
     if (vertexAttributesDirty && shaderProgram)
     {
         usedVertexAttributes = 0;
@@ -838,24 +1038,22 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
         if (depthState->depthEnable != depthEnable)
         {
             if (depthState->depthEnable)
-                glEnable(GL_DEPTH);
+                glEnable(GL_DEPTH_TEST);
             else
-                glDisable(GL_DEPTH);
+                glDisable(GL_DEPTH_TEST);
             depthEnable = depthState->depthEnable;
         }
 
-        if (depthEnable)
+        if (depthState->depthWrite != depthWrite)
         {
-            if (depthState->depthWrite != depthWrite)
-            {
-                glDepthMask(depthState->depthWrite ? GL_TRUE : GL_FALSE);
-                depthWrite = depthState->depthWrite;
-            }
-            if (depthState->depthFunc != depthFunc)
-            {
-                glDepthFunc(glCompareFuncs[depthState->depthFunc]);
-                depthFunc = depthState->depthFunc;
-            }
+            glDepthMask(depthState->depthWrite ? GL_TRUE : GL_FALSE);
+            depthWrite = depthState->depthWrite;
+        }
+
+        if (depthState->depthFunc != depthFunc)
+        {
+            glDepthFunc(glCompareFuncs[depthState->depthFunc]);
+            depthFunc = depthState->depthFunc;
         }
 
         if (depthState->stencilEnable != stencilEnable)
@@ -1013,11 +1211,13 @@ void Graphics::ResetState()
     blendState = nullptr;
     depthState = nullptr;
     rasterizerState = nullptr;
+    framebuffer = nullptr;
     vertexAttributesDirty = false;
     vertexBuffersDirty = false;
     blendStateDirty = false;
     depthStateDirty = false;
     rasterizerStateDirty = false;
+    framebufferDirty = false;
     scissorRect = IntRect();
     stencilRef = 0;
     activeTexture = 0;

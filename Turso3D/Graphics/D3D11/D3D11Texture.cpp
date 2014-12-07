@@ -282,7 +282,7 @@ bool Texture::DefineSampler(TextureFilterMode filter_, TextureAddressMode u, Tex
     maxAnisotropy = maxAnisotropy_;
     minLod = minLod_;
     maxLod = maxLod_;
-    borderColor = borderColor;
+    borderColor = borderColor_;
     
     // Release the previous sampler first
     if (sampler)

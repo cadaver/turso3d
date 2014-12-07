@@ -163,6 +163,9 @@ void Texture::Release()
 
             if (clear)
                 graphics->ResetRenderTargets();
+
+            // Clear from all FBO's
+            graphics->CleanupFramebuffers(this);
         }
     }
 

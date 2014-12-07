@@ -151,7 +151,7 @@ public:
     unsigned WeakRefs() const { return refCount ? *refCount & WeakRefCounted::REFCOUNT_MASK : 0; }
     /// Return whether is a null pointer.
     bool IsNull() const { return ptr == nullptr; }
-    /// Return whether the object has been destroyed. Returns false if the pointer is null.
+    /// Return whether the object has been destroyed. Returns false if is a null pointer.
     bool IsExpired() const { return refCount && *refCount >= WeakRefCounted::EXPIRED; }
     
 private:

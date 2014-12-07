@@ -13,7 +13,7 @@ class Graphics;
 class ShaderVariation;
 
 /// Description of a shader's vertex attribute.
-struct VertexAttribute
+struct TURSO3D_API VertexAttribute
 {
     /// Name of attribute.
     String name;
@@ -26,7 +26,7 @@ struct VertexAttribute
 };
 
 /// Linked shader program consisting of vertex and pixel shaders.
-class ShaderProgram : public GPUObject
+class TURSO3D_API ShaderProgram : public GPUObject
 {
 public:
     /// Construct with shader pointers.

@@ -14,6 +14,7 @@ namespace Turso3D
 class BlendState;
 class ConstantBuffer;
 class DepthState;
+class Framebuffer;
 class GLContext;
 class GPUObject;
 class IndexBuffer;
@@ -74,10 +75,14 @@ public:
     void SetScissorRect(const IntRect& scissorRect);
     /// Reset rendertarget and depth stencil buffer to the backbuffer.
     void ResetRenderTargets();
+    /// Set the viewport to the entire rendertarget or backbuffer.
+    void ResetViewport();
     /// Reset all bound vertex buffers.
     void ResetVertexBuffers();
     /// Reset all bound constant buffers.
     void ResetConstantBuffers();
+    /// Reset all bound textures.
+    void ResetTextures();
     /// Clear the current rendertarget. This is not affected by the defined viewport, but will always clear the whole target.
     void Clear(unsigned clearFlags, const Color& clearColor = Color::BLACK, float clearDepth = 1.0f, unsigned char clearStencil = 0);
     /// Draw non-indexed geometry.
@@ -146,6 +151,8 @@ public:
     void RemoveGPUObject(GPUObject* object);
     /// Cleanup shader programs when a vertex or pixel shader is destroyed.
     void CleanupShaderPrograms(ShaderVariation* shader);
+    /// Cleanup framebuffers when a rendertarget texture is destroyed.
+    void CleanupFramebuffers(Texture* texture);
     /// Bind a VBO for editing or applying as a vertex source. Avoids redundant assignment.
     void BindVBO(unsigned vbo);
     /// Return the currently bound VBO.
@@ -154,6 +161,10 @@ public:
 private:
     /// Resize the backbuffer when window size changes.
     void HandleResize(WindowResizeEvent& event);
+    /// Prepare framebuffer changes.
+    void PrepareFramebuffer();
+    /// Cleanup unused framebuffers.
+    void CleanupFramebuffers();
     /// Prepare to execute a draw call.
     void PrepareDraw(bool instanced = false, size_t instanceStart = 0);
     /// Reset internally tracked state.
@@ -209,6 +220,10 @@ private:
     DepthState* depthState;
     /// Bound rasterizer state.
     RasterizerState* rasterizerState;
+    /// Bound framebuffer object.
+    Framebuffer* framebuffer;
+    /// Framebuffer objects keyed by resolution and color format.
+    HashMap<unsigned long long, AutoPtr<Framebuffer> > framebuffers;
     /// Current scissor rectangle.
     IntRect scissorRect;
     /// Stencil ref value that is to be applied.
@@ -297,6 +312,8 @@ private:
     bool depthStateDirty;
     /// Rasterizer state dirty flag.
     bool rasterizerStateDirty;
+    /// Framebuffer assignment dirty flag.
+    bool framebufferDirty;
 };
 
 /// Register Graphics related object factories and attributes.

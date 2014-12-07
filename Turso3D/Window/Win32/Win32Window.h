@@ -87,6 +87,8 @@ private:
     String title;
     /// Current client area size.
     IntVector2 size;
+    /// Window style flags.
+    unsigned windowStyle;
     /// Current minimization state.
     bool minimized;
     /// Current focus state.

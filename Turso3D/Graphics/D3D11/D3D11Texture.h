@@ -14,7 +14,7 @@ namespace Turso3D
 class Image;
 
 /// %Texture on the GPU.
-class Texture : public Resource, public GPUObject
+class TURSO3D_API Texture : public Resource, public GPUObject
 {
     OBJECT(Texture);
 
