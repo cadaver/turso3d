@@ -987,6 +987,7 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
         disableVertexAttributes >>= 1;
     }
 
+    // Apply blend state
     if (blendStateDirty && blendState)
     {
         if (blendState->blendEnable != blendEnable)
@@ -1039,6 +1040,7 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
         blendStateDirty = false;
     }
 
+    // Apply depth state
     if (depthStateDirty && depthState)
     {
         if (depthState->depthEnable != depthEnable)
@@ -1076,7 +1078,8 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
             // Avoid using the "separate" stencil state calls if front/back functions or operations are the same
             if (depthState->frontFunc == depthState->backFunc)
             {
-                if (depthState->frontFunc != frontFunc || stencilRef != currentStencilRef || depthState->stencilReadMask != stencilReadMask)
+                if (depthState->frontFunc != frontFunc || stencilRef != currentStencilRef || depthState->stencilReadMask !=
+                    stencilReadMask)
                 {
                     glStencilFunc(glCompareFuncs[depthState->frontFunc], stencilRef, depthState->stencilReadMask);
                     frontFunc = backFunc = depthState->frontFunc;
@@ -1087,12 +1090,14 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
             else
             {
                 // Note: as polygons use Direct3D convention (clockwise = front) reversed front/back faces are used here
-                if (depthState->frontFunc != frontFunc || stencilRef != currentStencilRef || depthState->stencilReadMask != stencilReadMask)
+                if (depthState->frontFunc != frontFunc || stencilRef != currentStencilRef || depthState->stencilReadMask !=
+                    stencilReadMask)
                 {
                     glStencilFuncSeparate(GL_BACK, glCompareFuncs[depthState->frontFunc], stencilRef, depthState->stencilReadMask);
                     frontFunc = depthState->frontFunc;
                 }
-                if (depthState->backFunc != backFunc || stencilRef != currentStencilRef || depthState->stencilReadMask != stencilReadMask)
+                if (depthState->backFunc != backFunc || stencilRef != currentStencilRef || depthState->stencilReadMask !=
+                    stencilReadMask)
                 {
                     glStencilFuncSeparate(GL_FRONT, glCompareFuncs[depthState->backFunc], stencilRef, depthState->stencilReadMask);
                     backFunc = depthState->backFunc;
@@ -1100,16 +1105,21 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
                 currentStencilRef = stencilRef;
                 stencilReadMask = depthState->stencilReadMask;
             }
+
             if (depthState->stencilWriteMask != stencilWriteMask)
             {
                 glStencilMask(depthState->stencilWriteMask);
                 stencilWriteMask = depthState->stencilWriteMask;
             }
-            if (depthState->frontFail == depthState->backFail && depthState->frontDepthFail == depthState->backDepthFail && depthState->frontPass == depthState->backPass)
+
+            if (depthState->frontFail == depthState->backFail && depthState->frontDepthFail == depthState->backDepthFail &&
+                depthState->frontPass == depthState->backPass)
             {
-                if (depthState->frontFail != frontFail || depthState->frontDepthFail != frontDepthFail || depthState->frontPass != frontPass)
+                if (depthState->frontFail != frontFail || depthState->frontDepthFail != frontDepthFail || depthState->frontPass
+                    != frontPass)
                 {
-                    glStencilOp(glStencilOps[depthState->frontFail], glStencilOps[depthState->frontDepthFail], glStencilOps[depthState->frontPass]);
+                    glStencilOp(glStencilOps[depthState->frontFail], glStencilOps[depthState->frontDepthFail],
+                        glStencilOps[depthState->frontPass]);
                     frontFail = backFail = depthState->frontFail;
                     frontDepthFail = backDepthFail = depthState->frontDepthFail;
                     frontPass = backPass = depthState->frontPass;
@@ -1117,16 +1127,19 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
             }
             else
             {
-                if (depthState->frontFail != frontFail || depthState->frontDepthFail != frontDepthFail || depthState->frontPass != frontPass)
+                if (depthState->frontFail != frontFail || depthState->frontDepthFail != frontDepthFail || depthState->frontPass !=
+                    frontPass)
                 {
-                    glStencilOpSeparate(GL_BACK, glStencilOps[depthState->frontFail], glStencilOps[depthState->frontDepthFail], glStencilOps[depthState->frontPass]);
+                    glStencilOpSeparate(GL_BACK, glStencilOps[depthState->frontFail], glStencilOps[depthState->frontDepthFail],
+                        glStencilOps[depthState->frontPass]);
                     frontFail = depthState->frontFail;
                     frontDepthFail = depthState->frontDepthFail;
                     frontPass = depthState->frontPass;
                 }
                 if (depthState->backFail != backFail || depthState->backDepthFail != backDepthFail || depthState->backPass != backPass)
                 {
-                    glStencilOpSeparate(GL_FRONT, glStencilOps[depthState->backFail], glStencilOps[depthState->backDepthFail], glStencilOps[depthState->backPass]);
+                    glStencilOpSeparate(GL_FRONT, glStencilOps[depthState->backFail], glStencilOps[depthState->backDepthFail],
+                        glStencilOps[depthState->backPass]);
                     backFail = depthState->backFail;
                     backDepthFail = depthState->backDepthFail;
                     backPass = depthState->backPass;
@@ -1137,6 +1150,7 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
         depthStateDirty = false;
     }
 
+    // Apply rasterizer state
     if (rasterizerStateDirty && rasterizerState)
     {
         if (rasterizerState->fillMode != fillMode)
