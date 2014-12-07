@@ -68,7 +68,7 @@ public:
     /// Bind blend state object.
     void SetBlendState(BlendState* state);
     /// Bind depth state object and set stencil ref value.
-    void SetDepthState(DepthState* state, unsigned stencilRef = 0);
+    void SetDepthState(DepthState* state, unsigned char stencilRef = 0);
     /// Bind rasterizer state object.
     void SetRasterizerState(RasterizerState* state);
     /// Set scissor rectangle. Is only effective if scissor test is enabled in the rasterizer state.
@@ -159,12 +159,14 @@ public:
     unsigned BoundVBO() const { return boundVBO; }
 
 private:
-    /// Resize the backbuffer when window size changes.
+    /// Create and initialize the OpenGL context. Return true on success.
+    bool CreateContext();
+    /// Handle window resize event.
     void HandleResize(WindowResizeEvent& event);
-    /// Prepare framebuffer changes.
-    void PrepareFramebuffer();
     /// Cleanup unused framebuffers.
     void CleanupFramebuffers();
+    /// Prepare framebuffer changes.
+    void PrepareFramebuffer();
     /// Prepare to execute a draw call.
     void PrepareDraw(bool instanced = false, size_t instanceStart = 0);
     /// Reset internally tracked state.
@@ -224,12 +226,31 @@ private:
     Framebuffer* framebuffer;
     /// Framebuffer objects keyed by resolution and color format.
     HashMap<unsigned long long, AutoPtr<Framebuffer> > framebuffers;
+    /// Number of supported constant buffer bindings for vertex shaders.
+    size_t vsConstantBuffers;
+    /// Number of supported constant buffer bindings for pixel shaders.
+    size_t psConstantBuffers;
+    /// Last used OpenGL texture unit.
+    size_t activeTexture;
+    /// Last bound vertex buffer object.
+    unsigned boundVBO;
     /// Current scissor rectangle.
     IntRect scissorRect;
-    /// Stencil ref value that is to be applied.
-    unsigned stencilRef;
-    /// Current stencil ref value.
-    unsigned currentStencilRef;
+    /// Vertical sync flag.
+    bool vsync;
+    /// Vertex attributes dirty (shader program changed) flag.
+    bool vertexAttributesDirty;
+    /// Vertex buffers dirty flag.
+    bool vertexBuffersDirty;
+    /// Blend state dirty flag.
+    bool blendStateDirty;
+    /// Depth state dirty flag.
+    bool depthStateDirty;
+    /// Rasterizer state dirty flag.
+    bool rasterizerStateDirty;
+    /// Framebuffer assignment dirty flag.
+    bool framebufferDirty;
+
     /// Current source color blend factor.
     BlendFactor srcBlend;
     /// Current destination color blend factor.
@@ -248,6 +269,7 @@ private:
     bool blendEnable;
     /// Current alpha to coverage flag.
     bool alphaToCoverage;
+
     /// Depth enable flag.
     bool depthEnable;
     /// Depth write flag.
@@ -276,6 +298,11 @@ private:
     StencilOp backPass;
     /// Current stencil back face testing function.
     CompareMode backFunc;
+    /// Stencil ref value that is to be applied.
+    unsigned char stencilRef;
+    /// Current stencil ref value.
+    unsigned char currentStencilRef;
+
     /// Current fill mode.
     FillMode fillMode;
     /// Current culling mode.
@@ -288,30 +315,6 @@ private:
     bool depthClipEnable;
     /// Current scissor test flag.
     bool scissorEnable;
-    /// Number of supported constant buffer bindings for vertex shaders.
-    size_t vsConstantBuffers;
-    /// Number of supported constant buffer bindings for pixel shaders.
-    size_t psConstantBuffers;
-    /// Last used OpenGL texture unit.
-    size_t activeTexture;
-    /// Last bound vertex buffer object.
-    unsigned boundVBO;
-    /// Vertical sync flag.
-    bool vsync;
-    /// Resize handling flag to prevent recursion.
-    bool inResize;
-    /// Vertex attributes dirty (shader program changed) flag.
-    bool vertexAttributesDirty;
-    /// Vertex buffers dirty flag.
-    bool vertexBuffersDirty;
-    /// Blend state dirty flag.
-    bool blendStateDirty;
-    /// Depth state dirty flag.
-    bool depthStateDirty;
-    /// Rasterizer state dirty flag.
-    bool rasterizerStateDirty;
-    /// Framebuffer assignment dirty flag.
-    bool framebufferDirty;
 };
 
 /// Register Graphics related object factories and attributes.

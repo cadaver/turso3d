@@ -161,8 +161,7 @@ Graphics::Graphics() :
     backbufferSize(IntVector2::ZERO),
     renderTargetSize(IntVector2::ZERO),
     attributesBySemantic(MAX_ELEMENT_SEMANTICS),
-    vsync(false),
-    inResize(false)
+    vsync(false)
 {
     RegisterSubsystem(this);
     window = new Window();
@@ -183,35 +182,8 @@ bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
 
     if (!context)
     {
-        context = new GLContext(window);
-        if (!context->Create())
-        {
-            context.Reset();
+        if (!CreateContext())
             return false;
-        }
-
-        context->SetVSync(vsync);
-
-        // Query OpenGL capabilities
-        int numBlocks;
-        glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, &numBlocks);
-        vsConstantBuffers = numBlocks;
-        glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, &numBlocks);
-        psConstantBuffers = numBlocks;
-
-        // Create and bind a vertex array object that will stay in use throughout
-        /// \todo Investigate performance gain of using multiple VAO's
-        unsigned vertexArrayObject;
-        glGenVertexArrays(1, &vertexArrayObject);
-        glBindVertexArray(vertexArrayObject);
-
-        // These states are always enabled to match Direct3D
-        glEnable(GL_POLYGON_OFFSET_LINE);
-        glEnable(GL_POLYGON_OFFSET_FILL);
-
-        // Set up texture data read/write alignment. It is important that this is done before uploading any texture data
-        glPixelStorei(GL_PACK_ALIGNMENT, 1);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
         backbufferSize = window->Size();
         ResetRenderTargets();
@@ -442,7 +414,7 @@ void Graphics::SetBlendState(BlendState* state)
     }
 }
 
-void Graphics::SetDepthState(DepthState* state, unsigned stencilRef_)
+void Graphics::SetDepthState(DepthState* state, unsigned char stencilRef_)
 {
     if (state != depthState || stencilRef_ != stencilRef)
     {
@@ -723,15 +695,64 @@ void Graphics::BindVBO(unsigned vbo)
     }
 }
 
+bool Graphics::CreateContext()
+{
+    context = new GLContext(window);
+    if (!context->Create())
+    {
+        context.Reset();
+        return false;
+    }
+
+    context->SetVSync(vsync);
+
+    // Query OpenGL capabilities
+    int numBlocks;
+    glGetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, &numBlocks);
+    vsConstantBuffers = numBlocks;
+    glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, &numBlocks);
+    psConstantBuffers = numBlocks;
+
+    // Create and bind a vertex array object that will stay in use throughout
+    /// \todo Investigate performance gain of using multiple VAO's
+    unsigned vertexArrayObject;
+    glGenVertexArrays(1, &vertexArrayObject);
+    glBindVertexArray(vertexArrayObject);
+
+    // These states are always enabled to match Direct3D
+    glEnable(GL_POLYGON_OFFSET_LINE);
+    glEnable(GL_POLYGON_OFFSET_FILL);
+
+    // Set up texture data read/write alignment. It is important that this is done before uploading any texture data
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    return true;
+}
+
 void Graphics::HandleResize(WindowResizeEvent& event)
 {
     // Reset viewport in case the application does not set it
     if (context)
     {
         backbufferSize = event.size;
-        LOGINFOF("Handle resize: %d %d %d", event.size.x, event.size.y, window->IsFullscreen() ? 1 : 0);
         ResetRenderTargets();
         ResetViewport();
+    }
+}
+
+void Graphics::CleanupFramebuffers()
+{
+    // Never clean up the framebuffer currently in use
+    if (framebuffer)
+        framebuffer->framesSinceUse = 0;
+
+    for (auto it = framebuffers.Begin(); it != framebuffers.End();)
+    {
+        if (it->second->framesSinceUse > MAX_FRAMEBUFFER_AGE)
+            it = framebuffers.Erase(it);
+        else
+            it->second->framesSinceUse++;
     }
 }
 
@@ -851,21 +872,6 @@ void Graphics::PrepareFramebuffer()
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
             }
         }
-    }
-}
-
-void Graphics::CleanupFramebuffers()
-{
-    // Never clean up the framebuffer currently in use
-    if (framebuffer)
-        framebuffer->framesSinceUse = 0;
-
-    for (auto it = framebuffers.Begin(); it != framebuffers.End();)
-    {
-        if (it->second->framesSinceUse > MAX_FRAMEBUFFER_AGE)
-            it = framebuffers.Erase(it);
-        else
-            it->second->framesSinceUse++;
     }
 }
 
@@ -1219,7 +1225,6 @@ void Graphics::ResetState()
     rasterizerStateDirty = false;
     framebufferDirty = false;
     scissorRect = IntRect();
-    stencilRef = 0;
     activeTexture = 0;
     boundVBO = 0;
 
@@ -1247,6 +1252,7 @@ void Graphics::ResetState()
     backDepthFail = STENCIL_OP_KEEP;
     backPass = STENCIL_OP_KEEP;
     backFunc = CMP_ALWAYS;
+    stencilRef = 0;
     currentStencilRef = 0;
 
     fillMode = FILL_SOLID;

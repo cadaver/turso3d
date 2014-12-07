@@ -67,7 +67,7 @@ public:
     /// Bind blend state object.
     void SetBlendState(BlendState* state);
     /// Bind depth state object and set stencil ref value.
-    void SetDepthState(DepthState* state, unsigned stencilRef = 0);
+    void SetDepthState(DepthState* state, unsigned char stencilRef = 0);
     /// Bind rasterizer state object.
     void SetRasterizerState(RasterizerState* state);
     /// Set scissor rectangle. Is only effective if scissor test is enabled in the rasterizer state.
@@ -154,7 +154,7 @@ private:
     bool CreateD3DDevice();
     /// Update swap chain state for a new mode and create views for the backbuffer & default depth buffer.
     bool UpdateSwapChain(int width, int height);
-    /// Resize the backbuffer when window size changes.
+    /// Handle window resize event.
     void HandleResize(WindowResizeEvent& event);
     /// Set topology, and find or create an input layout for the currently set vertex buffers and vertex shader.
     void PrepareDraw(PrimitiveType type);
@@ -206,7 +206,7 @@ private:
     /// Current scissor rectangle.
     IntRect scissorRect;
     /// Current stencil ref value.
-    unsigned stencilRef;
+    unsigned char stencilRef;
     /// Vertical sync flag.
     bool vsync;
     /// Input layout dirty flag.

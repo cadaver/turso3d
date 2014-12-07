@@ -366,7 +366,7 @@ void Graphics::SetBlendState(BlendState* state)
     }
 }
 
-void Graphics::SetDepthState(DepthState* state, unsigned stencilRef_)
+void Graphics::SetDepthState(DepthState* state, unsigned char stencilRef_)
 {
     if (state != depthState || stencilRef_ != stencilRef)
     {
