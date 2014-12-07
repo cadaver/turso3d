@@ -105,7 +105,7 @@ bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
     // Setting window size only required if window not open yet, otherwise the swapchain takes care of resizing
     if (!window->IsOpen())
     {
-        if (!window->SetSize(width, height, resizable))
+        if (!window->SetSize(width, height, false, resizable))
             return false;
     }
 

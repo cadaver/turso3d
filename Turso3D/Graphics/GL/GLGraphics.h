@@ -105,7 +105,7 @@ public:
     /// Return current rendertarget height.
     int RenderTargetHeight() const { return renderTargetSize.y; }
     /// Return whether is using fullscreen mode.
-    bool IsFullscreen() const { return fullscreen; }
+    bool IsFullscreen() const;
     /// Return whether the window is resizable.
     bool IsResizable() const;
     /// Return whether is using vertical sync.
@@ -296,8 +296,6 @@ private:
     size_t activeTexture;
     /// Last bound vertex buffer object.
     unsigned boundVBO;
-    /// Fullscreen flag.
-    bool fullscreen;
     /// Vertical sync flag.
     bool vsync;
     /// Resize handling flag to prevent recursion.

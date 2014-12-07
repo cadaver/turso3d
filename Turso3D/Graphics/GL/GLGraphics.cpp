@@ -161,7 +161,6 @@ Graphics::Graphics() :
     backbufferSize(IntVector2::ZERO),
     renderTargetSize(IntVector2::ZERO),
     attributesBySemantic(MAX_ELEMENT_SEMANTICS),
-    fullscreen(false),
     vsync(false),
     inResize(false)
 {
@@ -179,7 +178,7 @@ Graphics::~Graphics()
 
 bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
 {
-    if (!window->SetSize(width, height, resizable))
+    if (!window->SetSize(width, height, fullscreen, resizable))
         return false;
 
     if (!context)
@@ -615,6 +614,11 @@ bool Graphics::IsInitialized() const
     return window->IsOpen() && context;
 }
 
+bool Graphics::IsFullscreen() const
+{
+    return window->IsFullscreen();
+}
+
 bool Graphics::IsResizable() const
 {
     return window->IsResizable();
@@ -723,7 +727,7 @@ void Graphics::BindVBO(unsigned vbo)
 void Graphics::HandleResize(WindowResizeEvent& event)
 {
     // Handle windowed mode resize
-    if (!fullscreen)
+    if (!IsFullscreen())
     {
         // Reset viewport in case the application does not set it
         if (context)

@@ -22,7 +22,7 @@ public:
         input = new Input();
         window = new Window();
         window->SetTitle("Window test");
-        window->SetSize(640, 480, true);
+        window->SetSize(640, 480, false, true);
         printf("Window opened\n");
 
         SubscribeToEvent(window->closeRequestEvent, &WindowTest::HandleCloseRequest);

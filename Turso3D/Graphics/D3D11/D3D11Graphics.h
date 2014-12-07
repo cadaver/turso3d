@@ -103,7 +103,7 @@ public:
     int RenderTargetWidth() const { return renderTargetSize.x; }
     /// Return current rendertarget height.
     int RenderTargetHeight() const { return renderTargetSize.y; }
-    /// Return whether is using fullscreen mode.
+    /// Return whether is using fullscreen mode. Note that when using Direct3D the Window class will not control fullscreen mode on its own and will always report false.
     bool IsFullscreen() const { return fullscreen; }
     /// Return whether the window is resizable.
     bool IsResizable() const;

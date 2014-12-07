@@ -23,9 +23,15 @@ Window::Window() :
     windowStyle(0),
     minimized(false),
     focus(false),
-    resizable(false)
+    resizable(false),
+    fullscreen(false)
 {
     RegisterSubsystem(this);
+
+    // Cancel automatic DPI scaling
+    BOOL(WINAPI* proc)() = (BOOL(WINAPI *)())(void*)GetProcAddress(GetModuleHandle("user32.dll"), "SetProcessDPIAware");
+    if (proc)
+        proc();
 }
 
 Window::~Window()
@@ -41,24 +47,35 @@ void Window::SetTitle(const String& newTitle)
         SetWindowTextW((HWND)handle, WString(title).CString());
 }
 
-bool Window::SetSize(int width, int height, bool resizable_)
+bool Window::SetSize(int width, int height, bool fullscreen_, bool resizable_)
 {
     width = Max(width, 0);
     height = Max(height, 0);
-    windowStyle = WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME & ~WS_MAXIMIZEBOX;
-    if (resizable_)
-        windowStyle |= WS_THICKFRAME | WS_MAXIMIZEBOX;
-    
-    RECT rect = { 0, 0, width, height };
+    IntVector2 position(CW_USEDEFAULT, CW_USEDEFAULT);
+
+    if (!fullscreen_)
+    {
+        windowStyle = WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME & ~WS_MAXIMIZEBOX;
+        if (resizable_)
+            windowStyle |= WS_THICKFRAME | WS_MAXIMIZEBOX;
+
+        // Return to desktop resolution if was fullscreen
+        if (fullscreen)
+            SetDisplayMode(0, 0);
+    }
+    else
+    {
+        windowStyle = WS_POPUP | WS_VISIBLE;
+        position = IntVector2::ZERO;
+        /// \todo Handle failure to set mode
+        SetDisplayMode(width, height);
+    }
+
+    RECT rect = {0, 0, width, height};
     AdjustWindowRect(&rect, windowStyle, false);
 
     if (!handle)
     {
-        // Cancel automatic DPI scaling
-        BOOL (WINAPI* proc)() = (BOOL (WINAPI *)())(void*)GetProcAddress(GetModuleHandle("user32.dll"), "SetProcessDPIAware");
-        if (proc)
-            proc();
-
         WNDCLASS wc;
         wc.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
         wc.lpfnWndProc = WndProc;
@@ -73,7 +90,7 @@ bool Window::SetSize(int width, int height, bool resizable_)
 
         RegisterClass(&wc);
 
-        handle = CreateWindowW(WString(className).CString(), WString(title).CString(), windowStyle, CW_USEDEFAULT, CW_USEDEFAULT,
+        handle = CreateWindowW(WString(className).CString(), WString(title).CString(), windowStyle, position.x, position.y,
             rect.right - rect.left, rect.bottom - rect.top, 0, 0, GetModuleHandle(0), nullptr);
         if (!handle)
         {
@@ -90,16 +107,21 @@ bool Window::SetSize(int width, int height, bool resizable_)
     else
     {
         SetWindowLong((HWND)handle, GWL_STYLE, windowStyle);
-        WINDOWPLACEMENT placement;
-        placement.length = sizeof(placement);
-        GetWindowPlacement((HWND)handle, &placement);
-        SetWindowPos((HWND)handle, HWND_TOP, placement.rcNormalPosition.left, placement.rcNormalPosition.top, rect.right -
-            rect.left, rect.bottom - rect.top, SWP_NOZORDER);
+        
+        if (!fullscreen_)
+        {
+            WINDOWPLACEMENT placement;
+            placement.length = sizeof(placement);
+            GetWindowPlacement((HWND)handle, &placement);
+            position = IntVector2(placement.rcNormalPosition.left, placement.rcNormalPosition.top);
+        }
+
+        SetWindowPos((HWND)handle, NULL, position.x, position.y, rect.right - rect.left, rect.bottom - rect.top, SWP_NOZORDER);
+        ShowWindow((HWND)handle, SW_SHOW);
     }
 
-    GetClientRect((HWND)handle, &rect);
-    size.x = rect.right;
-    size.y = rect.bottom;
+    size = ClientRectSize();
+    fullscreen = fullscreen_;
     resizable = resizable_;
     return true;
 }
@@ -110,6 +132,10 @@ void Window::Close()
     {
         DestroyWindow((HWND)handle);
         handle = nullptr;
+
+        // Return to desktop resolution if was fullscreen
+        if (fullscreen)
+            SetDisplayMode(0, 0);
     }
 }
 
@@ -178,6 +204,10 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
                     SendEvent(loseFocusEvent);
                     if (input)
                         input->OnLoseFocus();
+
+                    // If fullscreen, minimize on focus loss
+                    if (fullscreen)
+                        ShowWindow((HWND)handle, SW_MINIMIZE);
                 }
             }
         }
@@ -190,18 +220,26 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
             {
                 minimized = newMinimized;
                 if (minimized)
+                {
+                    // If is fullscreen, restore desktop resolution
+                    if (fullscreen)
+                        SetDisplayMode(0, 0);
+
                     SendEvent(minimizeEvent);
+                }
                 else
+                {
+                    // If should be fullscreen, restore mode now
+                    if (fullscreen)
+                        SetDisplayMode(size.x, size.y);
+
                     SendEvent(restoreEvent);
+                }
             }
 
             if (!minimized)
             {
-                IntVector2 newSize;
-                RECT rect;
-                GetClientRect((HWND)handle, &rect);
-                newSize.x = rect.right;
-                newSize.y = rect.bottom;
+                IntVector2 newSize = ClientRectSize();
                 if (newSize != size)
                 {
                     size = newSize;
@@ -272,6 +310,34 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
     }
 
     return handled;
+}
+
+IntVector2 Window::ClientRectSize() const
+{
+    if (handle)
+    {
+        RECT rect;
+        GetClientRect((HWND)handle, &rect);
+        return IntVector2(rect.right, rect.bottom);
+    }
+    else
+        return IntVector2::ZERO;
+}
+
+void Window::SetDisplayMode(int width, int height)
+{
+    if (width && height)
+    {
+        DEVMODE screenMode;
+        screenMode.dmSize = sizeof screenMode;
+        screenMode.dmPelsWidth = width;
+        screenMode.dmPelsHeight = height;
+        screenMode.dmBitsPerPel = 32;
+        screenMode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
+        ChangeDisplaySettings(&screenMode, CDS_FULLSCREEN);
+    }
+    else
+        ChangeDisplaySettings(nullptr, 0);
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)

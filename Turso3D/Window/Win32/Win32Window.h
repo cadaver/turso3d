@@ -30,7 +30,7 @@ public:
     /// Set window title.
     void SetTitle(const String& newTitle);
     /// Set window size. Open the window if not opened yet. Return true on success.
-    bool SetSize(int width, int height, bool resizable);
+    bool SetSize(int width, int height, bool fullscreen, bool resizable);
     /// Close the window.
     void Close();
     /// Minimize the window.
@@ -54,6 +54,8 @@ public:
     bool IsOpen() const { return handle != nullptr; }
     /// Return whether is resizable.
     bool IsResizable() const { return resizable; }
+    /// Return whether is fullscren.
+    bool IsFullscreen() const { return fullscreen; }
     /// Return whether is currently minimized.
     bool IsMinimized() const { return minimized; }
     /// Return whether has input focus.
@@ -81,6 +83,11 @@ public:
     static String className;
 
 private:
+    /// Change display mode. If width and height are zero, will restore desktop resolution.
+    void SetDisplayMode(int width, int height);
+    /// Verify window size from the window client rect.
+    IntVector2 ClientRectSize() const;
+
     /// Window handle.
     void* handle;
     /// Window title.
@@ -95,6 +102,8 @@ private:
     bool focus;
     /// Resizable flag.
     bool resizable;
+    /// Fullscreen flag.
+    bool fullscreen;
 };
 
 }
