@@ -109,7 +109,7 @@ bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
         if (!CreateD3DDevice())
             return false;
         // Swap chain needs to be updated manually for the first time, otherwise window resize event takes care of it
-        UpdateSwapChain(width, height);
+        UpdateSwapChain(window->Width(), window->Height());
     }
 
     return true;
