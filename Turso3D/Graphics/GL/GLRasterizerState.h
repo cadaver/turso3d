@@ -21,7 +21,7 @@ public:
     void Release() override;
 
     /// Define parameters and create the rasterizer state object. The existing state object (if any) will be destroyed. Return true on success.
-    bool Define(FillMode fillMode = FILL_SOLID, CullMode cullMode = CULL_BACK, int depthBias = 0, float depthBiasClamp = 0.0f, float slopeScaledDepthBias = 0.0f, bool depthClipEnable = true, bool scissorEnable = false, bool multisampleEnable = false, bool antialiasedLineEnable = false);
+    bool Define(FillMode fillMode = FILL_SOLID, CullMode cullMode = CULL_BACK, int depthBias = 0, float depthBiasClamp = M_INFINITY, float slopeScaledDepthBias = 0.0f, bool depthClipEnable = true, bool scissorEnable = false, bool multisampleEnable = true, bool antialiasedLineEnable = false);
 
     /// Fill mode.
     FillMode fillMode;
@@ -29,7 +29,7 @@ public:
     CullMode cullMode;
     /// Depth bias added to fragments.
     int depthBias;
-    /// Maximum depth bias that can be added.
+    /// Maximum depth bias that can be added. Unused on OpenGL.
     float depthBiasClamp;
     /// Slope scaled depth bias.
     float slopeScaledDepthBias;
@@ -37,9 +37,9 @@ public:
     bool depthClipEnable;
     /// Scissor test flag.
     bool scissorEnable;
-    /// Quadrilateral line anti-aliasing flag.
+    /// Quadrilateral line anti-aliasing flag. Unused on OpenGL.
     bool multisampleEnable;
-    /// Line antialiasing flag. Only effective if multisampleEnable is false.
+    /// Line antialiasing flag. Unused on OpenGL.
     bool antialiasedLineEnable;
 };
 

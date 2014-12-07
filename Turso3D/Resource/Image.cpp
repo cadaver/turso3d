@@ -30,6 +30,36 @@
 namespace Turso3D
 {
 
+const int Image::components[] =
+{
+    0,      // FMT_NONE
+    1,      // FMT_R8
+    2,      // FMT_RG8
+    4,      // FMT_RGBA8
+    1,      // FMT_A8
+    0,      // FMT_R16
+    0,      // FMT_RG16
+    0,      // FMT_RGBA16
+    0,      // FMT_R16F
+    0,      // FMT_RG16F
+    0,      // FMT_RGBA16F
+    0,      // FMT_R32F
+    0,      // FMT_RG32F
+    0,      // FMT_RGB32F
+    0,      // FMT_RGBA32F
+    0,      // FMT_D16
+    0,      // FMT_D32
+    0,      // FMT_D24S8
+    0,      // FMT_DXT1
+    0,      // FMT_DXT3
+    0,      // FMT_DXT5
+    0,      // FMT_ETC1
+    0,      // FMT_PVRTC_RGB_2BPP
+    0,      // FMT_PVRTC_RGBA_2BPP
+    0,      // FMT_PVRTC_RGB_4BPP
+    0       // FMT_PVRTC_RGBA_4BPP
+};
+
 const size_t Image::pixelByteSizes[] =
 {
     0,      // FMT_NONE
@@ -551,14 +581,7 @@ bool Image::GenerateMipImage(Image& dest) const
 {
     PROFILE(GenerateMipImage);
 
-    if (IsCompressed())
-    {
-        LOGERROR("Can not generate mip level from compressed data");
-        return false;
-    }
-
-    int components = (int)PixelByteSize();
-    /// \todo Support for more formats
+    int components = Components();
     if (components < 1 || components > 4)
     {
         LOGERROR("Unsupported format for calculating the next mip level");
@@ -672,32 +695,21 @@ ImageLevel Image::Level(size_t index) const
     if (index >= numLevels)
         return level;
 
-    if (!IsCompressed())
+    size_t i = 0;
+    size_t offset = 0;
+
+    for (;;)
     {
-        level.width = width;
-        level.height = height;
-        level.data = data.Get();
-        CalculateDataSize(level.width, level.height, format, &level.rows, &level.rowSize);
-        return level;
-    }
-    else
-    {
-        size_t i = 0;
-        size_t offset = 0;
+        level.width = Max(width >> i, 1);
+        level.height = Max(height >> i, 1);
+        level.data = data.Get() + offset;
 
-        for (;;)
-        {
-            level.width = Max(width >> i, 1);
-            level.height = Max(height >> i, 1);
-            level.data = data.Get() + offset;
+        size_t dataSize = CalculateDataSize(level.width, level.height, format, &level.rows, &level.rowSize);
+        if (i == index)
+            return level;
 
-            size_t dataSize = CalculateDataSize(level.width, level.height, format, &level.rows, &level.rowSize);
-            if (i == index)
-                return level;
-
-            offset += dataSize;
-            ++i;
-        }
+        offset += dataSize;
+        ++i;
     }
 }
 

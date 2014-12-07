@@ -78,12 +78,7 @@ enum BlendFactor
     BLEND_DEST_COLOR,
     BLEND_INV_DEST_COLOR,
     BLEND_SRC_ALPHA_SAT,
-    BLEND_BLEND_FACTOR,
-    BLEND_INV_BLEND_FACTOR,
-    BLEND_SRC1_COLOR,
-    BLEND_INV_SRC1_COLOR,
-    BLEND_SRC1_ALPHA,
-    BLEND_INV_SRC1_ALPHA
+    MAX_BLEND_FACTORS
 };
 
 /// Blend operations.
@@ -93,14 +88,16 @@ enum BlendOp
     BLEND_OP_SUBTRACT,
     BLEND_OP_REV_SUBTRACT,
     BLEND_OP_MIN,
-    BLEND_OP_MAX
+    BLEND_OP_MAX,
+    MAX_BLEND_OPS
 };
 
 /// Fill modes.
 enum FillMode
 {
     FILL_WIREFRAME = 2,
-    FILL_SOLID = 3
+    FILL_SOLID = 3,
+    MAX_FILL_MODES
 };
 
 /// Triangle culling modes.
@@ -108,7 +105,8 @@ enum CullMode
 {
     CULL_NONE = 1,
     CULL_FRONT,
-    CULL_BACK
+    CULL_BACK,
+    MAX_CULL_MODES
 };
 
 /// Depth or stencil compare modes.
@@ -121,7 +119,8 @@ enum CompareMode
     CMP_GREATER,
     CMP_NOT_EQUAL,
     CMP_GREATER_EQUAL,
-    CMP_ALWAYS
+    CMP_ALWAYS,
+    MAX_COMPARE_MODES
 };
 
 /// Stencil operations.
@@ -134,7 +133,8 @@ enum StencilOp
     STENCIL_OP_DECR_SAT,
     STENCIL_OP_INVERT,
     STENCIL_OP_INCR,
-    STENCIL_OP_DECR
+    STENCIL_OP_DECR,
+    MAX_STENCIL_OPS
 };
 
 /// Texture types.

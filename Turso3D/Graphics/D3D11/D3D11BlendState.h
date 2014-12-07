@@ -36,7 +36,7 @@ public:
     BlendFactor srcBlendAlpha;
     /// Destination alpha blend factor.
     BlendFactor destBlendAlpha;
-    /// Color blend operation.
+    /// Alpha blend operation.
     BlendOp blendOpAlpha;
     /// Rendertarget color write mask.
     unsigned char colorWriteMask;

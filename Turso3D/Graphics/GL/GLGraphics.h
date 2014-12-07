@@ -209,12 +209,70 @@ private:
     DepthState* depthState;
     /// Bound rasterizer state.
     RasterizerState* rasterizerState;
-    /// Current primitive type.
-    PrimitiveType primitiveType;
     /// Current scissor rectangle.
     IntRect scissorRect;
-    /// Current stencil ref value.
+    /// Stencil ref value that is to be applied.
     unsigned stencilRef;
+    /// Current stencil ref value.
+    unsigned currentStencilRef;
+    /// Current source color blend factor.
+    BlendFactor srcBlend;
+    /// Current destination color blend factor.
+    BlendFactor destBlend;
+    /// Current color blend operation.
+    BlendOp blendOp;
+    /// Current source alpha blend factor.
+    BlendFactor srcBlendAlpha;
+    /// Current destination alpha blend factor.
+    BlendFactor destBlendAlpha;
+    /// Current alpha blend operation.
+    BlendOp blendOpAlpha;
+    /// Current rendertarget color write mask.
+    unsigned char colorWriteMask;
+    /// Current blend enable flag.
+    bool blendEnable;
+    /// Current alpha to coverage flag.
+    bool alphaToCoverage;
+    /// Depth enable flag.
+    bool depthEnable;
+    /// Depth write flag.
+    bool depthWrite;
+    /// Current depth testing function.
+    CompareMode depthFunc;
+    /// Current stencil enable flag.
+    bool stencilEnable;
+    /// Current stencil buffer read mask.
+    unsigned char stencilReadMask;
+    /// Current stencil buffer write mask.
+    unsigned char stencilWriteMask;
+    /// Current stencil operation on front face fail.
+    StencilOp frontFail;
+    /// Current stencil operation on front face depth fail.
+    StencilOp frontDepthFail;
+    /// Current stencil operation on front face pass.
+    StencilOp frontPass;
+    /// Current stencil front face testing function.
+    CompareMode frontFunc;
+    /// Current stencil operation on back face fail.
+    StencilOp backFail;
+    /// Current stencil operation on back face depth fail.
+    StencilOp backDepthFail;
+    /// Current stencil operation on back face pass.
+    StencilOp backPass;
+    /// Current stencil back face testing function.
+    CompareMode backFunc;
+    /// Current fill mode.
+    FillMode fillMode;
+    /// Current culling mode.
+    CullMode cullMode;
+    /// Current dpth bias added to fragments.
+    int depthBias;
+    /// Current slope scaled depth bias.
+    float slopeScaledDepthBias;
+    /// Current depth clipping flag.
+    bool depthClipEnable;
+    /// Current scissor test flag.
+    bool scissorEnable;
     /// Number of supported constant buffer bindings for vertex shaders.
     size_t vsConstantBuffers;
     /// Number of supported constant buffer bindings for pixel shaders.
@@ -233,6 +291,12 @@ private:
     bool vertexAttributesDirty;
     /// Vertex buffers dirty flag.
     bool vertexBuffersDirty;
+    /// Blend state dirty flag.
+    bool blendStateDirty;
+    /// Depth state dirty flag.
+    bool depthStateDirty;
+    /// Rasterizer state dirty flag.
+    bool rasterizerStateDirty;
 };
 
 /// Register Graphics related object factories and attributes.

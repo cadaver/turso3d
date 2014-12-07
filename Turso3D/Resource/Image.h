@@ -94,7 +94,9 @@ public:
     int Width() const { return width; }
     /// Return image height in pixels.
     int Height() const { return height; }
-    /// Return byte size of a pixel. Will return 0 for compressed formats.
+    /// Return number of components in a pixel. Will return 0 for formats which are not 8 bits per pixel.
+    int Components() const { return components[format]; }
+    /// Return byte size of a pixel. Will return 0 for block compressed formats.
     size_t PixelByteSize() const { return pixelByteSizes[format]; } 
     /// Return pixel data.
     unsigned char* Data() const { return data; }
@@ -102,18 +104,20 @@ public:
     ImageFormat Format() const { return format; }
     /// Return whether is a compressed image.
     bool IsCompressed() const { return format >= FMT_DXT1; }
-    /// Return number of mip levels. Always 1 for uncompressed images.
+    /// Return number of mip levels contained in the image data.
     size_t NumLevels() const { return numLevels; }
-    /// Calculate the next mip image with halved width and height. Supports uncompressed images only. Return true on success.
+    /// Calculate the next mip image with halved width and height. Supports uncompressed 8 bits per pixel images only. Return true on success.
     bool GenerateMipImage(Image& dest) const;
-    /// Return the data for a mip level. Uncompressed images can only return the first (index 0) level.
-    ImageLevel Level(size_t levelIndex) const;
+    /// Return the data for a mip level. Images loaded from eg. PNG or JPG formats will only have one (index 0) level.
+    ImageLevel Level(size_t index) const;
     /// Decompress a mip level as 8-bit RGBA. Supports compressed images only. Return true on success.
     bool DecompressLevel(unsigned char* dest, size_t levelIndex) const;
 
     /// Calculate the data size of an image level.
     static size_t CalculateDataSize(int width, int height, ImageFormat format, size_t* numRows = 0, size_t* rowSize = 0);
 
+    /// Pixel components per format.
+    static const int components[];
     /// Pixel byte sizes per format.
     static const size_t pixelByteSizes[];
 

@@ -52,7 +52,7 @@ public:
     StencilOp backDepthFail;
     /// Stencil operation on back face pass.
     StencilOp backPass;
-    /// Stencil front face testing function.
+    /// Stencil back face testing function.
     CompareMode backFunc;
 
 private:
