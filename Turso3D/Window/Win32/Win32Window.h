@@ -104,6 +104,8 @@ private:
     bool resizable;
     /// Fullscreen flag.
     bool fullscreen;
+    /// Performing size set. Used internally to suppress resize events during it.
+    bool inResize;
 };
 
 }

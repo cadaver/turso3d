@@ -212,13 +212,12 @@ bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
         // Set up texture data read/write alignment. It is important that this is done before uploading any texture data
         glPixelStorei(GL_PACK_ALIGNMENT, 1);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+        backbufferSize = window->Size();
+        ResetRenderTargets();
+        ResetViewport();
     }
 
-    backbufferSize = window->Size();
-    ResetRenderTargets();
-    ResetViewport();
-
-    /// \todo Set fullscreen screen mode
     return true;
 }
 
@@ -726,16 +725,13 @@ void Graphics::BindVBO(unsigned vbo)
 
 void Graphics::HandleResize(WindowResizeEvent& event)
 {
-    // Handle windowed mode resize
-    if (!IsFullscreen())
+    // Reset viewport in case the application does not set it
+    if (context)
     {
-        // Reset viewport in case the application does not set it
-        if (context)
-        {
-            backbufferSize = event.size;
-            ResetRenderTargets();
-            ResetViewport();
-        }
+        backbufferSize = event.size;
+        LOGINFOF("Handle resize: %d %d %d", event.size.x, event.size.y, window->IsFullscreen() ? 1 : 0);
+        ResetRenderTargets();
+        ResetViewport();
     }
 }
 

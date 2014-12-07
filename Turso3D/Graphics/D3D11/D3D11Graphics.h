@@ -103,8 +103,8 @@ public:
     int RenderTargetWidth() const { return renderTargetSize.x; }
     /// Return current rendertarget height.
     int RenderTargetHeight() const { return renderTargetSize.y; }
-    /// Return whether is using fullscreen mode. Note that when using Direct3D the Window class will not control fullscreen mode on its own and will always report false.
-    bool IsFullscreen() const { return fullscreen; }
+    /// Return whether is using fullscreen mode.
+    bool IsFullscreen() const;
     /// Return whether the window is resizable.
     bool IsResizable() const;
     /// Return whether is using vertical sync.
@@ -153,7 +153,7 @@ private:
     /// Create the D3D11 device and swap chain. Requires an open window. Return true on success.
     bool CreateD3DDevice();
     /// Update swap chain state for a new mode and create views for the backbuffer & default depth buffer.
-    bool UpdateSwapChain(int width, int height, bool fullscreen);
+    bool UpdateSwapChain(int width, int height);
     /// Resize the backbuffer when window size changes.
     void HandleResize(WindowResizeEvent& event);
     /// Set topology, and find or create an input layout for the currently set vertex buffers and vertex shader.
@@ -207,12 +207,8 @@ private:
     IntRect scissorRect;
     /// Current stencil ref value.
     unsigned stencilRef;
-    /// Fullscreen flag.
-    bool fullscreen;
     /// Vertical sync flag.
     bool vsync;
-    /// Resize handling flag to prevent recursion.
-    bool inResize;
     /// Input layout dirty flag.
     bool inputLayoutDirty;
 };

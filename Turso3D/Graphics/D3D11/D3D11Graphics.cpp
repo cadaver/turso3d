@@ -83,9 +83,7 @@ struct GraphicsImpl
 Graphics::Graphics() :
     backbufferSize(IntVector2::ZERO),
     renderTargetSize(IntVector2::ZERO),
-    fullscreen(false),
-    vsync(false),
-    inResize(false)
+    vsync(false)
 {
     RegisterSubsystem(this);
     impl = new GraphicsImpl();
@@ -102,21 +100,19 @@ Graphics::~Graphics()
 
 bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
 {
-    // Setting window size only required if window not open yet, otherwise the swapchain takes care of resizing
-    if (!window->IsOpen())
-    {
-        if (!window->SetSize(width, height, false, resizable))
-            return false;
-    }
+    if (!window->SetSize(width, height, fullscreen, resizable))
+        return false;
 
     // Create D3D11 device when setting mode for the first time
     if (!impl->device)
     {
         if (!CreateD3DDevice())
             return false;
+        // Swap chain needs to be updated manually for the first time, otherwise window resize event takes care of it
+        UpdateSwapChain(width, height);
     }
-    
-    return UpdateSwapChain(width, height, fullscreen);
+
+    return true;
 }
 
 bool Graphics::SetFullscreen(bool enable)
@@ -494,6 +490,11 @@ bool Graphics::IsInitialized() const
     return window->IsOpen() && impl->device != nullptr;
 }
 
+bool Graphics::IsFullscreen() const
+{
+    return window->IsFullscreen();
+}
+
 bool Graphics::IsResizable() const
 {
     return window->IsResizable();
@@ -608,12 +609,8 @@ bool Graphics::CreateD3DDevice()
     return true;
 }
 
-bool Graphics::UpdateSwapChain(int width, int height, bool fullscreen_)
+bool Graphics::UpdateSwapChain(int width, int height)
 {
-    if (inResize)
-        return true;
-
-    inResize = true;
     bool success = true;
 
     ID3D11RenderTargetView* nullView = nullptr;
@@ -634,33 +631,7 @@ bool Graphics::UpdateSwapChain(int width, int height, bool fullscreen_)
         impl->defaultDepthTexture = nullptr;
     }
 
-    DXGI_MODE_DESC modeDesc;
-    memset(&modeDesc, 0, sizeof modeDesc);
-    modeDesc.Format = DXGI_FORMAT_UNKNOWN;
-    modeDesc.Width = width;
-    modeDesc.Height = height;
-
-    // For fastest and most glitch-free switching, switch to full screen last and back to windowed first
-    /// \todo Enumerate fullscreen modes and ensure the requested width/height are allowed
-    if (fullscreen_)
-    {
-        impl->swapChain->ResizeTarget(&modeDesc);
-        impl->swapChain->SetFullscreenState(fullscreen_, 0);
-    }
-    else
-    {
-        impl->swapChain->SetFullscreenState(fullscreen_, 0);
-        impl->swapChain->ResizeTarget(&modeDesc);
-    }
-
     impl->swapChain->ResizeBuffers(1, width, height, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
-
-    // Read back the actual width/height that has taken effect
-    DXGI_SWAP_CHAIN_DESC swapChainDesc;
-    memset(&swapChainDesc, 0, sizeof swapChainDesc);
-    impl->swapChain->GetDesc(&swapChainDesc);
-    width = swapChainDesc.BufferDesc.Width;
-    height = swapChainDesc.BufferDesc.Height;
 
     // Create default rendertarget view representing the backbuffer
     ID3D11Texture2D* backbufferTexture;
@@ -701,20 +672,17 @@ bool Graphics::UpdateSwapChain(int width, int height, bool fullscreen_)
     // Update internally held backbuffer size and fullscreen state
     backbufferSize.x = width;
     backbufferSize.y = height;
-    fullscreen = fullscreen_;
 
     ResetRenderTargets();
     ResetViewport();
-
-    inResize = false;
     return success;
 }
 
 void Graphics::HandleResize(WindowResizeEvent& /*event*/)
 {
-    // Handle windowed mode resize
-    if (impl->swapChain && !fullscreen && (window->Width() != backbufferSize.x || window->Height() != backbufferSize.y))
-        UpdateSwapChain(window->Width(), window->Height(), false);
+    // Handle window resize
+    if (impl->swapChain && (window->Width() != backbufferSize.x || window->Height() != backbufferSize.y))
+        UpdateSwapChain(window->Width(), window->Height());
 }
 
 void Graphics::PrepareDraw(PrimitiveType type)

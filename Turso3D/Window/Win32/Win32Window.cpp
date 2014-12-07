@@ -21,10 +21,12 @@ Window::Window() :
     handle(nullptr),
     title("Turso3D Window"),
     windowStyle(0),
+    size(IntVector2::ZERO),
     minimized(false),
     focus(false),
     resizable(false),
-    fullscreen(false)
+    fullscreen(false),
+    inResize(false)
 {
     RegisterSubsystem(this);
 
@@ -49,6 +51,7 @@ void Window::SetTitle(const String& newTitle)
 
 bool Window::SetSize(int width, int height, bool fullscreen_, bool resizable_)
 {
+    inResize = true;
     width = Max(width, 0);
     height = Max(height, 0);
     IntVector2 position(CW_USEDEFAULT, CW_USEDEFAULT);
@@ -95,6 +98,7 @@ bool Window::SetSize(int width, int height, bool fullscreen_, bool resizable_)
         if (!handle)
         {
             LOGERROR("Failed to create window");
+            inResize = false;
             return false;
         }
 
@@ -120,9 +124,18 @@ bool Window::SetSize(int width, int height, bool fullscreen_, bool resizable_)
         ShowWindow((HWND)handle, SW_SHOW);
     }
 
-    size = ClientRectSize();
     fullscreen = fullscreen_;
     resizable = resizable_;
+    inResize = false;
+
+    IntVector2 newSize = ClientRectSize();
+    if (newSize != size)
+    {
+        size = newSize;
+        resizeEvent.size = newSize;
+        SendEvent(resizeEvent);
+    }
+
     return true;
 }
 
@@ -237,7 +250,7 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
                 }
             }
 
-            if (!minimized)
+            if (!minimized && !inResize)
             {
                 IntVector2 newSize = ClientRectSize();
                 if (newSize != size)
