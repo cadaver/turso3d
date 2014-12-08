@@ -143,12 +143,12 @@ void Window::Close()
 {
     if (handle)
     {
-        DestroyWindow((HWND)handle);
-        handle = nullptr;
-
         // Return to desktop resolution if was fullscreen
         if (fullscreen)
             SetDisplayMode(0, 0);
+
+        DestroyWindow((HWND)handle);
+        handle = nullptr;
     }
 }
 
@@ -350,7 +350,7 @@ void Window::SetDisplayMode(int width, int height)
         ChangeDisplaySettings(&screenMode, CDS_FULLSCREEN);
     }
     else
-        ChangeDisplaySettings(nullptr, 0);
+        ChangeDisplaySettings(nullptr, CDS_FULLSCREEN);
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
