@@ -146,6 +146,16 @@ int main()
         printf("Size: %d\n", list.Size());
         printf("Counted list items %d, sum: %d\n", count, sum);
         printf("Processing took %d usec\n", usec);
+
+        printf("\nTesting List insertion\n");
+        List<int> list2;
+        List<int> list3;
+        for (int i = 0; i < 10; ++i)
+            list3.Push(i);
+        list2.Insert(list2.End(), list3);
+        for (auto it = list2.Begin(); it != list2.End(); ++it)
+            printf("%d ", *it);
+        printf("\n");
     }
     
     {

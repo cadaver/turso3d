@@ -262,13 +262,11 @@ public:
         if (Size())
         {
             for (Iterator it = Begin(); it != End(); )
-            {
                 FreeNode(static_cast<Node*>(it++.ptr));
-                it.ptr->prev = nullptr;
-            }
             
-            SetHead(Tail());
-            SetSize(0);
+            Node* tail = Tail();
+            tail->prev = nullptr;
+            SetHead(tail);
             ResetPtrs();
         }
     }
@@ -427,7 +425,7 @@ private:
         return nullptr;
     }
     
-    /// Insert a node into the list. Return the new node.
+    /// Allocate and insert a node into the list. Return the new node.
     Node* InsertNode(Node* dest, const T& key)
     {
         // If no pointers yet, allocate with minimum bucket count

@@ -286,7 +286,7 @@ public:
     {
         Node* destNode = static_cast<Node*>(dest.ptr);
         for (ConstIterator it = list.Begin(); it != list.End(); ++it)
-            InsertNode(destNode, *it);
+            destNode = InsertNode(destNode, *it)->Next();
     }
     
     /// Insert elements by iterators.
@@ -295,7 +295,7 @@ public:
         Node* destNode = static_cast<Node*>(dest.ptr);
         ConstIterator it = start;
         while (it != end)
-            InsertNode(destNode, *it++);
+            destNode = InsertNode(destNode, *it++)->Next();
     }
     
     /// Insert elements.
@@ -304,7 +304,7 @@ public:
         Node* destNode = static_cast<Node*>(dest.ptr);
         const T* ptr = start;
         while (ptr != end)
-            InsertNode(destNode, *ptr++);
+            destNode = InsertNode(destNode, *ptr++)->Next();
     }
     
     /// Erase the last element.
@@ -343,12 +343,11 @@ public:
         if (Size())
         {
             for (Iterator it = Begin(); it != End(); )
-            {
                 FreeNode(static_cast<Node*>(it++.ptr));
-                it.ptr->prev = nullptr;
-            }
             
-            SetHead(Tail());
+            Node* tail = Tail();
+            tail->prev = nullptr;
+            SetHead(tail);
             SetSize(0);
         }
     }
@@ -411,13 +410,13 @@ private:
     {
         AllocatePtrs();
         allocator = AllocatorInitialize(sizeof(Node), numNodes);
-        ListNodeBase* tail = AllocateNode();
+        Node* tail = AllocateNode();
         SetHead(tail);
         SetTail(tail);
     }
 
-    /// Allocate and insert a node into the list.
-    void InsertNode(Node* dest, const T& value)
+    /// Allocate and insert a node into the list. Return the new node.
+    Node* InsertNode(Node* dest, const T& value)
     {
         if (!dest)
         {
@@ -428,7 +427,7 @@ private:
                 dest = Tail();
             }
             else
-                return;
+                return nullptr;
         }
         
         Node* newNode = AllocateNode(value);
@@ -444,6 +443,7 @@ private:
             SetHead(newNode);
         
         SetSize(Size() + 1);
+        return newNode;
     }
     
     /// Erase and free a node. Return pointer to the next node, or to the end if could not erase.
