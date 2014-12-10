@@ -235,7 +235,7 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int he
         }
 
         glTexParameteri(glTargets[type], GL_TEXTURE_BASE_LEVEL, 0);
-        glTexParameteri(glTargets[type], GL_TEXTURE_MAX_LEVEL, numLevels - 1);
+        glTexParameteri(glTargets[type], GL_TEXTURE_MAX_LEVEL, (unsigned)numLevels - 1);
 
         LOGDEBUGF("Created texture width %d height %d format %d numLevels %d", width, height, (int)format, numLevels);
     }
@@ -343,26 +343,26 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
         {
             if (wholeLevel)
             {
-                glTexImage2D(glTargets[type], level, glInternalFormats[format], rect.Width(), rect.Height(), 0, glFormats[format],
-                    glDataTypes[format], data.data);
+                glTexImage2D(glTargets[type], (unsigned)level, glInternalFormats[format], rect.Width(), rect.Height(), 0,
+                    glFormats[format], glDataTypes[format], data.data);
             }
             else
             {
-                glTexSubImage2D(glTargets[type], level, rect.left, rect.top, rect.Width(), rect.Height(), glFormats[format],
-                    glDataTypes[format], data.data);
+                glTexSubImage2D(glTargets[type], (unsigned)level, rect.left, rect.top, rect.Width(), rect.Height(), 
+                    glFormats[format], glDataTypes[format], data.data);
             }
         }
         else
         {
             if (wholeLevel)
             {
-                glCompressedTexImage2D(glTargets[type], level, glInternalFormats[format], rect.Width(), rect.Height(), 0,
-                    Image::CalculateDataSize(rect.Width(), rect.Height(), format), data.data);
+                glCompressedTexImage2D(glTargets[type], (unsigned)level, glInternalFormats[format], rect.Width(), rect.Height(),
+                    0, (unsigned)Image::CalculateDataSize(rect.Width(), rect.Height(), format), data.data);
             }
             else
             {
-                glCompressedTexSubImage2D(glTargets[type], level, rect.left, rect.top, rect.Width(), rect.Height(), glFormats[format],
-                    Image::CalculateDataSize(rect.Width(), rect.Height(), format), data.data);
+                glCompressedTexSubImage2D(glTargets[type], (unsigned)level, rect.left, rect.top, rect.Width(), rect.Height(),
+                    glFormats[format], (unsigned)Image::CalculateDataSize(rect.Width(), rect.Height(), format), data.data);
             }
         }
     }

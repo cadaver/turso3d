@@ -840,11 +840,11 @@ void Graphics::PrepareFramebuffer()
             {
                 if (renderTargets[i])
                 {
-                    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, renderTargets[i]->GLTarget(),
+                    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + (unsigned)i, renderTargets[i]->GLTarget(),
                         renderTargets[i]->GLTexture(), 0);
                 }
                 else
-                    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, 0, 0);
+                    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + (unsigned)i, GL_TEXTURE_2D, 0, 0);
                 
                 framebuffer->renderTargets[i] = renderTargets[i];
             }

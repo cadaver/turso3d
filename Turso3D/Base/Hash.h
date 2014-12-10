@@ -173,12 +173,6 @@ public:
 
     /// Return number of elements.
     size_t Size() const { return ptrs ? (reinterpret_cast<size_t*>(ptrs))[0] : 0; }
-    /// Return number of buckets.
-    size_t NumBuckets() const { return ptrs ? (reinterpret_cast<size_t*>(ptrs))[1] : MIN_BUCKETS; }
-    /// Return list head node.
-    HashNodeBase* Head() const { return ptrs ? ptrs[2] : 0; }
-    /// Return list tail node.
-    HashNodeBase* Tail() const { return ptrs ? ptrs[3] : 0; }
     /// Return whether has no elements.
     bool IsEmpty() const { return Size() == 0; }
     
@@ -193,8 +187,15 @@ protected:
     void SetHead(HashNodeBase* head) { ptrs[2] = head; }
     /// Set new tail node.
     void SetTail(HashNodeBase* tail) { ptrs[3] = tail; }
+
+    /// Return number of buckets.
+    size_t NumBuckets() const { return ptrs ? (reinterpret_cast<size_t*>(ptrs))[1] : MIN_BUCKETS; }
+    /// Return list head node.
+    HashNodeBase* Head() const { return ptrs ? ptrs[2] : nullptr; }
+    /// Return list tail node.
+    HashNodeBase* Tail() const { return ptrs ? ptrs[3] : nullptr; }
     /// Return bucket head pointers.
-    HashNodeBase** Ptrs() const { return ptrs ? ptrs + 4 : 0; }
+    HashNodeBase** Ptrs() const { return ptrs ? ptrs + 4 : nullptr; }
     
     /// Bucket head pointers.
     HashNodeBase** ptrs;

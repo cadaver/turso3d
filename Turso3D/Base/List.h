@@ -68,34 +68,48 @@ class TURSO3D_API ListBase
 public:
     /// Construct.
     ListBase() :
-        allocator(nullptr),
-        size(0)
+        ptrs(nullptr),
+        allocator(nullptr)
     {
     }
     
+    /// Destruct.
+    ~ListBase()
+    {
+        delete[] ptrs;
+    }
+
     /// Swap with another linked list.
     void Swap(ListBase& list)
     {
-        Turso3D::Swap(head, list.head);
-        Turso3D::Swap(tail, list.tail);
+        Turso3D::Swap(ptrs, list.ptrs);
         Turso3D::Swap(allocator, list.allocator);
-        Turso3D::Swap(size, list.size);
     }
 
     /// Return number of elements.
-    size_t Size() const { return size; }
+    size_t Size() const { return ptrs ? (reinterpret_cast<size_t*>(ptrs))[0] : 0; }
     /// Return whether has no elements.
-    bool IsEmpty() const { return size == 0; }
+    bool IsEmpty() const { return Size() == 0; }
     
 protected:
-    /// Head node pointer.
-    ListNodeBase* head;
-    /// Tail node pointer.
-    ListNodeBase* tail;
+    /// Allocate head & tail pointers + room for size variable.
+    void AllocatePtrs();
+    /// Set new size.
+    void SetSize(size_t size) { reinterpret_cast<size_t*>(ptrs)[0] = size; }
+    /// Set new head node.
+    void SetHead(ListNodeBase* head) { ptrs[1] = head; }
+    /// Set new tail node.
+    void SetTail(ListNodeBase* tail) { ptrs[2] = tail; }
+
+    /// Return list head node.
+    ListNodeBase* Head() const { return ptrs ? ptrs[1] : nullptr; }
+    /// Return list tail node.
+    ListNodeBase* Tail() const { return ptrs ? ptrs[2] : nullptr; }
+
+    /// Head & tail pointers and list size.
+    ListNodeBase** ptrs;
     /// %Node allocator.
     AllocatorBlock* allocator;
-    /// Number of elements.
-    size_t size;
 };
 
 /// Doubly-linked list template class. Elements can generally be assumed to be in non-continuous memory.
@@ -194,25 +208,25 @@ public:
     /// Construct empty.
     List()
     {
-        allocator = AllocatorInitialize(sizeof(Node));
-        head = tail = AllocateNode();
     }
     
     /// Copy-construct.
     List(const List<T>& list)
     {
         // Reserve the tail node + initial capacity according to the list's size
-        allocator = AllocatorInitialize(sizeof(Node), list.Size() + 1);
-        head = tail = AllocateNode();
+        Initialize(list.Size() + 1);
         *this = list;
     }
 
     /// Destruct.
     ~List()
     {
-        Clear();
-        FreeNode(Tail());
-        AllocatorUninitialize(allocator);
+        if (ptrs && allocator)
+        {
+            Clear();
+            FreeNode(Tail());
+            AllocatorUninitialize(allocator);
+        }
     }
     
     /// Assign from another list.
@@ -241,7 +255,7 @@ public:
     /// Test for equality with another list.
     bool operator == (const List<T>& rhs) const
     {
-        if (rhs.size != size)
+        if (rhs.Size() != Size())
             return false;
         
         ConstIterator it = Begin();
@@ -296,14 +310,14 @@ public:
     /// Erase the last element.
     void Pop()
     {
-        if (size)
+        if (Size())
             Erase(--End());
     }
     
     /// Erase the first element.
     void PopFront()
     {
-        if (size)
+        if (Size())
             Erase(Begin());
     }
     
@@ -334,18 +348,18 @@ public:
                 it.ptr->prev = nullptr;
             }
             
-            head = tail;
-            size = 0;
+            SetHead(Tail());
+            SetSize(0);
         }
     }
     
     /// Resize the list by removing or adding items at the end.
     void Resize(size_t newSize)
     {
-        while (size > newSize)
+        while (Size() > newSize)
             Pop();
         
-        while (size < newSize)
+        while (Size() < newSize)
             InsertNode(Tail(), T());
     }
     
@@ -388,15 +402,34 @@ public:
     
 private:
     /// Return the head node.
-    Node* Head() const { return static_cast<Node*>(head); }
+    Node* Head() const { return static_cast<Node*>(ListBase::Head()); }
     /// Return the tail node.
-    Node* Tail() const { return static_cast<Node*>(tail); }
+    Node* Tail() const { return static_cast<Node*>(ListBase::Tail()); }
     
+    /// Reserve the tail node and initial node capacity.
+    void Initialize(size_t numNodes)
+    {
+        AllocatePtrs();
+        allocator = AllocatorInitialize(sizeof(Node), numNodes);
+        ListNodeBase* tail = AllocateNode();
+        SetHead(tail);
+        SetTail(tail);
+    }
+
     /// Allocate and insert a node into the list.
     void InsertNode(Node* dest, const T& value)
     {
         if (!dest)
-            return;
+        {
+            // If not initialized yet, the only possibility is to insert before the tail
+            if (!ptrs)
+            {
+                Initialize(1);
+                dest = Tail();
+            }
+            else
+                return;
+        }
         
         Node* newNode = AllocateNode(value);
         Node* prev = dest->Prev();
@@ -408,16 +441,16 @@ private:
         
         // Reassign the head node if necessary
         if (dest == Head())
-            head = newNode;
+            SetHead(newNode);
         
-        ++size;
+        SetSize(Size() + 1);
     }
     
     /// Erase and free a node. Return pointer to the next node, or to the end if could not erase.
     Node* EraseNode(Node* node)
     {
         // The tail node can not be removed
-        if (!node || node == tail)
+        if (!node || node == Tail())
             return Tail();
         
         Node* prev = node->Prev();
@@ -428,10 +461,10 @@ private:
         
         // Reassign the head node if necessary
         if (node == Head())
-            head = next;
+            SetHead(next);
         
         FreeNode(node);
-        --size;
+        SetSize(Size() - 1);
         
         return next;
     }
