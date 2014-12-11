@@ -23,7 +23,6 @@ enum TouchState
     TOUCH_END
 };
 
-
 /// Finger touch.
 struct TURSO3D_API Touch
 {
@@ -130,8 +129,6 @@ public:
     unsigned id;
     /// Touch position within window.
     IntVector2 position;
-    /// Finger pressure between 0-1.
-    float pressure;
 };
 
 /// %Input subsystem for reading keyboard/mouse/etc. input. Updated from OS window messages by the Window class.

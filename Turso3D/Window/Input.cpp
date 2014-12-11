@@ -205,7 +205,6 @@ void Input::OnTouch(TouchState state, unsigned internalId, const IntVector2& pos
 
                 touchEndEvent.id = it->id;
                 touchEndEvent.position = it->position;
-                touchEndEvent.pressure = it->pressure;
                 SendEvent(touchEndEvent);
                 touches.Erase(it);
                 break;
