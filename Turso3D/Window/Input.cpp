@@ -144,9 +144,9 @@ void Input::OnTouch(TouchState state, unsigned internalId, const IntVector2& pos
     {
     case TOUCH_BEGIN:
         {
-            // Use the first gap in current touches
+            // Use the first gap in current touches, or insert to the end if no gaps
             size_t insertIndex = touches.Size();
-            unsigned newId = touches.Size();
+            unsigned newId = (unsigned)touches.Size();
 
             for (size_t i = 0; i < touches.Size(); ++i)
             {
