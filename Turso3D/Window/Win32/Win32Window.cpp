@@ -43,7 +43,6 @@ Window::Window() :
         registerTouchWindow = (BOOL(WINAPI*)(HWND, ULONG))(void*)GetProcAddress(userDll, "RegisterTouchWindow");
         getTouchInputInfo = (BOOL(WINAPI*)(HTOUCHINPUT, UINT, PTOUCHINPUT, int))(void*)GetProcAddress(userDll, "GetTouchInputInfo");
         closeTouchInputHandle = (BOOL(WINAPI*)(HTOUCHINPUT))(void*)GetProcAddress(userDll, "CloseTouchInputHandle");
-        static BOOL(WINAPI* closeTouchInputHandle)(HTOUCHINPUT) = nullptr;
 
         // Cancel automatic DPI scaling
         if (setProcessDpiAware)
