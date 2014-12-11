@@ -34,6 +34,9 @@ public:
         SubscribeToEvent(input->mouseButtonEvent, &WindowTest::HandleMouseButton);
         SubscribeToEvent(input->mouseMoveEvent, &WindowTest::HandleMouseMove);
         SubscribeToEvent(input->keyEvent, &WindowTest::HandleKey);
+        SubscribeToEvent(input->touchBeginEvent, &WindowTest::HandleTouchBegin);
+        SubscribeToEvent(input->touchMoveEvent, &WindowTest::HandleTouchMove);
+        SubscribeToEvent(input->touchEndEvent, &WindowTest::HandleTouchEnd);
 
         while (window->IsOpen())
         {
@@ -88,6 +91,21 @@ public:
     void HandleKey(KeyEvent& event)
     {
         printf("Key code %d rawcode %d state %d\n", event.keyCode, event.rawKeyCode, event.pressed ? 1 : 0);
+    }
+
+    void HandleTouchBegin(TouchBeginEvent& event)
+    {
+        printf("Touch begin id %d position %d %d\n", event.id, event.position.x, event.position.y);
+    }
+
+    void HandleTouchMove(TouchMoveEvent& event)
+    {
+        printf("Touch move id %d position %d %d\n", event.id, event.position.x, event.position.y);
+    }
+
+    void HandleTouchEnd(TouchEndEvent& event)
+    {
+        printf("Touch end id %d position %d %d\n", event.id, event.position.x, event.position.y);
     }
 
     AutoPtr<Input> input;

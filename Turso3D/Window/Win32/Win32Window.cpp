@@ -13,6 +13,12 @@
 namespace Turso3D
 {
 
+static BOOL(WINAPI* setProcessDpiAware)() = nullptr;
+static BOOL(WINAPI* registerTouchWindow)(HWND, ULONG) = nullptr;
+static BOOL(WINAPI* getTouchInputInfo)(HTOUCHINPUT, UINT, PTOUCHINPUT, int) = nullptr;
+static BOOL(WINAPI* closeTouchInputHandle)(HTOUCHINPUT) = nullptr;
+static bool functionsInitialized = false;
+
 static LRESULT CALLBACK WndProc(HWND wnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 String Window::className("Turso3DWindow");
@@ -30,10 +36,21 @@ Window::Window() :
 {
     RegisterSubsystem(this);
 
-    // Cancel automatic DPI scaling
-    BOOL(WINAPI* proc)() = (BOOL(WINAPI *)())(void*)GetProcAddress(GetModuleHandle("user32.dll"), "SetProcessDPIAware");
-    if (proc)
-        proc();
+    if (!functionsInitialized)
+    {
+        HMODULE userDll = GetModuleHandle("user32.dll");
+        setProcessDpiAware = (BOOL(WINAPI*)())(void*)GetProcAddress(userDll, "SetProcessDPIAware");
+        registerTouchWindow = (BOOL(WINAPI*)(HWND, ULONG))(void*)GetProcAddress(userDll, "RegisterTouchWindow");
+        getTouchInputInfo = (BOOL(WINAPI*)(HTOUCHINPUT, UINT, PTOUCHINPUT, int))(void*)GetProcAddress(userDll, "GetTouchInputInfo");
+        closeTouchInputHandle = (BOOL(WINAPI*)(HTOUCHINPUT))(void*)GetProcAddress(userDll, "CloseTouchInputHandle");
+        static BOOL(WINAPI* closeTouchInputHandle)(HTOUCHINPUT) = nullptr;
+
+        // Cancel automatic DPI scaling
+        if (setProcessDpiAware)
+            setProcessDpiAware();
+        
+        functionsInitialized = true;
+    }
 }
 
 Window::~Window()
@@ -101,6 +118,10 @@ bool Window::SetSize(int width, int height, bool fullscreen_, bool resizable_)
             inResize = false;
             return false;
         }
+
+        // Enable touch input if available
+        if (registerTouchWindow)
+            registerTouchWindow((HWND)handle, TWF_FINETOUCH | TWF_WANTPALM);
 
         minimized = false;
         focus = false;
@@ -188,6 +209,9 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
 {
     Input* input = Subsystem<Input>();
     bool handled = false;
+
+    // Skip emulated mouse events that are caused by touch
+    bool emulatedMouse = (GetMessageExtraInfo() & 0xffffff00) == 0xff515700;
 
     switch (msg)
     {
@@ -284,7 +308,7 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
         break;
 
     case WM_MOUSEMOVE:
-        if (input)
+        if (input && !emulatedMouse)
         {
             IntVector2 newPosition;
             newPosition.x = (int)(short)LOWORD(lParam);
@@ -297,7 +321,7 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
     case WM_LBUTTONDOWN:
     case WM_MBUTTONDOWN:
     case WM_RBUTTONDOWN:
-        if (input)
+        if (input && !emulatedMouse)
         {
             unsigned button = (msg == WM_LBUTTONDOWN) ? MOUSEB_LEFT : (msg == WM_MBUTTONDOWN) ? MOUSEB_MIDDLE : MOUSEB_RIGHT;
             input->OnMouseButton(button, true);
@@ -310,7 +334,7 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
     case WM_LBUTTONUP:
     case WM_MBUTTONUP:
     case WM_RBUTTONUP:
-        if (input)
+        if (input && !emulatedMouse)
         {
             unsigned button = (msg == WM_LBUTTONUP) ? MOUSEB_LEFT : (msg == WM_MBUTTONUP) ? MOUSEB_MIDDLE : MOUSEB_RIGHT;
             input->OnMouseButton(button, false);
@@ -318,6 +342,34 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
             if (!input->MouseButtons())
                 ReleaseCapture();
         }
+        handled = true;
+        break;
+
+    case WM_TOUCH:
+        if (input && LOWORD(wParam))
+        {
+            Vector<TOUCHINPUT> touches(LOWORD(wParam));
+            if (getTouchInputInfo((HTOUCHINPUT)lParam, (unsigned)touches.Size(), &touches[0], sizeof(TOUCHINPUT)))
+            {
+                for (auto it = touches.Begin(); it != touches.End(); ++it)
+                {
+                    // Translate touch points inside window
+                    POINT point;
+                    point.x = it->x / 100;
+                    point.y = it->y / 100;
+                    ScreenToClient((HWND)handle, &point);
+
+                    if (it->dwFlags & TOUCHEVENTF_DOWN)
+                        input->OnTouch(TOUCH_BEGIN, it->dwID, IntVector2(point.x, point.y), 1.0f);
+                    if (it->dwFlags & TOUCHEVENTF_MOVE)
+                        input->OnTouch(TOUCH_MOVE, it->dwID, IntVector2(point.x, point.y), 1.0f);
+                    if (it->dwFlags & TOUCHEVENTF_UP)
+                        input->OnTouch(TOUCH_END, it->dwID, IntVector2(point.x, point.y), 1.0f);
+                }
+            }
+        }
+
+        closeTouchInputHandle((HTOUCHINPUT)lParam);
         handled = true;
         break;
     }

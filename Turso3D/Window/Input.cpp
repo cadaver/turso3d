@@ -23,11 +23,13 @@ Input::~Input()
 
 void Input::Update()
 {
-    // Clear accumulated input & key/button presses
+    // Clear accumulated input from last frame
     mouseButtonsPressed = 0;
     mouseMove = IntVector2::ZERO;
     keyPressed.Clear();
     rawKeyPressed.Clear();
+    for (auto it = touches.Begin(); it != touches.End(); ++it)
+        it->delta = IntVector2::ZERO;
 
     // The OS-specific window message handling will call back to Input and update the state
     Window* window = Subsystem<Window>();
@@ -67,6 +69,17 @@ bool Input::IsMouseButtonDown(unsigned button) const
 bool Input::IsMouseButtonPressed(unsigned button) const
 {
     return (mouseButtonsPressed & (1 << button)) != 0;
+}
+
+const Touch* Input::FindTouch(unsigned id) const
+{
+    for (auto it = touches.Begin(); it != touches.End(); ++it)
+    {
+        if (it->id == id)
+            return it.ptr;
+    }
+
+    return nullptr;
 }
 
 void Input::OnKey(unsigned keyCode, unsigned rawKeyCode, bool pressed)
@@ -123,6 +136,83 @@ void Input::OnMouseButton(unsigned button, bool pressed)
     mouseButtonEvent.pressed = pressed;
     mouseButtonEvent.position = mousePosition;
     SendEvent(mouseButtonEvent);
+}
+
+void Input::OnTouch(TouchState state, unsigned internalId, const IntVector2& position, float pressure)
+{
+    switch (state)
+    {
+    case TOUCH_BEGIN:
+        {
+            // Use the first gap in current touches
+            size_t insertIndex = touches.Size();
+            unsigned newId = touches.Size();
+
+            for (size_t i = 0; i < touches.Size(); ++i)
+            {
+                if (touches[i].id > i)
+                {
+                    insertIndex = i;
+                    newId = i ? touches[i - 1].id + 1 : 0;
+                    break;
+                }
+            }
+
+            Touch newTouch;
+            newTouch.id = newId;
+            newTouch.internalId = internalId;
+            newTouch.position = position;
+            newTouch.pressure = pressure;
+            touches.Insert(insertIndex, newTouch);
+
+            touchBeginEvent.id = newTouch.id;
+            touchBeginEvent.position = newTouch.position;
+            touchBeginEvent.pressure = newTouch.pressure;
+            SendEvent(touchBeginEvent);
+        }
+        break;
+
+    case TOUCH_MOVE:
+        for (auto it = touches.Begin(); it != touches.End(); ++it)
+        {
+            if (it->internalId == internalId)
+            {
+                it->lastDelta = position - it->position;
+                if (it->lastDelta != IntVector2::ZERO || pressure != it->pressure)
+                {
+                    it->delta += it->lastDelta;
+                    it->position = position;
+                    it->pressure = pressure;
+                    
+                    touchMoveEvent.id = it->id;
+                    touchMoveEvent.position = it->position;
+                    touchMoveEvent.delta = it->lastDelta;
+                    touchMoveEvent.pressure = it->pressure;
+                    SendEvent(touchMoveEvent);
+                    break;
+                }
+            }
+        }
+        break;
+
+    case TOUCH_END:
+        for (auto it = touches.Begin(); it != touches.End(); ++it)
+        {
+            if (it->internalId == internalId)
+            {
+                it->position = position;
+                it->pressure = pressure;
+
+                touchEndEvent.id = it->id;
+                touchEndEvent.position = it->position;
+                touchEndEvent.pressure = it->pressure;
+                SendEvent(touchEndEvent);
+                touches.Erase(it);
+                break;
+            }
+        }
+        break;
+    }
 }
 
 void Input::OnGainFocus()
