@@ -27,6 +27,20 @@ class WindowResizeEvent;
 typedef Pair<unsigned long long, unsigned> InputLayoutDesc;
 typedef HashMap<InputLayoutDesc, void*> InputLayoutMap;
 
+/// Screen mode set event.
+class ScreenModeEvent : public Event
+{
+public:
+    /// New backbuffer size.
+    IntVector2 size;
+    /// Fullscreen flag.
+    bool fullscreen;
+    /// Window resizable flag.
+    bool resizable;
+    /// Multisample level.
+    int multisample;
+};
+
 /// 3D graphics rendering context. Manages the rendering window and GPU objects.
 class TURSO3D_API Graphics : public Object
 {
@@ -39,9 +53,11 @@ public:
     ~Graphics();
 
     /// Set graphics mode. Create the window and rendering context if not created yet. Return true on success.
-    bool SetMode(int width, int height, bool fullscreen, bool resizable);
+    bool SetMode(int width, int height, bool fullscreen = false, bool resizable = false, int multisample = 1);
     /// Set fullscreen mode on/off while retaining previous resolution. The initial graphics mode must have been set first. Return true on success.
     bool SetFullscreen(bool enable);
+    /// Set new multisample level while retaining previous resolution. The initial graphics mode must have been set first. Return true on success.
+    bool SetMultisample(int multisample);
     /// Set vertical sync on/off.
     void SetVSync(bool enable);
     /// Close the window and destroy the rendering context and GPU objects.
@@ -99,6 +115,8 @@ public:
     int Width() const { return backbufferSize.x; }
     /// Return backbuffer height, or 0 if not initialized.
     int Height() const { return backbufferSize.y; }
+    /// Return multisample level, or 1 if not using multisampling.
+    int Multisample() const { return multisample; }
     /// Return current rendertarget width.
     int RenderTargetWidth() const { return renderTargetSize.x; }
     /// Return current rendertarget height.
@@ -149,9 +167,12 @@ public:
     /// Return the D3D11 immediate device context. Used internally and should not be called by portable application code.
     void* D3DDeviceContext() const;
 
+    /// Screen mode change event.
+    ScreenModeEvent screenModeEvent;
+
 private:
-    /// Create the D3D11 device and swap chain. Requires an open window. Return true on success.
-    bool CreateD3DDevice();
+    /// Create the D3D11 device and swap chain. Requires an open window. Can also be called again to recrease swap chain. Return true on success.
+    bool CreateD3DDevice(int multisample);
     /// Update swap chain state for a new mode and create views for the backbuffer & default depth buffer.
     bool UpdateSwapChain(int width, int height);
     /// Handle window resize event.
@@ -169,12 +190,6 @@ private:
     IntVector2 backbufferSize;
     /// Current size of the active rendertarget.
     IntVector2 renderTargetSize;
-    /// Current viewport rectangle.
-    IntRect viewport;
-    /// GPU objects.
-    Vector<GPUObject*> gpuObjects;
-    /// Input layouts.
-    InputLayoutMap inputLayouts;
     /// Bound vertex buffers.
     VertexBuffer* vertexBuffers[MAX_VERTEX_STREAMS];
     /// Bound index buffer.
@@ -187,8 +202,6 @@ private:
     Texture* renderTargets[MAX_RENDERTARGETS];
     /// Bound depth-stencil texture.
     Texture* depthStencil;
-    /// Helper vector for defining just one color rendertarget.
-    Vector<Texture*> renderTargetVector;
     /// Bound vertex shader.
     ShaderVariation* vertexShader;
     /// Bound pixel shader.
@@ -207,6 +220,14 @@ private:
     IntRect scissorRect;
     /// Current stencil ref value.
     unsigned char stencilRef;
+    /// Current viewport rectangle.
+    IntRect viewport;
+    /// GPU objects.
+    Vector<GPUObject*> gpuObjects;
+    /// Input layouts.
+    InputLayoutMap inputLayouts;
+    /// Multisample level.
+    int multisample;
     /// Vertical sync flag.
     bool vsync;
     /// Input layout dirty flag.

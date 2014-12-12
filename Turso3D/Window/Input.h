@@ -91,7 +91,7 @@ public:
 class TURSO3D_API TouchBeginEvent : public Event
 {
 public:
-    /// Zero-based touch ID.
+    /// Zero-based touch id.
     unsigned id;
     /// Touch position within window.
     IntVector2 position;
@@ -103,7 +103,7 @@ public:
 class TURSO3D_API TouchMoveEvent : public Event
 {
 public:
-    /// Zero-based touch ID.
+    /// Zero-based touch id.
     unsigned id;
     /// Touch position within window.
     IntVector2 position;
@@ -117,7 +117,7 @@ public:
 class TURSO3D_API TouchEndEvent : public Event
 {
 public:
-    /// Zero-based touch ID.
+    /// Zero-based touch id.
     unsigned id;
     /// Touch position within window.
     IntVector2 position;

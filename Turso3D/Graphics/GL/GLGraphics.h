@@ -100,6 +100,8 @@ public:
     int Width() const { return backbufferSize.x; }
     /// Return backbuffer height, or 0 if not initialized.
     int Height() const { return backbufferSize.y; }
+    /// Return multisample level, or 1 if not using multisampling.
+    int MultisampleLevel() const { return multisample; }
     /// Return current rendertarget width.
     int RenderTargetWidth() const { return renderTargetSize.x; }
     /// Return current rendertarget height.
@@ -180,12 +182,6 @@ private:
     IntVector2 backbufferSize;
     /// Current size of the active rendertarget.
     IntVector2 renderTargetSize;
-    /// Current viewport rectangle.
-    IntRect viewport;
-    /// GPU objects.
-    Vector<GPUObject*> gpuObjects;
-    /// Shader programs.
-    ShaderProgramMap shaderPrograms;
     /// Bound vertex buffers.
     VertexBuffer* vertexBuffers[MAX_VERTEX_STREAMS];
     /// Enabled vertex attributes bitmask.
@@ -224,8 +220,6 @@ private:
     RasterizerState* rasterizerState;
     /// Bound framebuffer object.
     Framebuffer* framebuffer;
-    /// Framebuffer objects keyed by resolution and color format.
-    HashMap<unsigned long long, AutoPtr<Framebuffer> > framebuffers;
     /// Number of supported constant buffer bindings for vertex shaders.
     size_t vsConstantBuffers;
     /// Number of supported constant buffer bindings for pixel shaders.
@@ -236,6 +230,16 @@ private:
     unsigned boundVBO;
     /// Current scissor rectangle.
     IntRect scissorRect;
+    /// Current viewport rectangle.
+    IntRect viewport;
+    /// GPU objects.
+    Vector<GPUObject*> gpuObjects;
+    /// Shader programs.
+    ShaderProgramMap shaderPrograms;
+    /// Framebuffer objects keyed by resolution and color format.
+    HashMap<unsigned long long, AutoPtr<Framebuffer> > framebuffers;
+    /// Multisample level.
+    int multisample;
     /// Vertical sync flag.
     bool vsync;
     /// Vertex attributes dirty (shader program changed) flag.

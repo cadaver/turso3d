@@ -83,6 +83,7 @@ struct GraphicsImpl
 Graphics::Graphics() :
     backbufferSize(IntVector2::ZERO),
     renderTargetSize(IntVector2::ZERO),
+    multisample(1),
     vsync(false)
 {
     RegisterSubsystem(this);
@@ -98,19 +99,30 @@ Graphics::~Graphics()
     RemoveSubsystem(this);
 }
 
-bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
+bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable, int multisample_)
 {
+    multisample_ = Clamp(multisample_, 1, 16);
+
     if (!window->SetSize(width, height, fullscreen, resizable))
         return false;
 
-    // Create D3D11 device when setting mode for the first time
-    if (!impl->device)
+    // Create D3D11 device and swap chain when setting mode for the first time, or swap chain again when changing multisample
+    if (!impl->device || multisample_ != multisample)
     {
-        if (!CreateD3DDevice())
+        if (!CreateD3DDevice(multisample_))
             return false;
         // Swap chain needs to be updated manually for the first time, otherwise window resize event takes care of it
         UpdateSwapChain(window->Width(), window->Height());
     }
+
+    screenModeEvent.size = backbufferSize;
+    screenModeEvent.fullscreen = IsFullscreen();
+    screenModeEvent.resizable = IsResizable();
+    screenModeEvent.multisample = multisample;
+    SendEvent(screenModeEvent);
+
+    LOGDEBUGF("Set screen mode %dx%d fullscreen %d resizable %d multisample %d", backbufferSize.x, backbufferSize.y,
+        IsFullscreen(), IsResizable(), multisample);
 
     return true;
 }
@@ -120,7 +132,15 @@ bool Graphics::SetFullscreen(bool enable)
     if (!IsInitialized())
         return false;
     else
-        return SetMode(backbufferSize.x, backbufferSize.y, enable, window->IsResizable());
+        return SetMode(backbufferSize.x, backbufferSize.y, enable, window->IsResizable(), multisample);
+}
+
+bool Graphics::SetMultisample(int multisample_)
+{
+    if (!IsInitialized())
+        return false;
+    else
+        return SetMode(backbufferSize.x, backbufferSize.y, window->IsFullscreen(), window->IsResizable(), multisample_);
 }
 
 void Graphics::SetVSync(bool enable)
@@ -192,7 +212,7 @@ void Graphics::Present()
 
 void Graphics::SetRenderTarget(Texture* renderTarget_, Texture* depthStencil_)
 {
-    renderTargetVector.Resize(1);
+    static Vector<Texture*> renderTargetVector(1);
     renderTargetVector[0] = renderTarget_;
     SetRenderTargets(renderTargetVector, depthStencil_);
 }
@@ -547,32 +567,38 @@ void* Graphics::D3DDeviceContext() const
     return impl->deviceContext;
 }
 
-bool Graphics::CreateD3DDevice()
+bool Graphics::CreateD3DDevice(int multisample_)
 {
-    if (impl->device)
-        return true; // Already exists
-
-    // Create device first
-    D3D11CreateDevice(
-        nullptr,
-        D3D_DRIVER_TYPE_HARDWARE,
-        0,
-        0,
-        nullptr,
-        0,
-        D3D11_SDK_VERSION,
-        &impl->device,
-        nullptr,
-        &impl->deviceContext
-    );
-
-    if (!impl->device || !impl->deviceContext)
+    // Device needs only to be created once
+    if (!impl->device)
     {
-        LOGERROR("Failed to create D3D11 device");
-        return false;
+        D3D11CreateDevice(
+            nullptr,
+            D3D_DRIVER_TYPE_HARDWARE,
+            0,
+            0,
+            nullptr,
+            0,
+            D3D11_SDK_VERSION,
+            &impl->device,
+            nullptr,
+            &impl->deviceContext
+        );
+
+        if (!impl->device || !impl->deviceContext)
+        {
+            LOGERROR("Failed to create D3D11 device");
+            return false;
+        }
     }
 
-    // Create swap chain
+    // Create swap chain. Release old if necessary
+    if (impl->swapChain)
+    {
+        impl->swapChain->Release();
+        impl->swapChain = nullptr;
+    }
+
     DXGI_SWAP_CHAIN_DESC swapChainDesc;
     memset(&swapChainDesc, 0, sizeof swapChainDesc);
     swapChainDesc.BufferCount = 1;
@@ -581,7 +607,8 @@ bool Graphics::CreateD3DDevice()
     swapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     swapChainDesc.OutputWindow = (HWND)window->Handle();
-    swapChainDesc.SampleDesc.Count = 1;
+    swapChainDesc.SampleDesc.Count = multisample_;
+    swapChainDesc.SampleDesc.Quality = multisample_ > 1 ? D3D11_STANDARD_MULTISAMPLE_PATTERN : 0;
     swapChainDesc.Windowed = TRUE;
     swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
@@ -600,13 +627,16 @@ bool Graphics::CreateD3DDevice()
     dxgiAdapter->Release();
     dxgiDevice->Release();
 
-    if (!impl->swapChain)
+    if (impl->swapChain)
+    {
+        multisample = multisample_;
+        return true;
+    }
+    else
     {
         LOGERROR("Failed to create D3D11 swap chain");
         return false;
     }
-
-    return true;
 }
 
 bool Graphics::UpdateSwapChain(int width, int height)
@@ -654,8 +684,8 @@ bool Graphics::UpdateSwapChain(int width, int height)
     depthDesc.MipLevels = 1;
     depthDesc.ArraySize = 1;
     depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-    depthDesc.SampleDesc.Count = 1;
-    depthDesc.SampleDesc.Quality = 0;
+    depthDesc.SampleDesc.Count = multisample;
+    depthDesc.SampleDesc.Quality = multisample > 1 ? D3D11_STANDARD_MULTISAMPLE_PATTERN : 0;
     depthDesc.Usage = D3D11_USAGE_DEFAULT;
     depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
     depthDesc.CPUAccessFlags = 0;

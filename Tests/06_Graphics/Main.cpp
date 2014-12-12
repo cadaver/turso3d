@@ -156,6 +156,8 @@ public:
             input->Update();
             if (input->IsKeyPressed('F'))
                 graphics->SetFullscreen(!graphics->IsFullscreen());
+            if (input->IsKeyPressed('M'))
+                graphics->SetMultisample(graphics->Multisample() > 1 ? 1 : 4);
             if (input->IsKeyPressed(27))
                 graphics->Close();
 
@@ -163,6 +165,7 @@ public:
             if (!graphics->IsInitialized())
                 break;
 
+            SetRandomSeed(1);
             Vector3 instanceData[NUM_OBJECTS];
             for (size_t i = 0; i < NUM_OBJECTS; ++i)
                 instanceData[i] = Vector3(Random() * 2.0f - 1.0f, Random() * 2.0f - 1.0f, 0.0f);
