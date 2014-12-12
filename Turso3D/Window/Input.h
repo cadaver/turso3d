@@ -15,14 +15,6 @@ static const unsigned MOUSEB_MIDDLE = 1;
 /// Right mouse button index.
 static const unsigned MOUSEB_RIGHT = 2;
 
-/// The state of a finger touch.
-enum TouchState
-{
-    TOUCH_BEGIN = 0,
-    TOUCH_MOVE,
-    TOUCH_END
-};
-
 /// Finger touch.
 struct TURSO3D_API Touch
 {
@@ -179,7 +171,7 @@ public:
     /// React to a mouse button. Called by window message handling.
     void OnMouseButton(unsigned button, bool pressed);
     /// React to a touch. Called by window message handling.
-    void OnTouch(TouchState state, unsigned internalId, const IntVector2& position, float pressure);
+    void OnTouch(unsigned internalId, bool pressed, const IntVector2& position, float pressure);
     /// React to gaining focus. Called by window message handling.
     void OnGainFocus();
     /// React to losing focus. Called by window message handling.

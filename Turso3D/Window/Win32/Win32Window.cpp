@@ -358,12 +358,10 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
                     point.y = it->y / 100;
                     ScreenToClient((HWND)handle, &point);
 
-                    if (it->dwFlags & TOUCHEVENTF_DOWN)
-                        input->OnTouch(TOUCH_BEGIN, it->dwID, IntVector2(point.x, point.y), 1.0f);
-                    if (it->dwFlags & TOUCHEVENTF_MOVE)
-                        input->OnTouch(TOUCH_MOVE, it->dwID, IntVector2(point.x, point.y), 1.0f);
-                    if (it->dwFlags & TOUCHEVENTF_UP)
-                        input->OnTouch(TOUCH_END, it->dwID, IntVector2(point.x, point.y), 1.0f);
+                    if (it->dwFlags & (TOUCHEVENTF_DOWN || TOUCHEVENTF_UP))
+                        input->OnTouch(it->dwID, true, IntVector2(point.x, point.y), 1.0f);
+                    else if (it->dwFlags & TOUCHEVENTF_UP)
+                        input->OnTouch(it->dwID, false, IntVector2(point.x, point.y), 1.0f);
                 }
             }
         }

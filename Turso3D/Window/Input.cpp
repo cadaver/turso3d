@@ -138,11 +138,39 @@ void Input::OnMouseButton(unsigned button, bool pressed)
     SendEvent(mouseButtonEvent);
 }
 
-void Input::OnTouch(TouchState state, unsigned internalId, const IntVector2& position, float pressure)
+void Input::OnTouch(unsigned internalId, bool pressed, const IntVector2& position, float pressure)
 {
-    switch (state)
+    if (pressed)
     {
-    case TOUCH_BEGIN:
+        bool found = false;
+
+        // Ongoing touch
+        for (auto it = touches.Begin(); it != touches.End(); ++it)
+        {
+            if (it->internalId == internalId)
+            {
+                found = true;
+                it->lastDelta = position - it->position;
+                
+                if (it->lastDelta != IntVector2::ZERO || pressure != it->pressure)
+                {
+                    it->delta += it->lastDelta;
+                    it->position = position;
+                    it->pressure = pressure;
+
+                    touchMoveEvent.id = it->id;
+                    touchMoveEvent.position = it->position;
+                    touchMoveEvent.delta = it->lastDelta;
+                    touchMoveEvent.pressure = it->pressure;
+                    SendEvent(touchMoveEvent);
+                }
+
+                break;
+            }
+        }
+
+        // New touch
+        if (!found)
         {
             // Use the first gap in current touches, or insert to the end if no gaps
             size_t insertIndex = touches.Size();
@@ -170,32 +198,10 @@ void Input::OnTouch(TouchState state, unsigned internalId, const IntVector2& pos
             touchBeginEvent.pressure = newTouch.pressure;
             SendEvent(touchBeginEvent);
         }
-        break;
-
-    case TOUCH_MOVE:
-        for (auto it = touches.Begin(); it != touches.End(); ++it)
-        {
-            if (it->internalId == internalId)
-            {
-                it->lastDelta = position - it->position;
-                if (it->lastDelta != IntVector2::ZERO || pressure != it->pressure)
-                {
-                    it->delta += it->lastDelta;
-                    it->position = position;
-                    it->pressure = pressure;
-                    
-                    touchMoveEvent.id = it->id;
-                    touchMoveEvent.position = it->position;
-                    touchMoveEvent.delta = it->lastDelta;
-                    touchMoveEvent.pressure = it->pressure;
-                    SendEvent(touchMoveEvent);
-                    break;
-                }
-            }
-        }
-        break;
-
-    case TOUCH_END:
+    }
+    else
+    {
+        // End touch
         for (auto it = touches.Begin(); it != touches.End(); ++it)
         {
             if (it->internalId == internalId)
@@ -210,7 +216,6 @@ void Input::OnTouch(TouchState state, unsigned internalId, const IntVector2& pos
                 break;
             }
         }
-        break;
     }
 }
 
