@@ -45,13 +45,22 @@ void VertexBuffer::Release()
         glDeleteBuffers(1, &buffer);
         buffer = 0;
     }
-
-    shadowData.Reset();
-    elements.Clear();
-    numVertices = 0;
-    vertexSize = 0;
-    elementHash = 0;
 }
+
+void VertexBuffer::Recreate()
+{
+    if (numVertices)
+    {
+        // Define() will destroy the old shadow data, so handle the old data manually during recreate
+        // Also make a copy of the current vertex elements, as they are passed by reference and manipulated by Define().
+        unsigned char* srcData = shadowData.Detach();
+        Vector<VertexElement> srcElements = elements;
+        Define(usage, numVertices, srcElements, srcData != nullptr, srcData);
+        delete[] srcData;
+        SetDataLost(srcData == nullptr);
+    }
+}
+
 
 bool VertexBuffer::Define(ResourceUsage usage_, size_t numVertices_, const Vector<VertexElement>& elements_, bool useShadowData, const void* data)
 {

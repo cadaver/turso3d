@@ -23,7 +23,7 @@ public:
     ~GLContext();
 
     /// Create context and initialize extensions. Return true on success. The pixel format can only be chosen once, so a context can not be created more than once to the same window.
-    bool Create();
+    bool Create(int multisample);
     /// Present the backbuffer.
     void Present();
     /// Set vsync on/off.

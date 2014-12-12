@@ -67,7 +67,7 @@ public:
     /// Set the color rendertarget and depth stencil buffer.
     void SetRenderTarget(Texture* renderTarget, Texture* stencilBuffer);
     /// Set multiple color rendertargets and the depth stencil buffer.
-    void SetRenderTargets(const Vector<Texture*>& renderTargets, Texture* stencilBuffer); 
+    void SetRenderTargets(const Vector<Texture*>& renderTargets, Texture* stencilBuffer);
     /// Set the viewport rectangle. On window resize the viewport will automatically revert to the entire backbuffer.
     void SetViewport(const IntRect& viewport);
     /// Bind a vertex buffer.
@@ -111,6 +111,8 @@ public:
 
     /// Return whether has the rendering window and context.
     bool IsInitialized() const;
+    /// Return backbuffer size, or 0,0 if not initialized.
+    const IntVector2& Size() const { return backbufferSize; }
     /// Return backbuffer width, or 0 if not initialized.
     int Width() const { return backbufferSize.x; }
     /// Return backbuffer height, or 0 if not initialized.
@@ -167,8 +169,12 @@ public:
     /// Return the D3D11 immediate device context. Used internally and should not be called by portable application code.
     void* D3DDeviceContext() const;
 
-    /// Screen mode change event.
+    /// Screen mode changed event.
     ScreenModeEvent screenModeEvent;
+    /// Graphics context lost event. Will not be called, but provided for compatibility with other rendering API's.
+    Event contextLost;
+    /// Graphics context restored event. Will not be called, but provided for compatibility with other rendering API's.
+    Event contextRestored;
 
 private:
     /// Create the D3D11 device and swap chain. Requires an open window. Can also be called again to recrease swap chain. Return true on success.

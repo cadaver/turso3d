@@ -161,6 +161,7 @@ Graphics::Graphics() :
     backbufferSize(IntVector2::ZERO),
     renderTargetSize(IntVector2::ZERO),
     attributesBySemantic(MAX_ELEMENT_SEMANTICS),
+    multisample(1),
     vsync(false)
 {
     RegisterSubsystem(this);
@@ -175,20 +176,57 @@ Graphics::~Graphics()
     RemoveSubsystem(this);
 }
 
-bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable)
+bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable, int multisample_)
 {
-    if (!window->SetSize(width, height, fullscreen, resizable))
-        return false;
+    multisample_ = Clamp(multisample_, 1, 16);
 
-    if (!context)
+    // Changing multisample requires destroying the window, as OpenGL pixel format can only be set once
+    if (!context || multisample_ != multisample)
     {
-        if (!CreateContext())
+        bool recreate = false;
+
+        if (IsInitialized())
+        {
+            recreate = true;
+            Close();
+            SendEvent(contextLost);
+        }
+
+        if (!window->SetSize(width, height, fullscreen, resizable))
+            return false;
+        if (!CreateContext(multisample_))
             return false;
 
-        backbufferSize = window->Size();
-        ResetRenderTargets();
-        ResetViewport();
+        if (recreate)
+        {
+            // Recreate GPU objects that can be recreated
+            for (auto it = gpuObjects.Begin(); it != gpuObjects.End(); ++it)
+            {
+                GPUObject* object = *it;
+                object->Recreate();
+            }
+            SendEvent(contextRestored);
+        }
     }
+    else
+    {
+        // If no context creation, just need to set the window size
+        if (!window->SetSize(width, height, fullscreen, resizable))
+            return false;
+    }
+
+    backbufferSize = window->Size();
+    ResetRenderTargets();
+    ResetViewport();
+
+    screenModeEvent.size = backbufferSize;
+    screenModeEvent.fullscreen = IsFullscreen();
+    screenModeEvent.resizable = IsResizable();
+    screenModeEvent.multisample = multisample;
+    SendEvent(screenModeEvent);
+
+    LOGDEBUGF("Set screen mode %dx%d fullscreen %d resizable %d multisample %d", backbufferSize.x, backbufferSize.y,
+        IsFullscreen(), IsResizable(), multisample);
 
     return true;
 }
@@ -198,7 +236,15 @@ bool Graphics::SetFullscreen(bool enable)
     if (!IsInitialized())
         return false;
     else
-        return SetMode(backbufferSize.x, backbufferSize.y, enable, window->IsResizable());
+        return SetMode(backbufferSize.x, backbufferSize.y, enable, window->IsResizable(), multisample);
+}
+
+bool Graphics::SetMultisample(int multisample_)
+{
+    if (!IsInitialized())
+        return false;
+    else
+        return SetMode(backbufferSize.x, backbufferSize.y, window->IsFullscreen(), window->IsResizable(), multisample_);
 }
 
 void Graphics::SetVSync(bool enable)
@@ -211,6 +257,7 @@ void Graphics::SetVSync(bool enable)
 void Graphics::Close()
 {
     shaderPrograms.Clear();
+    framebuffers.Clear();
 
     // Release all GPU objects
     for (auto it = gpuObjects.Begin(); it != gpuObjects.End(); ++it)
@@ -695,15 +742,16 @@ void Graphics::BindVBO(unsigned vbo)
     }
 }
 
-bool Graphics::CreateContext()
+bool Graphics::CreateContext(int multisample_)
 {
     context = new GLContext(window);
-    if (!context->Create())
+    if (!context->Create(multisample_))
     {
         context.Reset();
         return false;
     }
-
+    
+    multisample = multisample_;
     context->SetVSync(vsync);
 
     // Query OpenGL capabilities
@@ -720,6 +768,7 @@ bool Graphics::CreateContext()
     glBindVertexArray(vertexArrayObject);
 
     // These states are always enabled to match Direct3D
+    glEnable(GL_MULTISAMPLE);
     glEnable(GL_POLYGON_OFFSET_LINE);
     glEnable(GL_POLYGON_OFFSET_FILL);
 

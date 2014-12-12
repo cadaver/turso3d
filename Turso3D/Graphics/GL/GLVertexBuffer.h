@@ -21,6 +21,8 @@ public:
 
     /// Release the vertex buffer and CPU shadow data.
     void Release() override;
+    /// Recreate the GPU resource after data loss.
+    void Recreate() override;
 
     /// Define buffer. Immutable buffers must specify initial data here. Return true on success.
     bool Define(ResourceUsage usage, size_t numVertices, const Vector<VertexElement>& elements, bool useShadowData, const void* data = nullptr);

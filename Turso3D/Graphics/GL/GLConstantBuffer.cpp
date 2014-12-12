@@ -48,8 +48,17 @@ void ConstantBuffer::Release()
         glDeleteBuffers(1, &buffer);
         buffer = 0;
     }
+}
 
-    shadowData.Reset();
+void ConstantBuffer::Recreate()
+{
+    if (constants.Size())
+    {
+        // Make a copy of the current constants, as they are passed by reference and manipulated by Define().
+        Vector<Constant> srcConstants = constants;
+        Define(usage, srcConstants);
+        Apply();
+    }
 }
 
 bool ConstantBuffer::Define(ResourceUsage usage_, const Vector<Constant>& srcConstants)

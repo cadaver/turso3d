@@ -20,6 +20,8 @@ public:
 
     /// Release the buffer.
     void Release() override;
+    /// Recreate the GPU resource after data loss.
+    void Recreate() override;
 
     /// Define the constants being used and create the GPU-side buffer. Return true on success.
     bool Define(ResourceUsage usage, const Vector<Constant>& srcConstants);

@@ -28,6 +28,20 @@ class WindowResizeEvent;
 
 typedef HashMap<Pair<ShaderVariation*, ShaderVariation*>, AutoPtr<ShaderProgram> > ShaderProgramMap;
 
+/// Screen mode set event.
+class ScreenModeEvent : public Event
+{
+public:
+    /// New backbuffer size.
+    IntVector2 size;
+    /// Fullscreen flag.
+    bool fullscreen;
+    /// Window resizable flag.
+    bool resizable;
+    /// Multisample level.
+    int multisample;
+};
+
 /// 3D graphics rendering context. Manages the rendering window and GPU objects.
 class TURSO3D_API Graphics : public Object
 {
@@ -40,9 +54,11 @@ public:
     ~Graphics();
 
     /// Set graphics mode. Create the window and rendering context if not created yet. Return true on success.
-    bool SetMode(int width, int height, bool fullscreen, bool resizable);
+    bool SetMode(int width, int height, bool fullscreen = false, bool resizable = false, int multisample = 1);
     /// Set fullscreen mode on/off while retaining previous resolution. The initial graphics mode must have been set first. Return true on success.
     bool SetFullscreen(bool enable);
+    /// Set new multisample level while retaining previous resolution. The initial graphics mode must have been set first. Return true on success.
+    bool SetMultisample(int multisample);
     /// Set vertical sync on/off.
     void SetVSync(bool enable);
     /// Close the window and destroy the rendering context and GPU objects.
@@ -52,7 +68,7 @@ public:
     /// Set the color rendertarget and depth stencil buffer.
     void SetRenderTarget(Texture* renderTarget, Texture* stencilBuffer);
     /// Set multiple color rendertargets and the depth stencil buffer.
-    void SetRenderTargets(const Vector<Texture*>& renderTargets, Texture* stencilBuffer); 
+    void SetRenderTargets(const Vector<Texture*>& renderTargets, Texture* stencilBuffer);
     /// Set the viewport rectangle. On window resize the viewport will automatically revert to full window.
     void SetViewport(const IntRect& viewport);
     /// Bind a vertex buffer.
@@ -96,12 +112,14 @@ public:
 
     /// Return whether has the rendering window and context.
     bool IsInitialized() const;
+    /// Return backbuffer size, or 0,0 if not initialized.
+    const IntVector2& Size() const { return backbufferSize; }
     /// Return backbuffer width, or 0 if not initialized.
     int Width() const { return backbufferSize.x; }
     /// Return backbuffer height, or 0 if not initialized.
     int Height() const { return backbufferSize.y; }
     /// Return multisample level, or 1 if not using multisampling.
-    int MultisampleLevel() const { return multisample; }
+    int Multisample() const { return multisample; }
     /// Return current rendertarget width.
     int RenderTargetWidth() const { return renderTargetSize.x; }
     /// Return current rendertarget height.
@@ -160,9 +178,16 @@ public:
     /// Return the currently bound VBO.
     unsigned BoundVBO() const { return boundVBO; }
 
+    /// Screen mode changed event.
+    ScreenModeEvent screenModeEvent;
+    /// Graphics context lost event.
+    Event contextLost;
+    /// Graphics context restored event.
+    Event contextRestored;
+
 private:
     /// Create and initialize the OpenGL context. Return true on success.
-    bool CreateContext();
+    bool CreateContext(int multisample);
     /// Handle window resize event.
     void HandleResize(WindowResizeEvent& event);
     /// Cleanup unused framebuffers.

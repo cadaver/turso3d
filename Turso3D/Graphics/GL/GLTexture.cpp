@@ -2,6 +2,7 @@
 
 #include "../../Debug/Log.h"
 #include "../../Debug/Profiler.h"
+#include "../../Resource/ResourceCache.h"
 #include "GLGraphics.h"
 #include "GLTexture.h"
 
@@ -174,6 +175,21 @@ void Texture::Release()
         glDeleteTextures(1, &texture);
         texture = 0;
     }
+}
+
+void Texture::Recreate()
+{
+    // If has a name, attempt to reload through the resource cache
+    if (Name().Length())
+    {
+        ResourceCache* cache = Subsystem<ResourceCache>();
+        if (cache && cache->ReloadResource(this))
+            return;
+    }
+
+    // If failed to reload, recreate the texture without data and mark data lost
+    Define(type, usage, width, height, format, numLevels);
+    SetDataLost(true);
 }
 
 bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int height_, ImageFormat format_, size_t numLevels_, const ImageLevel* initialData)

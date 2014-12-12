@@ -49,8 +49,6 @@ void ConstantBuffer::Release()
         d3dBuffer->Release();
         buffer = nullptr;
     }
-
-    shadowData.Reset();
 }
 
 bool ConstantBuffer::Define(ResourceUsage usage_, const Vector<Constant>& srcConstants)

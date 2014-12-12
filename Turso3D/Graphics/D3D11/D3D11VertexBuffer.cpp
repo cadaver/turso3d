@@ -43,12 +43,6 @@ void VertexBuffer::Release()
         d3dBuffer->Release();
         buffer = nullptr;
     }
-
-    shadowData.Reset();
-    elements.Clear();
-    numVertices = 0;
-    vertexSize = 0;
-    elementHash = 0;
 }
 
 bool VertexBuffer::Define(ResourceUsage usage_, size_t numVertices_, const Vector<VertexElement>& elements_, bool useShadowData, const void* data)

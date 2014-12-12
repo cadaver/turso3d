@@ -47,12 +47,12 @@ public:
         vertexDeclaration.Push(VertexElement(ELEM_VECTOR3, SEM_POSITION));
         vertexDeclaration.Push(VertexElement(ELEM_VECTOR2, SEM_TEXCOORD));
         AutoPtr<VertexBuffer> vb = new VertexBuffer();
-        vb->Define(USAGE_IMMUTABLE, 3, vertexDeclaration, false, vertexData);
+        vb->Define(USAGE_IMMUTABLE, 3, vertexDeclaration, true, vertexData);
         
         Vector<VertexElement> instanceVertexDeclaration;
         instanceVertexDeclaration.Push(VertexElement(ELEM_VECTOR3, SEM_TEXCOORD, 1, true));
         AutoPtr<VertexBuffer> ivb = new VertexBuffer();
-        ivb->Define(USAGE_DYNAMIC, NUM_OBJECTS, instanceVertexDeclaration, false);
+        ivb->Define(USAGE_DYNAMIC, NUM_OBJECTS, instanceVertexDeclaration, true);
 
         unsigned short indexData[] = {
             0,
@@ -61,7 +61,7 @@ public:
         };
 
         AutoPtr<IndexBuffer> ib = new IndexBuffer();
-        ib->Define(USAGE_IMMUTABLE, 3, sizeof(unsigned short), false, indexData);
+        ib->Define(USAGE_IMMUTABLE, 3, sizeof(unsigned short), true, indexData);
         
         Constant pc(ELEM_VECTOR4, "Color");
         AutoPtr<ConstantBuffer> pcb = new ConstantBuffer();

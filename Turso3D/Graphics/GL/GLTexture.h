@@ -33,6 +33,8 @@ public:
     bool EndLoad() override;
     /// Release the texture and sampler objects.
     void Release() override;
+    /// Recreate the GPU resource after data loss.
+    void Recreate() override;
 
     /// Define texture type and dimensions and set initial data. %ImageLevel structures only need the data pointer and row pitch filled. Return true on success.
     bool Define(TextureType type, ResourceUsage usage, int width, int height, ImageFormat format, size_t numLevels, const ImageLevel* initialData = 0);

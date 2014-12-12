@@ -36,10 +36,6 @@ void IndexBuffer::Release()
         d3dBuffer->Release();
         buffer = nullptr;
     }
-
-    shadowData.Reset();
-    numIndices = 0;
-    indexSize = 0;
 }
 
 bool IndexBuffer::Define(ResourceUsage usage_, size_t numIndices_, size_t indexSize_, bool useShadowData, const void* data)

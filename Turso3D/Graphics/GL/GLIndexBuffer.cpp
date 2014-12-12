@@ -35,10 +35,18 @@ void IndexBuffer::Release()
         glDeleteBuffers(1, &buffer);
         buffer = 0;
     }
+}
 
-    shadowData.Reset();
-    numIndices = 0;
-    indexSize = 0;
+void IndexBuffer::Recreate()
+{
+    if (numIndices)
+    {
+        // Define() will destroy the old shadow data, so handle the old data manually during recreate
+        unsigned char* srcData = shadowData.Detach();
+        Define(usage, numIndices, indexSize, srcData != nullptr, srcData);
+        delete[] srcData;
+        SetDataLost(srcData == nullptr);
+    }
 }
 
 bool IndexBuffer::Define(ResourceUsage usage_, size_t numIndices_, size_t indexSize_, bool useShadowData, const void* data)

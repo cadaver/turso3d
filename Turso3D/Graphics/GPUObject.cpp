@@ -25,5 +25,9 @@ void GPUObject::Release()
 {
 }
 
+void GPUObject::Recreate()
+{
+}
+
 }
 
