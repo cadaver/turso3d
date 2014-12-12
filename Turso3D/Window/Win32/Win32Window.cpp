@@ -28,6 +28,7 @@ Window::Window() :
     title("Turso3D Window"),
     windowStyle(0),
     size(IntVector2::ZERO),
+    savedPosition(IntVector2(M_MIN_INT, M_MIN_INT)),
     minimized(false),
     focus(false),
     resizable(false),
@@ -65,12 +66,10 @@ void Window::SetTitle(const String& newTitle)
         SetWindowTextW((HWND)handle, WString(title).CString());
 }
 
-bool Window::SetSize(int width, int height, bool fullscreen_, bool resizable_)
+bool Window::SetSize(const IntVector2& size_, bool fullscreen_, bool resizable_)
 {
     inResize = true;
-    width = Max(width, 0);
-    height = Max(height, 0);
-    IntVector2 position(CW_USEDEFAULT, CW_USEDEFAULT);
+    IntVector2 position = savedPosition;
 
     if (!fullscreen_)
     {
@@ -84,13 +83,17 @@ bool Window::SetSize(int width, int height, bool fullscreen_, bool resizable_)
     }
     else
     {
+        // When switching to fullscreen, save last windowed mode position
+        if (!fullscreen)
+            savedPosition = Position();
+
         windowStyle = WS_POPUP | WS_VISIBLE;
         position = IntVector2::ZERO;
         /// \todo Handle failure to set mode
-        SetDisplayMode(width, height);
+        SetDisplayMode(size_.x, size_.y);
     }
 
-    RECT rect = {0, 0, width, height};
+    RECT rect = {0, 0, size_.x, size_.y};
     AdjustWindowRect(&rect, windowStyle, false);
 
     if (!handle)
@@ -132,7 +135,7 @@ bool Window::SetSize(int width, int height, bool fullscreen_, bool resizable_)
     {
         SetWindowLong((HWND)handle, GWL_STYLE, windowStyle);
         
-        if (!fullscreen_)
+        if (!fullscreen_ && (savedPosition.x == M_MIN_INT || savedPosition.y == M_MIN_INT))
         {
             WINDOWPLACEMENT placement;
             placement.length = sizeof(placement);
@@ -159,13 +162,21 @@ bool Window::SetSize(int width, int height, bool fullscreen_, bool resizable_)
     return true;
 }
 
+void Window::SetPosition(const IntVector2& position)
+{
+    if (handle)
+        SetWindowPos((HWND)handle, NULL, position.x, position.y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+}
+
 void Window::Close()
 {
     if (handle)
     {
-        // Return to desktop resolution if was fullscreen
+        // Return to desktop resolution if was fullscreen, else save last windowed mode position
         if (fullscreen)
             SetDisplayMode(0, 0);
+        else
+            savedPosition = Position();
 
         DestroyWindow((HWND)handle);
         handle = nullptr;
@@ -202,6 +213,18 @@ void Window::PumpMessages()
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+}
+
+IntVector2 Window::Position() const
+{
+    if (handle)
+    {
+        RECT rect;
+        GetWindowRect((HWND)handle, &rect);
+        return IntVector2(rect.left, rect.top);
+    }
+    else
+        return IntVector2::ZERO;
 }
 
 bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)

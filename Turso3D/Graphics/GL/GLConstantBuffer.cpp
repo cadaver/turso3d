@@ -54,7 +54,7 @@ void ConstantBuffer::Recreate()
 {
     if (constants.Size())
     {
-        // Make a copy of the current constants, as they are passed by reference and manipulated by Define().
+        // Make a copy of the current constants, as they are passed by reference and manipulated by Define()
         Vector<Constant> srcConstants = constants;
         Define(usage, srcConstants);
         Apply();
@@ -83,6 +83,8 @@ bool ConstantBuffer::Define(ResourceUsage usage_, size_t numConstants, const Con
         return false;
     }
 
+    size_t oldByteSize = byteSize;
+
     constants.Clear();
     byteSize = 0;
     usage = usage_;
@@ -109,7 +111,9 @@ bool ConstantBuffer::Define(ResourceUsage usage_, size_t numConstants, const Con
     if (byteSize & 15)
         byteSize += 16 - (byteSize & 15);
 
-    shadowData = new unsigned char[byteSize];
+    // No need to reallocate if byte size has remained the same
+    if (!shadowData || byteSize != oldByteSize)
+        shadowData = new unsigned char[byteSize];
 
     if (usage != USAGE_IMMUTABLE)
         return Create();

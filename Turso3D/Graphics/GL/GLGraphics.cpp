@@ -176,7 +176,7 @@ Graphics::~Graphics()
     RemoveSubsystem(this);
 }
 
-bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable, int multisample_)
+bool Graphics::SetMode(const IntVector2& size, bool fullscreen, bool resizable, int multisample_)
 {
     multisample_ = Clamp(multisample_, 1, 16);
 
@@ -192,7 +192,7 @@ bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable, i
             SendEvent(contextLost);
         }
 
-        if (!window->SetSize(width, height, fullscreen, resizable))
+        if (!window->SetSize(size, fullscreen, resizable))
             return false;
         if (!CreateContext(multisample_))
             return false;
@@ -210,8 +210,8 @@ bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable, i
     }
     else
     {
-        // If no context creation, just need to set the window size
-        if (!window->SetSize(width, height, fullscreen, resizable))
+        // If no context creation, just need to resize the window
+        if (!window->SetSize(size, fullscreen, resizable))
             return false;
     }
 
@@ -236,7 +236,7 @@ bool Graphics::SetFullscreen(bool enable)
     if (!IsInitialized())
         return false;
     else
-        return SetMode(backbufferSize.x, backbufferSize.y, enable, window->IsResizable(), multisample);
+        return SetMode(backbufferSize, enable, window->IsResizable(), multisample);
 }
 
 bool Graphics::SetMultisample(int multisample_)
@@ -244,7 +244,7 @@ bool Graphics::SetMultisample(int multisample_)
     if (!IsInitialized())
         return false;
     else
-        return SetMode(backbufferSize.x, backbufferSize.y, window->IsFullscreen(), window->IsResizable(), multisample_);
+        return SetMode(backbufferSize, window->IsFullscreen(), window->IsResizable(), multisample_);
 }
 
 void Graphics::SetVSync(bool enable)
@@ -269,7 +269,6 @@ void Graphics::Close()
     context.Reset();
 
     window->Close();
-    backbufferSize = IntVector2::ZERO;
     ResetState();
 }
 
@@ -579,7 +578,8 @@ void Graphics::Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount)
 
 void Graphics::Draw(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart)
 {
-    if (!indexBuffer)
+    // Drawing with trashed index data can lead to a crash within the OpenGL driver
+    if (!indexBuffer || indexBuffer->IsDataLost())
         return;
     
     size_t indexSize = indexBuffer->IndexSize();
@@ -608,7 +608,7 @@ void Graphics::DrawInstanced(PrimitiveType type, size_t vertexStart, size_t vert
 void Graphics::DrawInstanced(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart, size_t instanceStart,
     size_t instanceCount)
 {
-    if (!indexBuffer)
+    if (!indexBuffer || indexBuffer->IsDataLost())
         return;
 
     size_t indexSize = indexBuffer->IndexSize();

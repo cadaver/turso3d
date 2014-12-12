@@ -51,13 +51,10 @@ void VertexBuffer::Recreate()
 {
     if (numVertices)
     {
-        // Define() will destroy the old shadow data, so handle the old data manually during recreate
-        // Also make a copy of the current vertex elements, as they are passed by reference and manipulated by Define().
-        unsigned char* srcData = shadowData.Detach();
+        // Also make a copy of the current vertex elements, as they are passed by reference and manipulated by Define()
         Vector<VertexElement> srcElements = elements;
-        Define(usage, numVertices, srcElements, srcData != nullptr, srcData);
-        delete[] srcData;
-        SetDataLost(srcData == nullptr);
+        Define(usage, numVertices, srcElements, shadowData != nullptr, shadowData);
+        SetDataLost(shadowData == nullptr);
     }
 }
 
@@ -119,7 +116,8 @@ bool VertexBuffer::Define(ResourceUsage usage_, size_t numVertices_, size_t numE
         elementHash |= ElementHash(i, elements[i].semantic);
     }
 
-    if (useShadowData)
+    // If buffer is reinitialized with the same shadow data, no need to reallocate
+    if (useShadowData && (!data || data != shadowData.Get()))
     {
         shadowData = new unsigned char[numVertices * vertexSize];
         if (data)

@@ -30,7 +30,9 @@ public:
     /// Set window title.
     void SetTitle(const String& newTitle);
     /// Set window size. Open the window if not opened yet. Return true on success.
-    bool SetSize(int width, int height, bool fullscreen, bool resizable);
+    bool SetSize(const IntVector2& size, bool fullscreen, bool resizable);
+    /// Set window position.
+    void SetPosition(const IntVector2& position);
     /// Close the window.
     void Close();
     /// Minimize the window.
@@ -50,6 +52,8 @@ public:
     int Width() const { return size.x; }
     /// Return window client area height.
     int Height() const { return size.y; }
+    /// Return window position.
+    IntVector2 Position() const;
     /// Return whether window is open.
     bool IsOpen() const { return handle != nullptr; }
     /// Return whether is resizable.
@@ -94,6 +98,8 @@ private:
     String title;
     /// Current client area size.
     IntVector2 size;
+    /// Last stored windowed mode position.
+    IntVector2 savedPosition;
     /// Window style flags.
     unsigned windowStyle;
     /// Current minimization state.

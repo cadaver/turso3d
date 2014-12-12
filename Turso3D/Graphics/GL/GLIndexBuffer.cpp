@@ -41,11 +41,8 @@ void IndexBuffer::Recreate()
 {
     if (numIndices)
     {
-        // Define() will destroy the old shadow data, so handle the old data manually during recreate
-        unsigned char* srcData = shadowData.Detach();
-        Define(usage, numIndices, indexSize, srcData != nullptr, srcData);
-        delete[] srcData;
-        SetDataLost(srcData == nullptr);
+        Define(usage, numIndices, indexSize, shadowData != nullptr, shadowData);
+        SetDataLost(shadowData == nullptr);
     }
 }
 
@@ -80,7 +77,8 @@ bool IndexBuffer::Define(ResourceUsage usage_, size_t numIndices_, size_t indexS
     indexSize = indexSize_;
     usage = usage_;
 
-    if (useShadowData)
+    // If buffer is reinitialized with the same shadow data, no need to reallocate
+    if (useShadowData && (!data || data != shadowData.Get()))
     {
         shadowData = new unsigned char[numIndices * indexSize];
         if (data)

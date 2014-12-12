@@ -8,7 +8,8 @@
 namespace Turso3D
 {
 
-GPUObject::GPUObject()
+GPUObject::GPUObject() :
+    dataLost(false)
 {
     graphics = Object::Subsystem<Graphics>();
     if (graphics)

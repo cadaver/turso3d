@@ -30,7 +30,7 @@ public:
 
         graphics = new Graphics();
         graphics->RenderWindow()->SetTitle("Graphics test");
-        graphics->SetMode(640, 480, false, true);
+        graphics->SetMode(IntVector2(640, 480), false, true);
 
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &GraphicsTest::HandleCloseRequest);
         
@@ -165,7 +165,6 @@ public:
             if (!graphics->IsInitialized())
                 break;
 
-            SetRandomSeed(1);
             Vector3 instanceData[NUM_OBJECTS];
             for (size_t i = 0; i < NUM_OBJECTS; ++i)
                 instanceData[i] = Vector3(Random() * 2.0f - 1.0f, Random() * 2.0f - 1.0f, 0.0f);

@@ -99,11 +99,11 @@ Graphics::~Graphics()
     RemoveSubsystem(this);
 }
 
-bool Graphics::SetMode(int width, int height, bool fullscreen, bool resizable, int multisample_)
+bool Graphics::SetMode(const IntVector2& size, bool fullscreen, bool resizable, int multisample_)
 {
     multisample_ = Clamp(multisample_, 1, 16);
 
-    if (!window->SetSize(width, height, fullscreen, resizable))
+    if (!window->SetSize(size, fullscreen, resizable))
         return false;
 
     // Create D3D11 device and swap chain when setting mode for the first time, or swap chain again when changing multisample
@@ -132,7 +132,7 @@ bool Graphics::SetFullscreen(bool enable)
     if (!IsInitialized())
         return false;
     else
-        return SetMode(backbufferSize.x, backbufferSize.y, enable, window->IsResizable(), multisample);
+        return SetMode(backbufferSize, enable, window->IsResizable(), multisample);
 }
 
 bool Graphics::SetMultisample(int multisample_)
@@ -140,7 +140,7 @@ bool Graphics::SetMultisample(int multisample_)
     if (!IsInitialized())
         return false;
     else
-        return SetMode(backbufferSize.x, backbufferSize.y, window->IsFullscreen(), window->IsResizable(), multisample_);
+        return SetMode(backbufferSize, window->IsFullscreen(), window->IsResizable(), multisample_);
 }
 
 void Graphics::SetVSync(bool enable)
@@ -201,7 +201,6 @@ void Graphics::Close()
     }
     
     window->Close();
-    backbufferSize = IntVector2::ZERO;
     ResetState();
 }
 

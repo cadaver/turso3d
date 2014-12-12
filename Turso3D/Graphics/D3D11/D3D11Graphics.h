@@ -53,7 +53,7 @@ public:
     ~Graphics();
 
     /// Set graphics mode. Create the window and rendering context if not created yet. Return true on success.
-    bool SetMode(int width, int height, bool fullscreen = false, bool resizable = false, int multisample = 1);
+    bool SetMode(const IntVector2& size, bool fullscreen = false, bool resizable = false, int multisample = 1);
     /// Set fullscreen mode on/off while retaining previous resolution. The initial graphics mode must have been set first. Return true on success.
     bool SetFullscreen(bool enable);
     /// Set new multisample level while retaining previous resolution. The initial graphics mode must have been set first. Return true on success.
