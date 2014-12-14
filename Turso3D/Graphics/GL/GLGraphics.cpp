@@ -1328,6 +1328,11 @@ void Graphics::ResetState()
 
 void RegisterGraphicsLibrary()
 {
+    static bool registered = false;
+    if (registered)
+        return;
+    registered = true;
+
     Shader::RegisterObject();
     Texture::RegisterObject();
 }

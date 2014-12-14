@@ -32,6 +32,8 @@
 #include "Math/Random.h"
 #include "Math/Ray.h"
 #include "Object/Serializable.h"
+#include "Renderer/Camera.h"
+#include "Renderer/Renderer.h"
 #include "Resource/Image.h"
 #include "Resource/JSONFile.h"
 #include "Resource/ResourceCache.h"

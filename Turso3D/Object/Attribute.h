@@ -23,6 +23,7 @@ enum AttributeType
     ATTR_BYTE,
     ATTR_FLOAT,
     ATTR_STRING,
+    ATTR_VECTOR2,
     ATTR_VECTOR3,
     ATTR_VECTOR4,
     ATTR_QUATERNION,
@@ -203,6 +204,49 @@ public:
 
     /// Set new value for the variable.
     RefAttributeAccessorImpl(GetFunctionPtr getPtr, SetFunctionPtr setPtr) :
+        get(getPtr),
+        set(setPtr)
+    {
+        assert(get);
+        assert(set);
+    }
+
+    /// Get current value of the variable.
+    void Get(const Serializable* instance, void* dest) override
+    {
+        assert(instance);
+
+        U& value = *(reinterpret_cast<U*>(dest));
+        const T* classPtr = static_cast<const T*>(instance);
+        value = (classPtr->*get)();
+    }
+
+    /// Set new value for the variable.
+    void Set(Serializable* instance, const void* source) override
+    {
+        assert(instance);
+
+        const U& value = *(reinterpret_cast<const U*>(source));
+        T* classPtr = static_cast<T*>(instance);
+        (classPtr->*set)(value);
+    }
+
+private:
+    /// Getter function pointer.
+    GetFunctionPtr get;
+    /// Setter function pointer.
+    SetFunctionPtr set;
+};
+
+/// Template implementation for accessing serializable variables via functions where the setter uses reference, but the getter does not.
+template <class T, class U> class MixedRefAttributeAccessorImpl : public AttributeAccessor
+{
+public:
+    typedef U (T::*GetFunctionPtr)() const;
+    typedef void (T::*SetFunctionPtr)(const U&);
+
+    /// Set new value for the variable.
+    MixedRefAttributeAccessorImpl(GetFunctionPtr getPtr, SetFunctionPtr setPtr) :
         get(getPtr),
         set(setPtr)
     {

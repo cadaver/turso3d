@@ -327,6 +327,11 @@ String ResourceCache::SanitateResourceDirName(const String& nameIn) const
 
 void RegisterResourceLibrary()
 {
+    static bool registered = false;
+    if (registered)
+        return;
+    registered = true;
+
     Image::RegisterObject();
     JSONFile::RegisterObject();
 }

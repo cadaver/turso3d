@@ -61,6 +61,10 @@ void Attribute::Skip(AttributeType type, Stream& source)
         source.Read<String>();
         break;
 
+    case ATTR_VECTOR2:
+        source.Read<Vector2>();
+        break;
+
     case ATTR_VECTOR3:
         source.Read<Vector3>();
         break;
@@ -126,6 +130,11 @@ template<> TURSO3D_API void AttributeImpl<float>::FromJSON(Serializable* instanc
 template<> TURSO3D_API void AttributeImpl<String>::FromJSON(Serializable* instance, const JSONValue& source)
 {
     SetValue(instance, source.GetString());
+}
+
+template<> TURSO3D_API void AttributeImpl<Vector2>::FromJSON(Serializable* instance, const JSONValue& source)
+{
+    SetValue(instance, Vector2(source.GetString()));
 }
 
 template<> TURSO3D_API void AttributeImpl<Vector3>::FromJSON(Serializable* instance, const JSONValue& source)
@@ -198,6 +207,11 @@ template<> TURSO3D_API void AttributeImpl<String>::ToJSON(Serializable* instance
     dest = Value(instance);
 }
 
+template<> TURSO3D_API void AttributeImpl<Vector2>::ToJSON(Serializable* instance, JSONValue& dest)
+{
+    dest = Value(instance).ToString();
+}
+
 template<> TURSO3D_API void AttributeImpl<Vector3>::ToJSON(Serializable* instance, JSONValue& dest)
 {
     dest = Value(instance).ToString();
@@ -266,6 +280,11 @@ template<> TURSO3D_API AttributeType AttributeImpl<float>::Type() const
 template<> TURSO3D_API AttributeType AttributeImpl<String>::Type() const
 {
     return ATTR_STRING;
+}
+
+template<> TURSO3D_API AttributeType AttributeImpl<Vector2>::Type() const
+{
+    return ATTR_VECTOR2;
 }
 
 template<> TURSO3D_API AttributeType AttributeImpl<Vector3>::Type() const

@@ -89,6 +89,12 @@ public:
         RegisterAttribute(T::TypeStatic(), new AttributeImpl<U>(name, new RefAttributeAccessorImpl<T, U>(getFunction, setFunction), defaultValue, enumNames));
     }
 
+    /// Register a per-class attribute with mixed reference access, template version. Should not be used for base class attributes unless the type is explicitly specified, as by default the attribute will be re-registered to the base class redundantly.
+    template <class T, class U> static void RegisterMixedRefAttribute(const char* name, U (T::*getFunction)() const, void (T::*setFunction)(const U&), const U& defaultValue = U(), const char** enumNames = 0)
+    {
+        RegisterAttribute(T::TypeStatic(), new AttributeImpl<U>(name, new MixedRefAttributeAccessorImpl<T, U>(getFunction, setFunction), defaultValue, enumNames));
+    }
+
     /// Copy base class attributes, template version.
     template <class T, class U> static void CopyBaseAttributes()
     {

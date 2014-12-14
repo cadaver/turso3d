@@ -308,6 +308,11 @@ JSONValue Scene::TagNamesAttr() const
 
 void RegisterSceneLibrary()
 {
+    static bool registered = false;
+    if (registered)
+        return;
+    registered = true;
+
     Node::RegisterObject();
     Scene::RegisterObject();
     SpatialNode::RegisterObject();
