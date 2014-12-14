@@ -10,6 +10,31 @@
 
 #include "../../Debug/DebugNew.h"
 
+// Handle missing touch input definitions (MinGW)
+#if WINVER < 0x0601
+#define TWF_FINETOUCH 1
+#define TWF_WANTPALM 2
+#define TOUCHEVENTF_MOVE 0x1
+#define TOUCHEVENTF_DOWN 0x2
+#define TOUCHEVENTF_UP 0x4
+#define WM_TOUCH 0x240
+
+DECLARE_HANDLE(HTOUCHINPUT);
+
+typedef struct {
+    LONG x;
+    LONG y;
+    HANDLE hSource;
+    DWORD dwID;
+    DWORD dwFlags;
+    DWORD dwMask;
+    DWORD dwTime;
+    ULONG_PTR dwExtraInfo;
+    DWORD cxContact;
+    DWORD cyContact;
+} TOUCHINPUT, *PTOUCHINPUT;
+#endif
+
 namespace Turso3D
 {
 
@@ -26,9 +51,9 @@ String Window::className("Turso3DWindow");
 Window::Window() :
     handle(nullptr),
     title("Turso3D Window"),
-    windowStyle(0),
     size(IntVector2::ZERO),
     savedPosition(IntVector2(M_MIN_INT, M_MIN_INT)),
+    windowStyle(0),
     minimized(false),
     focus(false),
     resizable(false),

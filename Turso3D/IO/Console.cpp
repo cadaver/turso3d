@@ -3,15 +3,17 @@
 #include "../Base/WString.h"
 #include "Console.h"
 
-#include <cstdio>
-#include <fcntl.h>
-
 #ifdef _WIN32
+// This is needed for _fdopen on MinGW
+#undef __STRICT_ANSI__
 #include <Windows.h>
 #include <io.h>
 #else
 #include <unistd.h>
 #endif
+
+#include <cstdio>
+#include <fcntl.h>
 
 #include "../Debug/DebugNew.h"
 

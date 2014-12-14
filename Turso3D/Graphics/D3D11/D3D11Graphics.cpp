@@ -607,7 +607,7 @@ bool Graphics::CreateD3DDevice(int multisample_)
     swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     swapChainDesc.OutputWindow = (HWND)window->Handle();
     swapChainDesc.SampleDesc.Count = multisample_;
-    swapChainDesc.SampleDesc.Quality = multisample_ > 1 ? D3D11_STANDARD_MULTISAMPLE_PATTERN : 0;
+    swapChainDesc.SampleDesc.Quality = multisample_ > 1 ? 0xffffffff : 0;
     swapChainDesc.Windowed = TRUE;
     swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
@@ -684,7 +684,7 @@ bool Graphics::UpdateSwapChain(int width, int height)
     depthDesc.ArraySize = 1;
     depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     depthDesc.SampleDesc.Count = multisample;
-    depthDesc.SampleDesc.Quality = multisample > 1 ? D3D11_STANDARD_MULTISAMPLE_PATTERN : 0;
+    depthDesc.SampleDesc.Quality = multisample > 1 ? 0xffffffff : 0;
     depthDesc.Usage = D3D11_USAGE_DEFAULT;
     depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
     depthDesc.CPUAccessFlags = 0;
