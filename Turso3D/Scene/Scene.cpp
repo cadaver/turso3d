@@ -5,9 +5,8 @@
 #include "../IO/Stream.h"
 #include "../Object/ObjectResolver.h"
 #include "../Resource/JSONFile.h"
-#include "Octree.h"
-#include "OctreeNode.h"
 #include "Scene.h"
+#include "SpatialNode.h"
 
 #include "../Debug/DebugNew.h"
 
@@ -316,8 +315,6 @@ void RegisterSceneLibrary()
     Node::RegisterObject();
     Scene::RegisterObject();
     SpatialNode::RegisterObject();
-    OctreeNode::RegisterObject();
-    Octree::RegisterObject();
 }
 
 }

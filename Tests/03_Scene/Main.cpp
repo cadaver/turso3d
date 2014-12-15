@@ -21,8 +21,6 @@ int main()
     printf("Size of Node: %d\n", sizeof(Node));
     printf("Size of Scene: %d\n", sizeof(Scene));
     printf("Size of SpatialNode: %d\n", sizeof(SpatialNode));
-    printf("Size of OctreeNode: %d\n", sizeof(OctreeNode));
-    printf("Size of Octant: %d\n", sizeof(Octant));
     
     RegisterSceneLibrary();
 
@@ -70,63 +68,6 @@ int main()
             }
             else
                 printf("Failed to load scene from binary data\n");
-        }
-
-        profiler.EndFrame();
-        LOGRAW(profiler.OutputResults(false, false, 16));
-    }
-    
-    printf("\nTesting large object count & octree\n");
-
-    {
-        Profiler profiler;
-        profiler.BeginFrame();
-        
-        Vector<OctreeNode*> boxNodes;
-        AutoPtr<Scene> scene(new Scene());
-        Octree* octree = scene->CreateChild<Octree>();
-        
-        {
-            PROFILE(CreateObjects);
-            for (int y = -125; y < 125; ++y)
-            {
-                for (int x = -125; x < 125; ++x)
-                {
-                    OctreeNode* boxNode = scene->CreateChild<OctreeNode>("Box");
-                    boxNode->SetPosition(Vector3(x * 0.3f, 0.0f, y * 0.3f));
-                    boxNode->SetScale(0.25f);
-                    boxNodes.Push(boxNode);
-                }
-            }
-        }
-
-        {
-            PROFILE(InitialUpdateOctree);
-            octree->Update();
-        }
-
-        {
-            PROFILE(RotateObjects);
-            Quaternion rotQuat(0.0f, 10.0f, 0.0f);
-            for (size_t i = 0; i < boxNodes.Size(); ++i)
-                boxNodes[i]->Rotate(rotQuat);
-        }
-
-        {
-            PROFILE(RotateUpdateOctree);
-            octree->Update();
-        }
-
-        {
-            Vector<OctreeNode*> dest;
-            BoundingBox queryBox(-10.0f, 10.0f);
-            octree->FindNodes(dest, queryBox, NF_SPATIAL);
-            printf("Query found %d nodes\n", (int)dest.Size());
-        }
-        
-        {
-            PROFILE(DestroyScene);
-            scene.Reset();
         }
 
         profiler.EndFrame();

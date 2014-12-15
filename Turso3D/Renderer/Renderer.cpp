@@ -2,6 +2,7 @@
 
 #include "../Scene/Scene.h"
 #include "Camera.h"
+#include "Octree.h"
 #include "Renderer.h"
 
 #include "../Debug/DebugNew.h"
@@ -27,6 +28,8 @@ void RegisterRendererLibrary()
     // Scene node base attributes are needed
     RegisterSceneLibrary();
     Camera::RegisterObject();
+    OctreeNode::RegisterObject(),
+    Octree::RegisterObject();
 }
 
 }

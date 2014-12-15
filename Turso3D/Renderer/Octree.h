@@ -133,12 +133,12 @@ private:
     /// Collect nodes matching flags using a volume such as frustum or sphere.
     template <class T> void CollectNodes(Vector<OctreeNode*>& result, const Octant* octant, const T& volume, unsigned short nodeFlags, unsigned layerMask) const
     {
-        Intersection is = volume.IsInside(octant->cullingBox);
-        if (is == OUTSIDE)
+        Intersection res = volume.IsInside(octant->cullingBox);
+        if (res == OUTSIDE)
             return;
         
         // If this octant is completely inside the volume, can include all contained octants and their nodes without further tests
-        if (is == INSIDE)
+        if (res == INSIDE)
             CollectNodes(result, octant, nodeFlags, layerMask);
         else
         {

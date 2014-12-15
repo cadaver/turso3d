@@ -147,13 +147,13 @@ protected:
 private:
     /// Set aspect ratio without disabling the auto mode. Used internally for attribute access.
     void SetAspectRatioInternal(float aspectRatio);
-    /// Set reflection plane attribute.
+    /// Set reflection plane as vector. Used in serialization.
     void SetReflectionPlaneAttr(const Vector4& value);
-    /// Return reflection plane attribute.
+    /// Return reflection plane as vector. Used in serialization.
     Vector4 ReflectionPlaneAttr() const;
-    /// Set clipping plane attribute.
+    /// Set clipping plane attribute as vector. Used in serialization.
     void SetClipPlaneAttr(const Vector4& value);
-    /// Return clipping plane attribute.
+    /// Return clipping plane attribute as vector. Used in serialization.
     Vector4 ClipPlaneAttr() const;
 
     /// Cached view matrix.

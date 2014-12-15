@@ -1,8 +1,8 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../Math/Ray.h"
+#include "../Scene/Scene.h"
 #include "Octree.h"
-#include "Scene.h"
 
 namespace Turso3D
 {

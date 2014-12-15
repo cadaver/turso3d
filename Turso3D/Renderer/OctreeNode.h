@@ -3,7 +3,7 @@
 #pragma once
 
 #include "../Math/BoundingBox.h"
-#include "SpatialNode.h"
+#include "../Scene/SpatialNode.h"
 
 namespace Turso3D
 {
