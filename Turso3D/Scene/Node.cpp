@@ -213,7 +213,7 @@ void Node::SetParent(Node* newParent)
 
 Node* Node::CreateChild(StringHash childType)
 {
-    AutoPtr<Object> newObject = Create(childType);
+    Ptr<Object> newObject = Create(childType);
     if (!newObject)
     {
         LOGERROR("Could not create child node of unknown type " + childType.ToString());
@@ -226,7 +226,6 @@ Node* Node::CreateChild(StringHash childType)
         return nullptr;
     }
 
-    newObject.Detach();
     AddChild(child);
     return child;
 }

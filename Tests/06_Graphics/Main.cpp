@@ -46,12 +46,12 @@ public:
         Vector<VertexElement> vertexDeclaration;
         vertexDeclaration.Push(VertexElement(ELEM_VECTOR3, SEM_POSITION));
         vertexDeclaration.Push(VertexElement(ELEM_VECTOR2, SEM_TEXCOORD));
-        AutoPtr<VertexBuffer> vb = new VertexBuffer();
+        Ptr<VertexBuffer> vb = new VertexBuffer();
         vb->Define(USAGE_IMMUTABLE, 3, vertexDeclaration, true, vertexData);
         
         Vector<VertexElement> instanceVertexDeclaration;
         instanceVertexDeclaration.Push(VertexElement(ELEM_VECTOR3, SEM_TEXCOORD, 1, true));
-        AutoPtr<VertexBuffer> ivb = new VertexBuffer();
+        Ptr<VertexBuffer> ivb = new VertexBuffer();
         ivb->Define(USAGE_DYNAMIC, NUM_OBJECTS, instanceVertexDeclaration, true);
 
         unsigned short indexData[] = {
@@ -60,11 +60,11 @@ public:
             2
         };
 
-        AutoPtr<IndexBuffer> ib = new IndexBuffer();
+        Ptr<IndexBuffer> ib = new IndexBuffer();
         ib->Define(USAGE_IMMUTABLE, 3, sizeof(unsigned short), true, indexData);
         
         Constant pc(ELEM_VECTOR4, "Color");
-        AutoPtr<ConstantBuffer> pcb = new ConstantBuffer();
+        Ptr<ConstantBuffer> pcb = new ConstantBuffer();
         pcb->Define(USAGE_IMMUTABLE, 1, &pc);
         pcb->SetConstant("Color", Color::WHITE);
         pcb->Apply();
@@ -100,7 +100,7 @@ public:
             "}\n";
 #endif
 
-        AutoPtr<Shader> vs = new Shader();
+        Ptr<Shader> vs = new Shader();
         vs->SetName("Test.vs");
         vs->Define(SHADER_VS, vsCode);
         ShaderVariation* vsv = vs->CreateVariation();
@@ -137,16 +137,16 @@ public:
             "}\n";
 #endif
 
-        AutoPtr<Shader> ps = new Shader();
+        Ptr<Shader> ps = new Shader();
         ps->SetName("Test.ps");
         ps->Define(SHADER_PS, psCode);
         ShaderVariation* psv = ps->CreateVariation();
 
-        AutoPtr<BlendState> bs = new BlendState();
+        Ptr<BlendState> bs = new BlendState();
         bs->Define(false);
-        AutoPtr<DepthState> ds = new DepthState();
+        Ptr<DepthState> ds = new DepthState();
         ds->Define(true);
-        AutoPtr<RasterizerState> rs = new RasterizerState();
+        Ptr<RasterizerState> rs = new RasterizerState();
         rs->Define();
 
         Texture* tex = cache->LoadResource<Texture>("Test.png");

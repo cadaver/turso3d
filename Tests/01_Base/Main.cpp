@@ -26,31 +26,17 @@ public:
     }
 };
 
-class TestShared: public RefCounted
+class TestRefCounted: public RefCounted
 {
 public:
-    TestShared()
+    TestRefCounted()
     {
-        printf("TestShared constructed\n");
+        printf("TestRefCounted constructed\n");
     }
 
-    ~TestShared()
+    ~TestRefCounted()
     {
-        printf("TestShared destroyed\n");
-    }
-};
-
-class TestReferenced : public WeakRefCounted
-{
-public:
-    TestReferenced()
-    {
-        printf("TestReferenced constructed\n");
-    }
-
-    ~TestReferenced()
-    {
-        printf("TestReferenced destroyed\n");
+        printf("TestRefCounted destroyed\n");
     }
 };
 
@@ -67,7 +53,6 @@ int main()
     printf("Size of List: %d\n", sizeof(List<int>));
     printf("Size of HashMap: %d\n", sizeof(HashMap<int, int>));
     printf("Size of RefCounted: %d\n", sizeof(RefCounted));
-    printf("Size of WeakRefCounted: %d\n", sizeof(WeakRefCounted));
 
     {
         printf("\nTesting AutoPtr assignment\n");
@@ -89,19 +74,29 @@ int main()
         Test* object = ptr1.Detach();
         delete object;
     }
+
+    {
+        printf("\nTesting AutoPtr inside a vector\n");
+        Vector<AutoPtr<Test> > vec;
+        printf("Filling vector\n");
+        for (size_t i = 0; i < 4; ++i)
+            vec.Push(new Test());
+        printf("Clearing vector\n");
+        vec.Clear();
+    }
     
     {
-        printf("\nTesting SharedPtr\n");
-        SharedPtr<TestShared> ptr1(new TestShared);
-        SharedPtr<TestShared> ptr2(ptr1);
+        printf("\nTesting Ptr\n");
+        Ptr<TestRefCounted> ptr1(new TestRefCounted);
+        Ptr<TestRefCounted> ptr2(ptr1);
         printf("Number of refs: %d\n", ptr1.Refs());
     }
     
     {
         printf("\nTesting WeakPtr\n");
-        TestReferenced* object = new TestReferenced;
-        WeakPtr<TestReferenced> ptr1(object);
-        WeakPtr<TestReferenced> ptr2(ptr1);
+        TestRefCounted* object = new TestRefCounted;
+        WeakPtr<TestRefCounted> ptr1(object);
+        WeakPtr<TestRefCounted> ptr2(ptr1);
         printf("Number of weak refs: %d expired: %d\n", ptr1.WeakRefs(), ptr1.IsExpired());
         ptr2.Reset();
         delete object;
@@ -219,16 +214,6 @@ int main()
         for (size_t i = 0; i < values.Size(); ++i)
             printf("%d ", values[i]);
         printf("\n");
-    }
-
-    {
-        printf("\nTesting AutoPtr inside a vector\n");
-        Vector<AutoPtr<Test> > vec;
-        printf("Filling vector\n");
-        for (size_t i = 0; i < 4; ++i)
-            vec.Push(new Test());
-        printf("Clearing vector\n");
-        vec.Clear();
     }
 
     return 0;
