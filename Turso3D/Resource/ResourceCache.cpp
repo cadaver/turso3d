@@ -94,75 +94,106 @@ void ResourceCache::UnloadResource(StringHash type, const String& name, bool for
         return;
 
     Resource* resource = it->second;
-    if (!resource->WeakRefs() || force)
+    if (resource->Refs() == 1 || force)
         resources.Erase(key);
 }
 
 void ResourceCache::UnloadResources(StringHash type, bool force)
 {
-    for (auto it = resources.Begin(); it != resources.End();)
+    // In case resources refer to other resources, repeat until there are no further unloads
+    for (;;)
     {
-        auto current = it++;
-        if (current->first.first == type)
+        size_t unloaded = 0;
+
+        for (auto it = resources.Begin(); it != resources.End();)
         {
-            Resource* resource = current->second;
-            if (!resource->WeakRefs() || force)
-                resources.Erase(current);
+            auto current = it++;
+            if (current->first.first == type)
+            {
+                Resource* resource = current->second;
+                if (resource->Refs() == 1 || force)
+                {
+                    resources.Erase(current);
+                    ++unloaded;
+                }
+            }
         }
+
+        if (!unloaded)
+            break;
     }
 }
 
 void ResourceCache::UnloadResources(StringHash type, const String& partialName, bool force)
 {
-    for (auto it = resources.Begin(); it != resources.End();)
+    // In case resources refer to other resources, repeat until there are no further unloads
+    for (;;)
     {
-        auto current = it++;
-        if (current->first.first == type)
+        size_t unloaded = 0;
+
+        for (auto it = resources.Begin(); it != resources.End();)
         {
-            Resource* resource = current->second;
-            if (resource->Name().StartsWith(partialName) && (!resource->WeakRefs() || force))
-                resources.Erase(current);
+            auto current = it++;
+            if (current->first.first == type)
+            {
+                Resource* resource = current->second;
+                if (resource->Name().StartsWith(partialName) && (resource->Refs() == 1 || force))
+                {
+                    resources.Erase(current);
+                    ++unloaded;
+                }
+            }
         }
+
+        if (!unloaded)
+            break;
     }
 }
 
 void ResourceCache::UnloadResources(const String& partialName, bool force)
 {
-    // Some resources refer to others, like materials to textures. Release twice to ensure these get released.
-    // This is not necessary if forcing release
-    size_t repeat = force ? 1 : 2;
-
-    while (repeat--)
+    // In case resources refer to other resources, repeat until there are no further unloads
+    for (;;)
     {
+        size_t unloaded = 0;
+
         for (auto it = resources.Begin(); it != resources.End();)
         {
             auto current = it++;
             Resource* resource = current->second;
-            if (resource->Name().StartsWith(partialName) && (!resource->WeakRefs() || force))
+            if (resource->Name().StartsWith(partialName) && (!resource->Refs() == 1 || force))
+            {
                 resources.Erase(current);
+                ++unloaded;
+            }
         }
+
+        if (!unloaded)
+            break;
     }
 }
 
 void ResourceCache::UnloadAllResources(bool force)
 {
-    if (!force)
+    // In case resources refer to other resources, repeat until there are no further unloads
+    for (;;)
     {
-        size_t repeat = 2;
+        size_t unloaded = 0;
 
-        while (repeat--)
+        for (auto it = resources.Begin(); it != resources.End();)
         {
-            for (auto it = resources.Begin(); it != resources.End();)
+            auto current = it++;
+            Resource* resource = current->second;
+            if (resource->Refs() == 1 || force)
             {
-                auto current = it++;
-                Resource* resource = current->second;
-                if (!resource->WeakRefs())
-                    resources.Erase(current);
+                resources.Erase(current);
+                ++unloaded;
             }
         }
+
+        if (!unloaded)
+            break;
     }
-    else
-        resources.Clear();
 }
 
 bool ResourceCache::ReloadResource(Resource* resource)
@@ -217,7 +248,7 @@ Resource* ResourceCache::LoadResource(StringHash type, const String& nameIn)
     if (it != resources.End())
         return it->second;
 
-    AutoPtr<Object> newObject = Create(type);
+    Ptr<Object> newObject = Create(type);
     if (!newObject)
     {
         LOGERROR("Could not load unknown resource type " + String(type));
@@ -241,7 +272,6 @@ Resource* ResourceCache::LoadResource(StringHash type, const String& nameIn)
         return nullptr;
 
     // Store to cache
-    newObject.Detach();
     resources[key] = newResource;
     return newResource;
 }

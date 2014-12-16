@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "../Base/WeakPtr.h"
+#include "../Base/Ptr.h"
 #include "../Turso3DConfig.h"
 
 namespace Turso3D

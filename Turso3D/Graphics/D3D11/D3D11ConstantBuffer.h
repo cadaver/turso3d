@@ -10,7 +10,7 @@ namespace Turso3D
 {
 
 /// GPU buffer for shader constant data.
-class TURSO3D_API ConstantBuffer : public WeakRefCounted, public GPUObject
+class TURSO3D_API ConstantBuffer : public RefCounted, public GPUObject
 {
 public:
     /// Construct.

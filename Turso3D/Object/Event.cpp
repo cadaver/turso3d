@@ -9,7 +9,7 @@
 namespace Turso3D
 {
 
-EventHandler::EventHandler(WeakRefCounted* receiver_) :
+EventHandler::EventHandler(RefCounted* receiver_) :
     receiver(receiver_)
 {
 }
@@ -26,7 +26,7 @@ Event::~Event()
 {
 }
 
-void Event::Send(WeakRefCounted* sender)
+void Event::Send(RefCounted* sender)
 {
     if (!Thread::IsMainThread())
     {
@@ -36,7 +36,7 @@ void Event::Send(WeakRefCounted* sender)
 
     // Retain a weak pointer to the sender on the stack for safety, in case it is destroyed
     // as a result of event handling, in which case the current event may also be destroyed
-    WeakPtr<WeakRefCounted> safeCurrentSender = sender;
+    WeakPtr<RefCounted> safeCurrentSender = sender;
     currentSender = sender;
     
     for (auto it = handlers.Begin(); it != handlers.End();)
@@ -46,7 +46,7 @@ void Event::Send(WeakRefCounted* sender)
         
         if (handler)
         {
-            WeakRefCounted* receiver = handler->Receiver();
+            RefCounted* receiver = handler->Receiver();
             if (receiver)
             {
                 remove = false;
@@ -85,7 +85,7 @@ void Event::Subscribe(EventHandler* handler)
     handlers.Push(handler);
 }
 
-void Event::Unsubscribe(WeakRefCounted* receiver)
+void Event::Unsubscribe(RefCounted* receiver)
 {
     for (auto it = handlers.Begin(); it != handlers.End(); ++it)
     {
@@ -115,7 +115,7 @@ bool Event::HasReceivers() const
     return false;
 }
 
-bool Event::HasReceiver(const WeakRefCounted* receiver) const
+bool Event::HasReceiver(const RefCounted* receiver) const
 {
     for (auto it = handlers.Begin(); it != handlers.End(); ++it)
     {

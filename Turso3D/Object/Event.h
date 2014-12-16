@@ -3,7 +3,7 @@
 #pragma once
 
 #include "../Base/AutoPtr.h"
-#include "../Base/WeakPtr.h"
+#include "../Base/Ptr.h"
 #include "../IO/JSONValue.h"
 
 namespace Turso3D
@@ -16,7 +16,7 @@ class TURSO3D_API EventHandler
 {
 public:
     /// Construct with receiver object pointer.
-    EventHandler(WeakRefCounted* receiver);
+    EventHandler(RefCounted* receiver);
     /// Destruct.
     virtual ~EventHandler();
 
@@ -24,11 +24,11 @@ public:
     virtual void Invoke(Event& event) = 0;
 
     /// Return the receiver object.
-    WeakRefCounted* Receiver() const { return receiver.Get(); }
+    RefCounted* Receiver() const { return receiver.Get(); }
 
 protected:
     /// Receiver object.
-    WeakPtr<WeakRefCounted> receiver;
+    WeakPtr<RefCounted> receiver;
 };
 
 /// Template implementation of the event handler invoke helper, stores a function pointer of specific class.
@@ -38,7 +38,7 @@ public:
     typedef void (T::*HandlerFunctionPtr)(U&);
 
     /// Construct with receiver and function pointers.
-    EventHandlerImpl(WeakRefCounted* receiver_, HandlerFunctionPtr function_) :
+    EventHandlerImpl(RefCounted* receiver_, HandlerFunctionPtr function_) :
         EventHandler(receiver_),
         function(function_)
     {
@@ -68,18 +68,18 @@ public:
     virtual ~Event();
     
     /// Send the event.
-    void Send(WeakRefCounted* sender);
+    void Send(RefCounted* sender);
     /// Subscribe to the event. The event takes ownership of the handler data. If there is already handler data for the same receiver, it is overwritten.
     void Subscribe(EventHandler* handler);
     /// Unsubscribe from the event.
-    void Unsubscribe(WeakRefCounted* receiver);
+    void Unsubscribe(RefCounted* receiver);
 
     /// Return whether has at least one valid receiver.
     bool HasReceivers() const;
     /// Return whether has a specific receiver.
-    bool HasReceiver(const WeakRefCounted* receiver) const;
+    bool HasReceiver(const RefCounted* receiver) const;
     /// Return current sender.
-    WeakRefCounted* Sender() const { return currentSender; }
+    RefCounted* Sender() const { return currentSender; }
     
 private:
     /// Prevent copy construction.
@@ -90,7 +90,7 @@ private:
     /// Event handlers.
     Vector<AutoPtr<EventHandler> > handlers;
     /// Current sender.
-    WeakPtr<WeakRefCounted> currentSender;
+    WeakPtr<RefCounted> currentSender;
 };
 
 }

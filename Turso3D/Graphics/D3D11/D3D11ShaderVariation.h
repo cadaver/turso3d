@@ -12,7 +12,7 @@ namespace Turso3D
 class Shader;
 
 /// Compiled shader with specific defines.
-class TURSO3D_API ShaderVariation : public WeakRefCounted, public GPUObject
+class TURSO3D_API ShaderVariation : public RefCounted, public GPUObject
 {
 public:
     /// Construct. Set parent shader and defines but do not compile yet.

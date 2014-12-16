@@ -9,7 +9,7 @@ namespace Turso3D
 {
 
 /// Description of how to blend geometry into the framebuffer.
-class TURSO3D_API BlendState : public WeakRefCounted, public GPUObject
+class TURSO3D_API BlendState : public RefCounted, public GPUObject
 {
 public:
     /// Construct.

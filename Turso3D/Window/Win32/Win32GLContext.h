@@ -6,7 +6,7 @@
 
 #ifdef TURSO3D_OPENGL
 
-#include "../../Base/WeakPtr.h"
+#include "../../Base/Ptr.h"
 
 namespace Turso3D
 {

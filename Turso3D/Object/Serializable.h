@@ -64,7 +64,7 @@ public:
     }
     
     /// Return the attribute descriptions. Default implementation uses per-class registration.
-    virtual const Vector<SharedPtr<Attribute> >* Attributes() const;
+    virtual const Vector<Ptr<Attribute> >* Attributes() const;
     /// Return an attribute description by name, or null if does not exist.
     Attribute* FindAttribute(const String& name) const;
     /// Return an attribute description by name, or null if does not exist.
@@ -103,7 +103,7 @@ public:
     
 private:
     /// Per-class attributes.
-    static HashMap<StringHash, Vector<SharedPtr<Attribute> > > classAttributes;
+    static HashMap<StringHash, Vector<Ptr<Attribute> > > classAttributes;
 };
 
 }

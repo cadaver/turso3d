@@ -3,7 +3,7 @@
 #pragma once
 
 #include "../Base/AutoPtr.h"
-#include "../Base/SharedPtr.h"
+#include "../Base/Ptr.h"
 #include "../IO/Stream.h"
 
 namespace Turso3D

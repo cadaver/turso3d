@@ -29,8 +29,7 @@ void RasterizerState::Release()
 }
 
 bool RasterizerState::Define(FillMode fillMode_, CullMode cullMode_, int depthBias_, float depthBiasClamp_,
-    float slopeScaledDepthBias_, bool depthClipEnable_, bool scissorEnable_, bool multisampleEnable_,
-    bool antialiasedLineEnable_)
+    float slopeScaledDepthBias_, bool depthClipEnable_, bool scissorEnable_)
 
 {
     PROFILE(DefineRasterizerState);
@@ -44,8 +43,6 @@ bool RasterizerState::Define(FillMode fillMode_, CullMode cullMode_, int depthBi
     slopeScaledDepthBias = slopeScaledDepthBias_;
     depthClipEnable = depthClipEnable_;
     scissorEnable = scissorEnable_;
-    multisampleEnable = multisampleEnable_;
-    antialiasedLineEnable = antialiasedLineEnable_;
 
     return true;
 }

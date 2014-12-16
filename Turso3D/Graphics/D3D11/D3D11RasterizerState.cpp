@@ -39,8 +39,7 @@ void RasterizerState::Release()
 }
 
 bool RasterizerState::Define(FillMode fillMode_, CullMode cullMode_, int depthBias_, float depthBiasClamp_,
-    float slopeScaledDepthBias_, bool depthClipEnable_, bool scissorEnable_, bool multisampleEnable_,
-    bool antialiasedLineEnable_)
+    float slopeScaledDepthBias_, bool depthClipEnable_, bool scissorEnable_)
 
 {
     PROFILE(DefineRasterizerState);
@@ -54,8 +53,6 @@ bool RasterizerState::Define(FillMode fillMode_, CullMode cullMode_, int depthBi
     slopeScaledDepthBias = slopeScaledDepthBias_;
     depthClipEnable = depthClipEnable_;
     scissorEnable = scissorEnable_;
-    multisampleEnable = multisampleEnable_;
-    antialiasedLineEnable = antialiasedLineEnable_;
 
     if (graphics && graphics->IsInitialized())
     {
@@ -70,8 +67,8 @@ bool RasterizerState::Define(FillMode fillMode_, CullMode cullMode_, int depthBi
         stateDesc.SlopeScaledDepthBias = slopeScaledDepthBias;
         stateDesc.DepthClipEnable = depthClipEnable;
         stateDesc.ScissorEnable = scissorEnable;
-        stateDesc.MultisampleEnable = multisampleEnable;
-        stateDesc.AntialiasedLineEnable = antialiasedLineEnable;
+        stateDesc.MultisampleEnable = TRUE;
+        stateDesc.AntialiasedLineEnable = FALSE;
 
         ID3D11Device* d3dDevice = (ID3D11Device*)graphics->D3DDevice();
         d3dDevice->CreateRasterizerState(&stateDesc, (ID3D11RasterizerState**)&stateObject);

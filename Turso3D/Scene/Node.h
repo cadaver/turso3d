@@ -78,18 +78,14 @@ public:
     Node* CreateChild(StringHash childType, const char* childName);
     /// Add node as a child. Same as calling SetParent for the child node.
     void AddChild(Node* child);
-    /// Detach and return child node. The child node is removed from the scene and its deletion becomes the responsibility of the caller.
-    Node* DetachChild(Node* child);
-    /// Detach and return child node by index.
-    Node* DetachChild(size_t);
-    /// Destroy child node.
-    void DestroyChild(Node* child);
-    /// Destroy child node by index.
-    void DestroyChild(size_t index);
-    /// Destroy all child nodes.
-    void DestroyAllChildren();
-    /// Destroy self immediately. No operations on the node are valid after calling this.
-    void DestroySelf();
+    /// Remove child node. Will delete it if there are no other strong references to it.
+    void RemoveChild(Node* child);
+    /// Remove child node by index.
+    void RemoveChild(size_t index);
+    /// Remove all child nodes.
+    void RemoveAllChildren();
+    /// Remove self immediately. As this will delete the node (if no other strong references) no operations on the node are valid after calling this.
+    void RemoveSelf();
     /// Create child node of the specified type, template version.
     template <class T> T* CreateChild() { return static_cast<T*>(CreateChild(T::TypeStatic())); }
     /// Create named child node of the specified type, template version.
@@ -124,7 +120,7 @@ public:
     /// Return immediate child node by index.
     Node* Child(size_t index) const { return index < children.Size() ? children[index] : nullptr; }
     /// Return all immediate child nodes.
-    const Vector<Node*>& Children() const { return children; }
+    const Vector<Ptr<Node> >& Children() const { return children; }
     /// Return child nodes recursively.
     void AllChildren(Vector<Node*>& result) const;
     /// Return first child node that matches name.
@@ -159,8 +155,8 @@ public:
     size_t NumSiblings() const;
     /// Return sibling node by index.
     Node* Sibling(size_t index) const;
-    /// Return all sibling nodes.
-    const Vector<Node*>& Siblings() const;
+    /// Return all sibling nodes including self.
+    const Vector<Ptr<Node> >& Siblings() const;
     /// Return first sibling node that matches name.
     Node* FindSibling(const String& siblingName) const;
     /// Return first sibling node that matches name.
@@ -239,8 +235,8 @@ private:
     Node* parent;
     /// Parent scene.
     Scene* scene;
-    /// Child nodes. A node owns its children and destroys them during its own destruction.
-    Vector<Node*> children;
+    /// Child nodes.
+    Vector<Ptr<Node> > children;
     /// Id within the scene.
     unsigned id;
     /// %Node name.

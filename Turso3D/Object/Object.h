@@ -12,7 +12,7 @@ class ObjectFactory;
 template <class T> class ObjectFactoryImpl;
 
 /// Base class for objects with type identification and possibility to create through a factory.
-class TURSO3D_API Object : public WeakRefCounted
+class TURSO3D_API Object : public RefCounted
 {
 public:
     /// Return hash of the type name.

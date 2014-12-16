@@ -27,7 +27,7 @@ Scene::~Scene()
 {
     // Node destructor will also destroy children. But at that point the node<>id maps have been destroyed 
     // so must tear down the scene tree already here
-    DestroyAllChildren();
+    RemoveAllChildren();
     RemoveNode(this);
     assert(nodes.IsEmpty());
 }
@@ -194,7 +194,7 @@ void Scene::DefineTag(unsigned char index, const String& name)
 
 void Scene::Clear()
 {
-    DestroyAllChildren();
+    RemoveAllChildren();
     nextNodeId = 1;
 }
 
@@ -231,7 +231,7 @@ void Scene::AddNode(Node* node)
     // If node has children, add them to the scene as well
     if (node->NumChildren())
     {
-        const Vector<Node*>& children = node->Children();
+        const Vector<Ptr<Node> >& children = node->Children();
         for (auto it = children.Begin(); it != children.End(); ++it)
             AddNode(*it);
     }
@@ -249,7 +249,7 @@ void Scene::RemoveNode(Node* node)
     // If node has children, remove them from the scene as well
     if (node->NumChildren())
     {
-        const Vector<Node*>& children = node->Children();
+        const Vector<Ptr<Node> >& children = node->Children();
         for (auto it = children.Begin(); it != children.End(); ++it)
             RemoveNode(*it);
     }

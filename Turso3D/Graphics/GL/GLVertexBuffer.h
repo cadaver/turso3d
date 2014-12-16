@@ -11,7 +11,7 @@ namespace Turso3D
 {
 
 /// GPU buffer for vertex data.
-class TURSO3D_API VertexBuffer : public WeakRefCounted, public GPUObject
+class TURSO3D_API VertexBuffer : public RefCounted, public GPUObject
 {
 public:
     /// Construct.

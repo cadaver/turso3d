@@ -5,10 +5,9 @@
 // Convenience header file for including commonly needed engine classes. Note: intentionally does not include Debug/DebugNew.h
 // so that placement new works as expected.
 
-#include "Base/AutoPtr.h"
 #include "Base/HashSet.h"
 #include "Base/List.h"
-#include "Base/SharedPtr.h"
+#include "Base/Ptr.h"
 #include "Debug/Log.h"
 #include "Debug/Profiler.h"
 #include "Graphics/BlendState.h"

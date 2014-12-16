@@ -11,7 +11,7 @@
 namespace Turso3D
 {
 
-static Vector<Node*> noChildren;
+static Vector<Ptr<Node> > noChildren;
 
 Node::Node() :
     flags(NF_ENABLED),
@@ -25,7 +25,7 @@ Node::Node() :
 
 Node::~Node()
 {
-    DestroyAllChildren();
+    RemoveAllChildren();
     // At the time of destruction the node should not have a parent, or be in a scene
     assert(!parent);
     assert(!scene);
@@ -278,67 +278,45 @@ void Node::AddChild(Node* child)
         scene->AddNode(child);
 }
 
-Node* Node::DetachChild(Node* child)
+void Node::RemoveChild(Node* child)
 {
     if (!child || child->parent != this)
-        return nullptr;
+        return;
 
     for (size_t i = 0; i < children.Size(); ++i)
     {
         if (children[i] == child)
-            return DetachChild(i);
+        {
+            RemoveChild(i);
+            break;
+        }
     }
-
-    return nullptr;
 }
 
-Node* Node::DetachChild(size_t index)
+void Node::RemoveChild(size_t index)
 {
     if (index >= children.Size())
-        return nullptr;
+        return;
 
     Node* child = children[index];
-    children.Erase(index);
     // Detach from both the parent and the scene (removes id assignment)
     child->parent = nullptr;
     child->OnParentSet(this, nullptr);
     if (scene)
         scene->RemoveNode(child);
-    return child;
+    children.Erase(index);
 }
 
-void Node::DestroyChild(Node* child)
+void Node::RemoveAllChildren()
 {
-    child = DetachChild(child);
-    delete child;
+    while (children.Size())
+        RemoveChild(children.Size() - 1);
 }
 
-void Node::DestroyChild(size_t index)
-{
-    Node* child = DetachChild(index);
-    delete child;
-}
-
-void Node::DestroyAllChildren()
-{
-    for (auto it = children.Begin(); it != children.End(); ++it)
-    {
-        Node* child = *it;
-        child->parent = nullptr;
-        child->OnParentSet(this, nullptr);
-        if (scene)
-            scene->RemoveNode(child);
-        delete child;
-        *it = nullptr;
-    }
-    
-    children.Clear();
-}
-
-void Node::DestroySelf()
+void Node::RemoveSelf()
 {
     if (parent)
-        parent->DestroyChild(this);
+        parent->RemoveChild(this);
     else
         delete this;
 }
@@ -571,7 +549,7 @@ Node* Node::Sibling(size_t index) const
     return parent ? parent->Child(index) : 0;
 }
 
-const Vector<Node*>& Node::Siblings() const
+const Vector<Ptr<Node> >& Node::Siblings() const
 {
     return parent ? parent->children : noChildren;
 }
