@@ -10,6 +10,9 @@
 
 #include "../../Debug/DebugNew.h"
 
+namespace Turso3D
+{
+
 // Handle missing touch input definitions (MinGW)
 #if WINVER < 0x0601
 #define TWF_FINETOUCH 1
@@ -21,6 +24,7 @@
 
 DECLARE_HANDLE(HTOUCHINPUT);
 
+/// \cond PRIVATE
 typedef struct {
     LONG x;
     LONG y;
@@ -33,10 +37,8 @@ typedef struct {
     DWORD cxContact;
     DWORD cyContact;
 } TOUCHINPUT, *PTOUCHINPUT;
+/// \endcond
 #endif
-
-namespace Turso3D
-{
 
 static BOOL(WINAPI* setProcessDpiAware)() = nullptr;
 static BOOL(WINAPI* registerTouchWindow)(HWND, ULONG) = nullptr;

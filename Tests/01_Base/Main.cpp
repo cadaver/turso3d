@@ -86,9 +86,9 @@ int main()
     }
     
     {
-        printf("\nTesting Ptr\n");
-        Ptr<TestRefCounted> ptr1(new TestRefCounted);
-        Ptr<TestRefCounted> ptr2(ptr1);
+        printf("\nTesting SharedPtr\n");
+        SharedPtr<TestRefCounted> ptr1(new TestRefCounted);
+        SharedPtr<TestRefCounted> ptr2(ptr1);
         printf("Number of refs: %d\n", ptr1.Refs());
     }
     

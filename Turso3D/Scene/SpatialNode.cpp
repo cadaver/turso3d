@@ -294,7 +294,7 @@ void SpatialNode::OnTransformChanged()
 {
     SetFlag(NF_WORLD_TRANSFORM_DIRTY, true);
 
-    const Vector<Ptr<Node> >& children = Children();
+    const Vector<SharedPtr<Node> >& children = Children();
     for (auto it = children.Begin(); it != children.End(); ++it)
     {
         Node* child = *it;

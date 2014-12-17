@@ -11,7 +11,7 @@
 namespace Turso3D
 {
 
-static Vector<Ptr<Node> > noChildren;
+static Vector<SharedPtr<Node> > noChildren;
 
 Node::Node() :
     flags(NF_ENABLED),
@@ -213,7 +213,7 @@ void Node::SetParent(Node* newParent)
 
 Node* Node::CreateChild(StringHash childType)
 {
-    Ptr<Object> newObject = Create(childType);
+    SharedPtr<Object> newObject = Create(childType);
     if (!newObject)
     {
         LOGERROR("Could not create child node of unknown type " + childType.ToString());
@@ -548,7 +548,7 @@ Node* Node::Sibling(size_t index) const
     return parent ? parent->Child(index) : 0;
 }
 
-const Vector<Ptr<Node> >& Node::Siblings() const
+const Vector<SharedPtr<Node> >& Node::Siblings() const
 {
     return parent ? parent->children : noChildren;
 }

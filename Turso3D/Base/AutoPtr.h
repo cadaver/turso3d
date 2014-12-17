@@ -77,6 +77,7 @@ public:
     T& operator * () const { assert(ptr); return *ptr; }
     /// Convert to the object.
     operator T* () const { return ptr; }
+
     /// Return the object.
     T* Get() const { return ptr; }
     /// Return whether is a null pointer.
@@ -157,6 +158,7 @@ public:
     const T& operator [] (size_t index) const { assert(array); return array[index]; }
     /// Convert to the array.
     operator T* () const { return array; }
+
     /// Return the array.
     T* Get() const { return array; }
     /// Return whether is a null pointer.

@@ -10,7 +10,7 @@ namespace Turso3D
 class Resource;
 class Stream;
 
-typedef HashMap<Pair<StringHash, StringHash>, Ptr<Resource> > ResourceMap;
+typedef HashMap<Pair<StringHash, StringHash>, SharedPtr<Resource> > ResourceMap;
  
 /// %Resource cache subsystem. Loads resources on demand and stores them for later access.
 class TURSO3D_API ResourceCache : public Object

@@ -120,7 +120,7 @@ public:
     /// Return immediate child node by index.
     Node* Child(size_t index) const { return index < children.Size() ? children[index] : nullptr; }
     /// Return all immediate child nodes.
-    const Vector<Ptr<Node> >& Children() const { return children; }
+    const Vector<SharedPtr<Node> >& Children() const { return children; }
     /// Return child nodes recursively.
     void AllChildren(Vector<Node*>& result) const;
     /// Return first child node that matches name.
@@ -156,7 +156,7 @@ public:
     /// Return sibling node by index.
     Node* Sibling(size_t index) const;
     /// Return all sibling nodes including self.
-    const Vector<Ptr<Node> >& Siblings() const;
+    const Vector<SharedPtr<Node> >& Siblings() const;
     /// Return first sibling node that matches name.
     Node* FindSibling(const String& siblingName) const;
     /// Return first sibling node that matches name.
@@ -236,7 +236,7 @@ private:
     /// Parent scene.
     Scene* scene;
     /// Child nodes.
-    Vector<Ptr<Node> > children;
+    Vector<SharedPtr<Node> > children;
     /// Id within the scene.
     unsigned id;
     /// %Node name.

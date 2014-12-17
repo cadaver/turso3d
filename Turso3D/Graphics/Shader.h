@@ -47,7 +47,7 @@ private:
     bool ProcessIncludes(String& code, Stream& source);
 
     /// %Shader variations.
-    HashMap<StringHash, Ptr<ShaderVariation> > variations;
+    HashMap<StringHash, SharedPtr<ShaderVariation> > variations;
     /// %Shader stage.
     ShaderStage stage;
     /// %Shader source code.

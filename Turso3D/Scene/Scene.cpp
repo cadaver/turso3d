@@ -231,7 +231,7 @@ void Scene::AddNode(Node* node)
     // If node has children, add them to the scene as well
     if (node->NumChildren())
     {
-        const Vector<Ptr<Node> >& children = node->Children();
+        const Vector<SharedPtr<Node> >& children = node->Children();
         for (auto it = children.Begin(); it != children.End(); ++it)
             AddNode(*it);
     }
@@ -249,7 +249,7 @@ void Scene::RemoveNode(Node* node)
     // If node has children, remove them from the scene as well
     if (node->NumChildren())
     {
-        const Vector<Ptr<Node> >& children = node->Children();
+        const Vector<SharedPtr<Node> >& children = node->Children();
         for (auto it = children.Begin(); it != children.End(); ++it)
             RemoveNode(*it);
     }

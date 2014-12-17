@@ -99,14 +99,15 @@ static const ImageFormat componentsToFormat[] =
     FMT_RGBA8
 };
 
-/// DirectDraw color key definition.
+/// \cond PRIVATE
 struct DDColorKey
 {
     unsigned dwColorSpaceLowValue;
     unsigned dwColorSpaceHighValue;
 };
+/// \endcond
 
-/// DirectDraw pixel format definition.
+/// \cond PRIVATE
 struct DDPixelFormat
 {
     unsigned dwSize;
@@ -159,8 +160,9 @@ struct DDPixelFormat
         unsigned dwYUVZBitMask;
     };
 };
+/// \endcond
 
-/// DirectDraw surface capabilities.
+/// \cond PRIVATE
 struct DDSCaps2
 {
     unsigned dwCaps;
@@ -172,8 +174,9 @@ struct DDSCaps2
         unsigned dwVolumeDepth;
     };
 };
+/// \endcond
 
-/// DirectDraw surface description.
+/// \cond PRIVATE
 struct DDSurfaceDesc2
 {
     unsigned dwSize;
@@ -215,6 +218,7 @@ struct DDSurfaceDesc2
     DDSCaps2 ddsCaps;
     unsigned dwTextureStage;
 };
+/// \endcond
 
 Image::Image() :
     width(0),

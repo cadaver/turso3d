@@ -17,9 +17,10 @@ RefCounted::~RefCounted()
     if (refCount)
     {
         assert(refCount->refs == 0);
-        refCount->expired = true;
         if (refCount->weakRefs == 0)
             delete refCount;
+        else
+            refCount->expired = true;
     }
 }
 
@@ -43,6 +44,7 @@ RefCount* RefCounted::RefCountPtr()
 {
     if (!refCount)
         refCount = new RefCount();
+
     return refCount;
 }
 

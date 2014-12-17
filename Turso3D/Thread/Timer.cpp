@@ -17,11 +17,10 @@
 namespace Turso3D
 {
 
-/// Static initializer for timers.
+/// \cond PRIVATE
 class TimerInitializer
 {
 public:
-    /// Construct. Initialize the high-res timer and set maximum resolution for the low-res timer (Windows only.)
     TimerInitializer()
     {
         HiresTimer::Initialize();
@@ -30,7 +29,6 @@ public:
         #endif
     }
 
-    /// Destruct. Restore default resolution of the low-res timer (Windows only.)
     ~TimerInitializer()
     {
         #ifdef _WIN32
@@ -38,6 +36,7 @@ public:
         #endif
     }
 };
+/// \endcond
 
 static TimerInitializer initializer;
 

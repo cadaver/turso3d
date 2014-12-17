@@ -11,11 +11,11 @@
 namespace Turso3D
 {
 
-HashMap<StringHash, Vector<Ptr<Attribute> > > Serializable::classAttributes;
+HashMap<StringHash, Vector<SharedPtr<Attribute> > > Serializable::classAttributes;
 
 void Serializable::Load(Stream& source, ObjectResolver& resolver)
 {
-    const Vector<Ptr<Attribute> >* attributes = Attributes();
+    const Vector<SharedPtr<Attribute> >* attributes = Attributes();
     if (!attributes)
         return; // Nothing to do
     
@@ -48,7 +48,7 @@ void Serializable::Load(Stream& source, ObjectResolver& resolver)
 
 void Serializable::Save(Stream& dest)
 {
-    const Vector<Ptr<Attribute> >* attributes = Attributes();
+    const Vector<SharedPtr<Attribute> >* attributes = Attributes();
     if (!attributes)
         return;
     
@@ -63,7 +63,7 @@ void Serializable::Save(Stream& dest)
 
 void Serializable::LoadJSON(const JSONValue& source, ObjectResolver& resolver)
 {
-    const Vector<Ptr<Attribute> >* attributes = Attributes();
+    const Vector<SharedPtr<Attribute> >* attributes = Attributes();
     if (!attributes || !source.IsObject() || !source.Size())
         return;
     
@@ -86,7 +86,7 @@ void Serializable::LoadJSON(const JSONValue& source, ObjectResolver& resolver)
 
 void Serializable::SaveJSON(JSONValue& dest)
 {
-    const Vector<Ptr<Attribute> >* attributes = Attributes();
+    const Vector<SharedPtr<Attribute> >* attributes = Attributes();
     if (!attributes)
         return;
     
@@ -111,7 +111,7 @@ void Serializable::AttributeValue(Attribute* attr, void* dest)
         attr->ToValue(this, dest);
 }
 
-const Vector<Ptr<Attribute> >* Serializable::Attributes() const
+const Vector<SharedPtr<Attribute> >* Serializable::Attributes() const
 {
     auto it = classAttributes.Find(Type());
     return it != classAttributes.End() ? &it->second : nullptr;
@@ -124,7 +124,7 @@ Attribute* Serializable::FindAttribute(const String& name) const
 
 Attribute* Serializable::FindAttribute(const char* name) const
 {
-    const Vector<Ptr<Attribute> >* attributes = Attributes();
+    const Vector<SharedPtr<Attribute> >* attributes = Attributes();
     if (!attributes)
         return nullptr;
     
@@ -140,7 +140,7 @@ Attribute* Serializable::FindAttribute(const char* name) const
 
 void Serializable::RegisterAttribute(StringHash type, Attribute* attr)
 {
-    Vector<Ptr<Attribute> >& attributes = classAttributes[type];
+    Vector<SharedPtr<Attribute> >& attributes = classAttributes[type];
     for (size_t i = 0; i < attributes.Size(); ++i)
     {
         if (attributes[i]->Name() == attr->Name())

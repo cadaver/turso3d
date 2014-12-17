@@ -248,7 +248,7 @@ Resource* ResourceCache::LoadResource(StringHash type, const String& nameIn)
     if (it != resources.End())
         return it->second;
 
-    Ptr<Object> newObject = Create(type);
+    SharedPtr<Object> newObject = Create(type);
     if (!newObject)
     {
         LOGERROR("Could not load unknown resource type " + String(type));

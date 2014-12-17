@@ -437,12 +437,13 @@ void DecompressImageETC( unsigned char* rgba, const void* blocks, int width, int
 #define CLAMP(X, lower, upper) (_MIN(_MAX((X),(lower)), (upper)))
 #define LIMIT_COORD(Val, Size, AssumeImageTiles) ((AssumeImageTiles)? WRAP_COORD((Val), (Size)): CLAMP((Val), 0, (Size)-1))
 
-/// 64-bit block of PVRTC compressed data.
+/// \cond PRIVATE
 typedef struct
 {
     // Uses 64 bits pre block
     unsigned PackedData[2];
 } AMTC_BLOCK_STRUCT;
+/// \endcond
 
 static void Unpack5554Colour(const AMTC_BLOCK_STRUCT *pBlock, int ABColours[2][4])
 {
