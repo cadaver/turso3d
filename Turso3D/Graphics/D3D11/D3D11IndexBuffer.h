@@ -43,6 +43,9 @@ public:
     void* D3DBuffer() const { return buffer; }
 
 private:
+    /// Create the GPU-side index buffer. Return true on success.
+    bool Create(const void* data);
+    
     /// D3D11 buffer.
     void* buffer;
     /// CPU-side shadow data.

@@ -46,62 +46,6 @@ void IndexBuffer::Recreate()
     }
 }
 
-bool IndexBuffer::Define(ResourceUsage usage_, size_t numIndices_, size_t indexSize_, bool useShadowData, const void* data)
-{
-    PROFILE(DefineIndexBuffer);
-
-    Release();
-
-    if (!numIndices_)
-    {
-        LOGERROR("Can not define index buffer with no indices");
-        return false;
-    }
-    if (usage_ == USAGE_RENDERTARGET)
-    {
-        LOGERROR("Rendertarget usage is illegal for index buffers");
-        return false;
-    }
-    if (usage_ == USAGE_IMMUTABLE && !data)
-    {
-        LOGERROR("Immutable index buffer must define initial data");
-        return false;
-    }
-    if (indexSize_ != sizeof(unsigned) && indexSize_ != sizeof(unsigned short))
-    {
-        LOGERROR("Index buffer index size must be 2 or 4");
-        return false;
-    }
-
-    numIndices = numIndices_;
-    indexSize = indexSize_;
-    usage = usage_;
-
-    // If buffer is reinitialized with the same shadow data, no need to reallocate
-    if (useShadowData && (!data || data != shadowData.Get()))
-    {
-        shadowData = new unsigned char[numIndices * indexSize];
-        if (data)
-            memcpy(shadowData.Get(), data, numIndices * indexSize);
-    }
-
-    if (graphics && graphics->IsInitialized())
-    {
-        glGenBuffers(1, &buffer);
-        if (!buffer)
-        {
-            LOGERROR("Failed to create index buffer");
-            return false;
-        }
-
-        graphics->SetIndexBuffer(this);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, numIndices * indexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
-        LOGDEBUGF("Created index buffer numIndices %u indexSize %u", (unsigned)numIndices, (unsigned)indexSize);
-    }
-
-    return true;
-}
-
 bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* data)
 {
     PROFILE(UpdateIndexBuffer);
@@ -132,6 +76,25 @@ bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* dat
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, numIndices * indexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
         else
             glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, firstIndex * indexSize, numIndices * indexSize, data);
+    }
+
+    return true;
+}
+
+bool IndexBuffer::Create(const void* data)
+{
+    if (graphics && graphics->IsInitialized())
+    {
+        glGenBuffers(1, &buffer);
+        if (!buffer)
+        {
+            LOGERROR("Failed to create index buffer");
+            return false;
+        }
+
+        graphics->SetIndexBuffer(this);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, numIndices * indexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+        LOGDEBUGF("Created index buffer numIndices %u indexSize %u", (unsigned)numIndices, (unsigned)indexSize);
     }
 
     return true;

@@ -45,6 +45,9 @@ public:
     unsigned GLBuffer() const { return buffer; }
 
 private:
+    /// Create the GPU-side index buffer. Return true on success.
+    bool Create(const void* data);
+
     /// OpenGL buffer object identifier.
     unsigned buffer;
     /// CPU-side shadow data.

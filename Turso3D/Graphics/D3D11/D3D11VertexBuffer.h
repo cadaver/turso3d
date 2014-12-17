@@ -55,6 +55,9 @@ public:
     static unsigned ElementHash(size_t index, ElementSemantic semantic) { return (semantic + 1) << (index * 3); }
 
 private:
+    /// Create the GPU-side vertex buffer. Return true on success.
+    bool Create(const void* data);
+    
     /// D3D11 buffer.
     void* buffer;
     /// CPU-side shadow data.

@@ -78,7 +78,7 @@ public:
     static const size_t NPOS = (size_t)-1;
 
 private:
-    /// Actually create the constant buffer. Called on the first Apply() if the buffer is immutable. Return true on success.
+    /// Create the GPU-side constant buffer. Called on the first Apply() if the buffer is immutable. Return true on success.
     bool Create(const void* data = nullptr);
 
     /// OpenGL buffer object identifier.

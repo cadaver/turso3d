@@ -62,6 +62,9 @@ public:
     static const char* elementSemanticNames[];
 
 private:
+    /// Create the GPU-side vertex buffer. Return true on success.
+    bool Create(const void* data);
+
     /// OpenGL buffer object identifier.
     unsigned buffer;
     /// CPU-side shadow data.

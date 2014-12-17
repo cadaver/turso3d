@@ -38,72 +38,6 @@ void IndexBuffer::Release()
     }
 }
 
-bool IndexBuffer::Define(ResourceUsage usage_, size_t numIndices_, size_t indexSize_, bool useShadowData, const void* data)
-{
-    PROFILE(DefineIndexBuffer);
-
-    Release();
-
-    if (!numIndices_)
-    {
-        LOGERROR("Can not define index buffer with no indices");
-        return false;
-    }
-    if (usage_ == USAGE_RENDERTARGET)
-    {
-        LOGERROR("Rendertarget usage is illegal for index buffers");
-        return false;
-    }
-    if (usage_ == USAGE_IMMUTABLE && !data)
-    {
-        LOGERROR("Immutable index buffer must define initial data");
-        return false;
-    }
-    if (indexSize_ != sizeof(unsigned) && indexSize_ != sizeof(unsigned short))
-    {
-        LOGERROR("Index buffer index size must be 2 or 4");
-        return false;
-    }
-
-    numIndices = numIndices_;
-    indexSize = indexSize_;
-    usage = usage_;
-
-    if (useShadowData)
-    {
-        shadowData = new unsigned char[numIndices * indexSize];
-        if (data)
-            memcpy(shadowData.Get(), data, numIndices * indexSize);
-    }
-
-    if (graphics && graphics->IsInitialized())
-    {
-        D3D11_BUFFER_DESC bufferDesc;
-        D3D11_SUBRESOURCE_DATA initialData;
-        memset(&bufferDesc, 0, sizeof bufferDesc);
-        memset(&initialData, 0, sizeof initialData);
-        initialData.pSysMem = data;
-
-        bufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-        bufferDesc.CPUAccessFlags = (usage == USAGE_DYNAMIC) ? D3D11_CPU_ACCESS_WRITE : 0;
-        bufferDesc.Usage = (D3D11_USAGE)usage;
-        bufferDesc.ByteWidth = (unsigned)(numIndices * indexSize);
-
-        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->D3DDevice();
-        d3dDevice->CreateBuffer(&bufferDesc, data ? &initialData : nullptr, (ID3D11Buffer**)&buffer);
-
-        if (!buffer)
-        {
-            LOGERROR("Failed to create index buffer");
-            return false;
-        }
-        else
-            LOGDEBUGF("Created index buffer numIndices %u indexSize %u", (unsigned)numIndices, (unsigned)indexSize);
-    }
-
-    return true;
-}
-
 bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* data)
 {
     PROFILE(UpdateIndexBuffer);
@@ -160,6 +94,36 @@ bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* dat
 
             d3dDeviceContext->UpdateSubresource((ID3D11Buffer*)buffer, 0, &destBox, data, 0, 0);
         }
+    }
+
+    return true;
+}
+
+bool IndexBuffer::Create(const void* data)
+{
+    if (graphics && graphics->IsInitialized())
+    {
+        D3D11_BUFFER_DESC bufferDesc;
+        D3D11_SUBRESOURCE_DATA initialData;
+        memset(&bufferDesc, 0, sizeof bufferDesc);
+        memset(&initialData, 0, sizeof initialData);
+        initialData.pSysMem = data;
+
+        bufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+        bufferDesc.CPUAccessFlags = (usage == USAGE_DYNAMIC) ? D3D11_CPU_ACCESS_WRITE : 0;
+        bufferDesc.Usage = (D3D11_USAGE)usage;
+        bufferDesc.ByteWidth = (unsigned)(numIndices * indexSize);
+
+        ID3D11Device* d3dDevice = (ID3D11Device*)graphics->D3DDevice();
+        d3dDevice->CreateBuffer(&bufferDesc, data ? &initialData : nullptr, (ID3D11Buffer**)&buffer);
+
+        if (!buffer)
+        {
+            LOGERROR("Failed to create index buffer");
+            return false;
+        }
+        else
+            LOGDEBUGF("Created index buffer numIndices %u indexSize %u", (unsigned)numIndices, (unsigned)indexSize);
     }
 
     return true;
