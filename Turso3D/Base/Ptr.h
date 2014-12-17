@@ -32,7 +32,7 @@ struct TURSO3D_API RefCount
     bool expired;
 };
 
-/// Base class for intrusively reference counted objects that can be pointed to with Ptr and WeakPtr. These are not copy-constructible and not assignable.
+/// Base class for intrusively reference counted objects that can be pointed to with SharedPtr and WeakPtr. These are not copy-constructible and not assignable.
 class TURSO3D_API RefCounted
 {
 public:

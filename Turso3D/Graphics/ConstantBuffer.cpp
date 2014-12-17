@@ -56,20 +56,18 @@ bool ConstantBuffer::LoadJSON(const JSONValue& src)
     if (!Define(usage_, constants_))
         return false;
 
-    for (size_t i = 0; i < constants.Size(); ++i)
+    for (size_t i = 0; i < constants.Size() && i < jsonConstants.Size(); ++i)
     {
-        const Constant& constant = constants[i];
-        AttributeType attrType = elementToAttribute[constant.type];
-
         const JSONValue& value = jsonConstants[i]["value"];
-        unsigned char* dest = const_cast<unsigned char*>(ConstantData(i));
+        AttributeType attrType = elementToAttribute[constants[i].type];
+
         if (value.IsArray())
         {
             for (size_t j = 0; j < value.Size(); ++j)
-                Attribute::FromJSON(attrType, dest + j * constant.elementSize, value[j]);
+                Attribute::FromJSON(attrType, const_cast<void*>(ConstantValue(i, j)), value[j]);
         }
         else
-            Attribute::FromJSON(attrType, dest, value);
+            Attribute::FromJSON(attrType, const_cast<void*>(ConstantValue(i)), value);
     }
 
     dirty = true;
@@ -94,15 +92,13 @@ void ConstantBuffer::SaveJSON(JSONValue& dest)
         if (constant.numElements != 1)
             jsonConstant["numElements"] = (int)constant.numElements;
 
-        const unsigned char* source = ConstantData(i);
-        
         if (constant.numElements == 1)
-            Attribute::ToJSON(attrType, jsonConstant["value"], source);
+            Attribute::ToJSON(attrType, jsonConstant["value"], ConstantValue(i));
         else
         {
             jsonConstant["value"].Resize(constant.numElements);
             for (size_t j = 0; j < constant.numElements; ++j)
-                Attribute::ToJSON(attrType, jsonConstant["value"][j], source + j * constant.elementSize);
+                Attribute::ToJSON(attrType, jsonConstant["value"][j], ConstantValue(i, j));
         }
 
         dest["constants"].Push(jsonConstant);
@@ -220,19 +216,20 @@ size_t ConstantBuffer::FindConstantIndex(const char* name) const
     return NPOS;
 }
 
-const unsigned char* ConstantBuffer::ConstantData(size_t index) const
+const void* ConstantBuffer::ConstantValue(size_t index, size_t elementIndex) const
 {
-    return index < constants.Size() ? shadowData.Get() + constants[index].offset : nullptr;
+    return (index < constants.Size() && elementIndex < constants[index].numElements) ? shadowData.Get() + 
+        constants[index].offset + elementIndex * constants[index].elementSize : nullptr;
 }
 
-const unsigned char* ConstantBuffer::ConstantData(const String& name) const
+const void* ConstantBuffer::ConstantValue(const String& name, size_t elementIndex) const
 {
-    return ConstantData(FindConstantIndex(name));
+    return ConstantValue(FindConstantIndex(name), elementIndex);
 }
 
-const unsigned char* ConstantBuffer::ConstantData(const char* name) const
+const void* ConstantBuffer::ConstantValue(const char* name, size_t elementIndex) const
 {
-    return ConstantData(FindConstantIndex(name));
+    return ConstantValue(FindConstantIndex(name), elementIndex);
 }
 
 }

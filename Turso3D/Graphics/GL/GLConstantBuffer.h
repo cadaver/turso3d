@@ -54,12 +54,34 @@ public:
     size_t FindConstantIndex(const String& name) const;
     /// Return the index of a constant, or NPOS if not found.
     size_t FindConstantIndex(const char* name) const;
-    /// Return pointer to the constant value data, or null if not found.
-    const unsigned char* ConstantData(size_t index) const;
-    /// Return pointer to the constant value data, or null if not found.
-    const unsigned char* ConstantData(const String& name) const;
-    /// Return pointer to the constant value data, or null if not found.
-    const unsigned char* ConstantData(const char* name) const;
+    /// Return pointer to the constant value, or null if not found.
+    const void* ConstantValue(size_t index, size_t elementIndex = 0) const;
+    /// Return pointer to the constant value, or null if not found.
+    const void* ConstantValue(const String& name, size_t elementIndex = 0) const;
+    /// Return pointer to the constant value, or null if not found.
+    const void* ConstantValue(const char* name, size_t elementIndex = 0) const;
+
+    /// Return constant value, template version.
+    template <class T> T ConstantValue(size_t index, size_t elementIndex = 0) const
+    {
+        const void* value = ConstantValue(index, elementIndex);
+        return value ? *(reinterpret_cast<const T*>(value)) : T();
+    }
+
+    /// Return constant value, template version.
+    template <class T> T ConstantValue(const String& name, size_t elementIndex = 0) const
+    {
+        const void* value = ConstantValue(name, elementIndex);
+        return value ? *(reinterpret_cast<const T*>(value)) : T();
+    }
+
+    /// Return constant value, template version.
+    template <class T> T ConstantValue(const char* name, size_t elementIndex = 0) const
+    {
+        const void* value = ConstantValue(name, elementIndex);
+        return value ? *(reinterpret_cast<const T*>(value)) : T();
+    }
+
     /// Return total byte size of the buffer.
     size_t ByteSize() const { return byteSize; }
     /// Return whether buffer has unapplied changes.
