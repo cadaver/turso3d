@@ -1539,6 +1539,11 @@ size_t String::ListIndex(const char* value, const String* strings, size_t defaul
     return defaultIndex;
 }
 
+size_t String::ListIndex(const String& value, const char** strings, size_t defaultIndex, bool caseSensitive)
+{
+    return ListIndex(value.CString(), strings, defaultIndex, caseSensitive);
+}
+
 size_t String::ListIndex(const char* value, const char** strings, size_t defaultIndex, bool caseSensitive)
 {
     size_t i = 0;

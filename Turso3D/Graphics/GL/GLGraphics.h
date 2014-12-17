@@ -304,7 +304,7 @@ private:
     /// Depth write flag.
     bool depthWrite;
     /// Current depth testing function.
-    CompareMode depthFunc;
+    CompareFunc depthFunc;
     /// Current stencil enable flag.
     bool stencilEnable;
     /// Current stencil buffer read mask.
@@ -318,7 +318,7 @@ private:
     /// Current stencil operation on front face pass.
     StencilOp frontPass;
     /// Current stencil front face testing function.
-    CompareMode frontFunc;
+    CompareFunc frontFunc;
     /// Current stencil operation on back face fail.
     StencilOp backFail;
     /// Current stencil operation on back face depth fail.
@@ -326,7 +326,7 @@ private:
     /// Current stencil operation on back face pass.
     StencilOp backPass;
     /// Current stencil back face testing function.
-    CompareMode backFunc;
+    CompareFunc backFunc;
     /// Stencil ref value that is to be applied.
     unsigned char stencilRef;
     /// Current stencil ref value.

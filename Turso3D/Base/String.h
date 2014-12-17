@@ -327,7 +327,9 @@ public:
     static size_t ListIndex(const String& value, const String* strings, size_t defaultIndex, bool caseSensitive = false);
     /// Return an index to a string list corresponding to the given C string, or a default value if not found. The string list must be empty-terminated.
     static size_t ListIndex(const char* value, const String* strings, size_t defaultIndex, bool caseSensitive = false);
-    /// Return an index to a C string list corresponding to the given C string, or a default value if not found. The string list must be empty-terminated.
+    /// Return an index to a C string list corresponding to the given string, or a default value if not found. The string list must be null-terminated.
+    static size_t ListIndex(const String& value, const char** strings, size_t defaultIndex, bool caseSensitive = false);
+    /// Return an index to a C string list corresponding to the given C string, or a default value if not found. The string list must be null-terminated.
     static size_t ListIndex(const char* value, const char** strings, size_t defaultIndex, bool caseSensitive = false);
     /// Return a formatted string.
     static String Format(const char* formatString, ...);

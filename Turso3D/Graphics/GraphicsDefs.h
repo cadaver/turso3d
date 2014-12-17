@@ -132,7 +132,7 @@ enum CullMode
 };
 
 /// Depth or stencil compare modes.
-enum CompareMode
+enum CompareFunc
 {
     CMP_NEVER = 1,
     CMP_LESS,
@@ -276,5 +276,17 @@ extern TURSO3D_API const char* resourceUsageNames[];
 extern TURSO3D_API const char* elementTypeNames[];
 /// Vertex element semantic names.
 extern TURSO3D_API const char* elementSemanticNames[];
+/// Blend factor names.
+extern TURSO3D_API const char* blendFactorNames[];
+/// Blend operation names.
+extern TURSO3D_API const char* blendOpNames[];
+/// Fill mode names.
+extern TURSO3D_API const char* fillModeNames[];
+/// Culling mode names.
+extern TURSO3D_API const char* cullModeNames[];
+/// Compare function names.
+extern TURSO3D_API const char* compareFuncNames[];
+/// Stencil operation names.
+extern TURSO3D_API const char* stencilOpNames[];
 
 }

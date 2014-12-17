@@ -1,10 +1,10 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
-#include "../../Debug/Log.h"
-#include "../../Debug/Profiler.h"
+#include "../Debug/Log.h"
+#include "../Debug/Profiler.h"
 #include "IndexBuffer.h"
 
-#include "../../Debug/DebugNew.h"
+#include "../Debug/DebugNew.h"
 
 namespace Turso3D
 {

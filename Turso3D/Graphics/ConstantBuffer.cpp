@@ -25,15 +25,15 @@ static const AttributeType elementToAttribute[] =
     MAX_ATTR_TYPES
 };
 
-bool ConstantBuffer::LoadJSON(const JSONValue& src)
+bool ConstantBuffer::LoadJSON(const JSONValue& source)
 {
     ResourceUsage usage_ = USAGE_DEFAULT;
-    if (src.Contains("usage"))
-        usage_ = (ResourceUsage)String::ListIndex(src["usage"].GetString().CString(), resourceUsageNames, USAGE_DEFAULT);
+    if (source.Contains("usage"))
+        usage_ = (ResourceUsage)String::ListIndex(source["usage"].GetString(), resourceUsageNames, USAGE_DEFAULT);
 
     Vector<Constant> constants_;
 
-    const JSONValue& jsonConstants = src["constants"];
+    const JSONValue& jsonConstants = source["constants"];
     for (size_t i = 0; i < jsonConstants.Size(); ++i)
     {
         const JSONValue& jsonConstant = jsonConstants[i];
@@ -41,7 +41,7 @@ bool ConstantBuffer::LoadJSON(const JSONValue& src)
 
         Constant newConstant;
         newConstant.name = jsonConstant["name"].GetString();
-        newConstant.type = (ElementType)String::ListIndex(type.CString(), elementTypeNames, MAX_ELEMENT_TYPES);
+        newConstant.type = (ElementType)String::ListIndex(type, elementTypeNames, MAX_ELEMENT_TYPES);
         if (newConstant.type == MAX_ELEMENT_TYPES)
         {
             LOGERRORF("Unknown element type %s in constant buffer JSON", type.CString());

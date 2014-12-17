@@ -9,6 +9,8 @@
 namespace Turso3D
 {
 
+class JSONValue;
+
 /// GPU buffer for shader constant data.
 class TURSO3D_API ConstantBuffer : public RefCounted, public GPUObject
 {

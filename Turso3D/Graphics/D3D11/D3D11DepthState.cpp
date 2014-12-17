@@ -38,10 +38,10 @@ void DepthState::Release()
     }
 }
 
-bool DepthState::Define(bool depthEnable_, bool depthWrite_, CompareMode depthFunc_, bool stencilEnable_,
+bool DepthState::Define(bool depthEnable_, bool depthWrite_, CompareFunc depthFunc_, bool stencilEnable_,
     unsigned char stencilReadMask_, unsigned char stencilWriteMask_, StencilOp frontFail_, StencilOp frontDepthFail_,
-    StencilOp frontPass_, CompareMode frontFunc_, StencilOp backFail_, StencilOp backDepthFail_, StencilOp backPass_,
-    CompareMode backFunc_)
+    StencilOp frontPass_, CompareFunc frontFunc_, StencilOp backFail_, StencilOp backDepthFail_, StencilOp backPass_,
+    CompareFunc backFunc_)
 {
     PROFILE(DefineDepthState);
 

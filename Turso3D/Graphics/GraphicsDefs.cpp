@@ -55,4 +55,78 @@ const char* elementTypeNames[] =
     nullptr
 };
 
+const char* blendFactorNames[] =
+{
+    "",
+    "zero",
+    "one",
+    "srcColor",
+    "invSrcColor",
+    "srcAlpha",
+    "invSrcAlpha",
+    "destAlpha",
+    "invDestAlpha",
+    "destColor",
+    "invDestColor",
+    "srcAlphaSat",
+    nullptr
+};
+
+const char* blendOpNames[] =
+{
+    "",
+    "add",
+    "subtract",
+    "revSubtract",
+    "min",
+    "max",
+    nullptr
+};
+
+const char* fillModeNames[] =
+{
+    "",
+    "",
+    "wireframe",
+    "solid",
+    nullptr
+};
+
+const char* cullModeNames[] =
+{
+    "",
+    "none",
+    "front",
+    "back",
+    nullptr
+};
+
+const char* compareFuncNames[] =
+{
+    "",
+    "never",
+    "less",
+    "equal",
+    "lessEqual",
+    "greater",
+    "notEqual",
+    "greaterEqual",
+    "always",
+    nullptr
+};
+
+const char* stencilOpNames[] =
+{
+    "",
+    "keep",
+    "zero",
+    "replace",
+    "incrSat",
+    "descrSat",
+    "invert",
+    "incr",
+    "decr",
+    nullptr
+};
+
 }

@@ -2,11 +2,14 @@
 
 #pragma once
 
+#include "../../Math/Math.h"
 #include "../GPUObject.h"
 #include "../GraphicsDefs.h"
 
 namespace Turso3D
 {
+
+class JSONValue;
 
 /// Description of how to rasterize geometry into the framebuffer.
 class TURSO3D_API RasterizerState : public RefCounted, public GPUObject
@@ -20,6 +23,10 @@ public:
     /// Release the rasterizer state object.
     void Release() override;
 
+    /// Load from JSON data. Return true on success.
+    bool LoadJSON(const JSONValue& source);
+    /// Save as JSON data.
+    void SaveJSON(JSONValue& dest);
     /// Define parameters and create the rasterizer state object. The existing state object (if any) will be destroyed. Return true on success.
     bool Define(FillMode fillMode = FILL_SOLID, CullMode cullMode = CULL_BACK, int depthBias = 0, float depthBiasClamp = M_INFINITY, float slopeScaledDepthBias = 0.0f, bool depthClipEnable = true, bool scissorEnable = false);
 
