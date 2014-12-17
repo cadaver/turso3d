@@ -763,7 +763,7 @@ void Graphics::PrepareDraw(PrimitiveType type)
                     {
                         const VertexElement& element = elements[j];
                         D3D11_INPUT_ELEMENT_DESC newDesc;
-                        newDesc.SemanticName = VertexBuffer::elementSemantics[element.semantic];
+                        newDesc.SemanticName = elementSemanticNames[element.semantic];
                         newDesc.SemanticIndex = element.index;
                         newDesc.Format = d3dElementFormats[element.type];
                         newDesc.InputSlot = (unsigned)i;

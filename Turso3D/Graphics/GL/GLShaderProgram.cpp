@@ -111,18 +111,16 @@ bool ShaderProgram::Link()
         newAttribute.semantic = SEM_POSITION;
         newAttribute.index = 0;
 
-        const char** semantics = VertexBuffer::elementSemantics;
-        while (*semantics)
+        for (size_t j = 0; elementSemanticNames[j]; ++j)
         {
-            if (newAttribute.name.StartsWith(*semantics, false))
+            if (newAttribute.name.StartsWith(elementSemanticNames[j], false))
             {
-                String indexStr = newAttribute.name.Substring(String::CStringLength(*semantics));
+                String indexStr = newAttribute.name.Substring(String::CStringLength(elementSemanticNames[j]));
                 if (indexStr.Length())
                     newAttribute.index = (unsigned char)indexStr.ToInt();
                 break;
             }
             newAttribute.semantic = (ElementSemantic)(newAttribute.semantic + 1);
-            ++semantics;
         }
 
         if (newAttribute.semantic == MAX_ELEMENT_SEMANTICS)

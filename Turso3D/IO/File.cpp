@@ -11,7 +11,7 @@ namespace Turso3D
 {
 
 #ifdef _WIN32
-static const wchar_t* openMode[] =
+static const wchar_t* openModes[] =
 {
     L"rb",
     L"wb",
@@ -19,7 +19,7 @@ static const wchar_t* openMode[] =
     L"w+b"
 };
 #else
-static const char* openMode[] =
+static const char* openModes[] =
 {
     "rb",
     "wb",
@@ -58,18 +58,18 @@ bool File::Open(const String& fileName, FileMode fileMode)
         return false;
     
     #ifdef _WIN32
-    handle = _wfopen(WideNativePath(fileName).CString(), openMode[fileMode]);
+    handle = _wfopen(WideNativePath(fileName).CString(), openModes[fileMode]);
     #else
-    handle = fopen(NativePath(fileName).CString(), openMode[fileMode]);
+    handle = fopen(NativePath(fileName).CString(), openModes[fileMode]);
     #endif
 
     // If file did not exist in readwrite mode, retry with write-update mode
     if (mode == FILE_READWRITE && !handle)
     {
         #ifdef _WIN32
-        handle = _wfopen(WideNativePath(fileName).CString(), openMode[fileMode + 1]);
+        handle = _wfopen(WideNativePath(fileName).CString(), openModes[fileMode + 1]);
         #else
-        handle = fopen(NativePath(fileName).CString(), openMode[fileMode + 1]);
+        handle = fopen(NativePath(fileName).CString(), openModes[fileMode + 1]);
         #endif
     }
     

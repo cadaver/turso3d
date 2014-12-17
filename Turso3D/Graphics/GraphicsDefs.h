@@ -17,6 +17,28 @@ static const unsigned CLEAR_STENCIL = 4;
 /// Clear color+depth+stencil.
 static const unsigned CLEAR_ALL = 7;
 
+/// Maximum simultaneous vertex buffers.
+static const size_t MAX_VERTEX_STREAMS = 4;
+/// Maximum simultaneous constant buffers.
+static const size_t MAX_CONSTANT_BUFFERS = 15;
+/// Maximum number of textures in use at once.
+static const size_t MAX_TEXTURE_UNITS = 16;
+/// Maximum number of color rendertargets in use at once.
+static const size_t MAX_RENDERTARGETS = 4;
+
+/// Disable color write.
+static const unsigned char COLORMASK_NONE = 0x0;
+/// Write to red channel.
+static const unsigned char COLORMASK_R = 0x1;
+/// Write to green channel.
+static const unsigned char COLORMASK_G = 0x2;
+/// Write to blue channel.
+static const unsigned char COLORMASK_B = 0x4;
+/// Write to alpha channel.
+static const unsigned char COLORMASK_A = 0x8;
+/// Write to all color channels (default.)
+static const unsigned char COLORMASK_ALL = 0xf;
+
 /// Shader stages.
 enum ShaderStage
 {
@@ -36,7 +58,7 @@ enum ElementType
     ELEM_UBYTE4,
     ELEM_MATRIX3X4,
     ELEM_MATRIX4,
-    NUM_ELEMENT_TYPES
+    MAX_ELEMENT_TYPES
 };
 
 /// Element semantics for vertex elements.
@@ -246,16 +268,13 @@ struct TURSO3D_API Constant
     size_t offset;
 };
 
-static const size_t MAX_VERTEX_STREAMS = 4;
-static const size_t MAX_CONSTANT_BUFFERS = 15;
-static const size_t MAX_TEXTURE_UNITS = 16;
-static const size_t MAX_RENDERTARGETS = 4;
-
-static const unsigned char COLORMASK_NONE = 0x0;
-static const unsigned char COLORMASK_R = 0x1;
-static const unsigned char COLORMASK_G = 0x2;
-static const unsigned char COLORMASK_B = 0x4;
-static const unsigned char COLORMASK_A = 0x8;
-static const unsigned char COLORMASK_ALL = 0xf;
+/// Vertex element sizes by element type.
+extern TURSO3D_API const size_t elementSizes[];
+/// Resource usage names.
+extern TURSO3D_API const char* resourceUsageNames[];
+/// Element type names.
+extern TURSO3D_API const char* elementTypeNames[];
+/// Vertex element semantic names.
+extern TURSO3D_API const char* elementSemanticNames[];
 
 }

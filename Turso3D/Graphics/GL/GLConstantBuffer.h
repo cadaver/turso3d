@@ -23,33 +23,39 @@ public:
     /// Recreate the GPU resource after data loss.
     void Recreate() override;
 
+    /// Load from JSON data. Return true on success.
+    bool LoadJSON(const JSONValue& source);
+    /// Save as JSON data.
+    void SaveJSON(JSONValue& dest);
     /// Define the constants being used and create the GPU-side buffer. Return true on success.
     bool Define(ResourceUsage usage, const Vector<Constant>& srcConstants);
     /// Define the constants being used and create the GPU-side buffer. Return true on success.
     bool Define(ResourceUsage usage, size_t numConstants, const Constant* srcConstants);
     /// Set a constant by index. Optionally specify how many elements to update, default all. Return true on success.
-    bool SetConstant(size_t index, void* data, size_t numElements = 0);
+    bool SetConstant(size_t index, const void* data, size_t numElements = 0);
     /// Set a constant by name. Optionally specify how many elements to update, default all. Return true on success.
-    bool SetConstant(const String& name, void* data, size_t numElements = 0);
+    bool SetConstant(const String& name, const void* data, size_t numElements = 0);
     /// Set a constant by name. Optionally specify how many elements to update, default all. Return true on success.
-    bool SetConstant(const char* name, void* data, size_t numElements = 0);
+    bool SetConstant(const char* name, const void* data, size_t numElements = 0);
     /// Apply to the GPU-side buffer if has changes. Can only be used once on an immutable buffer. Return true on success.
     bool Apply();
     /// Set a constant by index, template version.
-    template <class T> bool SetConstant(size_t index, const T& data, size_t numElements = 0) { return SetConstant(index, (void*)&data, numElements); }
+    template <class T> bool SetConstant(size_t index, const T& data, size_t numElements = 0) { return SetConstant(index, (const void*)&data, numElements); }
     /// Set a constant by name, template version.
-    template <class T> bool SetConstant(const String& name, const T& data, size_t numElements = 0) { return SetConstant(name, (void*)&data, numElements); }
+    template <class T> bool SetConstant(const String& name, const T& data, size_t numElements = 0) { return SetConstant(name, (const void*)&data, numElements); }
     /// Set a constant by name, template version.
-    template <class T> bool SetConstant(const char* name, const T& data, size_t numElements = 0) { return SetConstant(name, (void*)&data, numElements); }
+    template <class T> bool SetConstant(const char* name, const T& data, size_t numElements = 0) { return SetConstant(name, (const void*)&data, numElements); }
 
     /// Return number of constants.
     size_t NumConstants() const { return constants.Size(); }
     /// Return the constant descriptions.
     const Vector<Constant>& Constants() const { return constants; }
     /// Return the index of a constant, or NPOS if not found.
-    size_t FindConstantIndex(const String& name);
+    size_t FindConstantIndex(const String& name) const;
     /// Return the index of a constant, or NPOS if not found.
-    size_t FindConstantIndex(const char* name);
+    size_t FindConstantIndex(const char* name) const;
+    /// Return pointer to the constant value data, or null if not found.
+    const void* ConstantData(size_t index) const;
     /// Return total byte size of the buffer.
     size_t ByteSize() const { return byteSize; }
     /// Return whether buffer has unapplied changes.
@@ -64,8 +70,6 @@ public:
     /// Return the OpenGL buffer identifier. Used internally and should not be called by portable application code.
     unsigned GLBuffer() const { return buffer; }
 
-    /// Element sizes by type.
-    static const size_t elementSizes[];
     /// Index for "constant not found."
     static const size_t NPOS = (size_t)-1;
 

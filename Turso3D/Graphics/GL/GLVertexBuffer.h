@@ -56,12 +56,10 @@ public:
     /// Compute the hash code of one vertex element by index and semantic.
     static unsigned ElementHash(size_t index, ElementSemantic semantic) { return (semantic + 1) << (index * 3); }
 
-    /// Vertex element size by element type.
-    static const size_t elementSizes[];
     /// Vertex element D3D11 format by element type.
     static const unsigned elementFormats[];
-    /// Vertex element D3D11 semantic by element semantic.
-    static const char* elementSemantics[];
+    /// Vertex element semantic names.
+    static const char* elementSemanticNames[];
 
 private:
     /// OpenGL buffer object identifier.

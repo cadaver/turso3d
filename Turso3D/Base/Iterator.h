@@ -10,15 +10,15 @@ namespace Turso3D
 {
 
 /// Random access iterator.
-template <class T> struct TURSO3D_API RandomAccessIterator
+template <class T> struct RandomAccessIterator
 {
-    /// Construct with a null pointer.
+    /// Construct a null iterator.
     RandomAccessIterator() :
         ptr(nullptr)
     {
     }
 
-    /// Construct with an object pointer.
+    /// Construct from a raw pointer.
     explicit RandomAccessIterator(T* ptr_) :
         ptr(ptr_)
     {
@@ -72,15 +72,15 @@ template <class T> struct TURSO3D_API RandomAccessIterator
 };
 
 /// Random access const iterator.
-template <class T> struct TURSO3D_API RandomAccessConstIterator
+template <class T> struct RandomAccessConstIterator
 {
-    /// Construct.
+    /// Construct a null iterator.
     RandomAccessConstIterator() :
         ptr(nullptr)
     {
     }
 
-    /// Construct with an object pointer.
+    /// Construct from a raw pointer.
     explicit RandomAccessConstIterator(T* ptr_) :
         ptr(ptr_)
     {

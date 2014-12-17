@@ -190,7 +190,7 @@ JSONValue& JSONValue::operator [] (size_t index)
 
 const JSONValue& JSONValue::operator [] (size_t index) const
 {
-    if (type == JSON_OBJECT)
+    if (type == JSON_ARRAY)
         return (*(reinterpret_cast<const JSONArray*>(&data)))[index];
     else
         return EMPTY;
