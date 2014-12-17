@@ -4,13 +4,68 @@
 #include "../IO/ObjectRef.h"
 #include "../IO/ResourceRef.h"
 #include "../Math/BoundingBox.h"
-#include "../Math/Quaternion.h"
+#include "../Math/Color.h"
+#include "../Math/IntRect.h"
+#include "../Math/Matrix3x4.h"
 #include "Attribute.h"
 
 #include "../Debug/DebugNew.h"
 
 namespace Turso3D
 {
+
+const String Attribute::typeNames[] =
+{
+    "bool",
+    "byte",
+    "unsigned",
+    "int",
+    "IntVector2",
+    "IntRect",
+    "float",
+    "Vector2",
+    "Vector3",
+    "Vector4",
+    "Quaternion",
+    "Color",
+    "Rect",
+    "BoundingBox",
+    "Matrix3",
+    "Matrix3x4",
+    "Matrix4",
+    "String",
+    "ResourceRef",
+    "ResourceRefList",
+    "ObjectRef",
+    "JSONValue",
+    ""
+};
+
+const size_t Attribute::byteSizes[] =
+{
+    sizeof(bool),
+    sizeof(unsigned char),
+    sizeof(unsigned),
+    sizeof(int),
+    sizeof(IntVector2),
+    sizeof(IntRect),
+    sizeof(float),
+    sizeof(Vector2),
+    sizeof(Vector3),
+    sizeof(Quaternion),
+    sizeof(Color),
+    sizeof(Rect),
+    sizeof(BoundingBox),
+    sizeof(Matrix3),
+    sizeof(Matrix3x4),
+    sizeof(Matrix4),
+    0,
+    0,
+    0,
+    sizeof(unsigned),
+    0,
+    0
+};
 
 AttributeAccessor::~AttributeAccessor()
 {
@@ -35,52 +90,18 @@ void Attribute::ToValue(Serializable* instance, void* dest)
 
 void Attribute::Skip(AttributeType type, Stream& source)
 {
+    if (byteSizes[type])
+    {
+        source.Seek(source.Position() + byteSizes[type]);
+        return;
+    }
+
     switch (type)
     {
-    case ATTR_BOOL:
-        source.Read<bool>();
-        break;
-
-    case ATTR_INT:
-        source.Read<int>();
-        break;
-
-    case ATTR_UNSIGNED:
-        source.Read<unsigned>();
-        break;
-        
-    case ATTR_BYTE:
-        source.Read<unsigned char>();
-        break;
-
-    case ATTR_FLOAT:
-        source.Read<float>();
-        break;
-
     case ATTR_STRING:
         source.Read<String>();
         break;
 
-    case ATTR_VECTOR2:
-        source.Read<Vector2>();
-        break;
-
-    case ATTR_VECTOR3:
-        source.Read<Vector3>();
-        break;
-        
-    case ATTR_VECTOR4:
-        source.Read<Vector4>();
-        break;
-        
-    case ATTR_QUATERNION:
-        source.Read<Quaternion>();
-        break;
-        
-    case ATTR_BOUNDINGBOX:
-        source.Read<BoundingBox>();
-        break;
-        
     case ATTR_RESOURCEREF:
         source.Read<ResourceRef>();
         break;
@@ -102,154 +123,218 @@ void Attribute::Skip(AttributeType type, Stream& source)
     }
 }
 
-template<> TURSO3D_API void AttributeImpl<bool>::FromJSON(Serializable* instance, const JSONValue& source)
+const String& Attribute::TypeName() const
 {
-    SetValue(instance, source.GetBool());
+    return typeNames[Type()];
 }
 
-template<> TURSO3D_API void AttributeImpl<int>::FromJSON(Serializable* instance, const JSONValue& source)
+size_t Attribute::ByteSize() const
 {
-    SetValue(instance, (int)source.GetNumber());
+    return byteSizes[Type()];
 }
 
-template<> TURSO3D_API void AttributeImpl<unsigned>::FromJSON(Serializable* instance, const JSONValue& source)
+void Attribute::FromJSON(AttributeType type, void* dest, const JSONValue& source)
 {
-    SetValue(instance, (unsigned)source.GetNumber());
+    switch (type)
+    {
+    case ATTR_BOOL:
+        *(reinterpret_cast<bool*>(dest)) = source.GetBool();
+        break;
+
+    case ATTR_BYTE:
+        *(reinterpret_cast<unsigned char*>(dest)) = (unsigned char)source.GetNumber();
+        break;
+
+    case ATTR_UNSIGNED:
+        *(reinterpret_cast<unsigned*>(dest)) = (unsigned)source.GetNumber();
+        break;
+
+    case ATTR_INT:
+        *(reinterpret_cast<int*>(dest)) = (int)source.GetNumber();
+        break;
+
+    case ATTR_INTVECTOR2:
+        reinterpret_cast<IntVector2*>(dest)->FromString(source.GetString());
+        break;
+
+    case ATTR_INTRECT:
+        reinterpret_cast<IntRect*>(dest)->FromString(source.GetString());
+        break;
+
+    case ATTR_FLOAT:
+        *(reinterpret_cast<float*>(dest)) = (float)source.GetNumber();
+        break;
+
+    case ATTR_VECTOR2:
+        reinterpret_cast<Vector2*>(dest)->FromString(source.GetString());
+        break;
+
+    case ATTR_VECTOR3:
+        reinterpret_cast<Vector3*>(dest)->FromString(source.GetString());
+        break;
+
+    case ATTR_VECTOR4:
+        reinterpret_cast<Vector4*>(dest)->FromString(source.GetString());
+        break;
+
+    case ATTR_QUATERNION:
+        reinterpret_cast<Vector4*>(dest)->FromString(source.GetString());
+        break;
+
+    case ATTR_COLOR:
+        reinterpret_cast<Color*>(dest)->FromString(source.GetString());
+        break;
+
+    case ATTR_RECT:
+        reinterpret_cast<Rect*>(dest)->FromString(source.GetString());
+        break;
+
+    case ATTR_BOUNDINGBOX:
+        reinterpret_cast<Rect*>(dest)->FromString(source.GetString());
+        break;
+
+    case ATTR_MATRIX3:
+        reinterpret_cast<Matrix3*>(dest)->FromString(source.GetString());
+        break;
+
+    case ATTR_MATRIX3X4:
+        reinterpret_cast<Matrix3x4*>(dest)->FromString(source.GetString());
+        break;
+
+    case ATTR_MATRIX4:
+        reinterpret_cast<Matrix4*>(dest)->FromString(source.GetString());
+        break;
+
+    case ATTR_STRING:
+        *(reinterpret_cast<String*>(dest)) = source.GetString();
+        break;
+
+    case ATTR_RESOURCEREF:
+        reinterpret_cast<ResourceRef*>(dest)->FromString(source.GetString());
+        break;
+
+    case ATTR_RESOURCEREFLIST:
+        reinterpret_cast<ResourceRefList*>(dest)->FromString(source.GetString());
+        break;
+
+    case ATTR_OBJECTREF:
+        reinterpret_cast<ObjectRef*>(dest)->id = (unsigned)source.GetNumber();
+        break;
+
+    case ATTR_JSONVALUE:
+        *(reinterpret_cast<JSONValue*>(dest)) = source;
+        break;
+
+    default:
+        break;
+    }
 }
 
-template<> TURSO3D_API void AttributeImpl<unsigned char>::FromJSON(Serializable* instance, const JSONValue& source)
+void Attribute::ToJSON(AttributeType type, JSONValue& dest, const void* source)
 {
-    SetValue(instance, (unsigned char)source.GetNumber());
+    switch (type)
+    {
+    case ATTR_BOOL:
+        dest = *(reinterpret_cast<const bool*>(source));
+        break;
+
+    case ATTR_BYTE:
+        dest = *(reinterpret_cast<const unsigned char*>(source));
+        break;
+
+    case ATTR_UNSIGNED:
+        dest = *(reinterpret_cast<const unsigned*>(source));
+        break;
+
+    case ATTR_INT:
+        dest = *(reinterpret_cast<const int*>(source));
+        break;
+
+    case ATTR_INTVECTOR2:
+        dest = reinterpret_cast<const IntVector2*>(source)->ToString();
+        break;
+
+    case ATTR_INTRECT:
+        dest = reinterpret_cast<const IntRect*>(source)->ToString();
+        break;
+
+    case ATTR_FLOAT:
+        dest = *(reinterpret_cast<const float*>(source));
+        break;
+
+    case ATTR_VECTOR2:
+        dest = reinterpret_cast<const Vector2*>(source)->ToString();
+        break;
+
+    case ATTR_VECTOR3:
+        dest = reinterpret_cast<const Vector3*>(source)->ToString();
+        break;
+
+    case ATTR_VECTOR4:
+        dest = reinterpret_cast<const Vector4*>(source)->ToString();
+        break;
+
+    case ATTR_QUATERNION:
+        dest = reinterpret_cast<const Quaternion*>(source)->ToString();
+        break;
+
+    case ATTR_COLOR:
+        dest = reinterpret_cast<const Color*>(source)->ToString();
+        break;
+
+    case ATTR_RECT:
+        dest = reinterpret_cast<const Rect*>(source)->ToString();
+        break;
+
+    case ATTR_BOUNDINGBOX:
+        dest = reinterpret_cast<const BoundingBox*>(source)->ToString();
+        break;
+
+    case ATTR_MATRIX3:
+        dest = reinterpret_cast<const Matrix3*>(source)->ToString();
+        break;
+
+    case ATTR_MATRIX3X4:
+        dest = reinterpret_cast<const Matrix3x4*>(source)->ToString();
+        break;
+
+    case ATTR_MATRIX4:
+        dest = reinterpret_cast<const Matrix4*>(source)->ToString();
+        break;
+
+    case ATTR_STRING:
+        dest = *(reinterpret_cast<const String*>(source));
+        break;
+
+    case ATTR_RESOURCEREF:
+        dest = reinterpret_cast<const ResourceRef*>(source)->ToString();
+        break;
+
+    case ATTR_RESOURCEREFLIST:
+        dest = reinterpret_cast<const ResourceRefList*>(source)->ToString();
+        break;
+
+    case ATTR_OBJECTREF:
+        dest = reinterpret_cast<const ObjectRef*>(source)->id;
+        break;
+
+    case ATTR_JSONVALUE:
+        dest = *(reinterpret_cast<const JSONValue*>(source));
+        break;
+
+    default:
+        break;
+    }
 }
 
-template<> TURSO3D_API void AttributeImpl<float>::FromJSON(Serializable* instance, const JSONValue& source)
+AttributeType Attribute::TypeFromName(const String& name)
 {
-    SetValue(instance, (float)source.GetNumber());
+    return (AttributeType)String::ListIndex(name, &typeNames[0], MAX_ATTR_TYPES);
 }
 
-template<> TURSO3D_API void AttributeImpl<String>::FromJSON(Serializable* instance, const JSONValue& source)
+AttributeType Attribute::TypeFromName(const char* name)
 {
-    SetValue(instance, source.GetString());
-}
-
-template<> TURSO3D_API void AttributeImpl<Vector2>::FromJSON(Serializable* instance, const JSONValue& source)
-{
-    SetValue(instance, Vector2(source.GetString()));
-}
-
-template<> TURSO3D_API void AttributeImpl<Vector3>::FromJSON(Serializable* instance, const JSONValue& source)
-{
-    SetValue(instance, Vector3(source.GetString()));
-}
-
-template<> TURSO3D_API void AttributeImpl<Vector4>::FromJSON(Serializable* instance, const JSONValue& source)
-{
-    SetValue(instance, Vector4(source.GetString()));
-}
-
-template<> TURSO3D_API void AttributeImpl<Quaternion>::FromJSON(Serializable* instance, const JSONValue& source)
-{
-    SetValue(instance, Quaternion(source.GetString()));
-}
-
-template<> TURSO3D_API void AttributeImpl<BoundingBox>::FromJSON(Serializable* instance, const JSONValue& source)
-{
-    SetValue(instance, BoundingBox(source.GetString()));
-}
-
-template<> TURSO3D_API void AttributeImpl<ResourceRef>::FromJSON(Serializable* instance, const JSONValue& source)
-{
-    SetValue(instance, ResourceRef(source.GetString()));
-}
-
-template<> TURSO3D_API void AttributeImpl<ResourceRefList>::FromJSON(Serializable* instance, const JSONValue& source)
-{
-    SetValue(instance, ResourceRefList(source.GetString()));
-}
-
-template<> TURSO3D_API void AttributeImpl<ObjectRef>::FromJSON(Serializable* instance, const JSONValue& source)
-{
-    SetValue(instance, ObjectRef((unsigned)source.GetNumber()));
-}
-
-template<> TURSO3D_API void AttributeImpl<JSONValue>::FromJSON(Serializable* instance, const JSONValue& source)
-{
-    SetValue(instance, source);
-}
-
-template<> TURSO3D_API void AttributeImpl<bool>::ToJSON(Serializable* instance, JSONValue& dest)
-{
-    dest = Value(instance);
-}
-
-template<> TURSO3D_API void AttributeImpl<int>::ToJSON(Serializable* instance, JSONValue& dest)
-{
-    dest = Value(instance);
-}
-
-template<> TURSO3D_API void AttributeImpl<unsigned>::ToJSON(Serializable* instance, JSONValue& dest)
-{
-    dest = Value(instance);
-}
-
-template<> TURSO3D_API void AttributeImpl<unsigned char>::ToJSON(Serializable* instance, JSONValue& dest)
-{
-    dest = Value(instance);
-}
-
-template<> TURSO3D_API void AttributeImpl<float>::ToJSON(Serializable* instance, JSONValue& dest)
-{
-    dest = Value(instance);
-}
-
-template<> TURSO3D_API void AttributeImpl<String>::ToJSON(Serializable* instance, JSONValue& dest)
-{
-    dest = Value(instance);
-}
-
-template<> TURSO3D_API void AttributeImpl<Vector2>::ToJSON(Serializable* instance, JSONValue& dest)
-{
-    dest = Value(instance).ToString();
-}
-
-template<> TURSO3D_API void AttributeImpl<Vector3>::ToJSON(Serializable* instance, JSONValue& dest)
-{
-    dest = Value(instance).ToString();
-}
-
-template<> TURSO3D_API void AttributeImpl<Vector4>::ToJSON(Serializable* instance, JSONValue& dest)
-{
-    dest = Value(instance).ToString();
-}
-
-template<> TURSO3D_API void AttributeImpl<Quaternion>::ToJSON(Serializable* instance, JSONValue& dest)
-{
-    dest = Value(instance).ToString();
-}
-
-template<> TURSO3D_API void AttributeImpl<BoundingBox>::ToJSON(Serializable* instance, JSONValue& dest)
-{
-    dest = Value(instance).ToString();
-}
-
-template<> TURSO3D_API void AttributeImpl<ResourceRef>::ToJSON(Serializable* instance, JSONValue& dest)
-{
-    dest = Value(instance).ToString();
-}
-
-template<> TURSO3D_API void AttributeImpl<ResourceRefList>::ToJSON(Serializable* instance, JSONValue& dest)
-{
-    dest = Value(instance).ToString();
-}
-
-template<> TURSO3D_API void AttributeImpl<ObjectRef>::ToJSON(Serializable* instance, JSONValue& dest)
-{
-    dest = Value(instance).id;
-}
-
-template<> TURSO3D_API void AttributeImpl<JSONValue>::ToJSON(Serializable* instance, JSONValue& dest)
-{
-    dest = Value(instance);
+    return (AttributeType)String::ListIndex(name, &typeNames[0], MAX_ATTR_TYPES);
 }
 
 template<> TURSO3D_API AttributeType AttributeImpl<bool>::Type() const

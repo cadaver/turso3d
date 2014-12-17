@@ -16,22 +16,29 @@ class Stream;
 /// Supported attribute types.
 enum AttributeType
 {
-    ATTR_NONE = 0,
-    ATTR_BOOL,
-    ATTR_INT,
-    ATTR_UNSIGNED,
+    ATTR_BOOL = 0,
     ATTR_BYTE,
+    ATTR_UNSIGNED,
+    ATTR_INT,
+    ATTR_INTVECTOR2,
+    ATTR_INTRECT,
     ATTR_FLOAT,
-    ATTR_STRING,
     ATTR_VECTOR2,
     ATTR_VECTOR3,
     ATTR_VECTOR4,
     ATTR_QUATERNION,
+    ATTR_COLOR,
+    ATTR_RECT,
     ATTR_BOUNDINGBOX,
+    ATTR_MATRIX3,
+    ATTR_MATRIX3X4,
+    ATTR_MATRIX4,
+    ATTR_STRING,
     ATTR_RESOURCEREF,
     ATTR_RESOURCEREFLIST,
     ATTR_OBJECTREF,
-    ATTR_JSONVALUE
+    ATTR_JSONVALUE,
+    MAX_ATTR_TYPES
 };
 
 /// Helper class for accessing serializable variables via getter and setter functions.
@@ -76,10 +83,27 @@ public:
     const String& Name() const { return name; }
     /// Return zero-based enum names, or null if none.
     const char** EnumNames() const { return enumNames; }
+    /// Return type name.
+    const String& TypeName() const;
+    /// Return byte size of the attribute data, or 0 if it can be variable.
+    size_t ByteSize() const;
     
     /// Skip binary data of an attribute.
     static void Skip(AttributeType type, Stream& source);
+    /// Serialize attribute value to JSON.
+    static void ToJSON(AttributeType type, JSONValue& dest, const void* source);
+    /// Deserialize attribute value from JSON.
+    static void FromJSON(AttributeType type, void* dest, const JSONValue& source);
+    /// Return attribute type from type name.
+    static AttributeType TypeFromName(const String& name);
+    /// Return attribute type from type name.
+    static AttributeType TypeFromName(const char* name);
     
+    /// Type names.
+    static const String typeNames[];
+    /// Attribute byte sizes.
+    static const size_t byteSizes[];
+
 protected:
     /// Variable name.
     String name;
@@ -110,14 +134,14 @@ public:
     void FromBinary(Serializable* instance, Stream& source) override
     {
         T value = source.Read<T>();
-        FromValue(instance, &value);
+        accessor->Set(instance, &value);
     }
     
     /// Serialize to binary.
     void ToBinary(Serializable* instance, Stream& dest) override
     {
         T value;
-        ToValue(instance, &value);
+        accessor->Get(instance, &value);
         dest.Write<T>(value);
     }
     
@@ -125,9 +149,21 @@ public:
     bool IsDefault(Serializable* instance) override { return Value(instance) == defaultValue; }
     
     /// Deserialize from JSON.
-    void FromJSON(Serializable* instance, const JSONValue& source) override;
+    void FromJSON(Serializable* instance, const JSONValue& source) override
+    {
+        T value;
+        Attribute::FromJSON(Type(), &value, source);
+        accessor->Set(instance, &value);
+    }
+
     /// Serialize to JSON.
-    void ToJSON(Serializable* instance, JSONValue& dest) override;
+    void ToJSON(Serializable* instance, JSONValue& dest) override
+    {
+        T value;
+        accessor->Get(instance, &value);
+        Attribute::ToJSON(Type(), dest, &value);
+    }
+
     /// Return type.
     AttributeType Type() const override;
     

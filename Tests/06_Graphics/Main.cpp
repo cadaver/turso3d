@@ -68,7 +68,7 @@ public:
         pcb->Define(USAGE_IMMUTABLE, 1, &pc);
         pcb->SetConstant("Color", Color::WHITE);
         pcb->Apply();
-
+        
         String vsCode =
 #ifndef TURSO3D_OPENGL
             "struct VOut\n"

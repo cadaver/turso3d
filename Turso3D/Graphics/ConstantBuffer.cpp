@@ -4,6 +4,7 @@
 #include "../Debug/Profiler.h"
 #include "../IO/JSONValue.h"
 #include "../Math/Matrix3x4.h"
+#include "../Object/Attribute.h"
 #include "ConstantBuffer.h"
 #include "GraphicsDefs.h"
 
@@ -12,56 +13,18 @@
 namespace Turso3D
 {
 
-template <class T> void SetConstantFromJSON(ConstantBuffer* target, size_t index, const JSONValue& src)
+static const AttributeType elementToAttribute[] =
 {
-    if (!src.IsArray())
-    {
-        T value;
-        value.FromString(src.GetString());
-        target->SetConstant(index, (const void*)(&value));
-    }
-    else
-    {
-        Vector<T> values(src.Size());
-        for (size_t i = 0; i < src.Size(); ++i)
-            values[i].FromString(src[i].GetString());
-        target->SetConstant(index, (const void*)(&values[0]));
-    }
-}
-
-template<> void SetConstantFromJSON<int>(ConstantBuffer* target, size_t index, const JSONValue& src)
-{
-    if (!src.IsArray())
-    {
-        int value;
-        value = (int)src.GetNumber();
-        target->SetConstant(index, (const void*)(&value));
-    }
-    else
-    {
-        Vector<int> values(src.Size());
-        for (size_t i = 0; i < src.Size(); ++i)
-            values[i] = (int)src[i].GetNumber();
-        target->SetConstant(index, (const void*)(&values[0]));
-    }
-}
-
-template<> void SetConstantFromJSON<float>(ConstantBuffer* target, size_t index, const JSONValue& src)
-{
-    if (!src.IsArray())
-    {
-        int value;
-        value = (int)src.GetNumber();
-        target->SetConstant(index, (const void*)(&value));
-    }
-    else
-    {
-        Vector<int> values(src.Size());
-        for (size_t i = 0; i < src.Size(); ++i)
-            values[i] = (int)src[i].GetNumber();
-        target->SetConstant(index, (const void*)(&values[0]));
-    }
-}
+    ATTR_INT,
+    ATTR_FLOAT,
+    ATTR_VECTOR2,
+    ATTR_VECTOR3,
+    ATTR_VECTOR4,
+    MAX_ATTR_TYPES,
+    ATTR_MATRIX3X4,
+    ATTR_MATRIX4,
+    MAX_ATTR_TYPES
+};
 
 bool ConstantBuffer::LoadJSON(const JSONValue& src)
 {
@@ -75,13 +38,14 @@ bool ConstantBuffer::LoadJSON(const JSONValue& src)
     for (size_t i = 0; i < jsonConstants.Size(); ++i)
     {
         const JSONValue& jsonConstant = jsonConstants[i];
+        const String& type = jsonConstant["type"].GetString();
 
         Constant newConstant;
         newConstant.name = jsonConstant["name"].GetString();
-        newConstant.type = (ElementType)String::ListIndex(jsonConstant["type"].GetString().CString(), elementTypeNames, MAX_ELEMENT_TYPES);
+        newConstant.type = (ElementType)String::ListIndex(type.CString(), elementTypeNames, MAX_ELEMENT_TYPES);
         if (newConstant.type == MAX_ELEMENT_TYPES)
         {
-            LOGERRORF("Unknown element type %s in constant buffer JSON", jsonConstant["type"].GetString().CString());
+            LOGERRORF("Unknown element type %s in constant buffer JSON", type.CString());
             break;
         }
         if (jsonConstant.Contains("numElements"))
@@ -93,42 +57,23 @@ bool ConstantBuffer::LoadJSON(const JSONValue& src)
     if (!Define(usage_, constants_))
         return false;
 
-    for (size_t i = 0; i < constants_.Size(); ++i)
+    for (size_t i = 0; i < constants.Size(); ++i)
     {
+        const Constant& constant = constants[i];
+        AttributeType attrType = elementToAttribute[constant.type];
+
         const JSONValue& value = jsonConstants[i]["value"];
-
-        switch (constants_[i].type)
+        unsigned char* dest = const_cast<unsigned char*>(ConstantData(i));
+        if (value.IsArray())
         {
-        case ELEM_INT:
-            SetConstantFromJSON<int>(this, i, value);
-            break;
-
-        case ELEM_FLOAT:
-            SetConstantFromJSON<float>(this, i, value);
-            break;
-
-        case ELEM_VECTOR2:
-            SetConstantFromJSON<Vector2>(this, i, value);
-            break;
-
-        case ELEM_VECTOR3:
-            SetConstantFromJSON<Vector3>(this, i, value);
-            break;
-
-        case ELEM_VECTOR4:
-            SetConstantFromJSON<Vector4>(this, i, value);
-            break;
-
-        case ELEM_MATRIX3X4:
-            SetConstantFromJSON<Matrix3x4>(this, i, value);
-            break;
-
-        case ELEM_MATRIX4:
-            SetConstantFromJSON<Matrix4>(this, i, value);
-            break;
+            for (size_t j = 0; j < value.Size(); ++j)
+                Attribute::FromJSON(attrType, dest + j * constant.elementSize, value[j]);
         }
+        else
+            Attribute::FromJSON(attrType, dest, value);
     }
 
+    dirty = true;
     Apply();
     return true;
 }
@@ -142,53 +87,24 @@ void ConstantBuffer::SaveJSON(JSONValue& dest)
     for (size_t i = 0; i < constants.Size(); ++i)
     {
         const Constant& constant = constants[i];
+        AttributeType attrType = elementToAttribute[constant.type];
+
         JSONValue jsonConstant;
         jsonConstant["name"] = constant.name;
         jsonConstant["type"] = elementTypeNames[constant.type];
         if (constant.numElements != 1)
             jsonConstant["numElements"] = (int)constant.numElements;
 
-        const void* rawData = ConstantData(i);
-        JSONValue value;
+        const unsigned char* source = ConstantData(i);
         
-        for (size_t j = 0; j < constant.numElements; ++j)
-        {
-            switch (constant.type)
-            {
-            case ELEM_INT:
-                value.Push((reinterpret_cast<const int*>(rawData))[j]);
-                break;
-
-            case ELEM_FLOAT:
-                value.Push((reinterpret_cast<const float*>(rawData))[j]);
-                break;
-
-            case ELEM_VECTOR2:
-                value.Push((reinterpret_cast<const Vector2*>(rawData))[j].ToString());
-                break;
-
-            case ELEM_VECTOR3:
-                value.Push((reinterpret_cast<const Vector3*>(rawData))[j].ToString());
-                break;
-
-            case ELEM_VECTOR4:
-                value.Push((reinterpret_cast<const Vector4*>(rawData))[j].ToString());
-                break;
-
-            case ELEM_MATRIX3X4:
-                value.Push((reinterpret_cast<const Matrix3x4*>(rawData))[j].ToString());
-                break;
-
-            case ELEM_MATRIX4:
-                value.Push((reinterpret_cast<const Matrix4*>(rawData))[j].ToString());
-                break;
-            }
-        }
-
-        if (value.Size() == 1)
-            jsonConstant["value"] = value[0];
+        if (constant.numElements == 1)
+            Attribute::ToJSON(attrType, jsonConstant["value"], source);
         else
-            jsonConstant["value"] = value;
+        {
+            jsonConstant["value"].Resize(constant.numElements);
+            for (size_t j = 0; j < constant.numElements; ++j)
+                Attribute::ToJSON(attrType, jsonConstant["value"][j], source + j * constant.elementSize);
+        }
 
         dest["constants"].Push(jsonConstant);
     }
@@ -305,9 +221,19 @@ size_t ConstantBuffer::FindConstantIndex(const char* name) const
     return NPOS;
 }
 
-const void* ConstantBuffer::ConstantData(size_t index) const
+const unsigned char* ConstantBuffer::ConstantData(size_t index) const
 {
     return index < constants.Size() ? shadowData.Get() + constants[index].offset : nullptr;
+}
+
+const unsigned char* ConstantBuffer::ConstantData(const String& name) const
+{
+    return ConstantData(FindConstantIndex(name));
+}
+
+const unsigned char* ConstantBuffer::ConstantData(const char* name) const
+{
+    return ConstantData(FindConstantIndex(name));
 }
 
 }

@@ -55,7 +55,11 @@ public:
     /// Return the index of a constant, or NPOS if not found.
     size_t FindConstantIndex(const char* name) const;
     /// Return pointer to the constant value data, or null if not found.
-    const void* ConstantData(size_t index) const;
+    const unsigned char* ConstantData(size_t index) const;
+    /// Return pointer to the constant value data, or null if not found.
+    const unsigned char* ConstantData(const String& name) const;
+    /// Return pointer to the constant value data, or null if not found.
+    const unsigned char* ConstantData(const char* name) const;
     /// Return total byte size of the buffer.
     size_t ByteSize() const { return byteSize; }
     /// Return whether buffer has unapplied changes.
