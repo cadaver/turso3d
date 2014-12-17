@@ -180,10 +180,10 @@ public:
 
     /// Screen mode changed event.
     ScreenModeEvent screenModeEvent;
-    /// Graphics context lost event.
-    Event contextLost;
-    /// Graphics context restored event.
-    Event contextRestored;
+    /// %Graphics context lost event.
+    Event contextLossEvent;
+    /// %Graphics context restored event.
+    Event contextRestoreEvent;
 
 private:
     /// Create and initialize the OpenGL context. Return true on success.

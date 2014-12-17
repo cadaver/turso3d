@@ -171,10 +171,10 @@ public:
 
     /// Screen mode changed event.
     ScreenModeEvent screenModeEvent;
-    /// Graphics context lost event. Will not be called, but provided for compatibility with other rendering API's.
-    Event contextLost;
-    /// Graphics context restored event. Will not be called, but provided for compatibility with other rendering API's.
-    Event contextRestored;
+    /// %Graphics context lost event. Will not be called, but provided for compatibility with other rendering API's.
+    Event contextLossEvent;
+    /// %Graphics context restored event. Will not be called, but provided for compatibility with other rendering API's.
+    Event contextRestoreEvent;
 
 private:
     /// Create the D3D11 device and swap chain. Requires an open window. Can also be called again to recrease swap chain. Return true on success.

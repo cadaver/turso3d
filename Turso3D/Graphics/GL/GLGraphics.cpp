@@ -189,7 +189,7 @@ bool Graphics::SetMode(const IntVector2& size, bool fullscreen, bool resizable, 
         {
             recreate = true;
             Close();
-            SendEvent(contextLost);
+            SendEvent(contextLossEvent);
         }
 
         if (!window->SetSize(size, fullscreen, resizable))
@@ -205,7 +205,7 @@ bool Graphics::SetMode(const IntVector2& size, bool fullscreen, bool resizable, 
                 GPUObject* object = *it;
                 object->Recreate();
             }
-            SendEvent(contextRestored);
+            SendEvent(contextRestoreEvent);
         }
     }
     else
