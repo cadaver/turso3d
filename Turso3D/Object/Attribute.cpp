@@ -52,6 +52,7 @@ const size_t Attribute::byteSizes[] =
     sizeof(float),
     sizeof(Vector2),
     sizeof(Vector3),
+    sizeof(Vector4),
     sizeof(Quaternion),
     sizeof(Color),
     sizeof(Rect),
