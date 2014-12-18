@@ -142,13 +142,6 @@ public:
         ps->Define(SHADER_PS, psCode);
         ShaderVariation* psv = ps->CreateVariation();
 
-        AutoPtr<BlendState> bs = new BlendState();
-        bs->Define(false);
-        AutoPtr<DepthState> ds = new DepthState();
-        ds->Define(true);
-        AutoPtr<RasterizerState> rs = new RasterizerState();
-        rs->Define();
-
         Texture* tex = cache->LoadResource<Texture>("Test.png");
         
         for (;;)
@@ -176,11 +169,10 @@ public:
             graphics->SetIndexBuffer(ib);
             graphics->SetConstantBuffer(SHADER_PS, 0, pcb);
             graphics->SetShaders(vsv, psv);
-            graphics->SetBlendState(bs);
-            graphics->SetDepthState(ds);
-            graphics->SetRasterizerState(rs);
             graphics->SetTexture(0, tex);
-
+            graphics->SetDepthState(CMP_LESS_EQUAL, true);
+            graphics->SetColorState(COLORMASK_ALL, false);
+            graphics->SetRasterizerState(CULL_BACK, FILL_SOLID);
             graphics->DrawInstanced(TRIANGLE_LIST, 0, 3, 0, 0, NUM_OBJECTS);
 
             graphics->Present();

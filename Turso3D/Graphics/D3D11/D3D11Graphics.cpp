@@ -5,12 +5,9 @@
 #include "../../Window/Window.h"
 #include "../GPUObject.h"
 #include "../Shader.h"
-#include "D3D11BlendState.h"
-#include "D3D11DepthState.h"
 #include "D3D11Graphics.h"
 #include "D3D11ConstantBuffer.h"
 #include "D3D11IndexBuffer.h"
-#include "D3D11RasterizerState.h"
 #include "D3D11ShaderVariation.h"
 #include "D3D11Texture.h"
 #include "D3D11VertexBuffer.h"
@@ -35,7 +32,7 @@ static const DXGI_FORMAT d3dElementFormats[] = {
     DXGI_FORMAT_R32G32B32A32_FLOAT  //                          --||--
 };
 
-/// %Graphics implementation. Holds OS-specific rendering API objects.
+/// \cond PRIVATE
 struct GraphicsImpl
 {
     /// Construct.
@@ -78,7 +75,10 @@ struct GraphicsImpl
     ID3D11RenderTargetView* renderTargetViews[MAX_RENDERTARGETS];
     /// Current depth-stencil view.
     ID3D11DepthStencilView* depthStencilView;
+    /// Stencil ref value set to the device.
+    unsigned char stencilRef;
 };
+/// \endcond
 
 Graphics::Graphics() :
     backbufferSize(IntVector2::ZERO),
@@ -163,6 +163,27 @@ void Graphics::Close()
         d3dLayout->Release();
     }
     inputLayouts.Clear();
+
+    for (auto it = blendStates.Begin(); it != blendStates.End(); ++it)
+    {
+        ID3D11BlendState* d3dState = (ID3D11BlendState*)it->second;
+        d3dState->Release();
+    }
+    blendStates.Clear();
+
+    for (auto it = depthStates.Begin(); it != depthStates.End(); ++it)
+    {
+        ID3D11DepthStencilState* d3dState = (ID3D11DepthStencilState*)it->second;
+        d3dState->Release();
+    }
+    depthStates.Clear();
+
+    for (auto it = rasterizerStates.Begin(); it != rasterizerStates.End(); ++it)
+    {
+        ID3D11RasterizerState* d3dState = (ID3D11RasterizerState*)it->second;
+        d3dState->Release();
+    }
+    rasterizerStates.Clear();
 
     if (impl->deviceContext)
     {
@@ -371,66 +392,82 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
     }
 }
 
-void Graphics::SetBlendState(BlendState* state)
+void Graphics::SetColorState(unsigned char colorWriteMask, bool blendEnable, bool alphaToCoverage, BlendFactor srcBlend, BlendFactor destBlend, BlendOp blendOp, BlendFactor srcBlendAlpha, BlendFactor destBlendAlpha, BlendOp blendOpAlpha)
 {
-    if (state != blendState)
-    {
-        ID3D11BlendState* d3dBlendState = state ? (ID3D11BlendState*)state->D3DState() : nullptr;
-        if (d3dBlendState != impl->blendState)
-        {
-            impl->deviceContext->OMSetBlendState(d3dBlendState, 0, 0xffffffff);
-            impl->blendState = d3dBlendState;
-        }
-        blendState = state;
-    }
+    renderState.colorWriteMask = colorWriteMask;
+    renderState.blendEnable = blendEnable;
+    renderState.alphaToCoverage = alphaToCoverage;
+    renderState.srcBlend = srcBlend;
+    renderState.destBlend = destBlend;
+    renderState.blendOp = blendOp;
+    renderState.srcBlendAlpha = srcBlendAlpha;
+    renderState.destBlendAlpha = destBlendAlpha;
+    renderState.blendOpAlpha = blendOpAlpha;
+    
+    blendStateDirty = true;
 }
 
-void Graphics::SetDepthState(DepthState* state, unsigned char stencilRef_)
+void Graphics::SetDepthState(CompareFunc depthFunc, bool depthWrite, bool depthClipEnable, int depthBias, float depthBiasClamp,
+    float slopeScaledDepthBias)
 {
-    if (state != depthState || stencilRef_ != stencilRef)
-    {
-        ID3D11DepthStencilState* d3dDepthStencilState = state ? (ID3D11DepthStencilState*)state->D3DState() : nullptr;
-        if (d3dDepthStencilState != impl->depthStencilState || stencilRef_ != stencilRef)
-        {
-            impl->deviceContext->OMSetDepthStencilState(d3dDepthStencilState, stencilRef_);
-            impl->depthStencilState = d3dDepthStencilState;
-            stencilRef = stencilRef_;
-        }
-        depthState = state;
-    }
+    renderState.depthFunc = depthFunc;
+    renderState.depthWrite = depthWrite;
+    renderState.depthClipEnable = depthClipEnable;
+    renderState.depthBias = depthBias;
+    renderState.depthBiasClamp = depthBiasClamp;
+    renderState.slopeScaledDepthBias = slopeScaledDepthBias;
+
+    depthStateDirty = true;
+    rasterizerStateDirty = true;
 }
 
-void Graphics::SetRasterizerState(RasterizerState* state)
+void Graphics::SetRasterizerState(CullMode cullMode, FillMode fillMode)
 {
-    if (state != rasterizerState)
-    {
-        ID3D11RasterizerState* d3dRasterizerState = state ? (ID3D11RasterizerState*)state->D3DState() : nullptr;
-        if (d3dRasterizerState != impl->rasterizerState)
-        {
-            impl->deviceContext->RSSetState(d3dRasterizerState);
-            impl->rasterizerState = d3dRasterizerState;
-        }
-        rasterizerState = state;
-    }
+    renderState.cullMode = cullMode;
+    renderState.fillMode = fillMode;
+
+    rasterizerStateDirty = true;
 }
 
-void Graphics::SetScissorRect(const IntRect& scissorRect_)
+void Graphics::SetScissorTest(bool scissorEnable, const IntRect& scissorRect)
 {
-    if (scissorRect_ != scissorRect)
+    renderState.scissorEnable = scissorEnable;
+
+    if (scissorRect != renderState.scissorRect)
     {
         /// \todo Implement a member function in IntRect for clipping
-        scissorRect.left = Clamp(scissorRect_.left, 0, renderTargetSize.x - 1);
-        scissorRect.top = Clamp(scissorRect_.top, 0, renderTargetSize.y - 1);
-        scissorRect.right = Clamp(scissorRect_.right, scissorRect.left + 1, renderTargetSize.x);
-        scissorRect.bottom = Clamp(scissorRect_.bottom, scissorRect.top + 1, renderTargetSize.y);
+        renderState.scissorRect.left = Clamp(scissorRect.left, 0, renderTargetSize.x - 1);
+        renderState.scissorRect.top = Clamp(scissorRect.top, 0, renderTargetSize.y - 1);
+        renderState.scissorRect.right = Clamp(scissorRect.right, renderState.scissorRect.left + 1, renderTargetSize.x);
+        renderState.scissorRect.bottom = Clamp(scissorRect.bottom, renderState.scissorRect.top + 1, renderTargetSize.y);
 
         D3D11_RECT d3dRect;
-        d3dRect.left = scissorRect.left;
-        d3dRect.top = scissorRect.top;
-        d3dRect.right = scissorRect.right;
-        d3dRect.bottom = scissorRect.bottom;
+        d3dRect.left = renderState.scissorRect.left;
+        d3dRect.top = renderState.scissorRect.top;
+        d3dRect.right = renderState.scissorRect.right;
+        d3dRect.bottom = renderState.scissorRect.bottom;
         impl->deviceContext->RSSetScissorRects(1, &d3dRect);
     }
+
+    rasterizerStateDirty = true;
+}
+
+void Graphics::SetStencilTest(bool stencilEnable, unsigned char stencilRef, unsigned char stencilReadMask, unsigned char stencilWriteMask, StencilOp frontFail, StencilOp frontDepthFail, StencilOp frontPass, CompareFunc frontFunc, StencilOp backFail, StencilOp backDepthFail, StencilOp backPass, CompareFunc backFunc)
+{
+    renderState.stencilEnable = stencilEnable;
+    renderState.stencilRef = stencilRef;
+    renderState.stencilReadMask = stencilReadMask;
+    renderState.stencilWriteMask = stencilWriteMask;
+    renderState.frontFail = frontFail;
+    renderState.frontDepthFail = frontDepthFail;
+    renderState.frontPass = frontPass;
+    renderState.frontFunc = frontFunc;
+    renderState.backFail = backFail;
+    renderState.backDepthFail = backDepthFail;
+    renderState.backPass = backPass;
+    renderState.backFunc = backFunc;
+
+    depthStateDirty = true;
 }
 
 void Graphics::ResetRenderTargets()
@@ -789,6 +826,182 @@ void Graphics::PrepareDraw(PrimitiveType type)
                 LOGERROR("Failed to create input layout");
         }
     }
+
+    if (blendStateDirty)
+    {
+        unsigned long long blendStateHash = 
+            renderState.colorWriteMask |
+            (renderState.blendEnable ? 0x10 : 0x0) |
+            (renderState.alphaToCoverage ? 0x20 : 0x0) |
+            (renderState.srcBlend << 6) |
+            (renderState.destBlend << 10) |
+            (renderState.blendOp << 14) |
+            (renderState.srcBlendAlpha << 17) |
+            (renderState.destBlendAlpha << 21) |
+            (renderState.blendOpAlpha << 25);
+
+        auto it = blendStates.Find(blendStateHash);
+        if (it != blendStates.End())
+        {
+            ID3D11BlendState* newBlendState = (ID3D11BlendState*)it->second;
+            if (newBlendState != impl->blendState)
+            {
+                impl->deviceContext->OMSetBlendState(newBlendState, nullptr, 0xffffffff);
+                impl->blendState = newBlendState;
+            }
+        }
+        else
+        {
+            PROFILE(CreateBlendState);
+
+            D3D11_BLEND_DESC stateDesc;
+            memset(&stateDesc, 0, sizeof stateDesc);
+
+            stateDesc.AlphaToCoverageEnable = renderState.alphaToCoverage;
+            stateDesc.IndependentBlendEnable = false;
+            stateDesc.RenderTarget[0].BlendEnable = renderState.blendEnable;
+            stateDesc.RenderTarget[0].SrcBlend = (D3D11_BLEND)renderState.srcBlend;
+            stateDesc.RenderTarget[0].DestBlend = (D3D11_BLEND)renderState.destBlend;
+            stateDesc.RenderTarget[0].BlendOp = (D3D11_BLEND_OP)renderState.blendOp;
+            stateDesc.RenderTarget[0].SrcBlendAlpha = (D3D11_BLEND)renderState.srcBlendAlpha;
+            stateDesc.RenderTarget[0].DestBlendAlpha = (D3D11_BLEND)renderState.destBlendAlpha;
+            stateDesc.RenderTarget[0].BlendOpAlpha = (D3D11_BLEND_OP)renderState.blendOpAlpha;
+            stateDesc.RenderTarget[0].RenderTargetWriteMask = renderState.colorWriteMask & COLORMASK_ALL;
+
+            ID3D11BlendState* newBlendState = nullptr;
+            impl->device->CreateBlendState(&stateDesc, &newBlendState);
+            if (newBlendState)
+            {
+                impl->deviceContext->OMSetBlendState(newBlendState, nullptr, 0xffffffff);
+                impl->blendState = newBlendState;
+                blendStates[blendStateHash] = newBlendState;
+
+                LOGDEBUGF("Created new blend state with hash %x", blendStateHash & 0xffffffff);
+            }
+        }
+
+        blendStateDirty = false;
+    }
+
+    if (depthStateDirty)
+    {
+        unsigned long long depthStateHash = 
+            (renderState.depthWrite ? 0x1 : 0x0) |
+            (renderState.stencilEnable ? 0x2 : 0x0) |
+            (renderState.depthFunc << 2) |
+            (renderState.stencilReadMask << 6) |
+            (renderState.stencilWriteMask << 14) |
+            (renderState.frontFail << 22) |
+            (renderState.frontDepthFail << 26) |
+            ((unsigned long long)renderState.frontPass << 30) |
+            ((unsigned long long)renderState.frontFunc << 34) |
+            ((unsigned long long)renderState.frontFail << 38) |
+            ((unsigned long long)renderState.frontDepthFail << 42) |
+            ((unsigned long long)renderState.frontPass << 46) |
+            ((unsigned long long)renderState.frontFunc << 50);
+
+        auto it = depthStates.Find(depthStateHash);
+        if (it != depthStates.End())
+        {
+            ID3D11DepthStencilState* newDepthState = (ID3D11DepthStencilState*)it->second;
+            if (newDepthState != impl->depthStencilState || renderState.stencilRef != impl->stencilRef)
+            {
+                impl->deviceContext->OMSetDepthStencilState(newDepthState, renderState.stencilRef);
+                impl->depthStencilState = newDepthState;
+                impl->stencilRef = renderState.stencilRef;
+            }
+        }
+        else
+        {
+            PROFILE(CreateDepthStencilState);
+
+            D3D11_DEPTH_STENCIL_DESC stateDesc;
+            memset(&stateDesc, 0, sizeof stateDesc);
+
+            stateDesc.DepthEnable = TRUE;
+            stateDesc.DepthWriteMask = renderState.depthWrite ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
+            stateDesc.DepthFunc = (D3D11_COMPARISON_FUNC)renderState.depthFunc;
+            stateDesc.StencilEnable = renderState.stencilEnable;
+            stateDesc.StencilReadMask = renderState.stencilReadMask;
+            stateDesc.StencilWriteMask = renderState.stencilWriteMask;
+            stateDesc.FrontFace.StencilFailOp = (D3D11_STENCIL_OP)renderState.frontFail;
+            stateDesc.FrontFace.StencilDepthFailOp = (D3D11_STENCIL_OP)renderState.frontDepthFail;
+            stateDesc.FrontFace.StencilPassOp = (D3D11_STENCIL_OP)renderState.frontPass;
+            stateDesc.FrontFace.StencilFunc = (D3D11_COMPARISON_FUNC)renderState.frontFunc;
+            stateDesc.BackFace.StencilFailOp = (D3D11_STENCIL_OP)renderState.backFail;
+            stateDesc.BackFace.StencilDepthFailOp = (D3D11_STENCIL_OP)renderState.backDepthFail;
+            stateDesc.BackFace.StencilPassOp = (D3D11_STENCIL_OP)renderState.backPass;
+            stateDesc.BackFace.StencilFunc = (D3D11_COMPARISON_FUNC)renderState.backFunc;
+
+            ID3D11DepthStencilState* newDepthState = nullptr;
+            impl->device->CreateDepthStencilState(&stateDesc, &newDepthState);
+            if (newDepthState)
+            {
+                impl->deviceContext->OMSetDepthStencilState(newDepthState, renderState.stencilRef);
+                impl->depthStencilState = newDepthState;
+                impl->stencilRef = renderState.stencilRef;
+                depthStates[depthStateHash] = newDepthState;
+
+                LOGDEBUGF("Created new depth state with hash %x", depthStateHash & 0xffffffff);
+            }
+        }
+
+        depthStateDirty = false;
+    }
+
+    if (rasterizerStateDirty)
+    {
+        unsigned long long rasterizerStateHash =
+            (renderState.depthClipEnable ? 0x1 : 0x0) |
+            (renderState.scissorEnable ? 0x2 : 0x0) |
+            (renderState.fillMode << 2) |
+            (renderState.cullMode << 4) |
+            ((renderState.depthBias & 0xff) << 6) |
+            ((unsigned long long)(*((unsigned*)&renderState.depthBiasClamp) >> 8) << 14) |
+            ((unsigned long long)(*((unsigned*)&renderState.slopeScaledDepthBias) >> 8) << 38);
+
+        auto it = rasterizerStates.Find(rasterizerStateHash);
+        if (it != rasterizerStates.End())
+        {
+            ID3D11RasterizerState* newRasterizerState = (ID3D11RasterizerState*)it->second;
+            if (newRasterizerState != impl->rasterizerState)
+            {
+                impl->deviceContext->RSSetState(newRasterizerState);
+                impl->rasterizerState = newRasterizerState;
+            }
+        }
+        else
+        {
+            PROFILE(CreateRasterizerState);
+
+            D3D11_RASTERIZER_DESC stateDesc;
+            memset(&stateDesc, 0, sizeof stateDesc);
+
+            stateDesc.FillMode = (D3D11_FILL_MODE)renderState.fillMode;
+            stateDesc.CullMode = (D3D11_CULL_MODE)renderState.cullMode;
+            stateDesc.FrontCounterClockwise = FALSE;
+            stateDesc.DepthBias = renderState.depthBias;
+            stateDesc.DepthBiasClamp = renderState.depthBiasClamp;
+            stateDesc.SlopeScaledDepthBias = renderState.slopeScaledDepthBias;
+            stateDesc.DepthClipEnable = renderState.depthClipEnable;
+            stateDesc.ScissorEnable = renderState.scissorEnable;
+            stateDesc.MultisampleEnable = TRUE;
+            stateDesc.AntialiasedLineEnable = FALSE;
+
+            ID3D11RasterizerState* newRasterizerState = nullptr;
+            impl->device->CreateRasterizerState(&stateDesc, &newRasterizerState);
+            if (newRasterizerState)
+            {
+                impl->deviceContext->RSSetState(newRasterizerState);
+                impl->rasterizerState = newRasterizerState;
+                rasterizerStates[rasterizerStateHash] = newRasterizerState;
+
+                LOGDEBUGF("Created new rasterizer state with hash %x", rasterizerStateHash & 0xffffffff);
+            }
+        }
+
+        rasterizerStateDirty = false;
+    }
 }
 
 void Graphics::ResetState()
@@ -812,22 +1025,24 @@ void Graphics::ResetState()
     for (size_t i = 0; i < MAX_RENDERTARGETS; ++i)
         impl->renderTargetViews[i] = nullptr;
 
+    renderState.Reset();
+
     indexBuffer = nullptr;
     vertexShader = nullptr;
     pixelShader = nullptr;
-    blendState = nullptr;
-    depthState = nullptr;
-    rasterizerState = nullptr;
     impl->blendState = nullptr;
     impl->depthStencilState = nullptr;
     impl->rasterizerState = nullptr;
     impl->depthStencilView = nullptr;
+    impl->stencilRef = 0;
     inputLayout.first = 0;
     inputLayout.second = 0;
     inputLayoutDirty = false;
+    blendStateDirty = false;
+    depthStateDirty = false;
+    rasterizerStateDirty = false;
+    scissorRectDirty = false;
     primitiveType = MAX_PRIMITIVE_TYPES;
-    scissorRect = IntRect();
-    stencilRef = 0;
 }
 
 void RegisterGraphicsLibrary()

@@ -4,6 +4,7 @@
 
 #include "../Turso3DConfig.h"
 #include "../Base/String.h"
+#include "../Math/IntRect.h"
 
 namespace Turso3D
 {
@@ -266,6 +267,84 @@ struct TURSO3D_API Constant
     size_t elementSize;
     /// Offset from the beginning of the buffer. Filled by ConstantBuffer.
     size_t offset;
+};
+
+/// Collection of render state.
+struct RenderState
+{
+    /// Construct with defaults.
+    RenderState()
+    {
+        Reset();
+    }
+
+    /// Reset to defaults.
+    void Reset()
+    {
+        depthFunc = CMP_LESS_EQUAL;
+        depthWrite = true;
+        depthClipEnable = true;
+        depthBias = 0;
+        depthBiasClamp = M_INFINITY;
+        slopeScaledDepthBias = 0.0f;
+        colorWriteMask = COLORMASK_ALL;
+        blendEnable = false;
+        alphaToCoverage = false;
+        srcBlend = BLEND_ONE;
+        destBlend = BLEND_ONE;
+        blendOp = BLEND_OP_ADD;
+        srcBlendAlpha = BLEND_ONE;
+        destBlendAlpha = BLEND_ONE;
+        blendOpAlpha = BLEND_OP_ADD;
+        cullMode = CULL_BACK;
+        fillMode = FILL_SOLID;
+        scissorEnable = false;
+        scissorRect = IntRect::ZERO;
+        stencilEnable = false;
+        stencilRef = 0;
+        stencilReadMask = 0xff;
+        stencilWriteMask = 0xff;
+        frontFail = STENCIL_OP_KEEP;
+        frontDepthFail = STENCIL_OP_KEEP;
+        frontPass = STENCIL_OP_KEEP;
+        frontFunc = CMP_ALWAYS;
+        backFail = STENCIL_OP_KEEP;
+        backDepthFail = STENCIL_OP_KEEP;
+        backPass = STENCIL_OP_KEEP;
+        backFunc = CMP_ALWAYS;
+    }
+
+    CompareFunc depthFunc;
+    bool depthWrite;
+    bool depthClipEnable;
+    int depthBias;
+    float depthBiasClamp;
+    float slopeScaledDepthBias;
+    unsigned char colorWriteMask;
+    bool blendEnable;
+    bool alphaToCoverage;
+    BlendFactor srcBlend;
+    BlendFactor destBlend;
+    BlendOp blendOp;
+    BlendFactor srcBlendAlpha;
+    BlendFactor destBlendAlpha;
+    BlendOp blendOpAlpha;
+    CullMode cullMode;
+    FillMode fillMode;
+    bool scissorEnable;
+    IntRect scissorRect;
+    bool stencilEnable;
+    unsigned char stencilRef;
+    unsigned char stencilReadMask;
+    unsigned char stencilWriteMask;
+    StencilOp frontFail;
+    StencilOp frontDepthFail;
+    StencilOp frontPass;
+    CompareFunc frontFunc;
+    StencilOp backFail;
+    StencilOp backDepthFail;
+    StencilOp backPass;
+    CompareFunc backFunc;
 };
 
 /// Vertex element sizes by element type.
