@@ -987,35 +987,35 @@ void Graphics::PrepareDraw(PrimitiveType type)
                 impl->rasterizerState = newRasterizerState;
                 impl->rasterizerStateHash = rasterizerStateHash;
             }
-        }
-        else
-        {
-            PROFILE(CreateRasterizerState);
-
-            D3D11_RASTERIZER_DESC stateDesc;
-            memset(&stateDesc, 0, sizeof stateDesc);
-
-            stateDesc.FillMode = (D3D11_FILL_MODE)renderState.fillMode;
-            stateDesc.CullMode = (D3D11_CULL_MODE)renderState.cullMode;
-            stateDesc.FrontCounterClockwise = FALSE;
-            stateDesc.DepthBias = renderState.depthBias;
-            stateDesc.DepthBiasClamp = renderState.depthBiasClamp;
-            stateDesc.SlopeScaledDepthBias = renderState.slopeScaledDepthBias;
-            stateDesc.DepthClipEnable = renderState.depthClipEnable;
-            stateDesc.ScissorEnable = renderState.scissorEnable;
-            stateDesc.MultisampleEnable = TRUE;
-            stateDesc.AntialiasedLineEnable = FALSE;
-
-            ID3D11RasterizerState* newRasterizerState = nullptr;
-            impl->device->CreateRasterizerState(&stateDesc, &newRasterizerState);
-            if (newRasterizerState)
+            else
             {
-                impl->deviceContext->RSSetState(newRasterizerState);
-                impl->rasterizerState = newRasterizerState;
-                impl->rasterizerStateHash = rasterizerStateHash;
-                rasterizerStates[rasterizerStateHash] = newRasterizerState;
-
-                LOGDEBUGF("Created new rasterizer state with hash %x", rasterizerStateHash & 0xffffffff);
+                PROFILE(CreateRasterizerState);
+                
+                D3D11_RASTERIZER_DESC stateDesc;
+                memset(&stateDesc, 0, sizeof stateDesc);
+                
+                stateDesc.FillMode = (D3D11_FILL_MODE)renderState.fillMode;
+                stateDesc.CullMode = (D3D11_CULL_MODE)renderState.cullMode;
+                stateDesc.FrontCounterClockwise = FALSE;
+                stateDesc.DepthBias = renderState.depthBias;
+                stateDesc.DepthBiasClamp = renderState.depthBiasClamp;
+                stateDesc.SlopeScaledDepthBias = renderState.slopeScaledDepthBias;
+                stateDesc.DepthClipEnable = renderState.depthClipEnable;
+                stateDesc.ScissorEnable = renderState.scissorEnable;
+                stateDesc.MultisampleEnable = TRUE;
+                stateDesc.AntialiasedLineEnable = FALSE;
+                
+                ID3D11RasterizerState* newRasterizerState = nullptr;
+                impl->device->CreateRasterizerState(&stateDesc, &newRasterizerState);
+                if (newRasterizerState)
+                {
+                    impl->deviceContext->RSSetState(newRasterizerState);
+                    impl->rasterizerState = newRasterizerState;
+                    impl->rasterizerStateHash = rasterizerStateHash;
+                    rasterizerStates[rasterizerStateHash] = newRasterizerState;
+                    
+                    LOGDEBUGF("Created new rasterizer state with hash %x", rasterizerStateHash & 0xffffffff);
+                }
             }
         }
 
