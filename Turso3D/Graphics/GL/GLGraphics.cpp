@@ -597,7 +597,7 @@ void Graphics::Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount)
     glDrawArrays(glPrimitiveTypes[type], (unsigned)vertexStart, (unsigned)vertexCount);
 }
 
-void Graphics::Draw(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart)
+void Graphics::DrawIndexed(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart)
 {
     // Drawing with trashed index data can lead to a crash within the OpenGL driver
     if (!indexBuffer || indexBuffer->IsDataLost())
@@ -626,7 +626,7 @@ void Graphics::DrawInstanced(PrimitiveType type, size_t vertexStart, size_t vert
     glDrawArraysInstanced(glPrimitiveTypes[type], (unsigned)vertexStart, (unsigned)vertexCount, (unsigned)instanceCount);
 }
 
-void Graphics::DrawInstanced(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart, size_t instanceStart,
+void Graphics::DrawIndexedInstanced(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart, size_t instanceStart,
     size_t instanceCount)
 {
     if (!indexBuffer || indexBuffer->IsDataLost())

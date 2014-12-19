@@ -104,11 +104,11 @@ public:
     /// Draw non-indexed geometry.
     void Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount);
     /// Draw indexed geometry.
-    void Draw(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart);
+    void DrawIndexed(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart);
     /// Draw instanced non-indexed geometry.
     void DrawInstanced(PrimitiveType type, size_t vertexStart, size_t vertexCount, size_t instanceStart, size_t instanceCount);
     /// Draw instanced indexed geometry.
-    void DrawInstanced(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart, size_t instanceStart, size_t instanceCount);
+    void DrawIndexedInstanced(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart, size_t instanceStart, size_t instanceCount);
 
     /// Return whether has the rendering window and context.
     bool IsInitialized() const;
@@ -207,6 +207,16 @@ private:
     ShaderVariation* pixelShader;
     /// Current renderstate.
     RenderState renderState;
+    /// Input layout dirty flag.
+    bool inputLayoutDirty;
+    /// Blend state dirty flag.
+    bool blendStateDirty;
+    /// Depth state dirty flag.
+    bool depthStateDirty;
+    /// Rasterizer state dirty flag.
+    bool rasterizerStateDirty;
+    /// Scissor rect dirty flag.
+    bool scissorRectDirty;
     /// Current primitive type.
     PrimitiveType primitiveType;
     /// Current input layout: vertex buffers' element mask and vertex shader's element mask combined.
@@ -227,16 +237,6 @@ private:
     int multisample;
     /// Vertical sync flag.
     bool vsync;
-    /// Input layout dirty flag.
-    bool inputLayoutDirty;
-    /// Blend state dirty flag.
-    bool blendStateDirty;
-    /// Depth state dirty flag.
-    bool depthStateDirty;
-    /// Rasterizer state dirty flag.
-    bool rasterizerStateDirty;
-    /// Scissor rect dirty flag.
-    bool scissorRectDirty;
 };
 
 /// Register Graphics related object factories and attributes.

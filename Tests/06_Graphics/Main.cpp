@@ -173,7 +173,7 @@ public:
             graphics->SetDepthState(CMP_LESS_EQUAL, true);
             graphics->SetColorState(COLORMASK_ALL, false);
             graphics->SetRasterizerState(CULL_BACK, FILL_SOLID);
-            graphics->DrawInstanced(TRIANGLE_LIST, 0, 3, 0, 0, NUM_OBJECTS);
+            graphics->DrawIndexedInstanced(TRIANGLE_LIST, 0, 3, 0, 0, NUM_OBJECTS);
 
             graphics->Present();
         }

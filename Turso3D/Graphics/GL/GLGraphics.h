@@ -106,11 +106,11 @@ public:
     /// Draw non-indexed geometry.
     void Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount);
     /// Draw indexed geometry.
-    void Draw(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart);
+    void DrawIndexed(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart);
     /// Draw instanced non-indexed geometry.
     void DrawInstanced(PrimitiveType type, size_t vertexStart, size_t vertexCount, size_t instanceStart, size_t instanceCount);
     /// Draw instanced indexed geometry.
-    void DrawInstanced(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart, size_t instanceStart, size_t instanceCount);
+    void DrawIndexedInstanced(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart, size_t instanceStart, size_t instanceCount);
 
     /// Return whether has the rendering window and context.
     bool IsInitialized() const;
@@ -229,18 +229,30 @@ private:
     ShaderVariation* vertexShader;
     /// Bound pixel shader.
     ShaderVariation* pixelShader;
-    /// Bound shader program.
-    ShaderProgram* shaderProgram;
-    /// Bound framebuffer object.
-    Framebuffer* framebuffer;
     /// Current renderstate requested by the application.
     RenderState renderState;
     /// Renderstate applied to OpenGL.
     RenderState glRenderState;
+    /// Vertex attributes dirty (shader program changed) flag.
+    bool vertexAttributesDirty;
+    /// Vertex buffers dirty flag.
+    bool vertexBuffersDirty;
+    /// Blend state dirty flag.
+    bool blendStateDirty;
+    /// Depth state dirty flag.
+    bool depthStateDirty;
+    /// Rasterizer state dirty flag.
+    bool rasterizerStateDirty;
+    /// Framebuffer assignment dirty flag.
+    bool framebufferDirty;
     /// Number of supported constant buffer bindings for vertex shaders.
     size_t vsConstantBuffers;
     /// Number of supported constant buffer bindings for pixel shaders.
     size_t psConstantBuffers;
+    /// Bound shader program.
+    ShaderProgram* shaderProgram;
+    /// Bound framebuffer object.
+    Framebuffer* framebuffer;
     /// Last used OpenGL texture unit.
     size_t activeTexture;
     /// Last bound vertex buffer object.
@@ -259,18 +271,6 @@ private:
     int multisample;
     /// Vertical sync flag.
     bool vsync;
-    /// Vertex attributes dirty (shader program changed) flag.
-    bool vertexAttributesDirty;
-    /// Vertex buffers dirty flag.
-    bool vertexBuffersDirty;
-    /// Blend state dirty flag.
-    bool blendStateDirty;
-    /// Depth state dirty flag.
-    bool depthStateDirty;
-    /// Rasterizer state dirty flag.
-    bool rasterizerStateDirty;
-    /// Framebuffer assignment dirty flag.
-    bool framebufferDirty;
 };
 
 /// Register Graphics related object factories and attributes.
