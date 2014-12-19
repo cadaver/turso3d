@@ -81,14 +81,16 @@ public:
     void SetTexture(size_t index, Texture* texture);
     /// Bind vertex and pixel shaders.
     void SetShaders(ShaderVariation* vs, ShaderVariation* ps);
-    /// Bind blend state object.
-    void SetBlendState(BlendState* state);
-    /// Bind depth state object and set stencil ref value.
-    void SetDepthState(DepthState* state, unsigned char stencilRef = 0);
-    /// Bind rasterizer state object.
-    void SetRasterizerState(RasterizerState* state);
-    /// Set scissor rectangle. Is only effective if scissor test is enabled in the rasterizer state.
-    void SetScissorRect(const IntRect& scissorRect);
+    /// Set color write and blending related state.
+    void SetColorState(unsigned char colorWriteMask = COLORMASK_ALL, bool blendEnable = false, bool alphaToCoverage = false, BlendFactor srcBlend = BLEND_ONE, BlendFactor destBlend = BLEND_ONE, BlendOp blendOp = BLEND_OP_ADD, BlendFactor srcBlendAlpha = BLEND_ONE, BlendFactor destBlendAlpha = BLEND_ONE, BlendOp blendOpAlpha = BLEND_OP_ADD);
+    /// Set depth buffer related state.
+    void SetDepthState(CompareFunc depthFunc = CMP_LESS_EQUAL, bool depthWrite = true, bool depthClipEnable = true, int depthBias = 0, float depthBiasClamp = M_INFINITY, float slopeScaledDepthBias = 0.0f);
+    /// Set rasterizer related state.
+    void SetRasterizerState(CullMode cullMode = CULL_BACK, FillMode fillMode = FILL_SOLID);
+    /// Set scissor test.
+    void SetScissorTest(bool scissorEnable = false, const IntRect& scissorRect = IntRect::ZERO);
+    /// Set stencil test.
+    void SetStencilTest(bool stencilEnable = false, unsigned char stencilRef = 0, unsigned char stencilReadMask = 0xff, unsigned char stencilWriteMask = 0xff, StencilOp frontFail = STENCIL_OP_KEEP, StencilOp frontDepthFail = STENCIL_OP_KEEP, StencilOp frontPass = STENCIL_OP_KEEP, CompareFunc frontFunc = CMP_ALWAYS, StencilOp backFail = STENCIL_OP_KEEP, StencilOp backDepthFail = STENCIL_OP_KEEP, StencilOp backPass = STENCIL_OP_KEEP, CompareFunc backFunc = CMP_ALWAYS);
     /// Reset rendertarget and depth stencil buffer to the backbuffer.
     void ResetRenderTargets();
     /// Set the viewport to the entire rendertarget or backbuffer.
@@ -150,16 +152,8 @@ public:
     ShaderVariation* GetVertexShader() const { return vertexShader; }
     /// Return currently bound pixel shader.
     ShaderVariation* GetPixelShader() const { return pixelShader; }
-    /// Return currently bound blend state.
-    BlendState* GetBlendState() const { return blendState; }
-    /// Return currently bound depth state.
-    DepthState* GetDepthState() const { return depthState; }
-    /// Return currently bound rasterizer state.
-    RasterizerState* GetRasterizerState() const { return rasterizerState; }
-    /// Return current scissor rectangle.
-    IntRect ScissorRect() const { return scissorRect; }
-    /// Return current stencil ref value.
-    unsigned StencilRef() const { return stencilRef; }
+    /// Return the current renderstate.
+    const RenderState& GetRenderState() const { return renderState; }
     /// Return number of supported constant buffer bindings for vertex shaders.
     size_t NumVSConstantBuffers() const { return vsConstantBuffers; }
     /// Return number of supported constant buffer bindings for pixel shaders.
@@ -237,14 +231,12 @@ private:
     ShaderVariation* pixelShader;
     /// Bound shader program.
     ShaderProgram* shaderProgram;
-    /// Bound blend state.
-    BlendState* blendState;
-    /// Bound depth state.
-    DepthState* depthState;
-    /// Bound rasterizer state.
-    RasterizerState* rasterizerState;
     /// Bound framebuffer object.
     Framebuffer* framebuffer;
+    /// Current renderstate requested by the application.
+    RenderState renderState;
+    /// Renderstate applied to OpenGL.
+    RenderState glRenderState;
     /// Number of supported constant buffer bindings for vertex shaders.
     size_t vsConstantBuffers;
     /// Number of supported constant buffer bindings for pixel shaders.
@@ -252,7 +244,7 @@ private:
     /// Last used OpenGL texture unit.
     size_t activeTexture;
     /// Last bound vertex buffer object.
-    unsigned boundVBO;
+    unsigned boundVBO; 
     /// Current scissor rectangle.
     IntRect scissorRect;
     /// Current viewport rectangle.
@@ -279,71 +271,6 @@ private:
     bool rasterizerStateDirty;
     /// Framebuffer assignment dirty flag.
     bool framebufferDirty;
-
-    /// Current source color blend factor.
-    BlendFactor srcBlend;
-    /// Current destination color blend factor.
-    BlendFactor destBlend;
-    /// Current color blend operation.
-    BlendOp blendOp;
-    /// Current source alpha blend factor.
-    BlendFactor srcBlendAlpha;
-    /// Current destination alpha blend factor.
-    BlendFactor destBlendAlpha;
-    /// Current alpha blend operation.
-    BlendOp blendOpAlpha;
-    /// Current rendertarget color write mask.
-    unsigned char colorWriteMask;
-    /// Current blend enable flag.
-    bool blendEnable;
-    /// Current alpha to coverage flag.
-    bool alphaToCoverage;
-
-    /// Depth enable flag.
-    bool depthEnable;
-    /// Depth write flag.
-    bool depthWrite;
-    /// Current depth testing function.
-    CompareFunc depthFunc;
-    /// Current stencil enable flag.
-    bool stencilEnable;
-    /// Current stencil buffer read mask.
-    unsigned char stencilReadMask;
-    /// Current stencil buffer write mask.
-    unsigned char stencilWriteMask;
-    /// Current stencil operation on front face fail.
-    StencilOp frontFail;
-    /// Current stencil operation on front face depth fail.
-    StencilOp frontDepthFail;
-    /// Current stencil operation on front face pass.
-    StencilOp frontPass;
-    /// Current stencil front face testing function.
-    CompareFunc frontFunc;
-    /// Current stencil operation on back face fail.
-    StencilOp backFail;
-    /// Current stencil operation on back face depth fail.
-    StencilOp backDepthFail;
-    /// Current stencil operation on back face pass.
-    StencilOp backPass;
-    /// Current stencil back face testing function.
-    CompareFunc backFunc;
-    /// Stencil ref value that is to be applied.
-    unsigned char stencilRef;
-    /// Current stencil ref value.
-    unsigned char currentStencilRef;
-
-    /// Current fill mode.
-    FillMode fillMode;
-    /// Current culling mode.
-    CullMode cullMode;
-    /// Current dpth bias added to fragments.
-    int depthBias;
-    /// Current slope scaled depth bias.
-    float slopeScaledDepthBias;
-    /// Current depth clipping flag.
-    bool depthClipEnable;
-    /// Current scissor test flag.
-    bool scissorEnable;
 };
 
 /// Register Graphics related object factories and attributes.

@@ -6,12 +6,9 @@
 #include "../../Window/Window.h"
 #include "../GPUObject.h"
 #include "../Shader.h"
-#include "GLBlendState.h"
-#include "GLDepthState.h"
 #include "GLGraphics.h"
 #include "GLConstantBuffer.h"
 #include "GLIndexBuffer.h"
-#include "GLRasterizerState.h"
 #include "GLShaderProgram.h"
 #include "GLShaderVariation.h"
 #include "GLTexture.h"
@@ -451,47 +448,71 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
     vertexAttributesDirty = true;
 }
 
-void Graphics::SetBlendState(BlendState* state)
+void Graphics::SetColorState(unsigned char colorWriteMask, bool blendEnable, bool alphaToCoverage, BlendFactor srcBlend, BlendFactor destBlend, BlendOp blendOp, BlendFactor srcBlendAlpha, BlendFactor destBlendAlpha, BlendOp blendOpAlpha)
 {
-    if (state != blendState)
-    {
-        blendState = state;
-        blendStateDirty = true;
-    }
+    renderState.colorWriteMask = colorWriteMask;
+    renderState.blendEnable = blendEnable;
+    renderState.alphaToCoverage = alphaToCoverage;
+    renderState.srcBlend = srcBlend;
+    renderState.destBlend = destBlend;
+    renderState.blendOp = blendOp;
+    renderState.srcBlendAlpha = srcBlendAlpha;
+    renderState.destBlendAlpha = destBlendAlpha;
+    renderState.blendOpAlpha = blendOpAlpha;
+
+    blendStateDirty = true;
 }
 
-void Graphics::SetDepthState(DepthState* state, unsigned char stencilRef_)
+void Graphics::SetDepthState(CompareFunc depthFunc, bool depthWrite, bool depthClipEnable, int depthBias, float depthBiasClamp,
+    float slopeScaledDepthBias)
 {
-    if (state != depthState || stencilRef_ != stencilRef)
-    {
-        depthState = state;
-        depthStateDirty = true;
-        stencilRef = stencilRef_;
-    }
+    renderState.depthFunc = depthFunc;
+    renderState.depthWrite = depthWrite;
+    renderState.depthClipEnable = depthClipEnable;
+    renderState.depthBias = depthBias;
+    renderState.depthBiasClamp = depthBiasClamp;
+    renderState.slopeScaledDepthBias = slopeScaledDepthBias;
+
+    depthStateDirty = true;
+    rasterizerStateDirty = true;
 }
 
-void Graphics::SetRasterizerState(RasterizerState* state)
+void Graphics::SetRasterizerState(CullMode cullMode, FillMode fillMode)
 {
-    if (state != rasterizerState)
-    {
-        rasterizerState = state;
-        rasterizerStateDirty = true;
-    }
+    renderState.cullMode = cullMode;
+    renderState.fillMode = fillMode;
+
+    rasterizerStateDirty = true;
 }
 
-void Graphics::SetScissorRect(const IntRect& scissorRect_)
+void Graphics::SetScissorTest(bool scissorEnable, const IntRect& scissorRect)
 {
-    if (scissorRect_ != scissorRect)
-    {
-        /// \todo Implement a member function in IntRect for clipping
-        scissorRect.left = Clamp(scissorRect_.left, 0, renderTargetSize.x - 1);
-        scissorRect.top = Clamp(scissorRect_.top, 0, renderTargetSize.y - 1);
-        scissorRect.right = Clamp(scissorRect_.right, scissorRect.left + 1, renderTargetSize.x);
-        scissorRect.bottom = Clamp(scissorRect_.bottom, scissorRect.top + 1, renderTargetSize.y);
+    renderState.scissorEnable = scissorEnable;
+    /// \todo Implement a member function in IntRect for clipping
+    renderState.scissorRect.left = Clamp(scissorRect.left, 0, renderTargetSize.x - 1);
+    renderState.scissorRect.top = Clamp(scissorRect.top, 0, renderTargetSize.y - 1);
+    renderState.scissorRect.right = Clamp(scissorRect.right, renderState.scissorRect.left + 1, renderTargetSize.x);
+    renderState.scissorRect.bottom = Clamp(scissorRect.bottom, renderState.scissorRect.top + 1, renderTargetSize.y);
 
-        // Use Direct3D convention with the vertical coordinates ie. 0 is top
-        glScissor(scissorRect.left, renderTargetSize.y - scissorRect.bottom, scissorRect.Width(), scissorRect.Height());
-    }
+    rasterizerStateDirty = true;
+}
+
+void Graphics::SetStencilTest(bool stencilEnable, unsigned char stencilRef, unsigned char stencilReadMask, unsigned char stencilWriteMask, StencilOp frontFail, StencilOp frontDepthFail, StencilOp frontPass, CompareFunc frontFunc, StencilOp backFail, StencilOp backDepthFail, StencilOp backPass, CompareFunc backFunc)
+{
+    renderState.stencilEnable = stencilEnable;
+    renderState.stencilRef = stencilRef;
+    renderState.stencilReadMask = stencilReadMask;
+    renderState.stencilWriteMask = stencilWriteMask;
+    renderState.frontFail = frontFail;
+    renderState.frontDepthFail = frontDepthFail;
+    renderState.frontPass = frontPass;
+    renderState.frontFunc = frontFunc;
+    renderState.backFail = backFail;
+    renderState.backDepthFail = backDepthFail;
+    renderState.backPass = backPass;
+    renderState.backFunc = backFunc;
+
+    depthStateDirty = true;
 }
 
 void Graphics::ResetRenderTargets()
@@ -546,28 +567,28 @@ void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDe
         glClearStencil(clearStencil);
     }
 
-    if ((clearFlags & CLEAR_COLOR) && colorWriteMask != COLORMASK_ALL)
+    if ((clearFlags & CLEAR_COLOR) && glRenderState.colorWriteMask != COLORMASK_ALL)
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    if ((clearFlags & CLEAR_DEPTH) && !depthWrite)
+    if ((clearFlags & CLEAR_DEPTH) && !glRenderState.depthWrite)
         glDepthMask(GL_TRUE);
-    if ((clearFlags & CLEAR_STENCIL) && stencilWriteMask != 0xff)
+    if ((clearFlags & CLEAR_STENCIL) && glRenderState.stencilWriteMask != 0xff)
         glStencilMask(0xff);
 
     glClear(glFlags);
 
-    if ((clearFlags & CLEAR_COLOR) && colorWriteMask != COLORMASK_ALL)
+    if ((clearFlags & CLEAR_COLOR) && glRenderState.colorWriteMask != COLORMASK_ALL)
     {
         glColorMask(
-            (colorWriteMask & COLORMASK_R) ? GL_TRUE : GL_FALSE,
-            (colorWriteMask & COLORMASK_G) ? GL_TRUE : GL_FALSE,
-            (colorWriteMask & COLORMASK_B) ? GL_TRUE : GL_FALSE,
-            (colorWriteMask & COLORMASK_A) ? GL_TRUE : GL_FALSE
+            (glRenderState.colorWriteMask & COLORMASK_R) ? GL_TRUE : GL_FALSE,
+            (glRenderState.colorWriteMask & COLORMASK_G) ? GL_TRUE : GL_FALSE,
+            (glRenderState.colorWriteMask & COLORMASK_B) ? GL_TRUE : GL_FALSE,
+            (glRenderState.colorWriteMask & COLORMASK_A) ? GL_TRUE : GL_FALSE
         );
     }
-    if ((clearFlags & CLEAR_DEPTH) && !depthWrite)
+    if ((clearFlags & CLEAR_DEPTH) && !glRenderState.depthWrite)
         glDepthMask(GL_FALSE);
-    if ((clearFlags & CLEAR_STENCIL) && stencilWriteMask != 0xff)
-        glStencilMask(stencilWriteMask);
+    if ((clearFlags & CLEAR_STENCIL) && glRenderState.stencilWriteMask != 0xff)
+        glStencilMask(glRenderState.stencilWriteMask);
 }
 
 void Graphics::Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount)
@@ -768,6 +789,7 @@ bool Graphics::CreateContext(int multisample_)
     glBindVertexArray(vertexArrayObject);
 
     // These states are always enabled to match Direct3D
+    glEnable(GL_DEPTH_TEST);
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_POLYGON_OFFSET_LINE);
     glEnable(GL_POLYGON_OFFSET_FILL);
@@ -813,6 +835,13 @@ void Graphics::PrepareFramebuffer()
         
         unsigned newDrawBuffers = 0;
         bool useBackbuffer = true;
+
+        // If rendertarget changes, scissor rect may need to be re-evaluated
+        if (renderState.scissorEnable)
+        {
+            glRenderState.scissorRect = IntRect::ZERO;
+            rasterizerStateDirty = true;
+        }
 
         for (size_t i = 0; i < MAX_RENDERTARGETS; ++i)
         {
@@ -1037,162 +1066,129 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
     }
 
     // Apply blend state
-    if (blendStateDirty && blendState)
+    if (blendStateDirty)
     {
-        if (blendState->blendEnable != blendEnable)
+        if (renderState.blendEnable != glRenderState.blendEnable)
         {
-            if (blendState->blendEnable)
+            if (renderState.blendEnable)
                 glEnable(GL_BLEND);
             else
                 glDisable(GL_BLEND);
-            blendEnable = blendState->blendEnable;
+            glRenderState.blendEnable = renderState.blendEnable;
         }
 
-        if (blendState->srcBlend != srcBlend || blendState->destBlend != destBlend || blendState->srcBlendAlpha != srcBlendAlpha
-            || blendState->destBlendAlpha != destBlendAlpha)
+        if (renderState.blendEnable)
         {
-            glBlendFuncSeparate(glBlendFactors[blendState->srcBlend], glBlendFactors[blendState->destBlend],
-                glBlendFactors[blendState->srcBlendAlpha], glBlendFactors[blendState->destBlendAlpha]);
-            srcBlend = blendState->srcBlend;
-            destBlend = blendState->destBlend;
-            srcBlendAlpha = blendState->srcBlendAlpha;
-            destBlendAlpha = blendState->destBlendAlpha;
+            if (renderState.srcBlend != glRenderState.srcBlend || renderState.destBlend != glRenderState.destBlend ||
+                renderState.srcBlendAlpha != glRenderState.srcBlendAlpha || renderState.destBlendAlpha != 
+                glRenderState.destBlendAlpha)
+            {
+                glBlendFuncSeparate(glBlendFactors[renderState.srcBlend], glBlendFactors[renderState.destBlend],
+                    glBlendFactors[renderState.srcBlendAlpha], glBlendFactors[renderState.destBlendAlpha]);
+                glRenderState.srcBlend = renderState.srcBlend;
+                glRenderState.destBlend = renderState.destBlend;
+                glRenderState.srcBlendAlpha = renderState.srcBlendAlpha;
+                glRenderState.destBlendAlpha = renderState.destBlendAlpha;
+            }
+
+            if (renderState.blendOp != glRenderState.blendOp || renderState.blendOpAlpha != glRenderState.blendOpAlpha)
+            {
+                glBlendEquationSeparate(glBlendOps[renderState.blendOp], glBlendOps[renderState.blendOpAlpha]);
+                glRenderState.blendOp = renderState.blendOp;
+                glRenderState.blendOpAlpha = renderState.blendOpAlpha;
+            }
         }
 
-        if (blendState->blendOp != blendOp || blendState->blendOpAlpha != blendOpAlpha)
-        {
-            glBlendEquationSeparate(glBlendOps[blendState->blendOp], glBlendOps[blendState->blendOpAlpha]);
-            blendOp = blendState->blendOp;
-            blendOpAlpha = blendState->blendOpAlpha;
-        }
-
-        if (blendState->colorWriteMask != colorWriteMask)
+        if (renderState.colorWriteMask != glRenderState.colorWriteMask)
         {
             glColorMask(
-                (blendState->colorWriteMask & COLORMASK_R) ? GL_TRUE : GL_FALSE,
-                (blendState->colorWriteMask & COLORMASK_G) ? GL_TRUE : GL_FALSE,
-                (blendState->colorWriteMask & COLORMASK_B) ? GL_TRUE : GL_FALSE,
-                (blendState->colorWriteMask & COLORMASK_A) ? GL_TRUE : GL_FALSE
+                (renderState.colorWriteMask & COLORMASK_R) ? GL_TRUE : GL_FALSE,
+                (renderState.colorWriteMask & COLORMASK_G) ? GL_TRUE : GL_FALSE,
+                (renderState.colorWriteMask & COLORMASK_B) ? GL_TRUE : GL_FALSE,
+                (renderState.colorWriteMask & COLORMASK_A) ? GL_TRUE : GL_FALSE
             );
-            colorWriteMask = blendState->colorWriteMask;
+            glRenderState.colorWriteMask = renderState.colorWriteMask;
         }
 
-        if (blendState->alphaToCoverage != alphaToCoverage)
+        if (renderState.alphaToCoverage != glRenderState.alphaToCoverage)
         {
-            if (blendState->alphaToCoverage)
+            if (renderState.alphaToCoverage)
                 glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
             else
                 glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
-            alphaToCoverage = blendState->alphaToCoverage;
+            glRenderState.alphaToCoverage = renderState.alphaToCoverage;
         }
 
         blendStateDirty = false;
     }
 
     // Apply depth state
-    if (depthStateDirty && depthState)
+    if (depthStateDirty)
     {
-        if (depthState->depthEnable != depthEnable)
+        if (renderState.depthWrite != glRenderState.depthWrite)
         {
-            if (depthState->depthEnable)
-                glEnable(GL_DEPTH_TEST);
-            else
-                glDisable(GL_DEPTH_TEST);
-            depthEnable = depthState->depthEnable;
+            glDepthMask(renderState.depthWrite ? GL_TRUE : GL_FALSE);
+            glRenderState.depthWrite = renderState.depthWrite;
         }
 
-        if (depthState->depthWrite != depthWrite)
+        if (renderState.depthFunc != glRenderState.depthFunc)
         {
-            glDepthMask(depthState->depthWrite ? GL_TRUE : GL_FALSE);
-            depthWrite = depthState->depthWrite;
+            glDepthFunc(glCompareFuncs[renderState.depthFunc]);
+            glRenderState.depthFunc = renderState.depthFunc;
         }
 
-        if (depthState->depthFunc != depthFunc)
+        if (renderState.stencilEnable != glRenderState.stencilEnable)
         {
-            glDepthFunc(glCompareFuncs[depthState->depthFunc]);
-            depthFunc = depthState->depthFunc;
-        }
-
-        if (depthState->stencilEnable != stencilEnable)
-        {
-            if (depthState->stencilEnable)
+            if (renderState.stencilEnable)
                 glEnable(GL_STENCIL_TEST);
             else
                 glDisable(GL_STENCIL_TEST);
-            stencilEnable = depthState->stencilEnable;
+            glRenderState.stencilEnable = renderState.stencilEnable;
         }
 
-        if (stencilEnable)
+        if (renderState.stencilEnable)
         {
-            // Avoid using the "separate" stencil state calls if front/back functions or operations are the same
-            if (depthState->frontFunc == depthState->backFunc)
+            // Note: as polygons use Direct3D convention (clockwise = front) reversed front/back faces are used here
+            if (renderState.frontFunc != glRenderState.frontFunc || renderState.stencilRef != glRenderState.stencilRef ||
+                renderState.stencilReadMask != glRenderState.stencilReadMask)
             {
-                if (depthState->frontFunc != frontFunc || stencilRef != currentStencilRef || depthState->stencilReadMask !=
-                    stencilReadMask)
-                {
-                    glStencilFunc(glCompareFuncs[depthState->frontFunc], stencilRef, depthState->stencilReadMask);
-                    frontFunc = backFunc = depthState->frontFunc;
-                    currentStencilRef = stencilRef;
-                    stencilReadMask = depthState->stencilReadMask;
-                }
+                glStencilFuncSeparate(GL_BACK, glCompareFuncs[renderState.frontFunc], renderState.stencilRef,
+                    renderState.stencilReadMask);
+                glRenderState.frontFunc = renderState.frontFunc;
             }
-            else
+            if (renderState.backFunc != glRenderState.backFunc || renderState.stencilRef != glRenderState.stencilRef ||
+                renderState.stencilReadMask != glRenderState.stencilReadMask)
             {
-                // Note: as polygons use Direct3D convention (clockwise = front) reversed front/back faces are used here
-                if (depthState->frontFunc != frontFunc || stencilRef != currentStencilRef || depthState->stencilReadMask !=
-                    stencilReadMask)
-                {
-                    glStencilFuncSeparate(GL_BACK, glCompareFuncs[depthState->frontFunc], stencilRef, depthState->stencilReadMask);
-                    frontFunc = depthState->frontFunc;
-                }
-                if (depthState->backFunc != backFunc || stencilRef != currentStencilRef || depthState->stencilReadMask !=
-                    stencilReadMask)
-                {
-                    glStencilFuncSeparate(GL_FRONT, glCompareFuncs[depthState->backFunc], stencilRef, depthState->stencilReadMask);
-                    backFunc = depthState->backFunc;
-                }
-                currentStencilRef = stencilRef;
-                stencilReadMask = depthState->stencilReadMask;
+                glStencilFuncSeparate(GL_BACK, glCompareFuncs[renderState.backFunc], renderState.stencilRef,
+                    renderState.stencilReadMask);
+                glRenderState.frontFunc = renderState.frontFunc;
+            }
+            glRenderState.stencilRef = renderState.stencilRef;
+            glRenderState.stencilReadMask = renderState.stencilReadMask;
+
+            if (renderState.stencilWriteMask != glRenderState.stencilWriteMask)
+            {
+                glStencilMask(renderState.stencilWriteMask);
+                glRenderState.stencilWriteMask = renderState.stencilWriteMask;
             }
 
-            if (depthState->stencilWriteMask != stencilWriteMask)
+            if (renderState.frontFail != glRenderState.frontFail || renderState.frontDepthFail != glRenderState.frontDepthFail ||
+                renderState.frontPass != glRenderState.frontPass)
             {
-                glStencilMask(depthState->stencilWriteMask);
-                stencilWriteMask = depthState->stencilWriteMask;
+                glStencilOpSeparate(GL_BACK, glStencilOps[renderState.frontFail], glStencilOps[renderState.frontDepthFail],
+                    glStencilOps[renderState.frontPass]);
+                glRenderState.frontFail = renderState.frontFail;
+                glRenderState.frontDepthFail = renderState.frontDepthFail;
+                glRenderState.frontPass = renderState.frontPass;
             }
-
-            if (depthState->frontFail == depthState->backFail && depthState->frontDepthFail == depthState->backDepthFail &&
-                depthState->frontPass == depthState->backPass)
+            if (renderState.backFail != glRenderState.backFail || renderState.backDepthFail != glRenderState.backDepthFail ||
+                renderState.backPass != glRenderState.backPass)
             {
-                if (depthState->frontFail != frontFail || depthState->frontDepthFail != frontDepthFail || depthState->frontPass
-                    != frontPass)
-                {
-                    glStencilOp(glStencilOps[depthState->frontFail], glStencilOps[depthState->frontDepthFail],
-                        glStencilOps[depthState->frontPass]);
-                    frontFail = backFail = depthState->frontFail;
-                    frontDepthFail = backDepthFail = depthState->frontDepthFail;
-                    frontPass = backPass = depthState->frontPass;
-                }
-            }
-            else
-            {
-                if (depthState->frontFail != frontFail || depthState->frontDepthFail != frontDepthFail || depthState->frontPass !=
-                    frontPass)
-                {
-                    glStencilOpSeparate(GL_BACK, glStencilOps[depthState->frontFail], glStencilOps[depthState->frontDepthFail],
-                        glStencilOps[depthState->frontPass]);
-                    frontFail = depthState->frontFail;
-                    frontDepthFail = depthState->frontDepthFail;
-                    frontPass = depthState->frontPass;
-                }
-                if (depthState->backFail != backFail || depthState->backDepthFail != backDepthFail || depthState->backPass != backPass)
-                {
-                    glStencilOpSeparate(GL_FRONT, glStencilOps[depthState->backFail], glStencilOps[depthState->backDepthFail],
-                        glStencilOps[depthState->backPass]);
-                    backFail = depthState->backFail;
-                    backDepthFail = depthState->backDepthFail;
-                    backPass = depthState->backPass;
-                }
+                glStencilOpSeparate(GL_FRONT, glStencilOps[renderState.backFail], glStencilOps[renderState.backDepthFail],
+                    glStencilOps[renderState.backPass]);
+                glRenderState.backFail = renderState.backFail;
+                glRenderState.backDepthFail = renderState.backDepthFail;
+                glRenderState.backPass = renderState.backPass;
             }
         }
 
@@ -1200,52 +1196,60 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
     }
 
     // Apply rasterizer state
-    if (rasterizerStateDirty && rasterizerState)
+    if (rasterizerStateDirty)
     {
-        if (rasterizerState->fillMode != fillMode)
+        if (renderState.fillMode != glRenderState.fillMode)
         {
-            glPolygonMode(GL_FRONT_AND_BACK, glFillModes[rasterizerState->fillMode]);
-            fillMode = rasterizerState->fillMode;
+            glPolygonMode(GL_FRONT_AND_BACK, glFillModes[renderState.fillMode]);
+            glRenderState.fillMode = renderState.fillMode;
         }
 
-        if (rasterizerState->cullMode != cullMode)
+        if (renderState.cullMode != glRenderState.cullMode)
         {
-            if (rasterizerState->cullMode == CULL_NONE)
+            if (renderState.cullMode == CULL_NONE)
                 glDisable(GL_CULL_FACE);
             else
             {
-                if (cullMode == CULL_NONE)
+                if (glRenderState.cullMode == CULL_NONE)
                     glEnable(GL_CULL_FACE);
                 // Note: as polygons use Direct3D convention (clockwise = front) reversed front/back faces are used here
-                glCullFace(rasterizerState->cullMode == CULL_BACK ? GL_FRONT : GL_BACK);
+                glCullFace(renderState.cullMode == CULL_BACK ? GL_FRONT : GL_BACK);
             }
-            cullMode = rasterizerState->cullMode;
+            glRenderState.cullMode = renderState.cullMode;
         }
 
-        if (rasterizerState->depthBias != depthBias || rasterizerState->slopeScaledDepthBias != slopeScaledDepthBias)
+        if (renderState.depthBias != glRenderState.depthBias || renderState.slopeScaledDepthBias !=
+            glRenderState.slopeScaledDepthBias)
         {
             /// \todo Check if this matches Direct3D
-            glPolygonOffset(rasterizerState->slopeScaledDepthBias + 1.0f, (float)rasterizerState->depthBias);
-            depthBias = rasterizerState->depthBias;
-            slopeScaledDepthBias = rasterizerState->slopeScaledDepthBias;
+            glPolygonOffset(renderState.slopeScaledDepthBias + 1.0f, (float)renderState.depthBias);
+            glRenderState.depthBias = renderState.depthBias;
+            glRenderState.slopeScaledDepthBias = renderState.slopeScaledDepthBias;
         }
 
-        if (rasterizerState->depthClipEnable != depthClipEnable)
+        if (renderState.depthClipEnable != glRenderState.depthClipEnable)
         {
-            if (rasterizerState->depthClipEnable)
+            if (renderState.depthClipEnable)
                 glDisable(GL_DEPTH_CLAMP);
             else
                 glEnable(GL_DEPTH_CLAMP);
-            depthClipEnable = rasterizerState->depthClipEnable;
+            glRenderState.depthClipEnable = renderState.depthClipEnable;
         }
 
-        if (rasterizerState->scissorEnable != scissorEnable)
+        if (renderState.scissorEnable != glRenderState.scissorEnable)
         {
-            if (rasterizerState->scissorEnable)
+            if (renderState.scissorEnable)
                 glEnable(GL_SCISSOR_TEST);
             else
                 glDisable(GL_SCISSOR_TEST);
-            scissorEnable = rasterizerState->scissorEnable;
+            glRenderState.scissorEnable = renderState.scissorEnable;
+        }
+
+        if (renderState.scissorEnable && renderState.scissorRect != glRenderState.scissorRect)
+        {
+            glScissor(renderState.scissorRect.left, renderTargetSize.y - renderState.scissorRect.bottom,
+                scissorRect.Width(), scissorRect.Height());
+            glRenderState.scissorRect = renderState.scissorRect;
         }
 
         rasterizerStateDirty = false;
@@ -1277,9 +1281,6 @@ void Graphics::ResetState()
     vertexShader = nullptr;
     pixelShader = nullptr;
     shaderProgram = nullptr;
-    blendState = nullptr;
-    depthState = nullptr;
-    rasterizerState = nullptr;
     framebuffer = nullptr;
     vertexAttributesDirty = false;
     vertexBuffersDirty = false;
@@ -1287,43 +1288,39 @@ void Graphics::ResetState()
     depthStateDirty = false;
     rasterizerStateDirty = false;
     framebufferDirty = false;
-    scissorRect = IntRect();
     activeTexture = 0;
     boundVBO = 0;
 
-    srcBlend = MAX_BLEND_FACTORS;
-    destBlend = MAX_BLEND_FACTORS;
-    blendOp = MAX_BLEND_OPS;
-    srcBlendAlpha = MAX_BLEND_FACTORS;
-    destBlendAlpha = MAX_BLEND_FACTORS;
-    blendOpAlpha = MAX_BLEND_OPS;
-    colorWriteMask = COLORMASK_ALL;
-    blendEnable = false;
-    alphaToCoverage = false;
-
-    depthEnable = false;
-    depthWrite = false;
-    depthFunc = CMP_ALWAYS;
-    stencilEnable = false;
-    stencilReadMask = 0xff;
-    stencilWriteMask = 0xff;
-    frontFail = STENCIL_OP_KEEP;
-    frontDepthFail = STENCIL_OP_KEEP;
-    frontPass = STENCIL_OP_KEEP;
-    frontFunc = CMP_ALWAYS;
-    backFail = STENCIL_OP_KEEP;
-    backDepthFail = STENCIL_OP_KEEP;
-    backPass = STENCIL_OP_KEEP;
-    backFunc = CMP_ALWAYS;
-    stencilRef = 0;
-    currentStencilRef = 0;
-
-    fillMode = FILL_SOLID;
-    cullMode = CULL_NONE;
-    depthBias = 0;
-    slopeScaledDepthBias = 0;
-    depthClipEnable = true;
-    scissorEnable = false;
+    glRenderState.srcBlend = MAX_BLEND_FACTORS;
+    glRenderState.destBlend = MAX_BLEND_FACTORS;
+    glRenderState.blendOp = MAX_BLEND_OPS;
+    glRenderState.srcBlendAlpha = MAX_BLEND_FACTORS;
+    glRenderState.destBlendAlpha = MAX_BLEND_FACTORS;
+    glRenderState.blendOpAlpha = MAX_BLEND_OPS;
+    glRenderState.colorWriteMask = COLORMASK_ALL;
+    glRenderState.blendEnable = false;
+    glRenderState.alphaToCoverage = false;
+    glRenderState.depthWrite = false;
+    glRenderState.depthFunc = CMP_ALWAYS;
+    glRenderState.stencilEnable = false;
+    glRenderState.stencilReadMask = 0xff;
+    glRenderState.stencilWriteMask = 0xff;
+    glRenderState.frontFail = STENCIL_OP_KEEP;
+    glRenderState.frontDepthFail = STENCIL_OP_KEEP;
+    glRenderState.frontPass = STENCIL_OP_KEEP;
+    glRenderState.frontFunc = CMP_ALWAYS;
+    glRenderState.backFail = STENCIL_OP_KEEP;
+    glRenderState.backDepthFail = STENCIL_OP_KEEP;
+    glRenderState.backPass = STENCIL_OP_KEEP;
+    glRenderState.backFunc = CMP_ALWAYS;
+    glRenderState.stencilRef = 0;
+    glRenderState.fillMode = FILL_SOLID;
+    glRenderState.cullMode = CULL_NONE;
+    glRenderState.depthBias = 0;
+    glRenderState.slopeScaledDepthBias = 0;
+    glRenderState.depthClipEnable = true;
+    glRenderState.scissorEnable = false;
+    renderState = glRenderState;
 }
 
 void RegisterGraphicsLibrary()
