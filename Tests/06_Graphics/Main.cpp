@@ -34,7 +34,7 @@ public:
 
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &GraphicsTest::HandleCloseRequest);
         
-        const size_t NUM_OBJECTS = 10000;
+        const size_t NUM_OBJECTS = 1000;
 
         float vertexData[] = {
             // Position             // Texcoord

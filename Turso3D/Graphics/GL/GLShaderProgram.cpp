@@ -145,6 +145,7 @@ bool ShaderProgram::Link()
     }
 
     glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &numUniforms);
+    int numTextures = 0;
     for (int i = 0; i < numUniforms; ++i)
     {
         glGetActiveUniform(program, i, MAX_NAME_LENGTH, &nameLength, &numElements, &type, nameBuffer);
@@ -155,8 +156,12 @@ bool ShaderProgram::Link()
             // Assign sampler uniforms to a texture unit according to the number appended to the sampler name
             int location = glGetUniformLocation(program, name.CString());
             int unit = NumberPostfix(name);
-            if (unit >= 0)
-                glUniform1iv(location, 1, &unit);
+            // If no unit number specified, assign in appearance order starting from unit 0
+            if (unit < 0)
+                unit = numTextures;
+            
+            glUniform1iv(location, 1, &unit);
+            ++numTextures;
         }
     }
 

@@ -46,15 +46,16 @@ public:
         pass->SetShaders("Diffuse", "Diffuse");
 
         float vertexData[] = {
-            // Position
-            -0.5f, 0.5f, 0.0f,
-            0.5f, 0.5f, 0.0f,
-            0.5f, -0.5f, 0.0f,
-            -0.5f, -0.5f, 0.0f
+            // Position         // Texcoord
+            -0.5f, 0.5f, 0.0f,  0.0f, 0.0f,
+            0.5f, 0.5f, 0.0f,   1.0f, 0.0f,
+            0.5f, -0.5f, 0.0f,  1.0f, 1.0f,
+            -0.5f, -0.5f, 0.0f, 0.0f, 1.0f
         };
 
         Vector<VertexElement> vertexDeclaration;
         vertexDeclaration.Push(VertexElement(ELEM_VECTOR3, SEM_POSITION));
+        vertexDeclaration.Push(VertexElement(ELEM_VECTOR2, SEM_TEXCOORD));
         SharedPtr<VertexBuffer> vb = new VertexBuffer();
         vb->Define(USAGE_IMMUTABLE, 4, vertexDeclaration, true, vertexData);
 
@@ -70,22 +71,19 @@ public:
         SharedPtr<IndexBuffer> ib = new IndexBuffer();
         ib->Define(USAGE_IMMUTABLE, 6, sizeof(unsigned short), true, indexData);
 
-        BoundingBox box(Vector3(-0.5f, -0.5f, 0.0f), Vector3(0.5f, 0.5f, 0.0f));
-
         SharedPtr<Scene> scene = new Scene();
         scene->CreateChild<Octree>();
-
         Camera* camera = scene->CreateChild<Camera>();
-        camera->SetPosition(Vector3(0.0f, 0.0f, -750.0f));
+        camera->SetPosition(Vector3(0.0f, 0.0f, -250.0f));
 
-        for (int x = -125; x <= 125; ++x)
+        for (int x = -50; x <= 50; ++x)
         {
-            for (int y = -125; y <= 125; ++y)
+            for (int y = -50; y <= 50; ++y)
             {
                 GeometryNode* geom = scene->CreateChild<GeometryNode>();
                 geom->SetPosition(Vector3(2.0f * x, 2.0f * y, 0.0f));
                 geom->SetupBatches(GEOM_STATIC, 1);
-                geom->SetBoundingBox(box);
+                geom->SetBoundingBox(BoundingBox(Vector3(-0.5f, -0.5f, 0.0f), Vector3(0.5f, 0.5f, 0.0f)));
 
                 SourceBatch* batch = geom->GetBatch(0);
                 batch->material = mat;
