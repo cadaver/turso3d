@@ -19,7 +19,7 @@ public:
     /// Load from a stream as text. Return true on success. Will contain partial data on failure.
     bool BeginLoad(Stream& source) override;
     /// Save to a stream as text. Return true on success.
-    bool Save(Stream& dest) const override;
+    bool Save(Stream& dest) override;
     
     /// Register object factory.
     static void RegisterObject();

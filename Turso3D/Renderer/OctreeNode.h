@@ -26,9 +26,6 @@ public:
     /// Destruct. Remove self from the octree.
     ~OctreeNode();
 
-    /// Register factory and attributes.
-    static void RegisterObject();
-
     /// Perform ray test on self and add possible hit to the result vector.
     virtual void OnRaycast(Vector<RaycastResult>& dest, const Ray& ray, float maxDistance);
     
@@ -47,12 +44,13 @@ protected:
     /// Recalculate the world bounding box.
     virtual void OnWorldBoundingBoxUpdate() const;
 
+    /// World space bounding box.
+    mutable BoundingBox worldBoundingBox;
+
 private:
     /// Remove from the current octree.
     void RemoveFromOctree();
 
-    /// World bounding box.
-    mutable BoundingBox worldBoundingBox;
     /// Current octree.
     Octree* octree;
     /// Current octree octant.

@@ -503,7 +503,7 @@ bool Image::BeginLoad(Stream& source)
     return true;
 }
 
-bool Image::Save(Stream& dest) const
+bool Image::Save(Stream& dest)
 {
     PROFILE(SaveImage);
 

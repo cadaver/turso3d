@@ -405,27 +405,30 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
     }
 }
 
-void Graphics::SetColorState(unsigned char colorWriteMask, bool blendEnable, bool alphaToCoverage, BlendFactor srcBlend, BlendFactor destBlend, BlendOp blendOp, BlendFactor srcBlendAlpha, BlendFactor destBlendAlpha, BlendOp blendOpAlpha)
+void Graphics::SetColorState(const BlendModeDesc& blendMode, bool alphaToCoverage, unsigned char colorWriteMask)
 {
+    renderState.blendMode = blendMode;
     renderState.colorWriteMask = colorWriteMask;
-    renderState.blendEnable = blendEnable;
     renderState.alphaToCoverage = alphaToCoverage;
-    renderState.srcBlend = srcBlend;
-    renderState.destBlend = destBlend;
-    renderState.blendOp = blendOp;
-    renderState.srcBlendAlpha = srcBlendAlpha;
-    renderState.destBlendAlpha = destBlendAlpha;
-    renderState.blendOpAlpha = blendOpAlpha;
     
     blendStateDirty = true;
 }
 
-void Graphics::SetDepthState(CompareFunc depthFunc, bool depthWrite, bool depthClipEnable, int depthBias, float depthBiasClamp,
+void Graphics::SetColorState(BlendMode blendMode, bool alphaToCoverage, unsigned char colorWriteMask)
+{
+    renderState.blendMode = blendModes[blendMode];
+    renderState.colorWriteMask = colorWriteMask;
+    renderState.alphaToCoverage = alphaToCoverage;
+
+    blendStateDirty = true;
+}
+
+void Graphics::SetDepthState(CompareFunc depthFunc, bool depthWrite, bool depthClip, int depthBias, float depthBiasClamp,
     float slopeScaledDepthBias)
 {
     renderState.depthFunc = depthFunc;
     renderState.depthWrite = depthWrite;
-    renderState.depthClipEnable = depthClipEnable;
+    renderState.depthClip = depthClip;
     renderState.depthBias = depthBias;
     renderState.depthBiasClamp = depthBiasClamp;
     renderState.slopeScaledDepthBias = slopeScaledDepthBias;
@@ -465,20 +468,12 @@ void Graphics::SetScissorTest(bool scissorEnable, const IntRect& scissorRect)
     rasterizerStateDirty = true;
 }
 
-void Graphics::SetStencilTest(bool stencilEnable, unsigned char stencilRef, unsigned char stencilReadMask, unsigned char stencilWriteMask, StencilOp frontFail, StencilOp frontDepthFail, StencilOp frontPass, CompareFunc frontFunc, StencilOp backFail, StencilOp backDepthFail, StencilOp backPass, CompareFunc backFunc)
+void Graphics::SetStencilTest(bool stencilEnable, const StencilTestDesc& stencilTest, unsigned char stencilRef)
 {
     renderState.stencilEnable = stencilEnable;
+    // When stencil test is disabled, always set default stencil test parameters to prevent creating unnecessary states
+    renderState.stencilTest = stencilEnable ? stencilTest : StencilTestDesc();
     renderState.stencilRef = stencilRef;
-    renderState.stencilReadMask = stencilReadMask;
-    renderState.stencilWriteMask = stencilWriteMask;
-    renderState.frontFail = frontFail;
-    renderState.frontDepthFail = frontDepthFail;
-    renderState.frontPass = frontPass;
-    renderState.frontFunc = frontFunc;
-    renderState.backFail = backFail;
-    renderState.backDepthFail = backDepthFail;
-    renderState.backPass = backPass;
-    renderState.backFunc = backFunc;
 
     depthStateDirty = true;
 }
@@ -844,14 +839,14 @@ void Graphics::PrepareDraw(PrimitiveType type)
     {
         unsigned long long blendStateHash = 
             renderState.colorWriteMask |
-            (renderState.blendEnable ? 0x10 : 0x0) |
-            (renderState.alphaToCoverage ? 0x20 : 0x0) |
-            (renderState.srcBlend << 6) |
-            (renderState.destBlend << 10) |
-            (renderState.blendOp << 14) |
-            (renderState.srcBlendAlpha << 17) |
-            (renderState.destBlendAlpha << 21) |
-            (renderState.blendOpAlpha << 25);
+            (renderState.alphaToCoverage ? 0x10 : 0x0) |
+            (renderState.blendMode.blendEnable ? 0x20 : 0x0) |
+            (renderState.blendMode.srcBlend << 6) |
+            (renderState.blendMode.destBlend << 10) |
+            (renderState.blendMode.blendOp << 14) |
+            (renderState.blendMode.srcBlendAlpha << 17) |
+            (renderState.blendMode.destBlendAlpha << 21) |
+            (renderState.blendMode.blendOpAlpha << 25);
 
         if (blendStateHash != impl->blendStateHash)
         {
@@ -872,13 +867,13 @@ void Graphics::PrepareDraw(PrimitiveType type)
     
                 stateDesc.AlphaToCoverageEnable = renderState.alphaToCoverage;
                 stateDesc.IndependentBlendEnable = false;
-                stateDesc.RenderTarget[0].BlendEnable = renderState.blendEnable;
-                stateDesc.RenderTarget[0].SrcBlend = (D3D11_BLEND)renderState.srcBlend;
-                stateDesc.RenderTarget[0].DestBlend = (D3D11_BLEND)renderState.destBlend;
-                stateDesc.RenderTarget[0].BlendOp = (D3D11_BLEND_OP)renderState.blendOp;
-                stateDesc.RenderTarget[0].SrcBlendAlpha = (D3D11_BLEND)renderState.srcBlendAlpha;
-                stateDesc.RenderTarget[0].DestBlendAlpha = (D3D11_BLEND)renderState.destBlendAlpha;
-                stateDesc.RenderTarget[0].BlendOpAlpha = (D3D11_BLEND_OP)renderState.blendOpAlpha;
+                stateDesc.RenderTarget[0].BlendEnable = renderState.blendMode.blendEnable;
+                stateDesc.RenderTarget[0].SrcBlend = (D3D11_BLEND)renderState.blendMode.srcBlend;
+                stateDesc.RenderTarget[0].DestBlend = (D3D11_BLEND)renderState.blendMode.destBlend;
+                stateDesc.RenderTarget[0].BlendOp = (D3D11_BLEND_OP)renderState.blendMode.blendOp;
+                stateDesc.RenderTarget[0].SrcBlendAlpha = (D3D11_BLEND)renderState.blendMode.srcBlendAlpha;
+                stateDesc.RenderTarget[0].DestBlendAlpha = (D3D11_BLEND)renderState.blendMode.destBlendAlpha;
+                stateDesc.RenderTarget[0].BlendOpAlpha = (D3D11_BLEND_OP)renderState.blendMode.blendOpAlpha;
                 stateDesc.RenderTarget[0].RenderTargetWriteMask = renderState.colorWriteMask & COLORMASK_ALL;
     
                 ID3D11BlendState* newBlendState = nullptr;
@@ -904,16 +899,16 @@ void Graphics::PrepareDraw(PrimitiveType type)
             (renderState.depthWrite ? 0x1 : 0x0) |
             (renderState.stencilEnable ? 0x2 : 0x0) |
             (renderState.depthFunc << 2) |
-            (renderState.stencilReadMask << 6) |
-            (renderState.stencilWriteMask << 14) |
-            (renderState.frontFail << 22) |
-            (renderState.frontDepthFail << 26) |
-            ((unsigned long long)renderState.frontPass << 30) |
-            ((unsigned long long)renderState.frontFunc << 34) |
-            ((unsigned long long)renderState.frontFail << 38) |
-            ((unsigned long long)renderState.frontDepthFail << 42) |
-            ((unsigned long long)renderState.frontPass << 46) |
-            ((unsigned long long)renderState.frontFunc << 50);
+            (renderState.stencilTest.stencilReadMask << 6) |
+            (renderState.stencilTest.stencilWriteMask << 14) |
+            (renderState.stencilTest.frontFail << 22) |
+            (renderState.stencilTest.frontDepthFail << 26) |
+            ((unsigned long long)renderState.stencilTest.frontPass << 30) |
+            ((unsigned long long)renderState.stencilTest.frontFunc << 34) |
+            ((unsigned long long)renderState.stencilTest.frontFail << 38) |
+            ((unsigned long long)renderState.stencilTest.frontDepthFail << 42) |
+            ((unsigned long long)renderState.stencilTest.frontPass << 46) |
+            ((unsigned long long)renderState.stencilTest.frontFunc << 50);
 
         if (depthStateHash != impl->depthStateHash || renderState.stencilRef != impl->stencilRef)
         {
@@ -937,16 +932,16 @@ void Graphics::PrepareDraw(PrimitiveType type)
                 stateDesc.DepthWriteMask = renderState.depthWrite ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
                 stateDesc.DepthFunc = (D3D11_COMPARISON_FUNC)renderState.depthFunc;
                 stateDesc.StencilEnable = renderState.stencilEnable;
-                stateDesc.StencilReadMask = renderState.stencilReadMask;
-                stateDesc.StencilWriteMask = renderState.stencilWriteMask;
-                stateDesc.FrontFace.StencilFailOp = (D3D11_STENCIL_OP)renderState.frontFail;
-                stateDesc.FrontFace.StencilDepthFailOp = (D3D11_STENCIL_OP)renderState.frontDepthFail;
-                stateDesc.FrontFace.StencilPassOp = (D3D11_STENCIL_OP)renderState.frontPass;
-                stateDesc.FrontFace.StencilFunc = (D3D11_COMPARISON_FUNC)renderState.frontFunc;
-                stateDesc.BackFace.StencilFailOp = (D3D11_STENCIL_OP)renderState.backFail;
-                stateDesc.BackFace.StencilDepthFailOp = (D3D11_STENCIL_OP)renderState.backDepthFail;
-                stateDesc.BackFace.StencilPassOp = (D3D11_STENCIL_OP)renderState.backPass;
-                stateDesc.BackFace.StencilFunc = (D3D11_COMPARISON_FUNC)renderState.backFunc;
+                stateDesc.StencilReadMask = renderState.stencilTest.stencilReadMask;
+                stateDesc.StencilWriteMask = renderState.stencilTest.stencilWriteMask;
+                stateDesc.FrontFace.StencilFailOp = (D3D11_STENCIL_OP)renderState.stencilTest.frontFail;
+                stateDesc.FrontFace.StencilDepthFailOp = (D3D11_STENCIL_OP)renderState.stencilTest.frontDepthFail;
+                stateDesc.FrontFace.StencilPassOp = (D3D11_STENCIL_OP)renderState.stencilTest.frontPass;
+                stateDesc.FrontFace.StencilFunc = (D3D11_COMPARISON_FUNC)renderState.stencilTest.frontFunc;
+                stateDesc.BackFace.StencilFailOp = (D3D11_STENCIL_OP)renderState.stencilTest.backFail;
+                stateDesc.BackFace.StencilDepthFailOp = (D3D11_STENCIL_OP)renderState.stencilTest.backDepthFail;
+                stateDesc.BackFace.StencilPassOp = (D3D11_STENCIL_OP)renderState.stencilTest.backPass;
+                stateDesc.BackFace.StencilFunc = (D3D11_COMPARISON_FUNC)renderState.stencilTest.backFunc;
                 
                 ID3D11DepthStencilState* newDepthState = nullptr;
                 impl->device->CreateDepthStencilState(&stateDesc, &newDepthState);
@@ -969,7 +964,7 @@ void Graphics::PrepareDraw(PrimitiveType type)
     if (rasterizerStateDirty)
     {
         unsigned long long rasterizerStateHash =
-            (renderState.depthClipEnable ? 0x1 : 0x0) |
+            (renderState.depthClip ? 0x1 : 0x0) |
             (renderState.scissorEnable ? 0x2 : 0x0) |
             (renderState.fillMode << 2) |
             (renderState.cullMode << 4) |
@@ -1000,7 +995,7 @@ void Graphics::PrepareDraw(PrimitiveType type)
                 stateDesc.DepthBias = renderState.depthBias;
                 stateDesc.DepthBiasClamp = renderState.depthBiasClamp;
                 stateDesc.SlopeScaledDepthBias = renderState.slopeScaledDepthBias;
-                stateDesc.DepthClipEnable = renderState.depthClipEnable;
+                stateDesc.DepthClipEnable = renderState.depthClip;
                 stateDesc.ScissorEnable = renderState.scissorEnable;
                 stateDesc.MultisampleEnable = TRUE;
                 stateDesc.AntialiasedLineEnable = FALSE;

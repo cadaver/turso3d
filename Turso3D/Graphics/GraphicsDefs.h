@@ -115,6 +115,21 @@ enum BlendOp
     MAX_BLEND_OPS
 };
 
+/// Predefined blend modes.
+enum BlendMode
+{
+    BLEND_MODE_REPLACE = 0,
+    BLEND_MODE_ADD,
+    BLEND_MODE_MULTIPLY,
+    BLEND_MODE_ALPHA,
+    BLEND_MODE_ADDALPHA,
+    BLEND_MODE_PREMULALPHA,
+    BLEND_MODE_INVDESTALPHA,
+    BLEND_MODE_SUBTRACT,
+    BLEND_MODE_SUBTRACTALPHA,
+    MAX_BLEND_MODES
+};
+
 /// Fill modes.
 enum FillMode
 {
@@ -269,6 +284,106 @@ struct TURSO3D_API Constant
     size_t offset;
 };
 
+/// Description of a blend mode.
+struct TURSO3D_API BlendModeDesc
+{
+    /// Construct with defaults.
+    BlendModeDesc()
+    {
+        Reset();
+    }
+
+    /// Construct with parameters.
+    BlendModeDesc(bool blendEnable_, BlendFactor srcBlend_, BlendFactor destBlend_, BlendOp blendOp_, BlendFactor srcBlendAlpha_, BlendFactor destBlendAlpha_, BlendOp blendOpAlpha_) :
+        blendEnable(blendEnable_),
+        srcBlend(srcBlend_),
+        destBlend(destBlend_),
+        blendOp(blendOp_),
+        srcBlendAlpha(srcBlendAlpha_),
+        destBlendAlpha(destBlendAlpha_),
+        blendOpAlpha(blendOpAlpha_)
+    {
+    }
+
+    /// Reset to defaults.
+    void Reset()
+    {
+        blendEnable = false;
+        srcBlend = BLEND_ONE;
+        destBlend = BLEND_ONE;
+        blendOp = BLEND_OP_ADD;
+        srcBlendAlpha = BLEND_ONE;
+        destBlendAlpha = BLEND_ONE;
+        blendOpAlpha = BLEND_OP_ADD;
+    }
+
+    /// Test for equality with another blend mode description.
+    bool operator == (const BlendModeDesc& rhs) const { return blendEnable == rhs.blendEnable && srcBlend == rhs.srcBlend && destBlend == rhs.destBlend && blendOp == rhs.blendOp && srcBlendAlpha == rhs.srcBlendAlpha && destBlendAlpha == rhs.destBlendAlpha && blendOpAlpha == rhs.blendOpAlpha; }
+    /// Test for inequality with another blend mode description.
+    bool operator != (const BlendModeDesc& rhs) const { return !(*this == rhs); }
+
+    /// Blend enable flag.
+    bool blendEnable;
+    /// Source color blend factor.
+    BlendFactor srcBlend;
+    /// Destination color blend factor.
+    BlendFactor destBlend;
+    /// Color blend operation.
+    BlendOp blendOp;
+    /// Source alpha blend factor.
+    BlendFactor srcBlendAlpha;
+    /// Destination alpha blend factor.
+    BlendFactor destBlendAlpha;
+    /// Alpha blend operation.
+    BlendOp blendOpAlpha;
+};
+
+/// Description of a stencil test.
+struct TURSO3D_API StencilTestDesc
+{
+    /// Construct with defauls.
+    StencilTestDesc()
+    {
+        Reset();
+    }
+
+    /// Reset to defaults.
+    void Reset()
+    {
+        stencilReadMask = 0xff;
+        stencilWriteMask = 0xff;
+        frontFunc = CMP_ALWAYS;
+        frontFail = STENCIL_OP_KEEP;
+        frontDepthFail = STENCIL_OP_KEEP;
+        frontPass = STENCIL_OP_KEEP;
+        backFunc = CMP_ALWAYS;
+        backFail = STENCIL_OP_KEEP;
+        backDepthFail = STENCIL_OP_KEEP;
+        backPass = STENCIL_OP_KEEP;
+    }
+
+    /// Stencil read bit mask.
+    unsigned char stencilReadMask;
+    /// Stencil write bit mask.
+    unsigned char stencilWriteMask;
+    /// Stencil front face compare function.
+    CompareFunc frontFunc;
+    /// Operation for front face stencil test fail.
+    StencilOp frontFail;
+    /// Operation for front face depth test fail.
+    StencilOp frontDepthFail;
+    /// Operation for front face pass.
+    StencilOp frontPass;
+    /// Stencil back face compare function.
+    CompareFunc backFunc;
+    /// Operation for back face stencil test fail.
+    StencilOp backFail;
+    /// Operation for back face depth test fail.
+    StencilOp backDepthFail;
+    /// Operation for back face pass.
+    StencilOp backPass;
+};
+
 /// Collection of render state.
 struct RenderState
 {
@@ -283,68 +398,54 @@ struct RenderState
     {
         depthFunc = CMP_LESS_EQUAL;
         depthWrite = true;
-        depthClipEnable = true;
+        depthClip = true;
         depthBias = 0;
         depthBiasClamp = M_INFINITY;
         slopeScaledDepthBias = 0.0f;
         colorWriteMask = COLORMASK_ALL;
-        blendEnable = false;
         alphaToCoverage = false;
-        srcBlend = BLEND_ONE;
-        destBlend = BLEND_ONE;
-        blendOp = BLEND_OP_ADD;
-        srcBlendAlpha = BLEND_ONE;
-        destBlendAlpha = BLEND_ONE;
-        blendOpAlpha = BLEND_OP_ADD;
+        blendMode.Reset();
         cullMode = CULL_BACK;
         fillMode = FILL_SOLID;
         scissorEnable = false;
         scissorRect = IntRect::ZERO;
         stencilEnable = false;
         stencilRef = 0;
-        stencilReadMask = 0xff;
-        stencilWriteMask = 0xff;
-        frontFail = STENCIL_OP_KEEP;
-        frontDepthFail = STENCIL_OP_KEEP;
-        frontPass = STENCIL_OP_KEEP;
-        frontFunc = CMP_ALWAYS;
-        backFail = STENCIL_OP_KEEP;
-        backDepthFail = STENCIL_OP_KEEP;
-        backPass = STENCIL_OP_KEEP;
-        backFunc = CMP_ALWAYS;
+        stencilTest.Reset();
     }
 
+    /// Depth test function.
     CompareFunc depthFunc;
+    /// Depth write enable.
     bool depthWrite;
-    bool depthClipEnable;
+    /// Depth clipping enable.
+    bool depthClip;
+    /// Constant depth bias.
     int depthBias;
+    /// Maximum allowed depth bias.
     float depthBiasClamp;
+    /// Slope-scaled depth bias.
     float slopeScaledDepthBias;
+    /// Rendertarget color channel write mask.
     unsigned char colorWriteMask;
-    bool blendEnable;
+    /// Alpha-to-coverage enable.
     bool alphaToCoverage;
-    BlendFactor srcBlend;
-    BlendFactor destBlend;
-    BlendOp blendOp;
-    BlendFactor srcBlendAlpha;
-    BlendFactor destBlendAlpha;
-    BlendOp blendOpAlpha;
+    /// Blend mode parameters.
+    BlendModeDesc blendMode;
+    /// Polygon culling mode.
     CullMode cullMode;
+    /// Polygon fill mode.
     FillMode fillMode;
+    /// Scissor test enable.
     bool scissorEnable;
+    /// Scissor rectangle as pixels from rendertarget top left corner.
     IntRect scissorRect;
+    /// Stencil test enable.
     bool stencilEnable;
+    /// Stencil reference value.
     unsigned char stencilRef;
-    unsigned char stencilReadMask;
-    unsigned char stencilWriteMask;
-    StencilOp frontFail;
-    StencilOp frontDepthFail;
-    StencilOp frontPass;
-    CompareFunc frontFunc;
-    StencilOp backFail;
-    StencilOp backDepthFail;
-    StencilOp backPass;
-    CompareFunc backFunc;
+    /// Stencil test parameters.
+    StencilTestDesc stencilTest;
 };
 
 /// Vertex element sizes by element type.
@@ -359,6 +460,8 @@ extern TURSO3D_API const char* elementSemanticNames[];
 extern TURSO3D_API const char* blendFactorNames[];
 /// Blend operation names.
 extern TURSO3D_API const char* blendOpNames[];
+/// Predefined blend mode names.
+extern TURSO3D_API const char* blendModeNames[];
 /// Fill mode names.
 extern TURSO3D_API const char* fillModeNames[];
 /// Culling mode names.
@@ -367,5 +470,7 @@ extern TURSO3D_API const char* cullModeNames[];
 extern TURSO3D_API const char* compareFuncNames[];
 /// Stencil operation names.
 extern TURSO3D_API const char* stencilOpNames[];
+/// Predefined blend modes.
+extern TURSO3D_API const BlendModeDesc blendModes[];
 
 }

@@ -34,13 +34,13 @@ public:
 
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &GraphicsTest::HandleCloseRequest);
         
-        const size_t NUM_OBJECTS = 1000;
+        const size_t NUM_OBJECTS = 10000;
 
         float vertexData[] = {
             // Position             // Texcoord
-            0.0f, 0.05f, 0.0f, 0.5f, 0.0f,
-            0.05f, -0.05f, 0.0f, 1.0f, 1.0f,
-            -0.05f, -0.05f, 0.0f, 0.0f, 1.0f
+            0.0f, 0.05f, 0.0f,      0.5f, 0.0f,
+            0.05f, -0.05f, 0.0f,    1.0f, 1.0f,
+            -0.05f, -0.05f, 0.0f,   0.0f, 1.0f
         };
 
         Vector<VertexElement> vertexDeclaration;
@@ -171,7 +171,7 @@ public:
             graphics->SetShaders(vsv, psv);
             graphics->SetTexture(0, tex);
             graphics->SetDepthState(CMP_LESS_EQUAL, true);
-            graphics->SetColorState(COLORMASK_ALL, false);
+            graphics->SetColorState(BLEND_MODE_REPLACE);
             graphics->SetRasterizerState(CULL_BACK, FILL_SOLID);
             graphics->DrawIndexedInstanced(TRIANGLE_LIST, 0, 3, 0, 0, NUM_OBJECTS);
 

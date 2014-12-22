@@ -83,6 +83,20 @@ const char* blendOpNames[] =
     nullptr
 };
 
+const char* blendModeNames[] = 
+{
+    "replace",
+    "add",
+    "multiply",
+    "alpha",
+    "addAlpha",
+    "preMulAlpha",
+    "invDestAlpha",
+    "subtract",
+    "subtractAlpha",
+    nullptr
+};
+
 const char* fillModeNames[] =
 {
     "",
@@ -127,6 +141,19 @@ const char* stencilOpNames[] =
     "incr",
     "decr",
     nullptr
+};
+
+const BlendModeDesc blendModes[] =
+{
+    { false, BLEND_ONE, BLEND_ONE, BLEND_OP_ADD, BLEND_ONE, BLEND_ONE, BLEND_OP_ADD },
+    { true, BLEND_ONE, BLEND_ONE, BLEND_OP_ADD, BLEND_ONE, BLEND_ONE, BLEND_OP_ADD },
+    { true, BLEND_DEST_COLOR, BLEND_ZERO, BLEND_OP_ADD, BLEND_DEST_COLOR, BLEND_ZERO, BLEND_OP_ADD },
+    { true, BLEND_SRC_ALPHA, BLEND_INV_SRC_ALPHA, BLEND_OP_ADD, BLEND_SRC_ALPHA, BLEND_INV_SRC_ALPHA, BLEND_OP_ADD },
+    { true, BLEND_SRC_ALPHA, BLEND_ONE, BLEND_OP_ADD, BLEND_SRC_ALPHA, BLEND_ONE, BLEND_OP_ADD },
+    { true, BLEND_ONE, BLEND_INV_SRC_ALPHA, BLEND_OP_ADD, BLEND_ONE, BLEND_INV_SRC_ALPHA, BLEND_OP_ADD },
+    { true, BLEND_INV_DEST_ALPHA, BLEND_DEST_ALPHA, BLEND_OP_ADD, BLEND_INV_DEST_ALPHA, BLEND_DEST_ALPHA, BLEND_OP_ADD },
+    { true, BLEND_ONE, BLEND_ONE, BLEND_OP_REV_SUBTRACT, BLEND_ONE, BLEND_ONE, BLEND_OP_REV_SUBTRACT },
+    { true, BLEND_SRC_ALPHA, BLEND_ONE, BLEND_OP_REV_SUBTRACT, BLEND_SRC_ALPHA, BLEND_ONE, BLEND_OP_REV_SUBTRACT }
 };
 
 }

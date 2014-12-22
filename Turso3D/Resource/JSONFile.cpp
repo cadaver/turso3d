@@ -40,7 +40,7 @@ bool JSONFile::BeginLoad(Stream& source)
     return success;
 }
 
-bool JSONFile::Save(Stream& dest) const
+bool JSONFile::Save(Stream& dest)
 {
     PROFILE(SaveJSONFile);
     

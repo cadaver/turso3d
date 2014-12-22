@@ -19,7 +19,7 @@ bool Resource::EndLoad()
     return true;
 }
 
-bool Resource::Save(Stream&) const
+bool Resource::Save(Stream&)
 {
     LOGERROR("Save not supported for " + TypeName());
     return false;

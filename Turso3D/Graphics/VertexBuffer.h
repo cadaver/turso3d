@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "../Turso3D.h"
+
 #ifdef TURSO3D_D3D11
     #include "D3D11/D3D11VertexBuffer.h"
 #endif

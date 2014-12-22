@@ -435,9 +435,7 @@ bool JSONValue::Contains(const String& key) const
 bool JSONValue::Parse(const char*& pos, const char*& end)
 {
     char c;
-    if (!NextChar(c, pos, end, true))
-        return false;
-    
+
     // Handle comments
     for (;;)
     {

@@ -81,16 +81,18 @@ public:
     void SetTexture(size_t index, Texture* texture);
     /// Bind vertex and pixel shaders.
     void SetShaders(ShaderVariation* vs, ShaderVariation* ps);
-    /// Set color write and blending related state.
-    void SetColorState(unsigned char colorWriteMask = COLORMASK_ALL, bool blendEnable = false, bool alphaToCoverage = false, BlendFactor srcBlend = BLEND_ONE, BlendFactor destBlend = BLEND_ONE, BlendOp blendOp = BLEND_OP_ADD, BlendFactor srcBlendAlpha = BLEND_ONE, BlendFactor destBlendAlpha = BLEND_ONE, BlendOp blendOpAlpha = BLEND_OP_ADD);
+    /// Set color write and blending related state using an arbitrary blend mode.
+    void SetColorState(const BlendModeDesc& blendMode, bool alphaToCoverage = false, unsigned char colorWriteMask = COLORMASK_ALL);
+    /// Set color write and blending related state using a predefined blend mode.
+    void SetColorState(BlendMode blendMode, bool alphaToCoverage = false, unsigned char colorWriteMask = COLORMASK_ALL);
     /// Set depth buffer related state.
-    void SetDepthState(CompareFunc depthFunc = CMP_LESS_EQUAL, bool depthWrite = true, bool depthClipEnable = true, int depthBias = 0, float depthBiasClamp = M_INFINITY, float slopeScaledDepthBias = 0.0f);
+    void SetDepthState(CompareFunc depthFunc, bool depthWrite, bool depthClip = true, int depthBias = 0, float depthBiasClamp = M_INFINITY, float slopeScaledDepthBias = 0.0f);
     /// Set rasterizer related state.
-    void SetRasterizerState(CullMode cullMode = CULL_BACK, FillMode fillMode = FILL_SOLID);
+    void SetRasterizerState(CullMode cullMode, FillMode fillMode);
     /// Set scissor test.
     void SetScissorTest(bool scissorEnable = false, const IntRect& scissorRect = IntRect::ZERO);
     /// Set stencil test.
-    void SetStencilTest(bool stencilEnable = false, unsigned char stencilRef = 0, unsigned char stencilReadMask = 0xff, unsigned char stencilWriteMask = 0xff, StencilOp frontFail = STENCIL_OP_KEEP, StencilOp frontDepthFail = STENCIL_OP_KEEP, StencilOp frontPass = STENCIL_OP_KEEP, CompareFunc frontFunc = CMP_ALWAYS, StencilOp backFail = STENCIL_OP_KEEP, StencilOp backDepthFail = STENCIL_OP_KEEP, StencilOp backPass = STENCIL_OP_KEEP, CompareFunc backFunc = CMP_ALWAYS);
+    void SetStencilTest(bool stencilEnable, const StencilTestDesc& stencilTest = StencilTestDesc(), unsigned char stencilRef = 0);
     /// Reset rendertarget and depth stencil buffer to the backbuffer.
     void ResetRenderTargets();
     /// Set the viewport to the entire rendertarget or backbuffer.

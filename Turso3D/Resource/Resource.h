@@ -21,7 +21,7 @@ public:
     /// Finish resource loading if necessary. Always called from the main thread, so GPU resources can be accessed here. Return true on success.
     virtual bool EndLoad();
     /// Save the resource to a stream. Return true on success.
-    virtual bool Save(Stream& dest) const;
+    virtual bool Save(Stream& dest);
 
     /// Load the resource synchronously from a binary stream. Return true on success.
     bool Load(Stream& source);
