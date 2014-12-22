@@ -527,25 +527,33 @@ void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDe
 
 void Graphics::Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount)
 {
-    PrepareDraw(type);
+    if (!PrepareDraw(type))
+        return;
+
     impl->deviceContext->Draw((unsigned)vertexCount, (unsigned)vertexStart);
 }
 
 void Graphics::DrawIndexed(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart)
 {
-    PrepareDraw(type);
+    if (!PrepareDraw(type))
+        return;
+
     impl->deviceContext->DrawIndexed((unsigned)indexCount, (unsigned)indexStart, (unsigned)vertexStart);
 }
 
 void Graphics::DrawInstanced(PrimitiveType type, size_t vertexStart, size_t vertexCount, size_t instanceStart, size_t instanceCount)
 {
-    PrepareDraw(type);
+    if (!PrepareDraw(type))
+        return;
+
     impl->deviceContext->DrawInstanced((unsigned)vertexCount, (unsigned)instanceCount, (unsigned)vertexStart, (unsigned)instanceStart);
 }
 
 void Graphics::DrawIndexedInstanced(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart, size_t instanceStart, size_t instanceCount)
 {
-    PrepareDraw(type);
+    if (!PrepareDraw(type))
+        return;
+        
     impl->deviceContext->DrawIndexedInstanced((unsigned)indexCount, (unsigned)instanceCount, (unsigned)indexStart, (unsigned)vertexStart, (unsigned)instanceStart);
 }
 
@@ -759,16 +767,21 @@ void Graphics::HandleResize(WindowResizeEvent& /*event*/)
         UpdateSwapChain(window->Width(), window->Height());
 }
 
-void Graphics::PrepareDraw(PrimitiveType type)
+bool Graphics::PrepareDraw(PrimitiveType type)
 {
+    if (!vertexShader || !pixelShader || !vertexShader->ShaderObject() || !pixelShader->ShaderObject())
+        return false;
+
     if (primitiveType != type)
     {
         impl->deviceContext->IASetPrimitiveTopology((D3D11_PRIMITIVE_TOPOLOGY)type);
         primitiveType = type;
     }
 
-    if (inputLayoutDirty && vertexShader)
+    if (inputLayoutDirty)
     {
+        inputLayoutDirty = false;
+
         InputLayoutDesc newInputLayout;
         newInputLayout.first = 0;
         newInputLayout.second = vertexShader->ElementHash();
@@ -778,60 +791,55 @@ void Graphics::PrepareDraw(PrimitiveType type)
                 newInputLayout.first |= (unsigned long long)vertexBuffers[i]->ElementHash() << (i * 16);
         }
 
-        if (newInputLayout == inputLayout)
-            return;
-
-        inputLayoutDirty = false;
-
-        // Check if layout already exists
-        auto it = inputLayouts.Find(newInputLayout);
-        if (it != inputLayouts.End())
+        if (newInputLayout != inputLayout)
         {
-            impl->deviceContext->IASetInputLayout((ID3D11InputLayout*)it->second);
-            inputLayout = newInputLayout;
-            return;
-        }
-
-        {
-            PROFILE(DefineInputLayout);
-            
-            // Not found, create new
-            Vector<D3D11_INPUT_ELEMENT_DESC> elementDescs;
-
-            for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
+            // Check if layout already exists
+            auto it = inputLayouts.Find(newInputLayout);
+            if (it != inputLayouts.End())
             {
-                if (vertexBuffers[i])
-                {
-                    const Vector<VertexElement>& elements = vertexBuffers[i]->Elements();
-
-                    for (size_t j = 0; j < elements.Size(); ++j)
-                    {
-                        const VertexElement& element = elements[j];
-                        D3D11_INPUT_ELEMENT_DESC newDesc;
-                        newDesc.SemanticName = elementSemanticNames[element.semantic];
-                        newDesc.SemanticIndex = element.index;
-                        newDesc.Format = d3dElementFormats[element.type];
-                        newDesc.InputSlot = (unsigned)i;
-                        newDesc.AlignedByteOffset = (unsigned)element.offset;
-                        newDesc.InputSlotClass = element.perInstance ? D3D11_INPUT_PER_INSTANCE_DATA : D3D11_INPUT_PER_VERTEX_DATA;
-                        newDesc.InstanceDataStepRate = element.perInstance ? 1 : 0;
-                        elementDescs.Push(newDesc);
-                    }
-                }
-            }
-
-            ID3D11InputLayout* d3dInputLayout = nullptr;
-            ID3DBlob* d3dBlob = (ID3DBlob*)vertexShader->BlobObject();
-            impl->device->CreateInputLayout(&elementDescs[0], (unsigned)elementDescs.Size(), d3dBlob->GetBufferPointer(),
-                d3dBlob->GetBufferSize(), &d3dInputLayout);
-            if (d3dInputLayout)
-            {
-                inputLayouts[newInputLayout] = d3dInputLayout;
-                impl->deviceContext->IASetInputLayout(d3dInputLayout);
+                impl->deviceContext->IASetInputLayout((ID3D11InputLayout*)it->second);
                 inputLayout = newInputLayout;
             }
             else
-                LOGERROR("Failed to create input layout");
+            {
+                // Not found, create new
+                Vector<D3D11_INPUT_ELEMENT_DESC> elementDescs;
+
+                for (size_t i = 0; i < MAX_VERTEX_STREAMS; ++i)
+                {
+                    if (vertexBuffers[i])
+                    {
+                        const Vector<VertexElement>& elements = vertexBuffers[i]->Elements();
+                        
+                        for (size_t j = 0; j < elements.Size(); ++j)
+                        {
+                            const VertexElement& element = elements[j];
+                            D3D11_INPUT_ELEMENT_DESC newDesc;
+                            newDesc.SemanticName = elementSemanticNames[element.semantic];
+                            newDesc.SemanticIndex = element.index;
+                            newDesc.Format = d3dElementFormats[element.type];
+                            newDesc.InputSlot = (unsigned)i;
+                            newDesc.AlignedByteOffset = (unsigned)element.offset;
+                            newDesc.InputSlotClass = element.perInstance ? D3D11_INPUT_PER_INSTANCE_DATA : D3D11_INPUT_PER_VERTEX_DATA;
+                            newDesc.InstanceDataStepRate = element.perInstance ? 1 : 0;
+                            elementDescs.Push(newDesc);
+                        }
+                    }
+                }
+
+                ID3D11InputLayout* d3dInputLayout = nullptr;
+                ID3DBlob* d3dBlob = (ID3DBlob*)vertexShader->BlobObject();
+                impl->device->CreateInputLayout(&elementDescs[0], (unsigned)elementDescs.Size(), d3dBlob->GetBufferPointer(),
+                    d3dBlob->GetBufferSize(), &d3dInputLayout);
+                if (d3dInputLayout)
+                {
+                    inputLayouts[newInputLayout] = d3dInputLayout;
+                    impl->deviceContext->IASetInputLayout(d3dInputLayout);
+                    inputLayout = newInputLayout;
+                }
+                else
+                    LOGERROR("Failed to create input layout");
+            }
         }
     }
 
@@ -1016,6 +1024,8 @@ void Graphics::PrepareDraw(PrimitiveType type)
 
         rasterizerStateDirty = false;
     }
+
+    return true;
 }
 
 void Graphics::ResetState()

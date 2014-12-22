@@ -591,19 +591,20 @@ void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDe
 
 void Graphics::Draw(PrimitiveType type, size_t vertexStart, size_t vertexCount)
 {
-    PrepareDraw();
+    if (!PrepareDraw())
+        return;
+
     glDrawArrays(glPrimitiveTypes[type], (unsigned)vertexStart, (unsigned)vertexCount);
 }
 
 void Graphics::DrawIndexed(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart)
 {
     // Drawing with trashed index data can lead to a crash within the OpenGL driver
-    if (!indexBuffer || indexBuffer->IsDataLost())
+    if (!indexBuffer || indexBuffer->IsDataLost() || !PrepareDraw())
         return;
     
     size_t indexSize = indexBuffer->IndexSize();
 
-    PrepareDraw();
     if (!vertexStart)
     {
         glDrawElements(glPrimitiveTypes[type], (unsigned)indexCount, indexSize == sizeof(unsigned short) ? GL_UNSIGNED_SHORT :
@@ -620,19 +621,20 @@ void Graphics::DrawIndexed(PrimitiveType type, size_t indexStart, size_t indexCo
 void Graphics::DrawInstanced(PrimitiveType type, size_t vertexStart, size_t vertexCount, size_t instanceStart, size_t
     instanceCount)
 {
-    PrepareDraw(true, instanceStart);
+    if (!PrepareDraw(true, instanceStart))
+        return;
+
     glDrawArraysInstanced(glPrimitiveTypes[type], (unsigned)vertexStart, (unsigned)vertexCount, (unsigned)instanceCount);
 }
 
 void Graphics::DrawIndexedInstanced(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart, size_t instanceStart,
     size_t instanceCount)
 {
-    if (!indexBuffer || indexBuffer->IsDataLost())
+    if (!indexBuffer || indexBuffer->IsDataLost() || !PrepareDraw(true, instanceStart))
         return;
 
     size_t indexSize = indexBuffer->IndexSize();
-
-    PrepareDraw(true, instanceStart);
+    
     if (!vertexStart)
     {
         glDrawElementsInstanced(glPrimitiveTypes[type], (unsigned)indexCount, indexSize == sizeof(unsigned short) ?
@@ -951,12 +953,15 @@ void Graphics::PrepareFramebuffer()
     }
 }
 
-void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
+bool Graphics::PrepareDraw(bool instanced, size_t instanceStart)
 {
     if (framebufferDirty)
         PrepareFramebuffer();
 
-    if (vertexAttributesDirty && shaderProgram)
+    if (!shaderProgram)
+        return false;
+
+    if (vertexAttributesDirty)
     {
         usedVertexAttributes = 0;
 
@@ -1254,6 +1259,8 @@ void Graphics::PrepareDraw(bool instanced, size_t instanceStart)
 
         rasterizerStateDirty = false;
     }
+
+    return true;
 }
 
 void Graphics::ResetState()

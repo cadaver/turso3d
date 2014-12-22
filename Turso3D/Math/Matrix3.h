@@ -219,9 +219,6 @@ public:
     /// Return as string.
     String ToString() const;
     
-    /// Bulk transpose matrices.
-    static void BulkTranspose(float* dest, const float* src, size_t count);
-    
     /// Zero matrix.
     static const Matrix3 ZERO;
     /// Identity matrix.

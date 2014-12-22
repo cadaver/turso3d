@@ -48,7 +48,7 @@ Timer::Timer()
     Reset();
 }
 
-unsigned Timer::ElapsedMSec(bool reset)
+unsigned Timer::ElapsedMSec()
 {
     #ifdef _WIN32
     unsigned currentTime = timeGetTime();
@@ -58,11 +58,7 @@ unsigned Timer::ElapsedMSec(bool reset)
     unsigned currentTime = time.tv_sec * 1000 + time.tv_usec / 1000;
     #endif
     
-    unsigned elapsedTime = currentTime - startTime;
-    if (reset)
-        startTime = currentTime;
-    
-    return elapsedTime;
+    return currentTime - startTime;
 }
 
 void Timer::Reset()
@@ -81,7 +77,7 @@ HiresTimer::HiresTimer()
     Reset();
 }
 
-long long HiresTimer::ElapsedUSec(bool reset)
+long long HiresTimer::ElapsedUSec()
 {
     long long currentTime;
     
@@ -105,9 +101,6 @@ long long HiresTimer::ElapsedUSec(bool reset)
     // Correct for possible weirdness with changing internal frequency
     if (elapsedTime < 0)
         elapsedTime = 0;
-    
-    if (reset)
-        startTime = currentTime;
     
     return (elapsedTime * 1000000LL) / frequency;
 }

@@ -27,7 +27,7 @@ void Input::Update()
     mouseButtonsPressed = 0;
     mouseMove = IntVector2::ZERO;
     keyPressed.Clear();
-    rawKeyPressed.Clear();
+    rawKeyPress.Clear();
     for (auto it = touches.Begin(); it != touches.End(); ++it)
         it->delta = IntVector2::ZERO;
 
@@ -49,16 +49,16 @@ bool Input::IsKeyDownRaw(unsigned rawKeyCode) const
     return it != rawKeyDown.End() ? it->second : false;
 }
 
-bool Input::IsKeyPressed(unsigned keyCode) const
+bool Input::IsKeyPress(unsigned keyCode) const
 {
     auto it = keyPressed.Find(keyCode);
     return it != keyPressed.End() ? it->second : false;
 }
 
-bool Input::IsKeyPressedRaw(unsigned rawKeyCode) const
+bool Input::IsKeyPressRaw(unsigned rawKeyCode) const
 {
-    auto it = rawKeyPressed.Find(rawKeyCode);
-    return it != rawKeyPressed.End() ? it->second : false;
+    auto it = rawKeyPress.Find(rawKeyCode);
+    return it != rawKeyPress.End() ? it->second : false;
 }
 
 bool Input::IsMouseButtonDown(unsigned button) const
@@ -66,7 +66,7 @@ bool Input::IsMouseButtonDown(unsigned button) const
     return (mouseButtons & (1 << button)) != 0;
 }
 
-bool Input::IsMouseButtonPressed(unsigned button) const
+bool Input::IsMouseButtonPress(unsigned button) const
 {
     return (mouseButtonsPressed & (1 << button)) != 0;
 }
@@ -91,7 +91,7 @@ void Input::OnKey(unsigned keyCode, unsigned rawKeyCode, bool pressed)
     if (pressed)
     {
         keyPressed[keyCode] = true;
-        rawKeyPressed[rawKeyCode] = true;
+        rawKeyPress[rawKeyCode] = true;
     }
 
     keyEvent.keyCode = keyCode;
@@ -232,7 +232,7 @@ void Input::OnLoseFocus()
     keyDown.Clear();
     keyPressed.Clear();
     rawKeyDown.Clear();
-    rawKeyPressed.Clear();
+    rawKeyPress.Clear();
 }
 
 }

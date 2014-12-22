@@ -144,6 +144,7 @@ bool ShaderVariation::Compile()
     endMacro.Definition = nullptr;
     macros.Push(endMacro);
 
+    /// \todo Optimization level
     DWORD flags = 0;
     ID3DBlob* errorBlob = nullptr;
     if (FAILED(D3DCompile(parent->SourceCode().CString(), parent->SourceCode().Length(), "", &macros[0], 0, "main", 
@@ -166,6 +167,17 @@ bool ShaderVariation::Compile()
     ID3D11Device* d3dDevice = (ID3D11Device*)graphics->D3DDevice();
     ID3DBlob* d3dBlob = (ID3DBlob*)blob;
     
+    #ifdef SHOW_DISASSEMBLY
+    ID3DBlob* asmBlob = nullptr;
+    D3DDisassemble(d3dBlob->GetBufferPointer(), d3dBlob->GetBufferSize(), 0, nullptr, &asmBlob);
+    if (asmBlob)
+    {
+        String text((const char*)asmBlob->GetBufferPointer(), asmBlob->GetBufferSize());
+        LOGINFOF("Shader %s disassembly: %s", FullName().CString(), text.CString());
+        asmBlob->Release();
+    }
+    #endif
+
     if (stage == SHADER_VS)
     {
         elementHash = InspectInputSignature(d3dBlob);

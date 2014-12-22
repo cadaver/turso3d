@@ -107,7 +107,7 @@ public:
 
         String psCode =
 #ifndef TURSO3D_OPENGL
-            "cbuffer ConstantBuffer : register(b0)\n"
+            "cbuffer ConstantBuffer : register(cb0)\n"
             "{\n"
             "    float4 color;\n"
             "}\n"
@@ -147,11 +147,11 @@ public:
         for (;;)
         {
             input->Update();
-            if (input->IsKeyPressed('F'))
+            if (input->IsKeyPress('F'))
                 graphics->SetFullscreen(!graphics->IsFullscreen());
-            if (input->IsKeyPressed('M'))
+            if (input->IsKeyPress('M'))
                 graphics->SetMultisample(graphics->Multisample() > 1 ? 1 : 4);
-            if (input->IsKeyPressed(27))
+            if (input->IsKeyPress(27))
                 graphics->Close();
 
             // Drawing and state setting functions will not check Graphics initialization state, check now

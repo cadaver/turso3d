@@ -118,7 +118,7 @@ public:
     /// Return number of immediate child nodes that are not temporary.
     size_t NumPersistentChildren() const;
     /// Return immediate child node by index.
-    Node* Child(size_t index) const { return index < children.Size() ? children[index] : nullptr; }
+    Node* Child(size_t index) const { return index < children.Size() ? children[index].Get() : nullptr; }
     /// Return all immediate child nodes.
     const Vector<SharedPtr<Node> >& Children() const { return children; }
     /// Return child nodes recursively.

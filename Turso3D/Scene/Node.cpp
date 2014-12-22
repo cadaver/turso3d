@@ -308,8 +308,17 @@ void Node::RemoveChild(size_t index)
 
 void Node::RemoveAllChildren()
 {
-    while (children.Size())
-        RemoveChild(children.Size() - 1);
+    for (auto it = children.Begin(); it != children.End(); ++it)
+    {
+        Node* child = *it;
+        child->parent = nullptr;
+        child->OnParentSet(this, nullptr);
+        if (scene)
+            scene->RemoveNode(child);
+        it->Reset();
+    }
+
+    children.Clear();
 }
 
 void Node::RemoveSelf()

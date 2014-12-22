@@ -2,9 +2,10 @@
 
 #include "CommonCode.vert"
 
-in vec4 position;
+in vec3 position;
 
 void main()
 {
-    gl_Position = viewProjMatrix * worldMatrix * position;
+    vec3 worldPos = vec4(position, 1.0) * worldMatrix;
+    gl_Position = vec4(worldPos, 1.0) * viewProjMatrix;
 }

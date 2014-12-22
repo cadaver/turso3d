@@ -17,6 +17,17 @@ namespace Turso3D
 
 const size_t MAX_NAME_LENGTH = 256;
 
+int NumberPostfix(const String& str)
+{
+    for (size_t i = 0; i < str.Length(); ++i)
+    {
+        if (IsDigit(str[i]))
+            return String::ToInt(str.CString() + i);
+    }
+
+    return -1;
+}
+
 ShaderProgram::ShaderProgram(ShaderVariation* vs_, ShaderVariation* ps_) :
     program(0),
     vs(vs_),
@@ -143,8 +154,9 @@ bool ShaderProgram::Link()
         {
             // Assign sampler uniforms to a texture unit according to the number appended to the sampler name
             int location = glGetUniformLocation(program, name.CString());
-            int unit = name.ToInt();
-            glUniform1iv(location, 1, &unit);
+            int unit = NumberPostfix(name);
+            if (unit >= 0)
+                glUniform1iv(location, 1, &unit);
         }
     }
 
@@ -166,7 +178,12 @@ bool ShaderProgram::Link()
         // Vertex shader constant buffer bindings occupy slots starting from zero to maximum supported, pixel shader bindings
         // from that point onward
         unsigned blockIndex = glGetUniformBlockIndex(program, name.CString());
-        unsigned bindingIndex = name.ToUInt();
+
+        int bindingIndex = NumberPostfix(name);
+        // If no number postfix in the name, use the block index
+        if (bindingIndex < 0)
+            bindingIndex = blockIndex;
+
         if (foundPs)
             bindingIndex += (unsigned)graphics->NumVSConstantBuffers();
         glUniformBlockBinding(program, blockIndex, bindingIndex);

@@ -142,9 +142,9 @@ public:
     /// Return whether key is down by raw key code.
     bool IsKeyDownRaw(unsigned rawKeyCode) const;
     /// Return whether key was pressed on this frame by key code.
-    bool IsKeyPressed(unsigned keyCode) const;
+    bool IsKeyPress(unsigned keyCode) const;
     /// Return whether key was pressed on this frame by raw key code.
-    bool IsKeyPressedRaw(unsigned rawKeyCode) const;
+    bool IsKeyPressRaw(unsigned rawKeyCode) const;
     /// Return current mouse position.
     IntVector2 MousePosition() const { return mousePosition; }
     /// Return accumulated mouse movement since last frame.
@@ -154,7 +154,7 @@ public:
     /// Return whether a mouse button is down.
     bool IsMouseButtonDown(unsigned button) const;
     /// Return whether a mouse button was pressed on this frame.
-    bool IsMouseButtonPressed(unsigned button) const;
+    bool IsMouseButtonPress(unsigned button) const;
     /// Return number of active touches.
     size_t NumTouches() const { return touches.Size(); }
     /// Return an active touch by id, or null if not found.
@@ -200,7 +200,7 @@ private:
     /// Raw key code held down status.
     HashMap<unsigned, bool> rawKeyDown;
     /// Raw key code pressed status.
-    HashMap<unsigned, bool> rawKeyPressed;
+    HashMap<unsigned, bool> rawKeyPress;
     /// Active touches.
     Vector<Touch> touches;
     /// Current mouse position.

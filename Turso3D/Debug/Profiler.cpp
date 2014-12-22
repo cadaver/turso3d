@@ -44,7 +44,7 @@ void ProfilerBlock::Begin()
 
 void ProfilerBlock::End()
 {
-    long long currentTime = timer.ElapsedUSec(false);
+    long long currentTime = timer.ElapsedUSec();
     if (currentTime > maxTime)
         maxTime = currentTime;
     time += currentTime;

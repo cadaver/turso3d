@@ -103,6 +103,13 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     if (!scene || !camera || !octree)
         return;
 
+    Graphics* graphics = Subsystem<Graphics>();
+    if (camera->AutoAspectRatio())
+    {
+        const IntRect& viewport = graphics->Viewport();
+        camera->SetAspectRatio((float)viewport.Width() / (float)viewport.Height());
+    }
+
     // Make sure all scene nodes have been inserted to correct octants
     octree->Update();
 
@@ -111,11 +118,8 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     projectionMatrix = camera->ProjectionMatrix();
     viewProjMatrix = projectionMatrix * viewMatrix;
 
-    {
-        PROFILE(QueryObjects);
-        /// \todo When Light class exists, get lights & geometries separately. Now just collects geometries
-        octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(geometries), frustum, NF_GEOMETRY, camera->ViewMask());
-    }
+    /// \todo When Light class exists, get lights & geometries separately. Now just collects geometries
+    octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(geometries), frustum, NF_GEOMETRY, camera->ViewMask());
 
     {
         PROFILE(PrepareRender);
@@ -123,11 +127,15 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
             (*it)->OnPrepareRender(camera);
     }
 
-    // Set per-frame values to the frame constant buffer
-    vsFrameConstantBuffer->SetConstant(VS_SCENE_VIEW_MATRIX, viewMatrix);
-    vsFrameConstantBuffer->SetConstant(VS_SCENE_PROJECTION_MATRIX, projectionMatrix);
-    vsFrameConstantBuffer->SetConstant(VS_SCENE_VIEWPROJ_MATRIX, viewProjMatrix);
-    vsFrameConstantBuffer->Apply();
+    {
+        PROFILE(SetPerFrameConstants);
+        // Set per-frame values to the frame constant buffer
+        vsFrameConstantBuffer->SetConstant(VS_SCENE_VIEW_MATRIX, viewMatrix);
+        vsFrameConstantBuffer->SetConstant(VS_SCENE_PROJECTION_MATRIX, projectionMatrix);
+        vsFrameConstantBuffer->SetConstant(VS_SCENE_VIEWPROJ_MATRIX, viewProjMatrix);
+        vsFrameConstantBuffer->Apply();
+        Subsystem<Graphics>()->SetConstantBuffer(SHADER_VS, CB_FRAME, vsFrameConstantBuffer);
+    }
 }
 
 void Renderer::CollectBatches(const String& pass, BatchSortMode sort)
@@ -182,8 +190,6 @@ void Renderer::DrawBatches(const String& pass)
     Material* currentMaterial = nullptr;
     Pass* currentPass = nullptr;
     
-    graphics->SetConstantBuffer(SHADER_VS, CB_FRAME, vsFrameConstantBuffer);
-    
     for (auto it = sortedBatchQueue.Begin(); it != sortedBatchQueue.End(); ++it)
     {
         Batch* batch = *it;
@@ -196,6 +202,8 @@ void Renderer::DrawBatches(const String& pass)
         // Shaders and vertex buffer are required
         if (!vs || !ps || !vb)
             continue;
+
+        graphics->SetShaders(vs, ps);
 
         // Apply pass render state
         if (batch->pass != currentPass)
@@ -226,7 +234,7 @@ void Renderer::DrawBatches(const String& pass)
             graphics->SetConstantBuffer(SHADER_VS, CB_OBJECT, source->constantBuffers[SHADER_VS]);
         else
         {
-            vsObjectConstantBuffer->SetConstant(VS_OBJECT_WORLD_MATRIX, &source->worldMatrix);
+            vsObjectConstantBuffer->SetConstant(VS_OBJECT_WORLD_MATRIX, (*source->worldMatrix));
             vsObjectConstantBuffer->Apply();
             graphics->SetConstantBuffer(SHADER_VS, CB_OBJECT, vsObjectConstantBuffer);
         }
@@ -248,7 +256,7 @@ void Renderer::CollectBatchesByState(size_t passIndex, Vector<Batch>& batchQueue
 {
     for (auto it = geometries.Begin(); it != geometries.End(); ++it)
     {
-        auto batches = (*it)->Batches();
+        const Vector<SourceBatch>& batches = (*it)->Batches();
 
         for (auto bIt = batches.Begin(); bIt != batches.End(); ++bIt)
         {
@@ -300,6 +308,8 @@ void Renderer::CollectBatchesByDistance(size_t passIndex, Vector<Batch>& batchQu
 
 void Renderer::LoadPassShaders(Pass* pass)
 {
+    PROFILE(LoadPassShaders);
+
     pass->shadersLoaded = true;
 
     Material* material = pass->Parent();
@@ -330,7 +340,7 @@ void Renderer::LoadPassShaders(Pass* pass)
 void Renderer::SetBatchShaders(Batch& batch)
 {
     Pass* pass = batch.pass;
-    if (pass->shadersLoaded)
+    if (!pass->shadersLoaded)
         LoadPassShaders(pass);
 
     if (pass->shaders[SHADER_VS])
@@ -338,7 +348,7 @@ void Renderer::SetBatchShaders(Batch& batch)
         Vector<WeakPtr<ShaderVariation> >& variations = pass->shaderVariations[SHADER_VS];
         size_t idx = (size_t)batch.source->geometryType;
 
-        if (variations.Size() < idx)
+        if (variations.Size() <= idx)
             variations.Resize(idx + 1);
         if (!variations[idx])
             variations[idx] = pass->shaders[SHADER_VS]->CreateVariation((pass->combinedShaderDefines[SHADER_VS] + " " + geometryDefines[idx]).Trimmed());
@@ -353,7 +363,7 @@ void Renderer::SetBatchShaders(Batch& batch)
         Vector<WeakPtr<ShaderVariation> >& variations = pass->shaderVariations[SHADER_PS];
         size_t idx = 0; /// \todo Handle light types
 
-        if (variations.Size() < idx)
+        if (variations.Size() <= idx)
             variations.Resize(idx + 1);
         if (!variations[idx])
             variations[idx] = pass->shaders[SHADER_PS]->CreateVariation(pass->combinedShaderDefines[SHADER_PS]);

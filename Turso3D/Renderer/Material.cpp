@@ -352,7 +352,7 @@ Pass* Material::GetPass(const String& name) const
 
 Pass* Material::GetPass(size_t index) const
 {
-    return index < passes.Size() ? passes[index] : nullptr;
+    return index < passes.Size() ? passes[index].Get() : nullptr;
 }
 
 Texture* Material::GetTexture(size_t index) const
@@ -363,7 +363,7 @@ Texture* Material::GetTexture(size_t index) const
 
 ConstantBuffer* Material::GetConstantBuffer(ShaderStage stage) const
 {
-    return stage < MAX_SHADER_STAGES ? constantBuffers[stage] : nullptr;
+    return stage < MAX_SHADER_STAGES ? constantBuffers[stage].Get() : nullptr;
 }
 
 const String& Material::ShaderDefines(ShaderStage stage) const

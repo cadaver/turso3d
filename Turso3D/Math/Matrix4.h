@@ -267,7 +267,7 @@ public:
     /// Return the rotation part.
     Quaternion Rotation() const { return Quaternion(RotationMatrix()); }
     
-    /// Return the scaling part
+    /// Return the scaling part.
     Vector3 Scale() const
     {
         return Vector3(
@@ -277,7 +277,7 @@ public:
         );
     }
     
-    /// Return transpose
+    /// Return transpose.
     Matrix4 Transpose() const
     {
         return Matrix4(
@@ -312,9 +312,6 @@ public:
     const float* Data() const { return &m00; }
     /// Return as string.
     String ToString() const;
-    
-    /// Bulk transpose matrices.
-    static void BulkTranspose(float* dest, const float* src, size_t count);
     
     /// Zero matrix.
     static const Matrix4 ZERO;

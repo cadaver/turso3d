@@ -178,8 +178,8 @@ private:
     bool UpdateSwapChain(int width, int height);
     /// Handle window resize event.
     void HandleResize(WindowResizeEvent& event);
-    /// Set topology, and find or create an input layout for the currently set vertex buffers and vertex shader.
-    void PrepareDraw(PrimitiveType type);
+    /// Set state for the next draw call. Return false if the draw call should not be attempted.
+    bool PrepareDraw(PrimitiveType type);
     /// Reset internally tracked state.
     void ResetState();
 

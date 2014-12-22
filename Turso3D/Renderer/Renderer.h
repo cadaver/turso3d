@@ -82,7 +82,7 @@ public:
     /// Destruct.
     ~Renderer();
 
-    /// Collect visible objects from the camera's point of view.
+    /// Initialize rendering of a new view and collect visible objects from the camera's point of view.
     void CollectObjects(Scene* scene, Camera* camera);
     /// Collect and sort batches from a pass.
     void CollectBatches(const String& pass, BatchSortMode sort = SORT_STATE);

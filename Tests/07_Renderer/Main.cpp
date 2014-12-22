@@ -10,6 +10,8 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "Windows.h"
+
 using namespace Turso3D;
 
 class RendererTest : public Object
@@ -28,6 +30,7 @@ public:
 
         log = new Log();
         input = new Input();
+        profiler = new Profiler();
 
         graphics = new Graphics();
         graphics->RenderWindow()->SetTitle("Renderer test");
@@ -73,14 +76,14 @@ public:
         scene->CreateChild<Octree>();
 
         Camera* camera = scene->CreateChild<Camera>();
-        camera->SetPosition(Vector3(0.0f, 0.0f, -50.0f));
-        
-        for (int x = 0; x <= 0; ++x)
+        camera->SetPosition(Vector3(0.0f, 0.0f, -750.0f));
+
+        for (int x = -125; x <= 125; ++x)
         {
-            for (int y = 0; y <= 0; ++y)
+            for (int y = -125; y <= 125; ++y)
             {
                 GeometryNode* geom = scene->CreateChild<GeometryNode>();
-                geom->SetPosition(Vector3(x * 2.0f, y * 2.0f, 0.0f));
+                geom->SetPosition(Vector3(2.0f * x, 2.0f * y, 0.0f));
                 geom->SetupBatches(GEOM_STATIC, 1);
                 geom->SetBoundingBox(box);
 
@@ -93,11 +96,37 @@ public:
             }
         }
 
+        float yaw = 0.0f, pitch = 0.0f;
+        HiresTimer frameTimer;
+        float dt = 0.0f;
+
         for (;;)
         {
+            frameTimer.Reset();
+            profiler->BeginFrame();
+
             input->Update();
-            if (input->IsKeyPressed(27))
+            if (input->IsKeyPress(27))
                 graphics->Close();
+            
+            if (input->IsMouseButtonDown(MOUSEB_RIGHT))
+            {
+                pitch += input->MouseMove().y * 0.25f;
+                yaw += input->MouseMove().x * 0.25f;
+                pitch = Clamp(pitch, -90.0f, 90.0f);
+            }
+
+            float moveSpeed = input->IsKeyDown(VK_SHIFT) ? 200.0f : 50.0f;
+
+            camera->SetRotation(Quaternion(pitch, yaw, 0.0f));
+            if (input->IsKeyDown('W'))
+                camera->Translate(Vector3::FORWARD * dt * moveSpeed);
+            if (input->IsKeyDown('S'))
+                camera->Translate(Vector3::BACK * dt * moveSpeed);
+            if (input->IsKeyDown('A'))
+                camera->Translate(Vector3::LEFT * dt * moveSpeed);
+            if (input->IsKeyDown('D'))
+                camera->Translate(Vector3::RIGHT * dt * moveSpeed);
 
             // Drawing and state setting functions will not check Graphics initialization state, check now
             if (!graphics->IsInitialized())
@@ -109,7 +138,19 @@ public:
             graphics->Clear(CLEAR_COLOR | CLEAR_DEPTH, Color(0.0f, 0.0f, 0.5f));
             renderer->DrawBatches("opaque");
             graphics->Present();
+
+            profiler->EndFrame();
+            dt = frameTimer.ElapsedUSec() * 0.000001f;
         }
+
+        profiler->BeginFrame();
+        {
+            PROFILE(DestroyScene);
+            scene.Reset();
+        }
+        profiler->EndFrame();
+
+        LOGRAW(profiler->OutputResults());
     }
 
     void HandleCloseRequest(Event& /* event */)
@@ -122,6 +163,7 @@ public:
     AutoPtr<Renderer> renderer;
     AutoPtr<Input> input;
     AutoPtr<Log> log;
+    AutoPtr<Profiler> profiler;
 };
 
 int main()

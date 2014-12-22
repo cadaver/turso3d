@@ -190,8 +190,8 @@ private:
     void CleanupFramebuffers();
     /// Prepare framebuffer changes.
     void PrepareFramebuffer();
-    /// Prepare to execute a draw call.
-    void PrepareDraw(bool instanced = false, size_t instanceStart = 0);
+    /// Set state for the next draw call. Return false if the draw call should not be attempted.
+    bool PrepareDraw(bool instanced = false, size_t instanceStart = 0);
     /// Reset internally tracked state.
     void ResetState();
 

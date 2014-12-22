@@ -18,7 +18,7 @@ class ShaderVariation;
 class Texture;
 
 /// Render pass, which defines render state and shaders. A material may define several of these.
-class Pass
+class Pass : public RefCounted
 {
 public:
     /// Construct.
@@ -139,7 +139,7 @@ public:
 
 private:
     /// Passes by index.
-    Vector<AutoPtr<Pass> > passes;
+    Vector<SharedPtr<Pass> > passes;
     /// JSON data used for loading.
     AutoPtr<JSONFile> loadJSON;
 
