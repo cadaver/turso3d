@@ -44,6 +44,9 @@ void ConstantBuffer::Release()
 
     if (buffer)
     {
+        if (graphics && graphics->BoundUBO() == buffer)
+            graphics->BindUBO(0);
+
         glDeleteBuffers(1, &buffer);
         buffer = 0;
     }
@@ -78,14 +81,8 @@ bool ConstantBuffer::Apply()
 
     if (buffer)
     {
-        /// \todo Investigate whether mapping or glBufferData / glBufferSubData gives better performance
-        glBindBuffer(GL_UNIFORM_BUFFER, buffer);
-        void* mappedData = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
-        if (mappedData)
-            memcpy(mappedData, shadowData.Get(), byteSize);
-        else
-            return false;
-        glUnmapBuffer(GL_UNIFORM_BUFFER);
+        graphics->BindUBO(buffer);
+        glBufferData(GL_UNIFORM_BUFFER, byteSize, shadowData.Get(), usage != USAGE_IMMUTABLE ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
     }
 
     dirty = false;
@@ -105,8 +102,8 @@ bool ConstantBuffer::Create(const void* data)
             return false;
         }
 
-        glBindBuffer(GL_UNIFORM_BUFFER, buffer);
-        glBufferData(GL_UNIFORM_BUFFER, byteSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+        graphics->BindUBO(buffer);
+        glBufferData(GL_UNIFORM_BUFFER, byteSize, data, usage != USAGE_IMMUTABLE ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
     }
 
     return true;

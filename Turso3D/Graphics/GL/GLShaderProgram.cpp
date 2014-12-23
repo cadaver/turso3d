@@ -126,9 +126,9 @@ bool ShaderProgram::Link()
         {
             if (newAttribute.name.StartsWith(elementSemanticNames[j], false))
             {
-                String indexStr = newAttribute.name.Substring(String::CStringLength(elementSemanticNames[j]));
-                if (indexStr.Length())
-                    newAttribute.index = (unsigned char)indexStr.ToInt();
+                int index = NumberPostfix(newAttribute.name);
+                if (index >= 0)
+                    newAttribute.index = (unsigned char)index;
                 break;
             }
             newAttribute.semantic = (ElementSemantic)(newAttribute.semantic + 1);
@@ -188,9 +188,9 @@ bool ShaderProgram::Link()
         // If no number postfix in the name, use the block index
         if (bindingIndex < 0)
             bindingIndex = blockIndex;
-
         if (foundPs)
             bindingIndex += (unsigned)graphics->NumVSConstantBuffers();
+
         glUniformBlockBinding(program, blockIndex, bindingIndex);
     }
 

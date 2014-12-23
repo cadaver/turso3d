@@ -763,6 +763,15 @@ void Graphics::BindVBO(unsigned vbo)
     }
 }
 
+void Graphics::BindUBO(unsigned ubo)
+{
+    if (ubo != boundUBO)
+    {
+        glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+        boundUBO = ubo;
+    }
+}
+
 bool Graphics::CreateContext(int multisample_)
 {
     context = new GLContext(window);
@@ -1297,6 +1306,7 @@ void Graphics::ResetState()
     framebufferDirty = false;
     activeTexture = 0;
     boundVBO = 0;
+    boundUBO = 0;
 
     glRenderState.depthWrite = false;
     glRenderState.depthFunc = CMP_ALWAYS;

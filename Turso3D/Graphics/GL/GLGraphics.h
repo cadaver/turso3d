@@ -171,8 +171,12 @@ public:
     void CleanupFramebuffers(Texture* texture);
     /// Bind a VBO for editing or applying as a vertex source. Avoids redundant assignment.
     void BindVBO(unsigned vbo);
+    /// Bind a UBO for editing. Avoids redundant assignment.
+    void BindUBO(unsigned ubo);
     /// Return the currently bound VBO.
     unsigned BoundVBO() const { return boundVBO; }
+    /// Return the currently bound VBO.
+    unsigned BoundUBO() const { return boundUBO; }
 
     /// Screen mode changed event.
     ScreenModeEvent screenModeEvent;
@@ -258,7 +262,9 @@ private:
     /// Last used OpenGL texture unit.
     size_t activeTexture;
     /// Last bound vertex buffer object.
-    unsigned boundVBO; 
+    unsigned boundVBO;
+    /// Last bound uniform buffer object.
+    unsigned boundUBO;
     /// Current scissor rectangle.
     IntRect scissorRect;
     /// Current viewport rectangle.
