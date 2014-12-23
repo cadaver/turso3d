@@ -140,13 +140,14 @@ class Camera : public SpatialNode
     /// Return if projection parameters are valid for rendering and raycasting.
     bool IsProjectionValid() const;
 
+    /// Set aspect ratio without disabling the auto mode. Used internally for attribute access and by Renderer.
+    void SetAspectRatioInternal(float aspectRatio);
+
 protected:
     /// Handle the transform matrix changing.
     void OnTransformChanged() override;
 
 private:
-    /// Set aspect ratio without disabling the auto mode. Used internally for attribute access.
-    void SetAspectRatioInternal(float aspectRatio);
     /// Set reflection plane as vector. Used in serialization.
     void SetReflectionPlaneAttr(const Vector4& value);
     /// Return reflection plane as vector. Used in serialization.

@@ -107,7 +107,7 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     if (camera->AutoAspectRatio())
     {
         const IntRect& viewport = graphics->Viewport();
-        camera->SetAspectRatio((float)viewport.Width() / (float)viewport.Height());
+        camera->SetAspectRatioInternal((float)viewport.Width() / (float)viewport.Height());
     }
 
     // Make sure all scene nodes have been inserted to correct octants
