@@ -93,9 +93,12 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     PROFILE(CollectObjects);
 
     geometries.Clear();
-    batches.Clear();
-    sortedBatches.Clear();
     instanceTransforms.Clear();
+    // Clear batches from each pass but do not clear the whole batch queue structure to avoid reallocation each frame
+    for (auto it = batches.Begin(); it != batches.End(); ++it)
+        it->second.Clear();
+    for (auto it = sortedBatches.Begin(); it != sortedBatches.End(); ++it)
+        it->second.Clear();
 
     scene = scene_;
     camera = camera_;
@@ -238,14 +241,14 @@ void Renderer::DrawBatches(const String& pass)
             vsObjectConstantBuffer->Apply();
             graphics->SetConstantBuffer(SHADER_VS, CB_OBJECT, vsObjectConstantBuffer);
         }
-        graphics->SetConstantBuffer(SHADER_PS, CB_OBJECT, batch->source->constantBuffers[SHADER_PS]);
+        graphics->SetConstantBuffer(SHADER_PS, CB_OBJECT, source->constantBuffers[SHADER_PS]);
 
         // Draw
         graphics->SetVertexBuffer(0, vb);
         if (ib)
         {
             graphics->SetIndexBuffer(ib);
-            graphics->DrawIndexed(source->primitiveType, source->drawStart, batch->source->drawCount, 0);
+            graphics->DrawIndexed(source->primitiveType, source->drawStart, source->drawCount, 0);
         }
         else
             graphics->Draw(source->primitiveType, source->drawStart, source->drawCount);
