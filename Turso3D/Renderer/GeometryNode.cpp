@@ -12,20 +12,9 @@
 namespace Turso3D
 {
 
-SourceBatch::SourceBatch() :
+GeometryNode::GeometryNode() :
     geometryType(GEOM_STATIC),
-    primitiveType(TRIANGLE_LIST),
-    drawStart(0),
-    drawCount(0),
-    worldMatrix(nullptr)
-{
-}
-
-SourceBatch::~SourceBatch()
-{
-}
-
-GeometryNode::GeometryNode()
+    distance(0.0f)
 {
     SetFlag(NF_GEOMETRY, true);
 }
@@ -42,27 +31,32 @@ void GeometryNode::RegisterObject()
 
 void GeometryNode::OnPrepareRender(Camera* camera)
 {
-    float distance = camera->Distance(WorldPosition());
-
-    for (auto it = batches.Begin(); it != batches.End(); ++it)
-        it->distance = distance;
+    distance = camera->Distance(WorldPosition());
 }
 
-void GeometryNode::SetupBatches(GeometryType type, size_t numBatches)
+void GeometryNode::SetGeometryType(GeometryType type)
 {
-    batches.Resize(numBatches);
+    geometryType = type;
+}
 
-    for (auto it = batches.Begin(); it != batches.End(); ++it)
-    {
-        it->geometryType = type;
-        it->worldMatrix = &WorldTransform();
-    }
+void GeometryNode::SetNumGeometries(size_t num)
+{
+    geometries.Resize(num);
+    materials.Resize(num);
+}
+
+void GeometryNode::SetGeometry(size_t index, Geometry* geometry)
+{
+    if (index < geometries.Size())
+        geometries[index] = geometry;
+    else
+        LOGERRORF("Out of bounds batch index %d for setting geometry", (int)index);
 }
 
 void GeometryNode::SetMaterial(size_t index, Material* material)
 {
-    if (index < batches.Size())
-        batches[index].material = material;
+    if (index < materials.Size())
+        materials[index] = material;
     else
         LOGERRORF("Out of bounds batch index %d for setting material", (int)index);
 }
@@ -74,9 +68,14 @@ void GeometryNode::SetBoundingBox(const BoundingBox& box)
     OctreeNode::OnTransformChanged();
 }
 
+Geometry* GeometryNode::GetGeometry(size_t index) const
+{
+    return index < geometries.Size() ? geometries[index] : nullptr;
+}
+
 Material* GeometryNode::GetMaterial(size_t index) const
 {
-    return index < batches.Size() ? batches[index].material : nullptr;
+    return index < materials.Size() ? materials[index] : nullptr;
 }
 
 void GeometryNode::OnWorldBoundingBoxUpdate() const

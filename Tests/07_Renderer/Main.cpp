@@ -74,23 +74,24 @@ public:
         SharedPtr<Scene> scene = new Scene();
         scene->CreateChild<Octree>();
         Camera* camera = scene->CreateChild<Camera>();
-        camera->SetPosition(Vector3(0.0f, 0.0f, -250.0f));
+        camera->SetPosition(Vector3(0.0f, 0.0f, -750.0f));
 
-        for (int x = -50; x <= 50; ++x)
+        SharedPtr<Geometry> geom = new Geometry();
+        geom->vertexBuffer = vb;
+        geom->indexBuffer = ib;
+        geom->drawStart = 0;
+        geom->drawCount = 6;
+
+        for (int x = -125; x <= 125; ++x)
         {
-            for (int y = -50; y <= 50; ++y)
+            for (int y = -125; y <= 125; ++y)
             {
-                GeometryNode* geom = scene->CreateChild<GeometryNode>();
-                geom->SetPosition(Vector3(2.0f * x, 2.0f * y, 0.0f));
-                geom->SetupBatches(GEOM_STATIC, 1);
-                geom->SetBoundingBox(BoundingBox(Vector3(-0.5f, -0.5f, 0.0f), Vector3(0.5f, 0.5f, 0.0f)));
-
-                SourceBatch* batch = geom->GetBatch(0);
-                batch->material = mat;
-                batch->vertexBuffer = vb;
-                batch->indexBuffer = ib;
-                batch->drawStart = 0;
-                batch->drawCount = 6;
+                GeometryNode* node = scene->CreateChild<GeometryNode>();
+                node->SetPosition(Vector3(2.0f * x, 2.0f * y, 0.0f));
+                node->SetNumGeometries(1);
+                node->SetGeometry(0, geom);
+                node->SetMaterial(0, mat);
+                node->SetBoundingBox(BoundingBox(Vector3(-0.5f, -0.5f, 0.0f), Vector3(0.5f, 0.5f, 0.0f)));
             }
         }
 
@@ -134,7 +135,7 @@ public:
             renderer->CollectBatches("opaque");
 
             graphics->Clear(CLEAR_COLOR | CLEAR_DEPTH, Color(0.0f, 0.0f, 0.5f));
-            renderer->DrawBatches("opaque");
+            renderer->RenderBatches("opaque");
             graphics->Present();
 
             profiler->EndFrame();

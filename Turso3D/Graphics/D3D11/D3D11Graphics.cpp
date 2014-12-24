@@ -240,6 +240,8 @@ void Graphics::Close()
 
 void Graphics::Present()
 {
+    PROFILE(Present);
+
     impl->swapChain->Present(vsync ? 1 : 0, 0);
 }
 

@@ -271,6 +271,8 @@ void Graphics::Close()
 
 void Graphics::Present()
 {
+    PROFILE(Present);
+
     context->Present();
     CleanupFramebuffers();
 }

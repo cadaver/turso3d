@@ -20,39 +20,33 @@ enum GeometryType
     GEOM_INSTANCED
 };
 
-/// Description of a geometry node's draw call.
-struct SourceBatch
+/// Description of geometry to be rendered. Scene nodes that render the same object can share these to reduce memory load and allow instancing.
+struct TURSO3D_API Geometry : public RefCounted
 {
     /// Construct with defaults.
-    SourceBatch();
-
-    /// Destruct
-    ~SourceBatch();
+    Geometry() :
+        primitiveType(TRIANGLE_LIST),
+        drawStart(0),
+        drawCount(0)
+    {
+    }
 
     /// Geometry vertex buffer.
     SharedPtr<VertexBuffer> vertexBuffer;
     /// Geometry index buffer.
     SharedPtr<IndexBuffer> indexBuffer;
-    /// Material resource.
-    SharedPtr<Material> material;
-    /// Object constant buffers. Leaving these null and using the STATIC geometry type allows to use instancing.
+    /// Constant buffers.
     SharedPtr<ConstantBuffer> constantBuffers[MAX_SHADER_STAGES];
-    /// Geometry type. Affects the vertex shader variation that will be chosen.
-    GeometryType geometryType;
     /// Geometry's primitive type.
     PrimitiveType primitiveType;
     /// Draw range start. Specifies index start if index buffer defined, vertex start otherwise.
     size_t drawStart;
     /// Draw range count. Specifies number of indices if index buffer defined, number of vertices otherwise.
     size_t drawCount;
-    /// Pointer to the world matrix.
-    const Matrix3x4* worldMatrix;
-    /// Distance of batch from last camera rendered from.
-    float distance;
 };
 
 /// Base class for nodes that contain geometry to be rendered.
-class GeometryNode : public OctreeNode
+class TURSO3D_API GeometryNode : public OctreeNode
 {
 public:
     /// Construct.
@@ -66,34 +60,48 @@ public:
     /// Prepare object for rendering. Called by Renderer.
     virtual void OnPrepareRender(Camera* camera);
 
-    /// Set geometry type and number of batches. Assigns the batches to use the node's world matrix.
-    void SetupBatches(GeometryType type, size_t numBatches);
+    /// Set geometry type in all batches.
+    void SetGeometryType(GeometryType type);
+    /// Set number of geometries / batches.
+    void SetNumGeometries(size_t num);
+    /// Set geometry in batch.
+    void SetGeometry(size_t index, Geometry* geometry);
     /// Set material in batch.
     void SetMaterial(size_t index, Material* material);
     /// Set local space bounding box.
     void SetBoundingBox(const BoundingBox& box);
-    /// Return modifiable batch by index.
-    SourceBatch* GetBatch(size_t index) { return index < batches.Size() ? &batches[index] : nullptr; }
-    /// Return modifiable batches.
-    Vector<SourceBatch>& Batches() { return batches; }
 
-    /// Return material in batch.
+    /// Return geometry type.
+    GeometryType GetGeometryType() const { return geometryType; }
+    /// Return number of geometries.
+    size_t NumGeometries() const { return geometries.Size(); }
+    /// Return geometry by batch index.
+    Geometry* GetGeometry(size_t index) const;
+    /// Return material by batch index.
     Material* GetMaterial(size_t index) const;
+    /// Return all geometries.
+    const Vector<SharedPtr<Geometry> >& Geometries() const { return geometries; }
+    /// Return all materials.
+    const Vector<SharedPtr<Material> >& Materials() const { return materials; }
     /// Return local space bounding box.
     const BoundingBox& GetBoundingBox() const { return boundingBox; }
-    /// Return const batch by index.
-    const SourceBatch* GetBatch(size_t index) const { return index < batches.Size() ? &batches[index] : nullptr; }
-    /// Return const batches.
-    const Vector<SourceBatch>& Batches() const { return batches; }
+    /// Return distance from camera in the current view.
+    float Distance() const { return distance; }
 
 protected:
     /// Recalculate the world bounding box.
     void OnWorldBoundingBoxUpdate() const override;
 
-    /// Batch data.
-    Vector<SourceBatch> batches;
+    /// Geometry type.
+    GeometryType geometryType;
+    /// Geometries in each batch.
+    Vector<SharedPtr<Geometry> > geometries;
+    /// Materials in each batch.
+    Vector<SharedPtr<Material> > materials;
     /// Local space bounding box.
     BoundingBox boundingBox;
+    /// Distance from camera in the current view.
+    float distance;
 };
 
 }

@@ -359,7 +359,7 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
             D3D11_MAPPED_SUBRESOURCE mappedData;
             mappedData.pData = nullptr;
 
-            d3dDeviceContext->Map((ID3D11Resource*)texture, 0, rect == levelRect ? D3D11_MAP_WRITE_DISCARD : D3D11_MAP_WRITE, 0, &mappedData);
+            d3dDeviceContext->Map((ID3D11Resource*)texture, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedData);
             if (mappedData.pData)
             {
                 for (int y = rect.top; y < rect.bottom; ++y)

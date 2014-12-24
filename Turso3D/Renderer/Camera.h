@@ -26,7 +26,7 @@ enum FaceCameraMode
 };
 
 /// %Camera scene node.
-class Camera : public SpatialNode
+class TURSO3D_API Camera : public SpatialNode
 {
     OBJECT(Camera);
 
