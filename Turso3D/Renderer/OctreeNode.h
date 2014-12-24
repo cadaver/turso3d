@@ -29,11 +29,11 @@ public:
     /// Perform ray test on self and add possible hit to the result vector.
     virtual void OnRaycast(Vector<RaycastResult>& dest, const Ray& ray, float maxDistance);
     
-    /// Return the current octree this node resides in.
+    /// Return current octree this node resides in.
     Octree* CurrentOctree() const { return octree; }
-    /// Return the current octree octant this node resides in.
+    /// Return current octree octant this node resides in.
     Octant* CurrentOctant() const { return octant; }
-    /// Return the world space bounding box. Update if necessary.
+    /// Return world space bounding box. Update if necessary.
     const BoundingBox& WorldBoundingBox() const { if (TestFlag(NF_BOUNDING_BOX_DIRTY)) OnWorldBoundingBoxUpdate(); return worldBoundingBox; }
 
 protected:

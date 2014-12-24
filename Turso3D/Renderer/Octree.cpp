@@ -88,7 +88,44 @@ void Octree::Update()
         OctreeNode* node = *it;
         // If node was removed before update could happen, a null pointer will be in its place
         if (node)
-            InsertNode(node);
+        {
+            node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
+
+            // Do nothing if still fits the current octant
+            const BoundingBox& box = node->WorldBoundingBox();
+            Vector3 boxSize = box.Size();
+            Octant* oldOctant = node->octant;
+            if (oldOctant && oldOctant->cullingBox.IsInside(box) == INSIDE && oldOctant->FitBoundingBox(box, boxSize))
+                continue;
+
+            // Begin reinsert process. Start from root and check what level child needs to be used
+            Octant* newOctant = &root;
+            Vector3 boxCenter = box.Center();
+
+            for (;;)
+            {
+                bool insertHere;
+                // If node does not fit fully inside root octant, must remain in it
+                if (newOctant == &root)
+                    insertHere = newOctant->cullingBox.IsInside(box) != INSIDE || newOctant->FitBoundingBox(box, boxSize);
+                else
+                    insertHere = newOctant->FitBoundingBox(box, boxSize);
+
+                if (insertHere)
+                {
+                    if (newOctant != oldOctant)
+                    {
+                        // Add first, then remove, because node count going to zero deletes the octree branch in question
+                        AddNode(node, newOctant);
+                        if (oldOctant)
+                            RemoveNode(node, oldOctant);
+                    }
+                    break;
+                }
+                else
+                    newOctant = CreateChildOctant(newOctant, newOctant->ChildIndex(boxCenter));
+            }
+        }
     }
 
     updateQueue.Clear();
@@ -203,46 +240,6 @@ void Octree::SetNumLevelsAttr(int numLevels)
 int Octree::NumLevelsAttr() const
 {
     return root.level;
-}
-
-void Octree::InsertNode(OctreeNode* node)
-{
-    node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
-
-    // Do nothing if still fits the current octant
-    const BoundingBox& box = node->WorldBoundingBox();
-    Vector3 boxSize = box.Size();
-    Octant* oldOctant = node->octant;
-    if (oldOctant && oldOctant->cullingBox.IsInside(box) == INSIDE && oldOctant->FitBoundingBox(box, boxSize))
-        return;
-
-    // Begin reinsert process. Start from root and check what level child needs to be used
-    Octant* newOctant = &root;
-    Vector3 boxCenter = box.Center();
-
-    for (;;)
-    {
-        bool insertHere;
-        // If node does not fit fully inside root octant, must remain in it
-        if (newOctant == &root)
-            insertHere = newOctant->cullingBox.IsInside(box) != INSIDE || newOctant->FitBoundingBox(box, boxSize);
-        else
-            insertHere = newOctant->FitBoundingBox(box, boxSize);
-
-        if (insertHere)
-        {
-            if (newOctant != oldOctant)
-            {
-                // Add first, then remove, because node count going to zero deletes the octree branch in question
-                AddNode(node, newOctant);
-                if (oldOctant)
-                    RemoveNode(node, oldOctant);
-            }
-            break;
-        }
-        else
-            newOctant = CreateChildOctant(newOctant, newOctant->ChildIndex(boxCenter));
-    }
 }
 
 void Octree::AddNode(OctreeNode* node, Octant* octant)

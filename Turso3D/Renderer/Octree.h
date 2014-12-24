@@ -109,8 +109,6 @@ private:
     void SetNumLevelsAttr(int numLevels);
     /// Return number of levels. Used in serialization.
     int NumLevelsAttr() const;
-    /// Insert a node into a suitably-sized octant.
-    void InsertNode(OctreeNode* node);
     /// Add node to a specific octant.
     void AddNode(OctreeNode* node, Octant* octant);
     /// Remove node from an octant.
