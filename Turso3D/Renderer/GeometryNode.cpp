@@ -41,22 +41,21 @@ void GeometryNode::SetGeometryType(GeometryType type)
 
 void GeometryNode::SetNumGeometries(size_t num)
 {
-    geometries.Resize(num);
-    materials.Resize(num);
+    batches.Resize(num);
 }
 
 void GeometryNode::SetGeometry(size_t index, Geometry* geometry)
 {
-    if (index < geometries.Size())
-        geometries[index] = geometry;
+    if (index < batches.Size())
+        batches[index].geometry = geometry;
     else
         LOGERRORF("Out of bounds batch index %d for setting geometry", (int)index);
 }
 
 void GeometryNode::SetMaterial(size_t index, Material* material)
 {
-    if (index < materials.Size())
-        materials[index] = material;
+    if (index < batches.Size())
+        batches[index].material = material;
     else
         LOGERRORF("Out of bounds batch index %d for setting material", (int)index);
 }
@@ -70,12 +69,12 @@ void GeometryNode::SetBoundingBox(const BoundingBox& box)
 
 Geometry* GeometryNode::GetGeometry(size_t index) const
 {
-    return index < geometries.Size() ? geometries[index] : nullptr;
+    return index < batches.Size() ? batches[index].geometry.Get() : nullptr;
 }
 
 Material* GeometryNode::GetMaterial(size_t index) const
 {
-    return index < materials.Size() ? materials[index] : nullptr;
+    return index < batches.Size() ? batches[index].material.Get() : nullptr;
 }
 
 void GeometryNode::OnWorldBoundingBoxUpdate() const

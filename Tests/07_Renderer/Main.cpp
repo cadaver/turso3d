@@ -82,6 +82,8 @@ public:
         geom->drawStart = 0;
         geom->drawCount = 6;
 
+        Vector<GeometryNode*> nodes;
+
         for (int x = -125; x <= 125; ++x)
         {
             for (int y = -125; y <= 125; ++y)
@@ -92,12 +94,15 @@ public:
                 node->SetGeometry(0, geom);
                 node->SetMaterial(0, mat);
                 node->SetBoundingBox(BoundingBox(Vector3(-0.5f, -0.5f, 0.0f), Vector3(0.5f, 0.5f, 0.0f)));
+                nodes.Push(node);
             }
         }
 
         float yaw = 0.0f, pitch = 0.0f;
         HiresTimer frameTimer;
         float dt = 0.0f;
+        bool animate = false;
+        Quaternion nodeRot = Quaternion::IDENTITY;
 
         for (;;)
         {
@@ -107,6 +112,8 @@ public:
             input->Update();
             if (input->IsKeyPress(27))
                 graphics->Close();
+            if (input->IsKeyPress(32))
+                animate = !animate;
             
             if (input->IsMouseButtonDown(MOUSEB_RIGHT))
             {
@@ -126,6 +133,16 @@ public:
                 camera->Translate(Vector3::LEFT * dt * moveSpeed);
             if (input->IsKeyDown('D'))
                 camera->Translate(Vector3::RIGHT * dt * moveSpeed);
+
+            if (animate)
+            {
+                PROFILE(AnimateNodes);
+                nodeRot = Quaternion(0.0f, 0.0f, 100.0f * dt) * nodeRot;
+                nodeRot.Normalize();
+
+                for (auto it = nodes.Begin(); it != nodes.End(); ++it)
+                    (*it)->SetRotation(nodeRot);
+            }
 
             // Drawing and state setting functions will not check Graphics initialization state, check now
             if (!graphics->IsInitialized())

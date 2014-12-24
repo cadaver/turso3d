@@ -45,6 +45,15 @@ struct TURSO3D_API Geometry : public RefCounted
     size_t drawCount;
 };
 
+/// Draw call source data.
+struct TURSO3D_API SourceBatch
+{
+    /// The geometry to render.
+    SharedPtr<Geometry> geometry;
+    /// The material to use for rendering.
+    SharedPtr<Material> material;
+};
+
 /// Base class for nodes that contain geometry to be rendered.
 class TURSO3D_API GeometryNode : public OctreeNode
 {
@@ -74,15 +83,13 @@ public:
     /// Return geometry type.
     GeometryType GetGeometryType() const { return geometryType; }
     /// Return number of geometries.
-    size_t NumGeometries() const { return geometries.Size(); }
+    size_t NumGeometries() const { return batches.Size(); }
     /// Return geometry by batch index.
     Geometry* GetGeometry(size_t index) const;
     /// Return material by batch index.
     Material* GetMaterial(size_t index) const;
-    /// Return all geometries.
-    const Vector<SharedPtr<Geometry> >& Geometries() const { return geometries; }
-    /// Return all materials.
-    const Vector<SharedPtr<Material> >& Materials() const { return materials; }
+    /// Return source information for all batches.
+    const Vector<SourceBatch>& Batches() const { return batches; }
     /// Return local space bounding box.
     const BoundingBox& GetBoundingBox() const { return boundingBox; }
     /// Return distance from camera in the current view.
@@ -94,10 +101,8 @@ protected:
 
     /// Geometry type.
     GeometryType geometryType;
-    /// Geometries in each batch.
-    Vector<SharedPtr<Geometry> > geometries;
-    /// Materials in each batch.
-    Vector<SharedPtr<Material> > materials;
+    /// Draw call source datas.
+    Vector<SourceBatch> batches;
     /// Local space bounding box.
     BoundingBox boundingBox;
     /// Distance from camera in the current view.

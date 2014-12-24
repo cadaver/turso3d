@@ -241,15 +241,14 @@ void Renderer::CollectBatchesByState(size_t passIndex, PassQueue& passQueue)
     for (auto it = geometries.Begin(); it != geometries.End(); ++it)
     {
         GeometryNode* node = *it;
-        const Vector<SharedPtr<Geometry> >& geometries = node->Geometries();
-        const Vector<SharedPtr<Material> >& materials = node->Materials();
+        const Vector<SourceBatch>& sourceBatches = node->Batches();
         const Matrix3x4& worldMatrix = node->WorldTransform();
         GeometryType type = node->GetGeometryType();
 
-        for (size_t i = 0; i < geometries.Size(); ++i)
+        for (auto it2 = sourceBatches.Begin(); it2 != sourceBatches.End(); ++it2)
         {
-            Geometry* geometry = geometries[i].Get();
-            Material* material = materials[i].Get();
+            Geometry* geometry = it2->geometry.Get();
+            Material* material = it2->material.Get();
 
             if (!geometry || !material)
                 continue;
@@ -311,16 +310,15 @@ void Renderer::CollectBatchesByDistance(size_t passIndex, PassQueue& passQueue)
     for (auto it = geometries.Begin(); it != geometries.End(); ++it)
     {
         GeometryNode* node = *it;
-        const Vector<SharedPtr<Geometry> >& geometries = node->Geometries();
-        const Vector<SharedPtr<Material> >& materials = node->Materials();
+        const Vector<SourceBatch>& sourceBatches = node->Batches();
         const Matrix3x4& worldMatrix = node->WorldTransform();
         GeometryType type = node->GetGeometryType();
         float distance = node->Distance();
 
-        for (size_t i = 0; i < geometries.Size(); ++i)
+        for (auto it2 = sourceBatches.Begin(); it2 != sourceBatches.End(); ++it2)
         {
-            Geometry* geometry = geometries[i].Get();
-            Material* material = materials[i].Get();
+            Geometry* geometry = it2->geometry.Get();
+            Material* material = it2->material.Get();
 
             if (!geometry || !material)
                 continue;
