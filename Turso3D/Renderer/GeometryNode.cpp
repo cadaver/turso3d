@@ -80,7 +80,7 @@ void GeometryNode::SetMaterial(size_t index, Material* material)
         LOGERRORF("Out of bounds batch index %d for setting material", (int)index);
 }
 
-void GeometryNode::SetBoundingBox(const BoundingBox& box)
+void GeometryNode::SetLocalBoundingBox(const BoundingBox& box)
 {
     boundingBox = box;
     // Changing the bounding box may require octree reinsertion

@@ -93,7 +93,7 @@ public:
                 node->SetNumGeometries(1);
                 node->SetGeometry(0, geom);
                 node->SetMaterial(0, mat);
-                node->SetBoundingBox(BoundingBox(Vector3(-0.5f, -0.5f, 0.0f), Vector3(0.5f, 0.5f, 0.0f)));
+                node->SetLocalBoundingBox(BoundingBox(Vector3(-0.5f, -0.5f, 0.0f), Vector3(0.5f, 0.5f, 0.0f)));
                 nodes.Push(node);
             }
         }

@@ -225,12 +225,6 @@ protected:
     virtual void OnSetEnabled(bool newEnabled);
 
 private:
-    /// %Node flags. Used to hold several boolean values (some subclass-specific) to reduce memory use.
-    mutable unsigned short flags;
-    /// Layer number.
-    unsigned char layer;
-    /// Tag number.
-    unsigned char tag;
     /// Parent node.
     Node* parent;
     /// Parent scene.
@@ -241,6 +235,12 @@ private:
     unsigned id;
     /// %Node name.
     String name;
+    /// %Node flags. Used to hold several boolean values (some subclass-specific) to reduce memory use.
+    mutable unsigned short flags;
+    /// Layer number.
+    unsigned char layer;
+    /// Tag number.
+    unsigned char tag;
 };
 
 }

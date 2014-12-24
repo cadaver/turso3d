@@ -130,9 +130,10 @@ BoundingBox BoundingBox::Transformed(const Matrix3& transform) const
 
 BoundingBox BoundingBox::Transformed(const Matrix3x4& transform) const
 {
-    Vector3 newCenter = transform * Center();
-    Vector3 oldEdge = Size() * 0.5f;
-    Vector3 newEdge = Vector3(
+    Vector3 oldCenter = Center();
+    Vector3 oldEdge = max - oldCenter;
+    Vector3 newCenter = transform * oldCenter;
+    Vector3 newEdge(
         Abs(transform.m00) * oldEdge.x + Abs(transform.m01) * oldEdge.y + Abs(transform.m02) * oldEdge.z,
         Abs(transform.m10) * oldEdge.x + Abs(transform.m11) * oldEdge.y + Abs(transform.m12) * oldEdge.z,
         Abs(transform.m20) * oldEdge.x + Abs(transform.m21) * oldEdge.y + Abs(transform.m22) * oldEdge.z

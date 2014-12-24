@@ -81,7 +81,7 @@ public:
     /// Set material in batch.
     void SetMaterial(size_t index, Material* material);
     /// Set local space bounding box.
-    void SetBoundingBox(const BoundingBox& box);
+    void SetLocalBoundingBox(const BoundingBox& box);
 
     /// Return geometry type.
     GeometryType GetGeometryType() const { return geometryType; }
@@ -94,12 +94,12 @@ public:
     /// Return source information for all batches.
     const Vector<SourceBatch>& Batches() const { return batches; }
     /// Return local space bounding box.
-    const BoundingBox& GetBoundingBox() const { return boundingBox; }
+    const BoundingBox& LocalBoundingBox() const { return boundingBox; }
     /// Return distance from camera in the current view.
     float Distance() const { return distance; }
 
 protected:
-    /// Recalculate the world bounding box.
+    /// Recalculate the world space bounding box.
     void OnWorldBoundingBoxUpdate() const override;
 
     /// Geometry type.
