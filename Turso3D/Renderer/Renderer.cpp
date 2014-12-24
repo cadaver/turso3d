@@ -1,9 +1,11 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../Debug/Profiler.h"
+#include "../Graphics/ConstantBuffer.h"
 #include "../Graphics/Graphics.h"
 #include "../Graphics/Shader.h"
 #include "../Graphics/ShaderVariation.h"
+#include "../Graphics/VertexBuffer.h"
 #include "../Resource/ResourceCache.h"
 #include "../Scene/Scene.h"
 #include "Camera.h"

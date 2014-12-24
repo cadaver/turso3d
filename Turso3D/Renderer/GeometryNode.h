@@ -8,6 +8,7 @@
 namespace Turso3D
 {
 
+class Camera;
 class ConstantBuffer;
 class IndexBuffer;
 class Material;
@@ -24,12 +25,9 @@ enum GeometryType
 struct TURSO3D_API Geometry : public RefCounted
 {
     /// Construct with defaults.
-    Geometry() :
-        primitiveType(TRIANGLE_LIST),
-        drawStart(0),
-        drawCount(0)
-    {
-    }
+    Geometry();
+    /// Destruct.
+    ~Geometry();
 
     /// Geometry vertex buffer.
     SharedPtr<VertexBuffer> vertexBuffer;
@@ -48,6 +46,11 @@ struct TURSO3D_API Geometry : public RefCounted
 /// Draw call source data.
 struct TURSO3D_API SourceBatch
 {
+    /// Construct empty.
+    SourceBatch();
+    /// Destruct.
+    ~SourceBatch();
+
     /// The geometry to render.
     SharedPtr<Geometry> geometry;
     /// The material to use for rendering.
@@ -106,6 +109,7 @@ protected:
     /// Local space bounding box.
     BoundingBox boundingBox;
     /// Distance from camera in the current view.
+    /// \todo Should be per-batch to allow correct distance sorting of alpha-blended submeshes
     float distance;
 };
 

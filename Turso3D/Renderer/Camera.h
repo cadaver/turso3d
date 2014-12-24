@@ -130,7 +130,7 @@ class TURSO3D_API Camera : public SpatialNode
     /// Return distance to position. In orthographic mode uses only Z coordinate.
     float Distance(const Vector3& worldPos) const;
     /// Return squared distance to position. In orthographic mode uses only Z coordinate.
-    float DistanceSquared(const Vector3& worldPos) const;
+    float SquaredDistance(const Vector3& worldPos) const;
     /// Return a scene node's LOD scaled distance.
     float LodDistance(float distance, float scale, float bias) const;
     /// Return a world rotation for facing a camera on certain axes based on the existing world rotation.

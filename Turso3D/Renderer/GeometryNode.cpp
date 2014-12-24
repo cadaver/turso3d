@@ -4,6 +4,7 @@
 #include "../Graphics/ConstantBuffer.h"
 #include "../Graphics/IndexBuffer.h"
 #include "../Graphics/VertexBuffer.h"
+#include "Camera.h"
 #include "GeometryNode.h"
 #include "Material.h"
 
@@ -11,6 +12,25 @@
 
 namespace Turso3D
 {
+
+Geometry::Geometry() : 
+    primitiveType(TRIANGLE_LIST),
+    drawStart(0),
+    drawCount(0)
+{
+}
+
+Geometry::~Geometry()
+{
+}
+
+SourceBatch::SourceBatch()
+{
+}
+
+SourceBatch::~SourceBatch()
+{
+}
 
 GeometryNode::GeometryNode() :
     geometryType(GEOM_STATIC),

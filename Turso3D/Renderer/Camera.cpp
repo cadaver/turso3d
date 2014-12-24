@@ -396,7 +396,7 @@ float Camera::Distance(const Vector3& worldPos) const
         return Abs((ViewMatrix() * worldPos).z);
 }
 
-float Camera::DistanceSquared(const Vector3& worldPos) const
+float Camera::SquaredDistance(const Vector3& worldPos) const
 {
     if (!orthographic)
         return (worldPos - WorldPosition()).LengthSquared();
