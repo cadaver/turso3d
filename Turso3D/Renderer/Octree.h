@@ -144,7 +144,7 @@ private:
             for (auto it = octantNodes.Begin(); it != octantNodes.End(); ++it)
             {
                 OctreeNode* node = *it;
-                unsigned flags = node->Flags();
+                unsigned short flags = node->Flags();
                 if ((flags & NF_ENABLED) && (flags & nodeFlags) && (node->LayerMask() & layerMask) &&
                     volume.IsInsideFast(node->WorldBoundingBox()) != OUTSIDE)
                     result.Push(node);
