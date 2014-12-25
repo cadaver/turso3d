@@ -11,12 +11,8 @@ namespace Turso3D
 class TURSO3D_API Quaternion
 {
 public:
-    /// Construct an identity quaternion.
-    Quaternion() :
-        w(1.0f),
-        x(0.0f),
-        y(0.0f),
-        z(0.0f)
+    /// Construct undefined.
+    Quaternion()
     {
     }
     

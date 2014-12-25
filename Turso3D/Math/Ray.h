@@ -22,7 +22,7 @@ public:
     /// Ray direction.
     Vector3 direction;
     
-    /// Construct a degenerate ray with zero origin and direction.
+    /// Construct undefined ray.
     Ray()
     {
     }

@@ -20,12 +20,8 @@ public:
     /// W coordinate.
     float w;
     
-    /// Construct a zero vector.
-    Vector4() :
-        x(0.0f),
-        y(0.0f),
-        z(0.0f),
-        w(0.0f)
+    /// Construct undefined.
+    Vector4()
     {
     }
     

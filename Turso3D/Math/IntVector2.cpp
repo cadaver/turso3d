@@ -11,7 +11,7 @@
 namespace Turso3D
 {
 
-const IntVector2 IntVector2::ZERO;
+const IntVector2 IntVector2::ZERO(0, 0);
 
 bool IntVector2::FromString(const String& str)
 {

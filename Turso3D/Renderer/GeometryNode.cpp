@@ -34,7 +34,7 @@ SourceBatch::~SourceBatch()
 
 GeometryNode::GeometryNode() :
     geometryType(GEOM_STATIC),
-    distance(0.0f)
+    squaredDistance(0.0f)
 {
     SetFlag(NF_GEOMETRY, true);
 }
@@ -51,7 +51,7 @@ void GeometryNode::RegisterObject()
 
 void GeometryNode::OnPrepareRender(Camera* camera)
 {
-    distance = camera->Distance(WorldPosition());
+    squaredDistance = camera->SquaredDistance(WorldPosition());
 }
 
 void GeometryNode::SetGeometryType(GeometryType type)

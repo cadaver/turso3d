@@ -18,11 +18,8 @@ public:
     /// Z coordinate.
     float z;
     
-    /// Construct a zero vector.
-    Vector3() :
-        x(0.0f),
-        y(0.0f),
-        z(0.0f)
+    /// Construct undefined.
+    Vector3()
     {
     }
     

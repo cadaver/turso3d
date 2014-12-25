@@ -17,7 +17,11 @@ const Matrix4 Matrix4::ZERO(
     0.0f, 0.0f, 0.0f, 0.0f,
     0.0f, 0.0f, 0.0f, 0.0f);
 
-const Matrix4 Matrix4::IDENTITY;
+const Matrix4 Matrix4::IDENTITY(
+    1.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 1.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 1.0f, 0.0f,
+    0.0f, 0.0f, 0.0f, 1.0f);
 
 bool Matrix4::FromString(const String& str)
 {

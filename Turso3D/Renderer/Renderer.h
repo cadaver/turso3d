@@ -32,7 +32,7 @@ enum RendererConstantBuffer
 enum BatchSortMode
 {
     SORT_STATE = 0,
-    SORT_BACKTOFRONT
+    SORT_BACK_TO_FRONT
 };
 
 /// Parameter indices in constant buffers used by high-level rendering.
@@ -55,10 +55,16 @@ struct TURSO3D_API Batch
     Pass* pass;
     /// Pointer to light queue.
     LightQueue* lights;
-    /// Shader variations.
-    ShaderVariation* shaders[MAX_SHADER_STAGES];
-    /// Scene node world matrix.
-    const Matrix3x4* worldMatrix;
+    /// Geometry type
+    GeometryType type;
+
+    union
+    {
+        /// Non-instanced use world matrix.
+        const Matrix3x4* worldMatrix;
+        /// Start position in the instance transform buffer.
+        size_t instanceStart;
+    };
 
     union
     {
@@ -66,63 +72,9 @@ struct TURSO3D_API Batch
         unsigned long long sortKey;
         /// Distance for sorting.
         float distance;
+        /// Instance count.
+        size_t instanceCount;
     };
-};
-
-/// Description of an instanced draw call.
-struct TURSO3D_API InstanceBatch : public Batch
-{
-    /// Instance world matrices.
-    Vector<const Matrix3x4*> worldMatrices;
-    /// Start position in the instancing buffer.
-    size_t startIndex;
-};
-
-/// Instance batch grouping key.
-struct TURSO3D_API InstanceKey
-{
-    /// Construct undefined.
-    InstanceKey()
-    {
-    }
-
-    /// Construct with values.
-    InstanceKey(Geometry* geometry_, Pass* pass_, LightQueue* lights_) :
-        geometry(geometry_),
-        pass(pass_),
-        lights(lights_)
-    {
-    }
-
-    /// Test for equality with another key.
-    bool operator == (const InstanceKey& rhs) const { return geometry == rhs.geometry && pass == rhs.pass && lights == rhs.lights; }
-    /// Test for inequality with another key.
-    bool operator != (const InstanceKey& rhs) const { return !(*this == rhs); }
-    /// Convert to hash value
-    unsigned ToHash() const { return (unsigned)geometry + (unsigned)pass + (unsigned)lights; }
-
-    /// Geometry.
-    Geometry* geometry;
-    /// Material pass.
-    Pass* pass;
-    /// Pointer to light queue.
-    LightQueue* lights;
-};
-
-/// Collected batches for a pass.
-struct TURSO3D_API PassQueue
-{
-    /// Clear all batches.
-    void Clear();
-    /// Sort batches.
-    void Sort(BatchSortMode sort);
-
-    /// Instanced batches.
-    HashMap<InstanceKey, InstanceBatch> instanceBatches;
-    /// Sorted instance batches.
-    Vector<InstanceBatch*> sortedInstanceBatches;
-    /// Non-instanced batches.
-    Vector<Batch> batches;
 };
 
 /// High-level rendering subsystem. Performs rendering of 3D scenes.
@@ -144,16 +96,8 @@ public:
     void RenderBatches(const String& pass);
 
 private:
-    /// Collect batches and setup sorting by state.
-    void CollectBatchesByState(size_t passIndex, PassQueue& passQueue);
-    /// Collect batches and setup sorting by distance.
-    void CollectBatchesByDistance(size_t passIndex, PassQueue& passQueue);
-    /// Set shader variations for a batch after the final geometry type is known.
-    void SetBatchShaders(Batch& batch, GeometryType type);
     /// Load shaders for a pass.
     void LoadPassShaders(Pass* pass);
-    /// Render a batch.
-    void RenderBatch(Batch& batch, bool isInstanced, Pass*& lastPass, Material*& lastMaterial);
 
     /// Graphics subsystem pointer.
     WeakPtr<Graphics> graphics;
@@ -173,8 +117,8 @@ private:
     Matrix4 viewProjMatrix;
     /// Found geometry objects.
     Vector<GeometryNode*> geometries;
-    /// Render queues per pass.
-    HashMap<size_t, PassQueue> passQueues;
+    /// Batch queues per pass.
+    HashMap<size_t, Vector<Batch> > batchQueues;
     /// Per-frame vertex shader constant buffer.
     AutoPtr<ConstantBuffer> vsFrameConstantBuffer;
     /// Per-fame pixel shader constant buffer.

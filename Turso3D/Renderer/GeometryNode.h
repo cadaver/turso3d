@@ -95,8 +95,8 @@ public:
     const Vector<SourceBatch>& Batches() const { return batches; }
     /// Return local space bounding box.
     const BoundingBox& LocalBoundingBox() const { return boundingBox; }
-    /// Return distance from camera in the current view.
-    float Distance() const { return distance; }
+    /// Return squared distance from camera in the current view.
+    float SquaredDistance() const { return squaredDistance; }
 
 protected:
     /// Recalculate the world space bounding box.
@@ -108,9 +108,9 @@ protected:
     Vector<SourceBatch> batches;
     /// Local space bounding box.
     BoundingBox boundingBox;
-    /// Distance from camera in the current view.
+    /// Squared distance from camera in the current view.
     /// \todo Should be per-batch to allow correct distance sorting of alpha-blended submeshes
-    float distance;
+    float squaredDistance;
 };
 
 }

@@ -18,9 +18,8 @@ public:
     /// Plane constant.
     float d;
 
-    /// Construct a degenerate plane with zero normal and parameter.
-    Plane() :
-        d(0.0f)
+    /// Construct undefined.
+    Plane()
     {
     }
     

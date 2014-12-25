@@ -16,11 +16,8 @@ public:
     float m10, m11, m12;
     float m20, m21, m22;
 
-    /// Construct an identity matrix.
-    Matrix3() :
-        m00(1.0f), m01(0.0f), m02(0.0f),
-        m10(0.0f), m11(1.0f), m12(0.0f),
-        m20(0.0f), m21(0.0f), m22(1.0f)
+    /// Construct undefined.
+    Matrix3()
     {
     }
     

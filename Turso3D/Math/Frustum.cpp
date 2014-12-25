@@ -37,6 +37,9 @@ void ProjectAndMergeEdge(Vector3 v0, Vector3 v1, Rect& rect, const Matrix4& proj
 
 Frustum::Frustum()
 {
+    for (size_t i = 0; i < NUM_FRUSTUM_VERTICES; ++i)
+        vertices[i] = Vector3::ZERO;
+
     UpdatePlanes();
 }
 

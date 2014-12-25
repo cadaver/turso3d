@@ -19,10 +19,8 @@ public:
     /// Y coordinate.
     float y;
     
-    /// Construct a zero vector.
-    Vector2() :
-        x(0.0f),
-        y(0.0f)
+    /// Construct undefined.
+    Vector2()
     {
     }
     

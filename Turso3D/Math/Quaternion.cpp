@@ -11,7 +11,7 @@
 namespace Turso3D
 {
 
-const Quaternion Quaternion::IDENTITY;
+const Quaternion Quaternion::IDENTITY(1.0f, 0.0f, 0.0f, 0.0f);
 
 void Quaternion::FromAngleAxis(float angle, const Vector3& axis)
 {

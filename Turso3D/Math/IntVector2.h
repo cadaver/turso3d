@@ -19,10 +19,8 @@ public:
     /// Y coordinate.
     int y;
     
-    /// Construct a zero vector.
-    IntVector2() :
-        x(0),
-        y(0)
+    /// Construct undefined.
+    IntVector2()
     {
     }
     

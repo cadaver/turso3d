@@ -11,7 +11,7 @@
 namespace Turso3D
 {
 
-const Vector2 Vector2::ZERO;
+const Vector2 Vector2::ZERO(0.0f, 0.0f);
 const Vector2 Vector2::LEFT(-1.0f, 0.0f);
 const Vector2 Vector2::RIGHT(1.0f, 0.0f);
 const Vector2 Vector2::UP(0.0f, 1.0f);
