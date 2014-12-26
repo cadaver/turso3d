@@ -45,7 +45,9 @@ void Batch::CalculateSortKey()
 }
 
 Renderer::Renderer() :
-    instanceTransformsDirty(false)
+    instanceTransformsDirty(false),
+    objectsPrepared(false),
+    perFrameConstantsSet(false)
 {
     Vector<Constant> constants;
     
@@ -126,30 +128,19 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     /// \todo When Light class exists, get lights & geometries separately. Now just collects geometries
     octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(geometries), frustum, NF_GEOMETRY, camera->ViewMask());
 
-    {
-        PROFILE(PrepareRender);
-        for (auto it = geometries.Begin(); it != geometries.End(); ++it)
-            (*it)->OnPrepareRender(camera);
-    }
-
-    {
-        PROFILE(SetPerFrameConstants);
-        // Set per-frame values to the frame constant buffer
-        vsFrameConstantBuffer->SetConstant(VS_SCENE_VIEW_MATRIX, viewMatrix);
-        vsFrameConstantBuffer->SetConstant(VS_SCENE_PROJECTION_MATRIX, projectionMatrix);
-        vsFrameConstantBuffer->SetConstant(VS_SCENE_VIEWPROJ_MATRIX, viewProjMatrix);
-        vsFrameConstantBuffer->Apply();
-        graphics->SetConstantBuffer(SHADER_VS, CB_FRAME, vsFrameConstantBuffer);
-    }
+    objectsPrepared = false;
+    perFrameConstantsSet = false;
 }
 
 void Renderer::CollectBatches(const String& pass, BatchSortMode sort)
 {
+    PROFILE(CollectBatches);
+
     size_t passIndex = Material::PassIndex(pass);
     Vector<Batch>& batchQueue = batchQueues[passIndex];
 
     {
-        PROFILE(CollectBatches);
+        PROFILE(BuildBatches);
 
         for (auto it = geometries.Begin(); it != geometries.End(); ++it)
         {
@@ -158,6 +149,11 @@ void Renderer::CollectBatches(const String& pass, BatchSortMode sort)
             const Matrix3x4& worldMatrix = node->WorldTransform();
             GeometryType type = node->GetGeometryType();
             float distance = node->SquaredDistance();
+
+            // Prepare objects for rendering when collecting the first pass for this frame
+            // to avoid multiple loops through a (potentially large) number of objects
+            if (!objectsPrepared)
+                node->OnPrepareRender(camera);
 
             for (auto bIt = sourceBatches.Begin(); bIt != sourceBatches.End(); ++bIt)
             {
@@ -182,6 +178,8 @@ void Renderer::CollectBatches(const String& pass, BatchSortMode sort)
                 batchQueue.Push(newBatch);
             }
         }
+
+        objectsPrepared = true;
     }
 
     {
@@ -232,20 +230,35 @@ void Renderer::CollectBatches(const String& pass, BatchSortMode sort)
 
 void Renderer::RenderBatches(const String& pass)
 {
+    PROFILE(RenderBatches);
+
+    if (!perFrameConstantsSet)
+    {
+        PROFILE(SetPerFrameConstants);
+
+        // Set per-frame values to the frame constant buffer
+        vsFrameConstantBuffer->SetConstant(VS_SCENE_VIEW_MATRIX, viewMatrix);
+        vsFrameConstantBuffer->SetConstant(VS_SCENE_PROJECTION_MATRIX, projectionMatrix);
+        vsFrameConstantBuffer->SetConstant(VS_SCENE_VIEWPROJ_MATRIX, viewProjMatrix);
+        vsFrameConstantBuffer->Apply();
+        graphics->SetConstantBuffer(SHADER_VS, CB_FRAME, vsFrameConstantBuffer);
+        perFrameConstantsSet = true;
+    }
+
     if (instanceTransformsDirty && instanceTransforms.Size())
     {
         PROFILE(SetInstanceTransforms);
+
         if (instanceVertexBuffer->NumVertices() < instanceTransforms.Size())
             instanceVertexBuffer->Define(USAGE_DYNAMIC, instanceTransforms.Size(), instanceVertexElements, false, &instanceTransforms[0]);
         else
             instanceVertexBuffer->SetData(0, instanceTransforms.Size(), &instanceTransforms[0]);
-
         graphics->SetVertexBuffer(1, instanceVertexBuffer);
         instanceTransformsDirty = false;
     }
 
     {
-        PROFILE(RenderBatches);
+        PROFILE(SubmitDrawCalls);
 
         size_t passIndex = Material::PassIndex(pass);
         Vector<Batch>& batchQueue = batchQueues[passIndex];

@@ -133,6 +133,10 @@ private:
     Vector<Matrix3x4> instanceTransforms;
     /// Instance vertex buffer dirty flag.
     bool instanceTransformsDirty;
+    /// Objects prepared flag.
+    bool objectsPrepared;
+    /// Per frame constants set flag.
+    bool perFrameConstantsSet;
 };
 
 /// Register Renderer related object factories and attributes.
