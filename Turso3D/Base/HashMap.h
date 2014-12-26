@@ -290,12 +290,13 @@ public:
     {
         if (Size())
         {
-            for (Iterator it = Begin(); it != End(); )
+            for (Iterator it = Begin(); it != End();)
                 FreeNode(static_cast<Node*>(it++.ptr));
-            
+
             Node* tail = Tail();
             tail->prev = nullptr;
             SetHead(tail);
+            SetSize(0);
             ResetPtrs();
         }
     }

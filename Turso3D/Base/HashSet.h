@@ -267,6 +267,7 @@ public:
             Node* tail = Tail();
             tail->prev = nullptr;
             SetHead(tail);
+            SetSize(0);
             ResetPtrs();
         }
     }
