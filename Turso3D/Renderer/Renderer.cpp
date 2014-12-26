@@ -39,9 +39,16 @@ inline bool CompareBatchDistance(Batch& lhs, Batch& rhs)
 void Batch::CalculateSortKey()
 {
     // Shaders (pass + light queue) have highest priority, then material and finally geometry
-    sortKey = ((((unsigned long long)pass + (unsigned long long)lights) & 0xffffff) << 48) |
+    sortKey = ((((unsigned long long)pass + (unsigned long long)lights + type) & 0xffffff) << 48) |
         ((((unsigned long long)pass->Parent()) & 0xffffff) << 24) |
         (((unsigned long long)geometry) & 0xffffff);
+}
+
+void BatchQueue::Clear()
+{
+    batches.Clear();
+    instanceDatas.Clear();
+    instanceLookup.Clear();
 }
 
 Renderer::Renderer() :
@@ -137,7 +144,7 @@ void Renderer::CollectBatches(const String& pass, BatchSortMode sort)
     PROFILE(CollectBatches);
 
     size_t passIndex = Material::PassIndex(pass);
-    Vector<Batch>& batchQueue = batchQueues[passIndex];
+    BatchQueue& batchQueue = batchQueues[passIndex];
 
     {
         PROFILE(BuildBatches);
@@ -168,14 +175,45 @@ void Renderer::CollectBatches(const String& pass, BatchSortMode sort)
                 newBatch.type = type;
                 newBatch.geometry = bIt->geometry.Get();
                 newBatch.lights = nullptr;
-                newBatch.worldMatrix = &worldMatrix;
 
                 if (sort == SORT_STATE)
-                    newBatch.CalculateSortKey();
-                else
-                    newBatch.distance = distance;
+                {
+                    if (newBatch.type == GEOM_STATIC)
+                    {
+                        /// \todo Other checks for whether to instance
+                        newBatch.type = GEOM_INSTANCED;
+                        newBatch.CalculateSortKey();
 
-                batchQueue.Push(newBatch);
+                        // Check if instance batch already exists
+                        auto iIt = batchQueue.instanceLookup.Find(newBatch.sortKey);
+                        if (iIt != batchQueue.instanceLookup.End())
+                            batchQueue.instanceDatas[iIt->second].worldMatrices.Push(&worldMatrix);
+                        else
+                        {
+                            // Begin new instanced batch
+                            size_t newInstanceDataIndex = batchQueue.instanceDatas.Size();
+                            batchQueue.instanceLookup[newBatch.sortKey] = newInstanceDataIndex;
+                            newBatch.instanceDataIndex = newInstanceDataIndex;
+                            batchQueue.batches.Push(newBatch);
+                            batchQueue.instanceDatas.Resize(batchQueue.instanceDatas.Size() + 1);
+                            InstanceData& newInstanceData = batchQueue.instanceDatas.Back();
+                            newInstanceData.skipBatches = false;
+                            newInstanceData.worldMatrices.Push(&worldMatrix);
+                        }
+                    }
+                    else
+                    {
+                        newBatch.worldMatrix = &worldMatrix;
+                        newBatch.CalculateSortKey();
+                        batchQueue.batches.Push(newBatch);
+                    }
+                }
+                else
+                {
+                    newBatch.worldMatrix = &worldMatrix;
+                    newBatch.distance = distance;
+                    batchQueue.batches.Push(newBatch);
+                }
             }
         }
 
@@ -184,43 +222,53 @@ void Renderer::CollectBatches(const String& pass, BatchSortMode sort)
 
     {
         PROFILE(SortBatches);
-        
+
         if (sort == SORT_STATE)
-            Sort(batchQueue.Begin(), batchQueue.End(), CompareBatchState);
+            Sort(batchQueue.batches.Begin(), batchQueue.batches.End(), CompareBatchState);
         else
-            Sort(batchQueue.Begin(), batchQueue.End(), CompareBatchDistance);
+        {
+            Sort(batchQueue.batches.Begin(), batchQueue.batches.End(), CompareBatchDistance);
+
+            // After sorting batches by distance, we need a separate step to build instances if adjacent batches have the same state
+            Batch* start = nullptr;
+            for (auto it = batchQueue.batches.Begin(); it != batchQueue.batches.End(); ++it)
+            {
+                Batch* current = it.ptr;
+                if (start && current->type == GEOM_STATIC && current->pass == start->pass && current->geometry == start->geometry &&
+                    current->lights == start->lights)
+                {
+                    if (start->type == GEOM_INSTANCED)
+                        batchQueue.instanceDatas[start->instanceDataIndex].worldMatrices.Push(current->worldMatrix);
+                    else
+                    {
+                        // Begin new instanced batch
+                        start->type = GEOM_INSTANCED;
+                        size_t newInstanceDataIndex = batchQueue.instanceDatas.Size();
+                        batchQueue.instanceDatas.Resize(batchQueue.instanceDatas.Size() + 1);
+                        InstanceData& newInstanceData = batchQueue.instanceDatas.Back();
+                        newInstanceData.skipBatches = true;
+                        newInstanceData.worldMatrices.Push(start->worldMatrix);
+                        newInstanceData.worldMatrices.Push(current->worldMatrix);
+                        start->instanceDataIndex = newInstanceDataIndex; // Overwrites the non-instanced world matrix
+                    }
+                }
+                else
+                    start = (current->type == GEOM_STATIC) ? current : nullptr;
+            }
+        }
     }
 
     {
-        PROFILE(BuildInstances);
+        PROFILE(CopyInstanceTransforms);
 
+        // Now go through all instance batches and copy to the global buffer
         size_t oldSize = instanceTransforms.Size();
-
-        // Build instances when batches next to each other have the same state
-        Batch* start = nullptr;
-        for (auto it = batchQueue.Begin(); it != batchQueue.End(); ++it)
+        for (auto it = batchQueue.instanceDatas.Begin(); it != batchQueue.instanceDatas.End(); ++it)
         {
-            Batch* current = it.ptr;
-            if (start && current->type == GEOM_STATIC && current->pass == start->pass && current->geometry == start->geometry &&
-                current->lights == start->lights)
-            {
-                if (start->type == GEOM_INSTANCED)
-                {
-                    instanceTransforms.Push(*current->worldMatrix);
-                    ++start->instanceCount;
-                }
-                else
-                {
-                    // Begin new instanced batch
-                    instanceTransforms.Push(*start->worldMatrix);
-                    instanceTransforms.Push(*current->worldMatrix);
-                    start->type = GEOM_INSTANCED;
-                    start->instanceStart = instanceTransforms.Size() - 2;
-                    start->instanceCount = 2;
-                }
-            }
-            else
-                start = (current->type == GEOM_STATIC) ? current : nullptr;
+            InstanceData& instance = *it;
+            instance.startIndex = instanceTransforms.Size();
+            for (auto mIt = instance.worldMatrices.Begin(); mIt != instance.worldMatrices.End(); ++mIt)
+                instanceTransforms.Push(**mIt);
         }
 
         if (instanceTransforms.Size() != oldSize)
@@ -261,14 +309,15 @@ void Renderer::RenderBatches(const String& pass)
         PROFILE(SubmitDrawCalls);
 
         size_t passIndex = Material::PassIndex(pass);
-        Vector<Batch>& batchQueue = batchQueues[passIndex];
+        BatchQueue& batchQueue = batchQueues[passIndex];
+        Vector<Batch>& batches = batchQueue.batches;
         Pass* lastPass = nullptr;
         Material* lastMaterial = nullptr;
-
-        for (auto it = batchQueue.Begin(); it != batchQueue.End();)
+        
+        for (auto it = batches.Begin(); it != batches.End();)
         {
             const Batch& batch = *it;
-            bool instanced = batch.type == GEOM_INSTANCED;
+            InstanceData* instance = batch.type == GEOM_INSTANCED ? &batchQueue.instanceDatas[batch.instanceDataIndex] : nullptr;
 
             Pass* pass = batch.pass;
             if (!pass->shadersLoaded)
@@ -284,8 +333,8 @@ void Renderer::RenderBatches(const String& pass)
                     vsVariations.Resize(vsIdx + 1);
                 if (!vsVariations[vsIdx])
                 {
-                    vsVariations[vsIdx] = pass->shaders[SHADER_VS]->CreateVariation((pass->combinedShaderDefines[SHADER_VS] + " " +
-                        geometryDefines[vsIdx]).Trimmed());
+                    vsVariations[vsIdx] = pass->shaders[SHADER_VS]->CreateVariation((pass->combinedShaderDefines[SHADER_VS] +
+                        " " + geometryDefines[vsIdx]).Trimmed());
                 }
                 ShaderVariation* vs = vsVariations[vsIdx];
 
@@ -338,7 +387,7 @@ void Renderer::RenderBatches(const String& pass)
                 // Apply object render state
                 if (geometry->constantBuffers[SHADER_VS])
                     graphics->SetConstantBuffer(SHADER_VS, CB_OBJECT, geometry->constantBuffers[SHADER_VS].Get());
-                else if (!instanced)
+                else if (!instance)
                 {
                     vsObjectConstantBuffer->SetConstant(VS_OBJECT_WORLD_MATRIX, *batch.worldMatrix);
                     vsObjectConstantBuffer->Apply();
@@ -346,30 +395,30 @@ void Renderer::RenderBatches(const String& pass)
                 }
                 graphics->SetConstantBuffer(SHADER_PS, CB_OBJECT, geometry->constantBuffers[SHADER_PS].Get());
             
-                if (!instanced)
+                if (instance)
+                {
+                    if (ib)
+                    {
+                        graphics->DrawIndexedInstanced(geometry->primitiveType, geometry->drawStart, geometry->drawCount, 0,
+                            instance->startIndex, instance->worldMatrices.Size());
+                    }
+                    else
+                    {
+                        graphics->DrawInstanced(geometry->primitiveType, geometry->drawStart, geometry->drawCount, 
+                            instance->startIndex, instance->worldMatrices.Size());
+                    }
+                }
+                else
                 {
                     if (ib)
                         graphics->DrawIndexed(geometry->primitiveType, geometry->drawStart, geometry->drawCount, 0);
                     else
                         graphics->Draw(geometry->primitiveType, geometry->drawStart, geometry->drawCount);
                 }
-                else
-                {
-                    if (ib)
-                    {
-                        graphics->DrawIndexedInstanced(geometry->primitiveType, geometry->drawStart, geometry->drawCount, 0,
-                            batch.instanceStart, batch.instanceCount);
-                    }
-                    else
-                    {
-                        graphics->DrawInstanced(geometry->primitiveType, geometry->drawStart, geometry->drawCount, batch.instanceStart,
-                            batch.instanceCount);
-                    }
-                }
             }
 
-            // Advance. If batch is instanced, skip over the batches that were converted
-            it += instanced ? batch.instanceCount : 1;
+            // Advance. If necessary, skip over the batches that were converted
+            it += instance ? instance->skipBatches ? instance->worldMatrices.Size() : 1 : 1;
         }
     }
 }

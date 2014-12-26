@@ -55,15 +55,15 @@ struct TURSO3D_API Batch
     Pass* pass;
     /// Pointer to light queue.
     LightQueue* lights;
-    /// Geometry type
+    /// Geometry type.
     GeometryType type;
 
     union
     {
         /// Non-instanced use world matrix.
         const Matrix3x4* worldMatrix;
-        /// Start position in the instance transform buffer.
-        size_t instanceStart;
+        /// Index to instance data structures.
+        size_t instanceDataIndex;
     };
 
     union
@@ -72,9 +72,32 @@ struct TURSO3D_API Batch
         unsigned long long sortKey;
         /// Distance for sorting.
         float distance;
-        /// Instance count.
-        size_t instanceCount;
     };
+};
+
+/// Extra data for instanced batch.
+struct TURSO3D_API InstanceData
+{
+    /// World matrices.
+    Vector<const Matrix3x4*> worldMatrices;
+    /// Start index in the global instance transforms buffer.
+    size_t startIndex;
+    /// Skip flag. If set, has been converted from non-instanced batches and (size - 1) batches should be skipped after drawing this.
+    bool skipBatches;
+};
+
+/// Per-pass batch queue structure.
+struct TURSO3D_API BatchQueue
+{
+    /// Clear structures.
+    void Clear();
+    
+    /// Batches, which may be instanced or non-instanced.
+    Vector<Batch> batches;
+    /// Extra data for instanced batches.
+    Vector<InstanceData> instanceDatas;
+    /// Indices for instance datas by state sort key. Used only in state-sorted mode.
+    HashMap<unsigned long long, size_t> instanceLookup;
 };
 
 /// High-level rendering subsystem. Performs rendering of 3D scenes.
@@ -83,7 +106,7 @@ class TURSO3D_API Renderer : public Object
     OBJECT(Renderer);
 
 public:
-    /// Construct and register subsystem. 
+    /// Construct and register subsystem.
     Renderer();
     /// Destruct.
     ~Renderer();
@@ -98,7 +121,7 @@ public:
 private:
     /// Load shaders for a pass.
     void LoadPassShaders(Pass* pass);
-
+    
     /// Graphics subsystem pointer.
     WeakPtr<Graphics> graphics;
     /// Current scene.
@@ -118,7 +141,7 @@ private:
     /// Found geometry objects.
     Vector<GeometryNode*> geometries;
     /// Batch queues per pass.
-    HashMap<size_t, Vector<Batch> > batchQueues;
+    HashMap<size_t, BatchQueue> batchQueues;
     /// Per-frame vertex shader constant buffer.
     AutoPtr<ConstantBuffer> vsFrameConstantBuffer;
     /// Per-fame pixel shader constant buffer.
