@@ -218,7 +218,6 @@ void Renderer::CollectBatches(const String& pass, BatchSortMode sort, bool lit)
             /// \todo handle light queue "spill over" if need to split into multiple additive passes
             LightQueue* lights = lit ? AssignLightQueue(node) : nullptr;
 
-
             for (auto bIt = sourceBatches.Begin(); bIt != sourceBatches.End(); ++bIt)
             {
                 Batch newBatch;
@@ -475,11 +474,15 @@ void Renderer::RenderBatches(const String& pass)
                 // Apply light constant buffer
                 if (lights && lights != lastLights)
                 {
-                    psLightConstantBuffer->SetConstant(PS_LIGHT_POSITIONS, lights->lightPositions[0]);
-                    psLightConstantBuffer->SetConstant(PS_LIGHT_DIRECTIONS, lights->lightDirections[0]);
-                    psLightConstantBuffer->SetConstant(PS_LIGHT_COLORS, lights->lightColors[0]);
-                    psLightConstantBuffer->Apply();
-                    graphics->SetConstantBuffer(SHADER_PS, CB_LIGHTS, psLightConstantBuffer.Get());
+                    // If light queue is ambient only, no need to update the constants
+                    if (lights->psIdx > LIGHTBIT_AMBIENT)
+                    {
+                        psLightConstantBuffer->SetConstant(PS_LIGHT_POSITIONS, lights->lightPositions[0]);
+                        psLightConstantBuffer->SetConstant(PS_LIGHT_DIRECTIONS, lights->lightDirections[0]);
+                        psLightConstantBuffer->SetConstant(PS_LIGHT_COLORS, lights->lightColors[0]);
+                        psLightConstantBuffer->Apply();
+                        graphics->SetConstantBuffer(SHADER_PS, CB_LIGHTS, psLightConstantBuffer.Get());
+                    }
 
                     lastLights = lights;
                 }
@@ -546,33 +549,28 @@ void Renderer::LoadPassShaders(Pass* pass)
 LightQueue* Renderer::AssignLightQueue(GeometryNode* node)
 {
     const Vector<Light*>& nodeLights = node->Lights();
-    if (!nodeLights.IsEmpty())
-    {
-        unsigned long long lightQueueKey = 0;
-        for (size_t i = 0; i < nodeLights.Size() && i < MAX_LIGHTS_PER_PASS; ++i)
-            lightQueueKey += ((unsigned)nodeLights[i] & 0xffff) << (i * 16);
+    unsigned long long lightQueueKey = 0;
+    for (size_t i = 0; i < nodeLights.Size() && i < MAX_LIGHTS_PER_PASS; ++i)
+        lightQueueKey += ((unsigned)nodeLights[i] & 0xffff) << (i * 16);
 
-        HashMap<unsigned long long, LightQueue>::Iterator it = lightQueues.Find(lightQueueKey);
-        if (it != lightQueues.End())
-            return &it->second;
-        else
-        {
-            /// Create new light queue
-            LightQueue* lights = &lightQueues[lightQueueKey];
-            lights->psIdx = LIGHTBIT_AMBIENT;
-            for (size_t i = 0; i < nodeLights.Size() && i < MAX_LIGHTS_PER_PASS; ++i)
-            {
-                lights->psIdx |= ((unsigned)nodeLights[i]->GetLightType() + 1) << (i * 2 + 1);
-                lights->lightPositions[i] = Vector4(nodeLights[i]->WorldPosition(), nodeLights[i]->Range());
-                lights->lightColors[i] = nodeLights[i]->GetColor();
-                lights->lightDirections[i] = Vector4(-nodeLights[i]->WorldDirection(), nodeLights[i]->Fov());
-            }
-
-            return lights;
-        }
-    }
+    HashMap<unsigned long long, LightQueue>::Iterator it = lightQueues.Find(lightQueueKey);
+    if (it != lightQueues.End())
+        return &it->second;
     else
-        return nullptr;
+    {
+        /// Create new light queue
+        LightQueue* lights = &lightQueues[lightQueueKey];
+        lights->psIdx = LIGHTBIT_AMBIENT;
+        for (size_t i = 0; i < nodeLights.Size() && i < MAX_LIGHTS_PER_PASS; ++i)
+        {
+            lights->psIdx |= ((unsigned)nodeLights[i]->GetLightType() + 1) << (i * 2 + 1);
+            lights->lightPositions[i] = Vector4(nodeLights[i]->WorldPosition(), nodeLights[i]->Range());
+            lights->lightColors[i] = nodeLights[i]->GetColor();
+            lights->lightDirections[i] = Vector4(-nodeLights[i]->WorldDirection(), nodeLights[i]->Fov());
+        }
+
+        return lights;
+    }
 }
 
 void RegisterRendererLibrary()
