@@ -544,20 +544,24 @@ void Graphics::DrawIndexed(PrimitiveType type, size_t indexStart, size_t indexCo
     impl->deviceContext->DrawIndexed((unsigned)indexCount, (unsigned)indexStart, (unsigned)vertexStart);
 }
 
-void Graphics::DrawInstanced(PrimitiveType type, size_t vertexStart, size_t vertexCount, size_t instanceStart, size_t instanceCount)
+void Graphics::DrawInstanced(PrimitiveType type, size_t vertexStart, size_t vertexCount, size_t instanceStart,
+    size_t instanceCount)
 {
     if (!PrepareDraw(type))
         return;
 
-    impl->deviceContext->DrawInstanced((unsigned)vertexCount, (unsigned)instanceCount, (unsigned)vertexStart, (unsigned)instanceStart);
+    impl->deviceContext->DrawInstanced((unsigned)vertexCount, (unsigned)instanceCount, (unsigned)vertexStart,
+        (unsigned)instanceStart);
 }
 
-void Graphics::DrawIndexedInstanced(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart, size_t instanceStart, size_t instanceCount)
+void Graphics::DrawIndexedInstanced(PrimitiveType type, size_t indexStart, size_t indexCount, size_t vertexStart, size_t
+    instanceStart, size_t instanceCount)
 {
     if (!PrepareDraw(type))
         return;
         
-    impl->deviceContext->DrawIndexedInstanced((unsigned)indexCount, (unsigned)instanceCount, (unsigned)indexStart, (unsigned)vertexStart, (unsigned)instanceStart);
+    impl->deviceContext->DrawIndexedInstanced((unsigned)indexCount, (unsigned)instanceCount, (unsigned)indexStart, (unsigned)
+        vertexStart, (unsigned)instanceStart);
 }
 
 bool Graphics::IsInitialized() const
@@ -823,7 +827,8 @@ bool Graphics::PrepareDraw(PrimitiveType type)
                             newDesc.Format = d3dElementFormats[element.type];
                             newDesc.InputSlot = (unsigned)i;
                             newDesc.AlignedByteOffset = (unsigned)element.offset;
-                            newDesc.InputSlotClass = element.perInstance ? D3D11_INPUT_PER_INSTANCE_DATA : D3D11_INPUT_PER_VERTEX_DATA;
+                            newDesc.InputSlotClass = element.perInstance ? D3D11_INPUT_PER_INSTANCE_DATA :
+                                D3D11_INPUT_PER_VERTEX_DATA;
                             newDesc.InstanceDataStepRate = element.perInstance ? 1 : 0;
                             elementDescs.Push(newDesc);
                         }

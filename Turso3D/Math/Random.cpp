@@ -14,7 +14,7 @@ void SetRandomSeed(unsigned seed)
     randomSeed = seed;
 }
 
-unsigned GetRandomSeed()
+unsigned RandomSeed()
 {
     return randomSeed;
 }

@@ -122,7 +122,7 @@ class TURSO3D_API Camera : public SpatialNode
     /// Return whether is using a custom clipping plane.
     bool UseClipping() const { return useClipping; }
     /// Return the custom clipping plane.
-    const Plane& GetClipPlane() const { return clipPlane; }
+    const Plane& ClipPlane() const { return clipPlane; }
     /// Return vertical flipping mode.
     bool FlipVertical() const { return flipVertical; }
     /// Return whether to reverse culling; affected by vertical flipping and reflection.

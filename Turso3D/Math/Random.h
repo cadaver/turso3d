@@ -10,7 +10,7 @@ namespace Turso3D
 /// Set the random seed. The default seed is 1.
 TURSO3D_API void SetRandomSeed(unsigned seed);
 /// Return the current random seed.
-TURSO3D_API unsigned GetRandomSeed();
+TURSO3D_API unsigned RandomSeed();
 /// Return a random number between 0-32767. Should operate similarly to MSVC rand().
 TURSO3D_API int Rand();
 /// Return a standard normal distributed number.

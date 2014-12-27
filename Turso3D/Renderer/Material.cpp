@@ -337,15 +337,16 @@ void Material::SetShaderDefines(ShaderStage stage, const String& defines)
     if (stage < MAX_SHADER_STAGES)
     {
         shaderDefines[stage] = defines;
-        for (size_t i = 0; i < passes.Size(); ++i)
+        for (auto it = passes.Begin(); it != passes.End(); ++it)
         {
-            if (passes[i])
-                passes[i]->ClearCachedShaders();
+            Pass* pass = *it;
+            if (pass)
+                pass->ClearCachedShaders();
         }
     }
 }
 
-Pass* Material::GetPass(const String& name) const
+Pass* Material::FindPass(const String& name) const
 {
     return GetPass(PassIndex(name, false));
 }

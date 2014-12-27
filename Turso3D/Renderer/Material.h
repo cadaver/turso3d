@@ -115,7 +115,7 @@ public:
     void SetShaderDefines(ShaderStage stage, const String& defines);
 
     /// Return pass by name or null if not found. Should not be called in performance-sensitive rendering loops.
-    Pass* GetPass(const String& name) const;
+    Pass* FindPass(const String& name) const;
     /// Return pass by index or null if not found.
     Pass* GetPass(size_t index) const;
     /// Return texture by texture unit.
@@ -125,7 +125,7 @@ public:
     /// Return shader defines by stage.
     const String& ShaderDefines(ShaderStage stage) const;
 
-    /// Return pass index from name.
+    /// Return pass index from name. By default reserve a new index if the name was not known.
     static unsigned PassIndex(const String& name, bool createNew = true);
     /// Return pass name by index.
     static const String& PassName(size_t index);

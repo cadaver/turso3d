@@ -54,7 +54,7 @@ private:
     static long long frequency;
 };
 
-/// Get a date/time stamp as a string.
+/// Return a date/time stamp as a string.
 TURSO3D_API String TimeStamp();
 /// Return current time as seconds since epoch.
 TURSO3D_API unsigned CurrentTime();
