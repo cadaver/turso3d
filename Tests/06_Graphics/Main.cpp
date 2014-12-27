@@ -107,7 +107,7 @@ public:
 
         String psCode =
 #ifndef TURSO3D_OPENGL
-            "cbuffer ConstantBuffer : register(cb0)\n"
+            "cbuffer ConstantBuffer : register(b0)\n"
             "{\n"
             "    float4 color;\n"
             "}\n"

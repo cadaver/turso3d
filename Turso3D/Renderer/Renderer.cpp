@@ -11,6 +11,7 @@
 #include "../Scene/Scene.h"
 #include "Camera.h"
 #include "GeometryNode.h"
+#include "Light.h"
 #include "Material.h"
 #include "Octree.h"
 #include "Renderer.h"
@@ -20,10 +21,24 @@
 namespace Turso3D
 {
 
+static const unsigned LIGHTBIT_AMBIENT = 0x1;
+static const unsigned LIGHTBITS_LIGHT0 = 0x6;
+static const unsigned LIGHTBITS_LIGHT1 = 0x18;
+static const unsigned LIGHTBITS_LIGHT2 = 0x60;
+static const unsigned LIGHTBITS_LIGHT3 = 0x180;
+
 const String geometryDefines[] =
 {
     "",
     "INSTANCED"
+};
+
+const String lightDefines[] = 
+{
+    "AMBIENT",
+    "DIRLIGHT",
+    "POINTLIGHT",
+    "SPOTLIGHT",
 };
 
 inline bool CompareBatchState(Batch& lhs, Batch& rhs)
@@ -52,6 +67,7 @@ void BatchQueue::Clear()
 }
 
 Renderer::Renderer() :
+    frameNumber(0),
     instanceTransformsDirty(false),
     objectsPrepared(false),
     perFrameConstantsSet(false)
@@ -64,13 +80,22 @@ Renderer::Renderer() :
     constants.Push(Constant(ELEM_MATRIX4, "viewProjMatrix"));
     vsFrameConstantBuffer->Define(USAGE_DEFAULT, constants);
 
-    /// \todo Define constants used by this buffer
     psFrameConstantBuffer = new ConstantBuffer();
+    constants.Clear();
+    constants.Push(Constant(ELEM_VECTOR4, "ambientColor"));
+    psFrameConstantBuffer->Define(USAGE_DEFAULT, constants);
 
     vsObjectConstantBuffer = new ConstantBuffer();
     constants.Clear();
     constants.Push(Constant(ELEM_MATRIX3X4, "worldMatrix"));
     vsObjectConstantBuffer->Define(USAGE_DEFAULT, constants);
+
+    psLightConstantBuffer = new ConstantBuffer();
+    constants.Clear();
+    constants.Push(Constant(ELEM_VECTOR4, "lightPositions", MAX_LIGHTS_PER_PASS));
+    constants.Push(Constant(ELEM_VECTOR4, "lightDirections", MAX_LIGHTS_PER_PASS));
+    constants.Push(Constant(ELEM_VECTOR4, "lightColors", MAX_LIGHTS_PER_PASS));
+    psLightConstantBuffer->Define(USAGE_DEFAULT, constants);
 
     // Instance vertex buffer contains texcoords 4-6 which define the instances' world matrices
     instanceVertexBuffer = new VertexBuffer();
@@ -83,21 +108,6 @@ Renderer::~Renderer()
 {
 }
 
-void RegisterRendererLibrary()
-{
-    static bool registered = false;
-    if (registered)
-        return;
-    registered = true;
-
-    // Scene node base attributes are needed
-    RegisterSceneLibrary();
-    Camera::RegisterObject();
-    GeometryNode::RegisterObject();
-    Material::RegisterObject();
-    Octree::RegisterObject();
-}
-
 void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
 {
     PROFILE(CollectObjects);
@@ -107,8 +117,9 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
         graphics = Subsystem<Graphics>();
 
     geometries.Clear();
+    lights.Clear();
     instanceTransforms.Clear();
-    // Clear batches from each pass
+    lightQueues.Clear();
     for (auto it = batchQueues.Begin(); it != batchQueues.End(); ++it)
         it->second.Clear();
 
@@ -118,13 +129,18 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     if (!scene || !camera || !octree)
         return;
 
+    // Increment frame number. Never use 0, as that is the default for objects that have never been rendered
+    ++frameNumber;
+    if (!frameNumber)
+        ++frameNumber;
+
     if (camera->AutoAspectRatio())
     {
         const IntRect& viewport = graphics->Viewport();
         camera->SetAspectRatioInternal((float)viewport.Width() / (float)viewport.Height());
     }
 
-    // Make sure all scene nodes have been inserted to correct octants
+    // Make sure octree is up to date.
     octree->Update();
 
     frustum = camera->WorldFrustum();
@@ -132,14 +148,51 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     projectionMatrix = camera->ProjectionMatrix();
     viewProjMatrix = projectionMatrix * viewMatrix;
 
-    /// \todo When Light class exists, get lights & geometries separately. Now just collects geometries
-    octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(geometries), frustum, NF_GEOMETRY, camera->ViewMask());
-
+    octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(geometries), NF_GEOMETRY, reinterpret_cast<Vector<OctreeNode*>&>(lights),
+        NF_LIGHT, frustum, camera->ViewMask());
+    
     objectsPrepared = false;
     perFrameConstantsSet = false;
 }
 
-void Renderer::CollectBatches(const String& pass, BatchSortMode sort)
+void Renderer::CollectLightInteractions()
+{
+    PROFILE(CollectLightInteractions);
+
+    for (auto it = lights.Begin(); it != lights.End(); ++it)
+    {
+        Light* light = *it;
+        unsigned lightMask = light->LightMask();
+
+        switch (light->GetLightType())
+        {
+        case LIGHT_DIRECTIONAL:
+            for (auto gIt = geometries.Begin(); gIt != geometries.End(); ++gIt)
+            {
+                GeometryNode* node = *gIt;
+                if (lightMask & node->LayerMask())
+                    node->AddLight(frameNumber, light);
+            }
+            break;
+
+        case LIGHT_POINT:
+            litGeometries.Clear();
+            octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldSphere(), NF_GEOMETRY, lightMask);
+            for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
+                (*gIt)->AddLight(frameNumber, light);
+            break;
+
+        case LIGHT_SPOT:
+            litGeometries.Clear();
+            octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldFrustum(), NF_GEOMETRY, lightMask);
+            for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
+                (*gIt)->AddLight(frameNumber, light);
+            break;
+        }
+    }
+}
+
+void Renderer::CollectBatches(const String& pass, BatchSortMode sort, bool lit)
 {
     PROFILE(CollectBatches);
 
@@ -160,7 +213,11 @@ void Renderer::CollectBatches(const String& pass, BatchSortMode sort)
             // Prepare objects for rendering when collecting the first pass for this frame
             // to avoid multiple loops through a (potentially large) number of objects
             if (!objectsPrepared)
-                node->OnPrepareRender(camera);
+                node->OnPrepareRender(frameNumber, camera);
+
+            /// \todo handle light queue "spill over" if need to split into multiple additive passes
+            LightQueue* lights = lit ? AssignLightQueue(node) : nullptr;
+
 
             for (auto bIt = sourceBatches.Begin(); bIt != sourceBatches.End(); ++bIt)
             {
@@ -174,7 +231,7 @@ void Renderer::CollectBatches(const String& pass, BatchSortMode sort)
 
                 newBatch.type = type;
                 newBatch.geometry = bIt->geometry.Get();
-                newBatch.lights = nullptr;
+                newBatch.lights = lights;
 
                 if (sort == SORT_STATE)
                 {
@@ -284,12 +341,18 @@ void Renderer::RenderBatches(const String& pass)
     {
         PROFILE(SetPerFrameConstants);
 
-        // Set per-frame values to the frame constant buffer
-        vsFrameConstantBuffer->SetConstant(VS_SCENE_VIEW_MATRIX, viewMatrix);
-        vsFrameConstantBuffer->SetConstant(VS_SCENE_PROJECTION_MATRIX, projectionMatrix);
-        vsFrameConstantBuffer->SetConstant(VS_SCENE_VIEWPROJ_MATRIX, viewProjMatrix);
+        // Set per-frame values to the frame constant buffers
+        vsFrameConstantBuffer->SetConstant(VS_FRAME_VIEW_MATRIX, viewMatrix);
+        vsFrameConstantBuffer->SetConstant(VS_FRAME_PROJECTION_MATRIX, projectionMatrix);
+        vsFrameConstantBuffer->SetConstant(VS_FRAME_VIEWPROJ_MATRIX, viewProjMatrix);
         vsFrameConstantBuffer->Apply();
+        
+        /// \todo Store the ambient color value somewhere, for example Camera. Also add fog settings
+        psFrameConstantBuffer->SetConstant(PS_FRAME_AMBIENT_COLOR, Color(0.5f, 0.5f, 0.5f, 1.0f));
+        psFrameConstantBuffer->Apply();
+
         graphics->SetConstantBuffer(SHADER_VS, CB_FRAME, vsFrameConstantBuffer);
+        graphics->SetConstantBuffer(SHADER_PS, CB_FRAME, psFrameConstantBuffer);
         perFrameConstantsSet = true;
     }
 
@@ -313,6 +376,7 @@ void Renderer::RenderBatches(const String& pass)
         Vector<Batch>& batches = batchQueue.batches;
         Pass* lastPass = nullptr;
         Material* lastMaterial = nullptr;
+        LightQueue* lastLights = nullptr;
         
         for (auto it = batches.Begin(); it != batches.End();)
         {
@@ -333,18 +397,31 @@ void Renderer::RenderBatches(const String& pass)
                     vsVariations.Resize(vsIdx + 1);
                 if (!vsVariations[vsIdx])
                 {
+                    // Note: slow string manipulation, but done only once when the shader variation is not cached yet
                     vsVariations[vsIdx] = pass->shaders[SHADER_VS]->CreateVariation((pass->combinedShaderDefines[SHADER_VS] +
                         " " + geometryDefines[vsIdx]).Trimmed());
                 }
                 ShaderVariation* vs = vsVariations[vsIdx];
 
                 // Get the pixel shader variation
+                LightQueue* lights = batch.lights;
                 Vector<WeakPtr<ShaderVariation> >& psVariations = pass->shaderVariations[SHADER_PS];
-                size_t psIdx = 0; /// \todo Handle light types
+                size_t psIdx = lights ? batch.lights->psIdx : 0;
                 if (psVariations.Size() <= psIdx)
                     psVariations.Resize(psIdx + 1);
                 if (!psVariations[psIdx])
-                    psVariations[psIdx] = pass->shaders[SHADER_PS]->CreateVariation(pass->combinedShaderDefines[SHADER_PS]);
+                {
+                    // Note: slow string manipulation, but done only once when the shader variation is not cached yet
+                    String psString = pass->combinedShaderDefines[SHADER_PS];
+                    if (psIdx & LIGHTBIT_AMBIENT)
+                        psString += " " + lightDefines[0];
+                    for (size_t i = 0; i < MAX_LIGHTS_PER_PASS; ++i)
+                    {
+                        if (psIdx & (LIGHTBITS_LIGHT0 << (i * 2)))
+                            psString += " " + lightDefines[(psIdx >> (i * 2 + 1)) & 3] + String((int)i);
+                    }
+                    psVariations[psIdx] = pass->shaders[SHADER_PS]->CreateVariation(psString.Trimmed());
+                }
                 ShaderVariation* ps = psVariations[psIdx];
 
                 graphics->SetShaders(vs, ps);
@@ -395,6 +472,18 @@ void Renderer::RenderBatches(const String& pass)
                 }
                 graphics->SetConstantBuffer(SHADER_PS, CB_OBJECT, geometry->constantBuffers[SHADER_PS].Get());
             
+                // Apply light constant buffer
+                if (lights && lights != lastLights)
+                {
+                    psLightConstantBuffer->SetConstant(PS_LIGHT_POSITIONS, lights->lightPositions[0]);
+                    psLightConstantBuffer->SetConstant(PS_LIGHT_DIRECTIONS, lights->lightDirections[0]);
+                    psLightConstantBuffer->SetConstant(PS_LIGHT_COLORS, lights->lightColors[0]);
+                    psLightConstantBuffer->Apply();
+                    graphics->SetConstantBuffer(SHADER_PS, CB_LIGHTS, psLightConstantBuffer.Get());
+
+                    lastLights = lights;
+                }
+
                 if (instance)
                 {
                     if (ib)
@@ -452,6 +541,54 @@ void Renderer::LoadPassShaders(Pass* pass)
     pass->shaders[SHADER_VS] = cache->LoadResource<Shader>(pass->shaderNames[SHADER_VS] + ".vs");
     pass->shaders[SHADER_PS] = cache->LoadResource<Shader>(pass->shaderNames[SHADER_PS] + ".ps");
     #endif
+}
+
+LightQueue* Renderer::AssignLightQueue(GeometryNode* node)
+{
+    const Vector<Light*>& nodeLights = node->Lights();
+    if (!nodeLights.IsEmpty())
+    {
+        unsigned long long lightQueueKey = 0;
+        for (size_t i = 0; i < nodeLights.Size() && i < MAX_LIGHTS_PER_PASS; ++i)
+            lightQueueKey += ((unsigned)nodeLights[i] & 0xffff) << (i * 16);
+
+        HashMap<unsigned long long, LightQueue>::Iterator it = lightQueues.Find(lightQueueKey);
+        if (it != lightQueues.End())
+            return &it->second;
+        else
+        {
+            /// Create new light queue
+            LightQueue* lights = &lightQueues[lightQueueKey];
+            lights->psIdx = LIGHTBIT_AMBIENT;
+            for (size_t i = 0; i < nodeLights.Size() && i < MAX_LIGHTS_PER_PASS; ++i)
+            {
+                lights->psIdx |= ((unsigned)nodeLights[i]->GetLightType() + 1) << (i * 2 + 1);
+                lights->lightPositions[i] = Vector4(nodeLights[i]->WorldPosition(), nodeLights[i]->Range());
+                lights->lightColors[i] = nodeLights[i]->GetColor();
+                lights->lightDirections[i] = Vector4(-nodeLights[i]->WorldDirection(), nodeLights[i]->Fov());
+            }
+
+            return lights;
+        }
+    }
+    else
+        return nullptr;
+}
+
+void RegisterRendererLibrary()
+{
+    static bool registered = false;
+    if (registered)
+        return;
+    registered = true;
+
+    // Scene node base attributes are needed
+    RegisterSceneLibrary();
+    Camera::RegisterObject();
+    GeometryNode::RegisterObject();
+    Light::RegisterObject();
+    Material::RegisterObject();
+    Octree::RegisterObject();
 }
 
 }

@@ -30,6 +30,7 @@
 #include "Object/Serializable.h"
 #include "Renderer/Camera.h"
 #include "Renderer/GeometryNode.h"
+#include "Renderer/Light.h"
 #include "Renderer/Material.h"
 #include "Renderer/Octree.h"
 #include "Renderer/Renderer.h"

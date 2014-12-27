@@ -34,7 +34,8 @@ SourceBatch::~SourceBatch()
 
 GeometryNode::GeometryNode() :
     geometryType(GEOM_STATIC),
-    squaredDistance(0.0f)
+    squaredDistance(0.0f),
+    lastFrameNumber(0)
 {
     SetFlag(NF_GEOMETRY, true);
 }
@@ -49,8 +50,17 @@ void GeometryNode::RegisterObject()
     CopyBaseAttributes<GeometryNode, SpatialNode>();
 }
 
-void GeometryNode::OnPrepareRender(Camera* camera)
+void GeometryNode::OnPrepareRender(unsigned frameNumber, Camera* camera)
 {
+    // If no lights have been added, clear the light list
+    if (frameNumber != lastFrameNumber)
+    {
+        lights.Clear();
+        lastFrameNumber = frameNumber;
+    }
+
+    /// \todo Light limiting and sorting can be added at this point
+
     squaredDistance = camera->SquaredDistance(WorldPosition());
 }
 
@@ -85,6 +95,18 @@ void GeometryNode::SetLocalBoundingBox(const BoundingBox& box)
     boundingBox = box;
     // Changing the bounding box may require octree reinsertion
     OctreeNode::OnTransformChanged();
+}
+
+void GeometryNode::AddLight(unsigned frameNumber, Light* light)
+{
+    // If frame number has changed, start with a clear light list
+    if (frameNumber != lastFrameNumber)
+    {
+        lights.Clear();
+        lastFrameNumber = frameNumber;
+    }
+
+    lights.Push(light);
 }
 
 Geometry* GeometryNode::GetGeometry(size_t index) const

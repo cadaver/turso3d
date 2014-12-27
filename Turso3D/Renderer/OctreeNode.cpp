@@ -29,7 +29,7 @@ void OctreeNode::OnRaycast(Vector<RaycastResult>& dest, const Ray& ray, float ma
         res.normal = -ray.direction;
         res.distance = distance;
         res.node = this;
-        res.extraData = 0;
+        res.extraData = nullptr;
         dest.Push(res);
     }
 }

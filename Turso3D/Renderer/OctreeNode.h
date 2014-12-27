@@ -28,7 +28,7 @@ public:
 
     /// Perform ray test on self and add possible hit to the result vector.
     virtual void OnRaycast(Vector<RaycastResult>& dest, const Ray& ray, float maxDistance);
-    
+
     /// Return current octree this node resides in.
     Octree* CurrentOctree() const { return octree; }
     /// Return current octree octant this node resides in.
@@ -41,7 +41,7 @@ protected:
     void OnSceneSet(Scene* newScene, Scene* oldScene) override;
     /// Handle the transform matrix changing.
     void OnTransformChanged() override;
-    /// Recalculate the world bounding box.
+    /// Recalculate the world space bounding box.
     virtual void OnWorldBoundingBoxUpdate() const;
 
     /// World space bounding box.

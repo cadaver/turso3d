@@ -11,6 +11,7 @@ namespace Turso3D
 class Camera;
 class ConstantBuffer;
 class IndexBuffer;
+class Light;
 class Material;
 class VertexBuffer;
 
@@ -70,7 +71,7 @@ public:
     static void RegisterObject();
 
     /// Prepare object for rendering. Called by Renderer.
-    virtual void OnPrepareRender(Camera* camera);
+    virtual void OnPrepareRender(unsigned frameNumber, Camera* camera);
 
     /// Set geometry type in all batches.
     void SetGeometryType(GeometryType type);
@@ -82,6 +83,8 @@ public:
     void SetMaterial(size_t index, Material* material);
     /// Set local space bounding box.
     void SetLocalBoundingBox(const BoundingBox& box);
+    /// Add a light for the current frame.
+    void AddLight(unsigned frameNumber, Light* light);
 
     /// Return geometry type.
     GeometryType GetGeometryType() const { return geometryType; }
@@ -97,6 +100,8 @@ public:
     const BoundingBox& LocalBoundingBox() const { return boundingBox; }
     /// Return squared distance from camera in the current view.
     float SquaredDistance() const { return squaredDistance; }
+    /// Return lights affecting this node.
+    const Vector<Light*>& Lights() const { return lights; }
 
 protected:
     /// Recalculate the world space bounding box.
@@ -108,9 +113,13 @@ protected:
     Vector<SourceBatch> batches;
     /// Local space bounding box.
     BoundingBox boundingBox;
+    /// Light list.
+    Vector<Light*> lights;
     /// Squared distance from camera in the current view.
     /// \todo Should be per-batch to allow correct distance sorting of alpha-blended submeshes
     float squaredDistance;
+    /// Last frame number rendered on.
+    unsigned lastFrameNumber;
 };
 
 }

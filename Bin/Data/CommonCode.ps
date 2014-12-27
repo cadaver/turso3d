@@ -1,0 +1,32 @@
+cbuffer PerFramePS : register(b0)
+{
+    float3 ambientColor;
+}
+
+cbuffer LightsPS : register(b3)
+{
+    float4 lightPositions[4];
+    float4 lightDirections[4];
+    float4 lightColors[4];
+}
+
+float4 CalculateLighting(float3 normal)
+{
+    float4 totalLight = float4(0, 0, 0, 1);
+    #ifdef AMBIENT
+    totalLight.rgb += ambientColor;
+    #endif
+    #ifdef DIRLIGHT0
+    totalLight.rgb += lightColors[0].rgb * saturate(dot(lightDirections[0].xyz, normal));
+    #endif
+    #ifdef DIRLIGHT1
+    totalLight.rgb += lightColors[1].rgb * saturate(dot(lightDirections[1].xyz, normal));
+    #endif
+    #ifdef DIRLIGHT2
+    totalLight.rgb += lightColors[2].rgb * saturate(dot(lightDirections[2].xyz, normal));
+    #endif
+    #ifdef DIRLIGHT3
+    totalLight.rgb += lightColors[3].rgb * saturate(dot(lightDirections[3].xyz, normal));
+    #endif
+    return totalLight;
+}

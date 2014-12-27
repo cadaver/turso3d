@@ -46,15 +46,16 @@ public:
         pass->SetShaders("Diffuse", "Diffuse");
 
         float vertexData[] = {
-            // Position         // Texcoord
-            -0.5f, 0.5f, 0.0f,  0.0f, 0.0f,
-            0.5f, 0.5f, 0.0f,   1.0f, 0.0f,
-            0.5f, -0.5f, 0.0f,  1.0f, 1.0f,
-            -0.5f, -0.5f, 0.0f, 0.0f, 1.0f
+            // Position         // Normal           // Texcoord
+            -0.5f, 0.5f, 0.0f,  0.0f, 0.0f, -1.0f,  0.0f, 0.0f,
+            0.5f, 0.5f, 0.0f,   0.0f, 0.0f, -1.0f,  1.0f, 0.0f,
+            0.5f, -0.5f, 0.0f,  0.0f, 0.0f, -1.0f,  1.0f, 1.0f,
+            -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, -1.0f,  0.0f, 1.0f
         };
 
         Vector<VertexElement> vertexDeclaration;
         vertexDeclaration.Push(VertexElement(ELEM_VECTOR3, SEM_POSITION));
+        vertexDeclaration.Push(VertexElement(ELEM_VECTOR3, SEM_NORMAL));
         vertexDeclaration.Push(VertexElement(ELEM_VECTOR2, SEM_TEXCOORD));
         SharedPtr<VertexBuffer> vb = new VertexBuffer();
         vb->Define(USAGE_IMMUTABLE, 4, vertexDeclaration, true, vertexData);
@@ -81,6 +82,11 @@ public:
         geom->indexBuffer = ib;
         geom->drawStart = 0;
         geom->drawCount = 6;
+
+        Light* dirLight = scene->CreateChild<Light>();
+        dirLight->SetLightType(LIGHT_DIRECTIONAL);
+        dirLight->SetDirection(Vector3::FORWARD);
+        dirLight->SetColor(Color(1.0f, 0.7f, 0.3f, 0.0f));
 
         Vector<GeometryNode*> nodes;
 
@@ -149,6 +155,7 @@ public:
                 break;
 
             renderer->CollectObjects(scene, camera);
+            renderer->CollectLightInteractions();
             renderer->CollectBatches("opaque");
 
             graphics->Clear(CLEAR_COLOR | CLEAR_DEPTH, Color(0.0f, 0.0f, 0.5f));

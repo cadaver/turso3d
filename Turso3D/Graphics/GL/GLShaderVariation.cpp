@@ -75,19 +75,9 @@ bool ShaderVariation::Compile()
 
     // Collect defines into macros
     Vector<String> defineNames = defines.Split(' ');
-    Vector<String> defineValues;
 
-    for (size_t i = 0; i < defineNames.Size(); ++i)
-    {
-        size_t equalsPos = defineNames[i].Find('=');
-        if (equalsPos != String::NPOS)
-        {
-            defineValues.Push(defineNames[i].Substring(equalsPos + 1));
-            defineNames[i].Resize(equalsPos);
-        }
-        else
-            defineValues.Push("1");
-    }
+    for (auto it = defineNames.Begin(); it != defineNames.End(); ++it)
+        it->Replace('=', ' ');
 
     const String& originalShaderCode = parent->SourceCode();
     String shaderCode;
@@ -114,11 +104,8 @@ bool ShaderVariation::Compile()
     }
 
     // Prepend the defines to the shader code
-    for (unsigned i = 0; i < defineNames.Size(); ++i)
-    {
-        String defineString = "#define " + defineNames[i] + " " + defineValues[i];
-        shaderCode += defineString;
-    }
+    for (auto it = defineNames.Begin(); it != defineNames.End(); ++it)
+        shaderCode += "#define " + *it + "\n";
 
     // When version define found, do not insert it a second time
     if (verEnd > 0)

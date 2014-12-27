@@ -100,6 +100,13 @@ public:
         CollectNodes(result, &root, volume, nodeFlags, layerMask);
     }
 
+    /// Query for nodes of two kinds (geometries and lights for example) using a volume such as frustum or sphere.
+    template <class T> void FindNodes(Vector<OctreeNode*>& result1, unsigned short nodeFlags1, Vector<OctreeNode*>& result2, unsigned short nodeFlags2, const T& volume, unsigned layerMask = LAYERMASK_ALL) const
+    {
+        PROFILE(QueryOctree);
+        CollectNodes(result1, nodeFlags1, result2, nodeFlags2, &root, volume, layerMask);
+    }
+
 private:
     /// Set bounding box. Used in serialization.
     void SetBoundingBoxAttr(const BoundingBox& boundingBox);
@@ -123,6 +130,8 @@ private:
     void CollectNodes(Vector<OctreeNode*>& result, const Octant* octant) const;
     /// Get all visible nodes matching flags from an octant recursively.
     void CollectNodes(Vector<OctreeNode*>& result, const Octant* octant, unsigned short nodeFlags, unsigned layerMask) const;
+    /// Get visible nodes of two kinds from an octant recursively.
+    void CollectNodes(Vector<OctreeNode*>& result1, unsigned short nodeFlags1, Vector<OctreeNode*>& result2, unsigned short nodeFlags2, const Octant* octant, unsigned layerMask) const;
     /// Get all visible nodes matching flags along a ray.
     void CollectNodes(Vector<RaycastResult>& result, const Octant* octant, const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask) const;
     /// Get all visible nodes matching flags that could be potential raycast hits.
@@ -154,6 +163,43 @@ private:
             {
                 if (octant->children[i])
                     CollectNodes(result, octant->children[i], volume, nodeFlags, layerMask);
+            }
+        }
+    }
+
+    /// Collect nodes of two kinds using a volume such as frustum or sphere.
+    template <class T> void CollectNodes(Vector<OctreeNode*>& result1, unsigned short nodeFlags1, Vector<OctreeNode*>& result2, unsigned short nodeFlags2, const Octant* octant, const T& volume, unsigned layerMask) const
+    {
+        Intersection res = volume.IsInside(octant->cullingBox);
+        if (res == OUTSIDE)
+            return;
+
+        // If this octant is completely inside the volume, can include all contained octants and their nodes without further tests
+        if (res == INSIDE)
+            CollectNodes(result1, nodeFlags1, result2, nodeFlags2, octant, layerMask);
+        else
+        {
+            const Vector<OctreeNode*>& octantNodes = octant->nodes;
+            unsigned short combinedFlags = nodeFlags1 | nodeFlags2;
+
+            for (auto it = octantNodes.Begin(); it != octantNodes.End(); ++it)
+            {
+                OctreeNode* node = *it;
+                unsigned short flags = node->Flags();
+                if ((flags & NF_ENABLED) && (flags & combinedFlags) && (node->LayerMask() & layerMask) &&
+                    volume.IsInsideFast(node->WorldBoundingBox()) != OUTSIDE)
+                {
+                    if (flags & nodeFlags1)
+                        result1.Push(node);
+                    else
+                        result2.Push(node);
+                }
+            }
+
+            for (size_t i = 0; i < NUM_OCTANTS; ++i)
+            {
+                if (octant->children[i])
+                    CollectNodes(result1, nodeFlags1, result2, nodeFlags2, octant->children[i], volume, layerMask);
             }
         }
     }

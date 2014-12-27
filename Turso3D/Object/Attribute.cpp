@@ -388,6 +388,11 @@ template<> TURSO3D_API AttributeType AttributeImpl<Quaternion>::Type() const
     return ATTR_QUATERNION;
 }
 
+template<> TURSO3D_API AttributeType AttributeImpl<Color>::Type() const
+{
+    return ATTR_COLOR;
+}
+
 template<> TURSO3D_API AttributeType AttributeImpl<BoundingBox>::Type() const
 {
     return ATTR_BOUNDINGBOX;
