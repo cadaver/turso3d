@@ -7,26 +7,78 @@ cbuffer LightsPS : register(b3)
 {
     float4 lightPositions[4];
     float4 lightDirections[4];
+    float4 lightAttenuations[4];
     float4 lightColors[4];
 }
 
-float4 CalculateLighting(float3 normal)
+float3 CalculateDirLight(int index, float3 worldPos, float3 normal)
+{
+    float NdotL = saturate(dot(normal, lightDirections[index].xyz));
+    return NdotL * lightColors[index].rgb;
+}
+
+float3 CalculatePointLight(int index, float3 worldPos, float3 normal)
+{
+    float3 lightVec = (lightPositions[index].xyz - worldPos) * lightAttenuations[index].x;
+    float lightDist = length(lightVec);
+    float3 localDir = lightVec / lightDist;
+    float NdotL = saturate(dot(normal, localDir));
+    return NdotL * saturate(1.0 - lightDist * lightDist) * lightColors[index].rgb;
+}
+
+float3 CalculateSpotLight(int index, float3 worldPos, float3 normal)
+{
+    float3 lightVec = (lightPositions[index].xyz - worldPos) * lightAttenuations[index].x;
+    float lightDist = length(lightVec);
+    float3 localDir = lightVec / lightDist;
+    float NdotL = saturate(dot(normal, localDir));
+    float spotEffect = dot(localDir, lightDirections[index].xyz);
+    float spotAtten = saturate((spotEffect - lightAttenuations[index].y) * lightAttenuations[index].z);
+    return NdotL * spotAtten * saturate(1.0 - lightDist * lightDist) * lightColors[index].rgb;
+}
+
+float4 CalculateLighting(float3 worldPos, float3 normal)
 {
     float4 totalLight = float4(0, 0, 0, 1);
     #ifdef AMBIENT
     totalLight.rgb += ambientColor;
     #endif
     #ifdef DIRLIGHT0
-    totalLight.rgb += lightColors[0].rgb * saturate(dot(lightDirections[0].xyz, normal));
+    totalLight.rgb += CalculateDirLight(0, worldPos, normal);
     #endif
     #ifdef DIRLIGHT1
-    totalLight.rgb += lightColors[1].rgb * saturate(dot(lightDirections[1].xyz, normal));
+    totalLight.rgb += CalculateDirLight(1, worldPos, normal);
     #endif
     #ifdef DIRLIGHT2
-    totalLight.rgb += lightColors[2].rgb * saturate(dot(lightDirections[2].xyz, normal));
+    totalLight.rgb += CalculateDirLight(2, worldPos, normal);
     #endif
     #ifdef DIRLIGHT3
-    totalLight.rgb += lightColors[3].rgb * saturate(dot(lightDirections[3].xyz, normal));
+    totalLight.rgb += CalculateDirLight(3, worldPos, normal);
+    #endif
+    #ifdef POINTLIGHT0
+    totalLight.rgb += CalculatePointLight(0, worldPos, normal);
+    #endif
+    #ifdef POINTLIGHT1
+    totalLight.rgb += CalculatePointLight(1, worldPos, normal);
+    #endif
+    #ifdef POINTLIGHT2
+    totalLight.rgb += CalculatePointLight(2, worldPos, normal);
+    #endif
+    #ifdef POINTLIGHT3
+    totalLight.rgb += CalculatePointLight(3, worldPos, normal);
+    #endif
+    #ifdef SPOTLIGHT0
+    totalLight.rgb += CalculateSpotLight(0, worldPos, normal);
+    #endif
+    #ifdef SPOTLIGHT1
+    totalLight.rgb += CalculateSpotLight(1, worldPos, normal);
+    #endif
+    #ifdef SPOTLIGHT2
+    totalLight.rgb += CalculateSpotLight(2, worldPos, normal);
+    #endif
+    #ifdef SPOTLIGHT3
+    totalLight.rgb += CalculateSpotLight(3, worldPos, normal);
     #endif
     return totalLight;
 }
+

@@ -15,6 +15,7 @@ struct VSOutput
     float4 position : SV_POSITION;
     float3 normal : NORMAL;
     float2 texCoord : TEXCOORD0;
+    float3 worldPos : TEXCOORD1;
 };
 
 VSOutput main(VSInput input)
@@ -22,14 +23,14 @@ VSOutput main(VSInput input)
     VSOutput output;
 
     #ifdef INSTANCED
-    float3 worldPos = mul(input.position, input.instanceWorldMatrix);
+    output.worldPos = mul(input.position, input.instanceWorldMatrix);
     output.normal = normalize(mul(input.normal, (float3x3)input.instanceWorldMatrix));
     #else
-    float3 worldPos = mul(input.position, worldMatrix);
+    output.worldPos = mul(input.position, worldMatrix);
     output.normal = normalize(mul(input.normal, (float3x3)worldMatrix));
     #endif
 
-    output.position = mul(float4(worldPos, 1.0), viewProjMatrix);
+    output.position = mul(float4(output.worldPos, 1.0), viewProjMatrix);
     output.texCoord = input.texCoord;
     return output;
 }

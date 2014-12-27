@@ -37,6 +37,8 @@ public:
     bool SetConstant(const String& name, const void* data, size_t numElements = 0);
     /// Set a constant by name. Optionally specify how many elements to update, default all. Return true on success.
     bool SetConstant(const char* name, const void* data, size_t numElements = 0);
+    /// Set raw data. Optionally specify how many bytes to update, default all. Return true on success.
+    bool SetData(const void* data, size_t startByteIndex = 0, size_t numBytes = 0);
     /// Apply to the GPU-side buffer if has changes. Can only be used once on an immutable buffer. Return true on success.
     bool Apply();
     /// Set a constant by index, template version.

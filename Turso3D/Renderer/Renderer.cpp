@@ -95,6 +95,7 @@ Renderer::Renderer() :
     constants.Push(Constant(ELEM_VECTOR4, "lightPositions", MAX_LIGHTS_PER_PASS));
     constants.Push(Constant(ELEM_VECTOR4, "lightDirections", MAX_LIGHTS_PER_PASS));
     constants.Push(Constant(ELEM_VECTOR4, "lightColors", MAX_LIGHTS_PER_PASS));
+    constants.Push(Constant(ELEM_VECTOR4, "lightAttenuations", MAX_LIGHTS_PER_PASS));
     psLightConstantBuffer->Define(USAGE_DEFAULT, constants);
 
     // Instance vertex buffer contains texcoords 4-6 which define the instances' world matrices
@@ -230,14 +231,20 @@ void Renderer::CollectBatches(const String& pass, BatchSortMode sort, bool lit)
                 else
                 {
                     /// Create new light queue
-                    LightQueue* lights = &lightQueues[lightQueueKey];
+                    lights = &lightQueues[lightQueueKey];
                     lights->psIdx = LIGHTBIT_AMBIENT;
                     for (size_t i = 0; i < nodeLights.Size() && i < MAX_LIGHTS_PER_PASS; ++i)
                     {
-                        lights->psIdx |= ((unsigned)nodeLights[i]->GetLightType() + 1) << (i * 2 + 1);
-                        lights->lightPositions[i] = Vector4(nodeLights[i]->WorldPosition(), nodeLights[i]->Range());
-                        lights->lightColors[i] = nodeLights[i]->GetColor();
-                        lights->lightDirections[i] = Vector4(-nodeLights[i]->WorldDirection(), nodeLights[i]->Fov());
+                        Light* light = nodeLights[i];
+                        float invRange = 1.0f / Max(light->Range(), M_EPSILON);
+                        float cutoff = cosf(light->Fov() * 0.5f * M_DEGTORAD);
+                        float invCutoff = 1.0f / (1.0f - cutoff);
+
+                        lights->psIdx |= ((unsigned)light->GetLightType() + 1) << (i * 2 + 1);
+                        lights->lightPositions[i] = Vector4(light->WorldPosition(), 1.0f);
+                        lights->lightDirections[i] = Vector4(-light->WorldDirection(), 0.0f);
+                        lights->lightAttenuations[i]= Vector4(invRange, cutoff, invCutoff, 0.0f);
+                        lights->lightColors[i] = light->GetColor();
                     }
                 }
             }
@@ -501,9 +508,7 @@ void Renderer::RenderBatches(const String& pass)
                     // If light queue is ambient only, no need to update the constants
                     if (lights->psIdx > LIGHTBIT_AMBIENT)
                     {
-                        psLightConstantBuffer->SetConstant(PS_LIGHT_POSITIONS, lights->lightPositions[0]);
-                        psLightConstantBuffer->SetConstant(PS_LIGHT_DIRECTIONS, lights->lightDirections[0]);
-                        psLightConstantBuffer->SetConstant(PS_LIGHT_COLORS, lights->lightColors[0]);
+                        psLightConstantBuffer->SetData(lights->lightPositions);
                         psLightConstantBuffer->Apply();
                         graphics->SetConstantBuffer(SHADER_PS, CB_LIGHTS, psLightConstantBuffer.Get());
                     }

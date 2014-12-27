@@ -4,13 +4,13 @@
 
 uniform sampler2D diffuseTex0;
 
-in vec2 vTexCoord;
+in vec3 vWorldPos;
 in vec3 vNormal;
+in vec2 vTexCoord;
 out vec4 fragColor;
 
 void main()
 {
-    vec3 normal = normalize(vNormal);
-    vec4 totalLight = CalculateLighting(normal);
+    vec4 totalLight = CalculateLighting(vWorldPos, normalize(vNormal));
     fragColor = totalLight * texture(diffuseTex0, vTexCoord);
 }

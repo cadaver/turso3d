@@ -42,7 +42,8 @@ static const size_t PS_FRAME_AMBIENT_COLOR = 0;
 static const size_t VS_OBJECT_WORLD_MATRIX = 0;
 static const size_t PS_LIGHT_POSITIONS = 0;
 static const size_t PS_LIGHT_DIRECTIONS = 1;
-static const size_t PS_LIGHT_COLORS = 2;
+static const size_t PS_LIGHT_ATTENUATIONS = 2;
+static const size_t PS_LIGHT_COLORS = 3;
 
 /// Texture coordinate index for the instance world matrix.
 static const unsigned char INSTANCE_TEXCOORD = 4;
@@ -53,10 +54,12 @@ static const size_t MAX_LIGHTS_PER_PASS = 4;
 /// Description of lights for a draw call.
 struct TURSO3D_API LightQueue
 {
-    /// Light positions and ranges in w coordinate.
+    /// Light positions.
     Vector4 lightPositions[MAX_LIGHTS_PER_PASS];
     /// Light directions.
     Vector4 lightDirections[MAX_LIGHTS_PER_PASS];
+    /// Light attenuation parameters.
+    Vector4 lightAttenuations[MAX_LIGHTS_PER_PASS];
     /// Light colors.
     Color lightColors[MAX_LIGHTS_PER_PASS];
     /// Pixel shader variation index.

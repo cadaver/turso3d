@@ -8,11 +8,11 @@ struct PSInput
     float4 position : SV_POSITION;
     float3 normal : NORMAL;
     float2 texCoord : TEXCOORD0;
+    float3 worldPos : TEXCOORD1;
 };
 
 float4 main(PSInput input) : SV_TARGET
 {
-    float3 normal = normalize(input.normal);
-    float4 totalLight = CalculateLighting(normal);
+    float4 totalLight = CalculateLighting(input.worldPos, normalize(input.normal));
     return totalLight * diffuseTex.Sample(diffuseSampler, input.texCoord);
 }
