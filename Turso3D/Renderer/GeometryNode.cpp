@@ -99,14 +99,15 @@ void GeometryNode::SetLocalBoundingBox(const BoundingBox& box)
 
 void GeometryNode::AddLight(unsigned frameNumber, Light* light)
 {
-    // If frame number has changed, start with a clear light list
+    // If frame number has changed, remove all other lights
     if (frameNumber != lastFrameNumber)
     {
-        lights.Clear();
+        lights.Resize(1);
+        lights[0] = light;
         lastFrameNumber = frameNumber;
     }
-
-    lights.Push(light);
+    else
+        lights.Push(light);
 }
 
 Geometry* GeometryNode::GetGeometry(size_t index) const

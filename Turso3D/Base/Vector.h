@@ -289,7 +289,7 @@ public:
     /// Clear the vector.
     void Clear() { Resize(0); }
     /// Resize the vector.
-    void Resize(size_t newSize) { Resize(newSize, 0); }
+    void Resize(size_t newSize) { Resize(newSize, nullptr); }
 
     /// Set new capacity.
     void Reserve(size_t newCapacity)
@@ -373,13 +373,13 @@ private:
     void Resize(size_t newSize, const T* src)
     {
         size_t size = Size();
-        size_t capacity = Capacity();
-
-        // If size shrinks, destruct the removed elements
+        
         if (newSize < size)
             DestructElements(Buffer() + newSize, size - newSize);
         else
         {
+            size_t capacity = Capacity();
+
             // Allocate new buffer if necessary and copy the current elements
             if (newSize > capacity)
             {
