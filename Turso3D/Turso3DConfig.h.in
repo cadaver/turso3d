@@ -7,6 +7,10 @@ namespace Turso3D
 {
 }
 
+#ifdef _MSC_VER
+#pragma warning(disable:4481)
+#endif
+
 // Shared library exports
 #cmakedefine TURSO3D_SHARED
 #if defined(_WIN32) && defined(TURSO3D_SHARED)
