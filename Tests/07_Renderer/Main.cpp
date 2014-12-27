@@ -90,9 +90,9 @@ public:
 
         Vector<GeometryNode*> nodes;
 
-        for (int x = -125; x <= 125; ++x)
+        for (int x = -125; x < 125; ++x)
         {
-            for (int y = -125; y <= 125; ++y)
+            for (int y = -125; y < 125; ++y)
             {
                 GeometryNode* node = scene->CreateChild<GeometryNode>();
                 node->SetPosition(Vector3(2.0f * x, 2.0f * y, 0.0f));
