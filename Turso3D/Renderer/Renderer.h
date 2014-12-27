@@ -143,8 +143,6 @@ public:
 private:
     /// Load shaders for a pass.
     void LoadPassShaders(Pass* pass);
-    /// Assign a light queue for a geometry node.
-    LightQueue* AssignLightQueue(GeometryNode* node);
     
     /// Graphics subsystem pointer.
     WeakPtr<Graphics> graphics;

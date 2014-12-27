@@ -198,7 +198,7 @@ void Renderer::CollectBatches(const String& pass, BatchSortMode sort, bool lit)
 
     size_t passIndex = Material::PassIndex(pass);
     BatchQueue& batchQueue = batchQueues[passIndex];
-
+    
     {
         PROFILE(BuildBatches);
 
@@ -216,7 +216,31 @@ void Renderer::CollectBatches(const String& pass, BatchSortMode sort, bool lit)
                 node->OnPrepareRender(frameNumber, camera);
 
             /// \todo handle light queue "spill over" if need to split into multiple additive passes
-            LightQueue* lights = lit ? AssignLightQueue(node) : nullptr;
+            LightQueue* lights = nullptr;
+            if (lit)
+            {
+                const Vector<Light*>& nodeLights = node->Lights();
+                unsigned long long lightQueueKey = 0;
+                for (size_t i = 0; i < nodeLights.Size() && i < MAX_LIGHTS_PER_PASS; ++i)
+                    lightQueueKey += ((unsigned long long)nodeLights[i] & 0xffff) << (i * 16);
+
+                HashMap<unsigned long long, LightQueue>::Iterator it = lightQueues.Find(lightQueueKey);
+                if (it != lightQueues.End())
+                    lights = &it->second;
+                else
+                {
+                    /// Create new light queue
+                    LightQueue* lights = &lightQueues[lightQueueKey];
+                    lights->psIdx = LIGHTBIT_AMBIENT;
+                    for (size_t i = 0; i < nodeLights.Size() && i < MAX_LIGHTS_PER_PASS; ++i)
+                    {
+                        lights->psIdx |= ((unsigned)nodeLights[i]->GetLightType() + 1) << (i * 2 + 1);
+                        lights->lightPositions[i] = Vector4(nodeLights[i]->WorldPosition(), nodeLights[i]->Range());
+                        lights->lightColors[i] = nodeLights[i]->GetColor();
+                        lights->lightDirections[i] = Vector4(-nodeLights[i]->WorldDirection(), nodeLights[i]->Fov());
+                    }
+                }
+            }
 
             for (auto bIt = sourceBatches.Begin(); bIt != sourceBatches.End(); ++bIt)
             {
@@ -544,33 +568,6 @@ void Renderer::LoadPassShaders(Pass* pass)
     pass->shaders[SHADER_VS] = cache->LoadResource<Shader>(pass->shaderNames[SHADER_VS] + ".vs");
     pass->shaders[SHADER_PS] = cache->LoadResource<Shader>(pass->shaderNames[SHADER_PS] + ".ps");
     #endif
-}
-
-LightQueue* Renderer::AssignLightQueue(GeometryNode* node)
-{
-    const Vector<Light*>& nodeLights = node->Lights();
-    unsigned long long lightQueueKey = 0;
-    for (size_t i = 0; i < nodeLights.Size() && i < MAX_LIGHTS_PER_PASS; ++i)
-        lightQueueKey += ((unsigned)nodeLights[i] & 0xffff) << (i * 16);
-
-    HashMap<unsigned long long, LightQueue>::Iterator it = lightQueues.Find(lightQueueKey);
-    if (it != lightQueues.End())
-        return &it->second;
-    else
-    {
-        /// Create new light queue
-        LightQueue* lights = &lightQueues[lightQueueKey];
-        lights->psIdx = LIGHTBIT_AMBIENT;
-        for (size_t i = 0; i < nodeLights.Size() && i < MAX_LIGHTS_PER_PASS; ++i)
-        {
-            lights->psIdx |= ((unsigned)nodeLights[i]->GetLightType() + 1) << (i * 2 + 1);
-            lights->lightPositions[i] = Vector4(nodeLights[i]->WorldPosition(), nodeLights[i]->Range());
-            lights->lightColors[i] = nodeLights[i]->GetColor();
-            lights->lightDirections[i] = Vector4(-nodeLights[i]->WorldDirection(), nodeLights[i]->Fov());
-        }
-
-        return lights;
-    }
 }
 
 void RegisterRendererLibrary()
