@@ -42,8 +42,14 @@ public:
 
         SharedPtr<Material> mat = Object::Create<Material>();
         mat->SetTexture(0, cache->LoadResource<Texture>("Test.png"));
+        // Base pass
         Pass* pass = mat->CreatePass("opaque");
         pass->SetShaders("Diffuse", "Diffuse");
+        // Additive pass for more than 4 lights
+        pass = mat->CreatePass("opaqueadd");
+        pass->SetShaders("Diffuse", "Diffuse");
+        pass->SetBlendMode(BLEND_MODE_ADD);
+        pass->depthWrite = false;
 
         float vertexData[] = {
             // Position         // Normal           // Texcoord
@@ -83,10 +89,10 @@ public:
         geom->drawStart = 0;
         geom->drawCount = 6;
 
-        Light* dirLight = scene->CreateChild<Light>();
-        dirLight->SetLightType(LIGHT_DIRECTIONAL);
-        dirLight->SetDirection(Vector3::FORWARD);
-        dirLight->SetColor(Color(1.0f, 0.7f, 0.3f, 0.0f));
+        Light* light = scene->CreateChild<Light>();
+        light->SetLightType(LIGHT_DIRECTIONAL);
+        light->SetDirection(Vector3::FORWARD);
+        light->SetColor(Color(1.0f, 0.7f, 0.3f));
 
         Vector<GeometryNode*> nodes;
 

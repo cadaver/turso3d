@@ -390,6 +390,7 @@ void Graphics::SetShaders(ShaderVariation* vs, ShaderVariation* ps)
             impl->deviceContext->VSSetShader(nullptr, nullptr, 0);
 
         vertexShader = vs;
+        inputLayoutDirty = true;
     }
 
     if (ps != pixelShader)

@@ -70,7 +70,7 @@ struct TURSO3D_API LightQueue
 struct TURSO3D_API Batch
 {
     /// Calculate sort key from state.
-    void CalculateSortKey();
+    void CalculateSortKey(bool isAdditive = false);
 
     /// Geometry.
     Geometry* geometry;
@@ -144,8 +144,12 @@ public:
     void RenderBatches(const String& pass);
 
 private:
+    /// Find a light queue for a geometry node.
+    LightQueue* FindLightQueue(const Vector<Light*>& nodeLights, size_t lightStartIndex);
     /// Load shaders for a pass.
     void LoadPassShaders(Pass* pass);
+    /// Return or create a shader variation for a pass. Vertex shader variations handle different geometry types and pixel shader variations handle different light combinations.
+    ShaderVariation* FindShaderVariation(ShaderStage stage, Pass* pass, size_t idx);
     
     /// Graphics subsystem pointer.
     WeakPtr<Graphics> graphics;

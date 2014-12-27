@@ -13,7 +13,7 @@ class Ray;
 struct Octant;
 struct RaycastResult;
 
-/// Base class for nodes that insert themselves to the octree for rendering.
+/// Base class for scene nodes that insert themselves to the octree for rendering.
 class TURSO3D_API OctreeNode : public SpatialNode
 {
     OBJECT(OctreeNode);

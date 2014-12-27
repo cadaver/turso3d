@@ -22,7 +22,7 @@ enum GeometryType
     GEOM_INSTANCED
 };
 
-/// Description of geometry to be rendered. Scene nodes that render the same object can share these to reduce memory load and allow instancing.
+/// Description of geometry to be rendered. %Scene nodes that render the same object can share these to reduce memory load and allow instancing.
 struct TURSO3D_API Geometry : public RefCounted
 {
     /// Construct with defaults.
@@ -30,13 +30,13 @@ struct TURSO3D_API Geometry : public RefCounted
     /// Destruct.
     ~Geometry();
 
-    /// Geometry vertex buffer.
+    /// %Geometry vertex buffer.
     SharedPtr<VertexBuffer> vertexBuffer;
-    /// Geometry index buffer.
+    /// %Geometry index buffer.
     SharedPtr<IndexBuffer> indexBuffer;
     /// Constant buffers.
     SharedPtr<ConstantBuffer> constantBuffers[MAX_SHADER_STAGES];
-    /// Geometry's primitive type.
+    /// %Geometry's primitive type.
     PrimitiveType primitiveType;
     /// Draw range start. Specifies index start if index buffer defined, vertex start otherwise.
     size_t drawStart;
@@ -58,7 +58,7 @@ struct TURSO3D_API SourceBatch
     SharedPtr<Material> material;
 };
 
-/// Base class for nodes that contain geometry to be rendered.
+/// Base class for scene nodes that contain geometry to be rendered.
 class TURSO3D_API GeometryNode : public OctreeNode
 {
 public:
