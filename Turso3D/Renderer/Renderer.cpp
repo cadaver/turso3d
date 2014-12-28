@@ -53,10 +53,8 @@ inline bool CompareBatchDistance(Batch& lhs, Batch& rhs)
 
 void Batch::CalculateSortKey(bool isAdditive)
 {
-    // Shaders (pass + light queue) have highest priority, then material and finally geometry
-    sortKey = ((((unsigned long long)pass + (unsigned long long)lights + type) & 0x1fffff) << 42) |
-        ((((unsigned long long)pass->Parent()) & 0x1fffff) << 21) |
-        (((unsigned long long)geometry) & 0x1fffff);
+    sortKey = ((((unsigned long long)pass->Parent() * (unsigned long long)lights * type) & 0x7fffffff) << 32) |
+        (((unsigned long long)geometry) & 0xffffffff);
     // Ensure that additive passes are drawn after base passes
     if (isAdditive)
         sortKey |= 0x8000000000000000;
@@ -106,6 +104,9 @@ Renderer::Renderer() :
     instanceVertexElements.Push(VertexElement(ELEM_VECTOR4, SEM_TEXCOORD, INSTANCE_TEXCOORD, true));
     instanceVertexElements.Push(VertexElement(ELEM_VECTOR4, SEM_TEXCOORD, INSTANCE_TEXCOORD + 1, true));
     instanceVertexElements.Push(VertexElement(ELEM_VECTOR4, SEM_TEXCOORD, INSTANCE_TEXCOORD + 2, true));
+
+    // Setup ambient light only -pass
+    ambientLightPass.psIdx = LIGHTBIT_AMBIENT;
 }
 
 Renderer::~Renderer()
@@ -123,7 +124,8 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     geometries.Clear();
     lights.Clear();
     instanceTransforms.Clear();
-    lightQueues.Clear();
+    lightLists.Clear();
+    lightPasses.Clear();
     for (auto it = batchQueues.Begin(); it != batchQueues.End(); ++it)
         it->second.Clear();
 
@@ -163,37 +165,87 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
 
 void Renderer::CollectLightInteractions()
 {
-    PROFILE(CollectLightInteractions);
-
-    for (auto it = lights.Begin(); it != lights.End(); ++it)
     {
-        Light* light = *it;
-        unsigned lightMask = light->LightMask();
+        PROFILE(CollectLightInteractions);
 
-        switch (light->GetLightType())
+        for (auto it = lights.Begin(); it != lights.End(); ++it)
         {
-        case LIGHT_DIRECTIONAL:
-            for (auto gIt = geometries.Begin(); gIt != geometries.End(); ++gIt)
+            Light* light = *it;
+            unsigned lightMask = light->LightMask();
+
+            // Create a light list that contains only this light. It will be used for nodes that have no light interactions so far
+            unsigned long long key = (unsigned long long)light;
+            LightList* lightList = &lightLists[key];
+            lightList->lights.Push(light);
+            lightList->key = key;
+
+            switch (light->GetLightType())
             {
-                GeometryNode* node = *gIt;
-                if (lightMask & node->LayerMask())
-                    node->AddLight(frameNumber, light);
+            case LIGHT_DIRECTIONAL:
+                for (auto gIt = geometries.Begin(); gIt != geometries.End(); ++gIt)
+                {
+                    GeometryNode* node = *gIt;
+                    if (lightMask & node->LayerMask())
+                        AddLightToNode(node, light, lightList);
+                }
+                break;
+
+            case LIGHT_POINT:
+                litGeometries.Clear();
+                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldSphere(), NF_GEOMETRY,
+                    lightMask);
+                for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
+                    AddLightToNode(*gIt, light, lightList);
+                break;
+
+            case LIGHT_SPOT:
+                litGeometries.Clear();
+                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldFrustum(), NF_GEOMETRY,
+                    lightMask);
+                for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
+                    AddLightToNode(*gIt, light, lightList);
+                break;
             }
-            break;
+        }
+    }
 
-        case LIGHT_POINT:
-            litGeometries.Clear();
-            octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldSphere(), NF_GEOMETRY, lightMask);
-            for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
-                (*gIt)->AddLight(frameNumber, light);
-            break;
-
-        case LIGHT_SPOT:
-            litGeometries.Clear();
-            octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldFrustum(), NF_GEOMETRY, lightMask);
-            for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
-                (*gIt)->AddLight(frameNumber, light);
-            break;
+    {
+        PROFILE(BuildLightPasses);
+        
+        /// \todo Some light lists may not be referred to by any nodes. Creating passes for them is a waste
+        for (auto it = lightLists.Begin(); it != lightLists.End(); ++it)
+        {
+            LightList& list = it->second;
+            for (size_t i = 0; i < list.lights.Size(); i += MAX_LIGHTS_PER_PASS)
+            {
+                unsigned long long passKey = 0;
+                for (size_t j = i; j < list.lights.Size() && j < i + MAX_LIGHTS_PER_PASS; ++j)
+                    passKey += (unsigned long long)list.lights[j] << ((j & 3) * 16);
+                if (i == 0)
+                    ++passKey; // First pass includes ambient light
+                
+                HashMap<unsigned long long, LightPass>::Iterator lpIt = lightPasses.Find(passKey);
+                if (lpIt != lightPasses.End())
+                    list.lightPasses.Push(&lpIt->second);
+                else
+                {
+                    LightPass* newLightPass = &lightPasses[passKey];
+                    newLightPass->psIdx = (i == 0) ? LIGHTBIT_AMBIENT : 0;
+                    for (size_t j = i; j < list.lights.Size() && j < i + MAX_LIGHTS_PER_PASS; ++j)
+                    {
+                        Light* light = list.lights[j];
+                        size_t k = j & 3;
+                        newLightPass->psIdx |= (light->GetLightType() + 1) << (k * 2 + 1);
+                        float cutoff = cosf(light->Fov() * 0.5f * M_DEGTORAD);
+                        newLightPass->lightPositions[k] = Vector4(light->WorldPosition(), 1.0f);
+                        newLightPass->lightDirections[k] = Vector4(-light->WorldDirection(), 0.0f);
+                        newLightPass->lightAttenuations[k] = Vector4(1.0f / Max(light->Range(), M_EPSILON), cutoff, 1.0f /
+                            (1.0f - cutoff), 0.0f);
+                        newLightPass->lightColors[k] = light->GetColor();
+                    }
+                    list.lightPasses.Push(newLightPass);
+                }
+            }
         }
     }
 }
@@ -217,21 +269,22 @@ void Renderer::CollectBatches(const String& pass, BatchSortMode sort, bool lit)
             GeometryType type = node->GetGeometryType();
             float distance = node->SquaredDistance();
 
-            // Prepare objects for rendering when collecting the first pass for this frame
-            // to avoid multiple loops through a (potentially large) number of objects
+            // Prepare objects for rendering when collecting the first pass for this frame to avoid multiple loops through a
+            // (potentially large) number of objects
             if (!objectsPrepared)
-                node->OnPrepareRender(frameNumber, camera);
+                node->OnPrepareRender(camera);
 
-            const Vector<Light*>& nodeLights = node->Lights();
-            size_t lightStartIndex = 0;
+            // If node's lastFrameNumber is unchanged, it has no light interactions this frame
+            LightList* lightList = node->lastFrameNumber == frameNumber ? node->lightList : nullptr;
+            size_t lightPassIndex = 0;
 
-            // Loop until all light-related passes created
+            // Loop until all light passes handled
             for (;;)
             {
-                LightQueue* lights = nullptr;
-                bool isAdditive = lightStartIndex > 0;
+
+                bool isAdditive = lightPassIndex > 0;
+                LightPass* lights = lightList ? lightList->lightPasses[lightPassIndex++] : lit ? &ambientLightPass : nullptr;
                 size_t passIndex = isAdditive ? additivePassIndex : basePassIndex;
-                lights = lit ? FindLightQueue(nodeLights, lightStartIndex) : nullptr;
                 
                 for (auto bIt = sourceBatches.Begin(); bIt != sourceBatches.End(); ++bIt)
                 {
@@ -289,73 +342,17 @@ void Renderer::CollectBatches(const String& pass, BatchSortMode sort, bool lit)
                     }
                 }
 
-                // Break if unlit or all lights already handled
-                if (!lit || lightStartIndex + MAX_LIGHTS_PER_PASS >= nodeLights.Size())
+                // Move to the next light pass
+                if (!lightList || lightPassIndex >= lightList->lightPasses.Size())
                     break;
-                else
-                    lightStartIndex += MAX_LIGHTS_PER_PASS;
             }
         }
 
         objectsPrepared = true;
     }
 
-    {
-        PROFILE(SortBatches);
-
-        if (sort == SORT_STATE)
-            Sort(batchQueue.batches.Begin(), batchQueue.batches.End(), CompareBatchState);
-        else
-        {
-            Sort(batchQueue.batches.Begin(), batchQueue.batches.End(), CompareBatchDistance);
-
-            // After sorting batches by distance, we need a separate step to build instances if adjacent batches have the same state
-            Batch* start = nullptr;
-            for (auto it = batchQueue.batches.Begin(); it != batchQueue.batches.End(); ++it)
-            {
-                Batch* current = &*it;
-                if (start && current->type == GEOM_STATIC && current->pass == start->pass && current->geometry == start->geometry &&
-                    current->lights == start->lights)
-                {
-                    if (start->type == GEOM_INSTANCED)
-                        batchQueue.instanceDatas[start->instanceDataIndex].worldMatrices.Push(current->worldMatrix);
-                    else
-                    {
-                        // Begin new instanced batch
-                        start->type = GEOM_INSTANCED;
-                        size_t newInstanceDataIndex = batchQueue.instanceDatas.Size();
-                        batchQueue.instanceDatas.Resize(newInstanceDataIndex + 1);
-                        InstanceData& newInstanceData = batchQueue.instanceDatas.Back();
-                        newInstanceData.skipBatches = true;
-                        newInstanceData.worldMatrices.Push(start->worldMatrix);
-                        newInstanceData.worldMatrices.Push(current->worldMatrix);
-                        start->instanceDataIndex = newInstanceDataIndex; // Overwrites the non-instanced world matrix
-                    }
-                }
-                else
-                    start = (current->type == GEOM_STATIC) ? current : nullptr;
-            }
-        }
-    }
-
-    {
-        PROFILE(CopyInstanceTransforms);
-
-        // Now go through all instance batches and copy to the global buffer
-        size_t oldSize = instanceTransforms.Size();
-        for (auto it = batchQueue.instanceDatas.Begin(); it != batchQueue.instanceDatas.End(); ++it)
-        {
-            size_t idx = instanceTransforms.Size();
-            InstanceData& instance = *it;
-            instance.startIndex = idx;
-            instanceTransforms.Resize(idx + instance.worldMatrices.Size());
-            for (auto mIt = instance.worldMatrices.Begin(); mIt != instance.worldMatrices.End(); ++mIt)
-                instanceTransforms[idx++] = **mIt;
-        }
-
-        if (instanceTransforms.Size() != oldSize)
-            instanceTransformsDirty = true;
-    }
+    SortBatches(batchQueue, sort);
+    CopyInstanceTransforms(batchQueue);
 }
 
 void Renderer::RenderBatches(const String& pass)
@@ -401,7 +398,7 @@ void Renderer::RenderBatches(const String& pass)
         Vector<Batch>& batches = batchQueue.batches;
         Pass* lastPass = nullptr;
         Material* lastMaterial = nullptr;
-        LightQueue* lastLights = nullptr;
+        LightPass* lastLights = nullptr;
         
         for (auto it = batches.Begin(); it != batches.End();)
         {
@@ -416,7 +413,7 @@ void Renderer::RenderBatches(const String& pass)
             if (pass->shaders[SHADER_VS].Get() && pass->shaders[SHADER_PS].Get() && batch.geometry)
             {
                 // Get the shader variations
-                LightQueue* lights = batch.lights;
+                LightPass* lights = batch.lights;
                 ShaderVariation* vs = FindShaderVariation(SHADER_VS, pass, batch.type);
                 ShaderVariation* ps = FindShaderVariation(SHADER_PS, pass, lights ? lights->psIdx : 0);
                 graphics->SetShaders(vs, ps);
@@ -509,39 +506,91 @@ void Renderer::RenderBatches(const String& pass)
     }
 }
 
-LightQueue* Renderer::FindLightQueue(const Vector<Light*>& nodeLights, size_t lightStartIndex)
+void Renderer::AddLightToNode(GeometryNode* node, Light* light, LightList* lightList)
 {
-    bool isAdditive = lightStartIndex > 0;
-
-    // Need to distinguish between light queue that has ambient included, and one that doesn't
-    size_t lightQueueKey = isAdditive ? 0 : 1;
-    for (size_t i = 0; (i + lightStartIndex) < nodeLights.Size() && i < MAX_LIGHTS_PER_PASS; ++i)
-        lightQueueKey += ((unsigned long long)nodeLights[i + lightStartIndex] & 0xffff) << (i * 16);
-
-    // Check for existing light queue first
-    HashMap<unsigned long long, LightQueue>::Iterator it = lightQueues.Find(lightQueueKey);
-    if (it != lightQueues.End())
-        return &it->second;
+    if (node->lastFrameNumber != frameNumber)
+    {
+        // First light assigned on this frame
+        node->lastFrameNumber = frameNumber;
+        node->lightList = lightList;
+    }
     else
     {
-        /// Create new light queue
-        LightQueue* lights = &lightQueues[lightQueueKey];
-        lights->psIdx = isAdditive ? 0 : LIGHTBIT_AMBIENT;
-        for (size_t i = 0; (i + lightStartIndex) < nodeLights.Size() && i < MAX_LIGHTS_PER_PASS; ++i)
+        // Create new light list based on the node's existing one
+        LightList* oldList = node->lightList;
+        unsigned long long newListKey = oldList->key;
+        newListKey += (unsigned long long)light << ((oldList->lights.Size() & 3) * 16);
+        HashMap<unsigned long long, LightList>::Iterator it = lightLists.Find(newListKey);
+        if (it != lightLists.End())
+            node->lightList = &it->second;
+        else
         {
-            Light* light = nodeLights[i + lightStartIndex];
-            float invRange = 1.0f / Max(light->Range(), M_EPSILON);
-            float cutoff = cosf(light->Fov() * 0.5f * M_DEGTORAD);
-            float invCutoff = 1.0f / (1.0f - cutoff);
-
-            lights->psIdx |= ((unsigned)light->GetLightType() + 1) << (i * 2 + 1);
-            lights->lightPositions[i] = Vector4(light->WorldPosition(), 1.0f);
-            lights->lightDirections[i] = Vector4(-light->WorldDirection(), 0.0f);
-            lights->lightAttenuations[i] = Vector4(invRange, cutoff, invCutoff, 0.0f);
-            lights->lightColors[i] = light->GetColor();
+            LightList* newList = &lightLists[newListKey];
+            newList->key = newListKey;
+            newList->lights = oldList->lights;
+            newList->lights.Push(light);
+            node->lightList = newList;
         }
-        return lights;
     }
+}
+
+void Renderer::SortBatches(BatchQueue& batchQueue, BatchSortMode sort)
+{
+    PROFILE(SortBatches);
+
+    if (sort == SORT_STATE)
+        Sort(batchQueue.batches.Begin(), batchQueue.batches.End(), CompareBatchState);
+    else
+    {
+        Sort(batchQueue.batches.Begin(), batchQueue.batches.End(), CompareBatchDistance);
+
+        // After sorting batches by distance, we need a separate step to build instances if adjacent batches have the same state
+        Batch* start = nullptr;
+        for (auto it = batchQueue.batches.Begin(); it != batchQueue.batches.End(); ++it)
+        {
+            Batch* current = &*it;
+            if (start && current->type == GEOM_STATIC && current->pass == start->pass && current->geometry == start->geometry &&
+                current->lights == start->lights)
+            {
+                if (start->type == GEOM_INSTANCED)
+                    batchQueue.instanceDatas[start->instanceDataIndex].worldMatrices.Push(current->worldMatrix);
+                else
+                {
+                    // Begin new instanced batch
+                    start->type = GEOM_INSTANCED;
+                    size_t newInstanceDataIndex = batchQueue.instanceDatas.Size();
+                    batchQueue.instanceDatas.Resize(newInstanceDataIndex + 1);
+                    InstanceData& newInstanceData = batchQueue.instanceDatas.Back();
+                    newInstanceData.skipBatches = true;
+                    newInstanceData.worldMatrices.Push(start->worldMatrix);
+                    newInstanceData.worldMatrices.Push(current->worldMatrix);
+                    start->instanceDataIndex = newInstanceDataIndex; // Overwrites the non-instanced world matrix
+                }
+            }
+            else
+                start = (current->type == GEOM_STATIC) ? current : nullptr;
+        }
+    }
+}
+
+void Renderer::CopyInstanceTransforms(BatchQueue& batchQueue)
+{
+    PROFILE(CopyInstanceTransforms);
+
+    // Now go through all instance batches and copy to the global buffer
+    size_t oldSize = instanceTransforms.Size();
+    for (auto it = batchQueue.instanceDatas.Begin(); it != batchQueue.instanceDatas.End(); ++it)
+    {
+        size_t idx = instanceTransforms.Size();
+        InstanceData& instance = *it;
+        instance.startIndex = idx;
+        instanceTransforms.Resize(idx + instance.worldMatrices.Size());
+        for (auto mIt = instance.worldMatrices.Begin(); mIt != instance.worldMatrices.End(); ++mIt)
+            instanceTransforms[idx++] = **mIt;
+    }
+
+    if (instanceTransforms.Size() != oldSize)
+        instanceTransformsDirty = true;
 }
 
 void Renderer::LoadPassShaders(Pass* pass)
@@ -583,7 +632,7 @@ ShaderVariation* Renderer::FindShaderVariation(ShaderStage stage, Pass* pass, si
         return variations[idx].Get();
     else
     {
-        if (variations.Size() < idx)
+        if (variations.Size() <= idx)
             variations.Resize(idx + 1);
 
         if (stage == SHADER_VS)

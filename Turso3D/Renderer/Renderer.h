@@ -51,8 +51,8 @@ static const unsigned char INSTANCE_TEXCOORD = 4;
 /// Maximum number of lights per pass.
 static const size_t MAX_LIGHTS_PER_PASS = 4;
 
-/// Description of lights for a draw call.
-struct TURSO3D_API LightQueue
+/// Light information for a rendering pass.
+struct TURSO3D_API LightPass
 {
     /// Light positions.
     Vector4 lightPositions[MAX_LIGHTS_PER_PASS];
@@ -66,6 +66,17 @@ struct TURSO3D_API LightQueue
     unsigned psIdx;
 };
 
+/// %List of lights for a geometry node.
+struct TURSO3D_API LightList
+{
+    /// %List key.
+    unsigned long long key;
+    /// Lights.
+    Vector<Light*> lights;
+    /// Associated light passes.
+    Vector<LightPass*> lightPasses;
+};
+
 /// Description of a draw call.
 struct TURSO3D_API Batch
 {
@@ -76,8 +87,8 @@ struct TURSO3D_API Batch
     Geometry* geometry;
     /// Material pass.
     Pass* pass;
-    /// Pointer to light queue.
-    LightQueue* lights;
+    /// Light pass.
+    LightPass* lights;
     /// Geometry type.
     GeometryType type;
 
@@ -144,8 +155,12 @@ public:
     void RenderBatches(const String& pass);
 
 private:
-    /// Find a light queue for a geometry node.
-    LightQueue* FindLightQueue(const Vector<Light*>& nodeLights, size_t lightStartIndex);
+    /// Assign a light list to a node. Creates new light lists as necessary to handle multiple lights.
+    void AddLightToNode(GeometryNode* node, Light* light, LightList* lightList);
+    /// Sort batch queue. For distance sorted queues, build instances after sorting.
+    void SortBatches(BatchQueue& batchQueue, BatchSortMode sort);
+    /// Copy instance transforms from batch queue to the global vector.
+    void CopyInstanceTransforms(BatchQueue& batchQueue);
     /// Load shaders for a pass.
     void LoadPassShaders(Pass* pass);
     /// Return or create a shader variation for a pass. Vertex shader variations handle different geometry types and pixel shader variations handle different light combinations.
@@ -189,8 +204,12 @@ private:
     Vector<Matrix3x4> instanceTransforms;
     /// Lit geometries query result.
     Vector<GeometryNode*> litGeometries;
-    /// Light queues used by rendering.
-    HashMap<unsigned long long, LightQueue> lightQueues;
+    /// %Light lists.
+    HashMap<unsigned long long, LightList> lightLists;
+    /// %Light passes.
+    HashMap<unsigned long long, LightPass> lightPasses;
+    /// Ambient only light pass.
+    LightPass ambientLightPass;
     /// Current frame number.
     unsigned frameNumber;
     /// Instance vertex buffer dirty flag.
