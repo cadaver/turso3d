@@ -155,6 +155,8 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(geometries), NF_GEOMETRY, reinterpret_cast<Vector<OctreeNode*>&>(lights),
         NF_LIGHT, frustum, camera->ViewMask());
     
+    CollectLightInteractions();
+
     objectsPrepared = false;
     perFrameConstantsSet = false;
 }
@@ -343,10 +345,12 @@ void Renderer::CollectBatches(const String& pass, BatchSortMode sort, bool lit)
         size_t oldSize = instanceTransforms.Size();
         for (auto it = batchQueue.instanceDatas.Begin(); it != batchQueue.instanceDatas.End(); ++it)
         {
+            size_t idx = instanceTransforms.Size();
             InstanceData& instance = *it;
-            instance.startIndex = instanceTransforms.Size();
+            instance.startIndex = idx;
+            instanceTransforms.Resize(idx + instance.worldMatrices.Size());
             for (auto mIt = instance.worldMatrices.Begin(); mIt != instance.worldMatrices.End(); ++mIt)
-                instanceTransforms.Push(**mIt);
+                instanceTransforms[idx++] = **mIt;
         }
 
         if (instanceTransforms.Size() != oldSize)

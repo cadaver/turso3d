@@ -161,7 +161,6 @@ public:
                 break;
 
             renderer->CollectObjects(scene, camera);
-            renderer->CollectLightInteractions();
             renderer->CollectBatches("opaque");
 
             graphics->Clear(CLEAR_COLOR | CLEAR_DEPTH, Color(0.0f, 0.0f, 0.5f));
