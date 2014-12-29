@@ -301,11 +301,13 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
                 Batch newBatch;
                 newBatch.geometry = bIt->geometry.Get();
                 Material* material = bIt->material.Get();
+                if (!material)
+                    continue;
 
                 // Loop through requested passes
                 for (auto pIt = passes.Begin(); pIt != passes.End(); ++pIt)
                 {
-                    newBatch.pass = material ? material->GetPass(pIt->baseIndex) : nullptr;
+                    newBatch.pass = material->GetPass(pIt->baseIndex);
                     // Material may not have the requested pass at all, skip further processing as fast as possible in that case
                     if (!newBatch.pass)
                         continue;
