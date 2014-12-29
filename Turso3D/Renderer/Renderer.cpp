@@ -269,11 +269,14 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
     passes.Resize(numPasses);
     for (size_t i = 0; i < numPasses; ++i)
     {
-        passes[i].baseIndex = Material::PassIndex(passes_[i].name);
-        passes[i].additiveIndex = passes_[i].lit ? Material::PassIndex(passes_[i].name + "add") : 0;
-        passes[i].batchQueue = &batchQueues[passes[i].baseIndex];
-        passes[i].sort = passes_[i].sort;
-        passes[i].lit = passes_[i].lit;
+        const PassDesc& srcPass = passes_[i];
+        RendererPassDesc& pass = passes[i];
+        pass.baseIndex = Material::PassIndex(srcPass.name);
+        pass.additiveIndex = srcPass.lit ? Material::PassIndex(srcPass.name + "add") : 0;
+        // Note: base and additive passes are mixed in the same queue
+        pass.batchQueue = &batchQueues[pass.baseIndex];
+        pass.sort = srcPass.sort;
+        pass.lit = srcPass.lit;
     }
 
     {
@@ -284,9 +287,6 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
         {
             GeometryNode* node = *gIt;
             const Vector<SourceBatch>& sourceBatches = node->Batches();
-            const Matrix3x4& worldMatrix = node->WorldTransform();
-            GeometryType type = node->GetGeometryType();
-            float distance = node->SquaredDistance();
 
             // Prepare scene node for rendering now
             if (!objectsPrepared)
@@ -299,7 +299,6 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
             for (auto bIt = sourceBatches.Begin(); bIt != sourceBatches.End(); ++bIt)
             {
                 Batch newBatch;
-                newBatch.type = type;
                 newBatch.geometry = bIt->geometry.Get();
                 Material* material = bIt->material.Get();
 
@@ -312,12 +311,14 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
                         continue;
                     
                     BatchQueue& batchQueue = *pIt->batchQueue;
+                    bool isAdditive = false;
 
                     // Loop through light passes
-                    for (size_t lightPassIndex = 0;; ++lightPassIndex)
+                    size_t lightPassIndex = 0;
+                    for (;;)
                     {
                         newBatch.lights = lightList ? lightList->lightPasses[lightPassIndex] : pIt->lit ? &ambientLightPass : nullptr;
-                        bool isAdditive = lightPassIndex > 0;
+                        newBatch.type = node->GetGeometryType();
 
                         if (pIt->sort == SORT_STATE)
                         {
@@ -329,7 +330,7 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
                                 // Check if instance batch already exists
                                 auto iIt = batchQueue.instanceLookup.Find(newBatch.sortKey);
                                 if (iIt != batchQueue.instanceLookup.End())
-                                    batchQueue.instanceDatas[iIt->second].worldMatrices.Push(&worldMatrix);
+                                    batchQueue.instanceDatas[iIt->second].worldMatrices.Push(&node->WorldTransform());
                                 else
                                 {
                                     // Begin new instanced batch
@@ -340,20 +341,20 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
                                     batchQueue.instanceDatas.Resize(newInstanceDataIndex + 1);
                                     InstanceData& newInstanceData = batchQueue.instanceDatas.Back();
                                     newInstanceData.skipBatches = false;
-                                    newInstanceData.worldMatrices.Push(&worldMatrix);
+                                    newInstanceData.worldMatrices.Push(&node->WorldTransform());
                                 }
                             }
                             else
                             {
-                                newBatch.worldMatrix = &worldMatrix;
+                                newBatch.worldMatrix = &node->WorldTransform();
                                 newBatch.CalculateSortKey(isAdditive);
                                 batchQueue.batches.Push(newBatch);
                             }
                         }
                         else
                         {
-                            newBatch.worldMatrix = &worldMatrix;
-                            newBatch.distance = distance;
+                            newBatch.worldMatrix = &node->WorldTransform();
+                            newBatch.distance = node->SquaredDistance();
                             // Push additive passes slightly to front to make them render after base passes
                             if (isAdditive)
                                 newBatch.distance *= 0.999999f;
@@ -361,14 +362,16 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
                         }
 
                         // Move to the next light pass
-                        if (!lightList || lightPassIndex + 1 >= lightList->lightPasses.Size())
+                        ++lightPassIndex;
+                        if (!lightList || lightPassIndex >= lightList->lightPasses.Size())
                             break;
-                        else if (!lightPassIndex)
+                        else if (lightPassIndex == 1)
                         {
                             // Change to additive after the first light pass
                             newBatch.pass = material->GetPass(pIt->additiveIndex);
                             if (!newBatch.pass)
                                 break; // No additive pass defined
+                            isAdditive = true;
                         }
                     }
                 }
