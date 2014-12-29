@@ -51,20 +51,52 @@ inline bool CompareBatchDistance(Batch& lhs, Batch& rhs)
     return lhs.distance > rhs.distance;
 }
 
-void Batch::CalculateSortKey(bool isAdditive)
-{
-    sortKey = ((((unsigned long long)pass->Parent() * (unsigned long long)lights * type) & 0x7fffffff) << 32) |
-        (((unsigned long long)geometry) & 0xffffffff);
-    // Ensure that additive passes are drawn after base passes
-    if (isAdditive)
-        sortKey |= 0x8000000000000000;
-}
-
 void BatchQueue::Clear()
 {
     batches.Clear();
     instanceDatas.Clear();
     instanceLookup.Clear();
+    lastInstanceSortKey = 0;
+    lastInstanceDataIndex = 0;
+}
+
+void BatchQueue::Sort()
+{
+    PROFILE(SortBatches);
+
+    if (sort == SORT_STATE)
+        Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchState);
+    else
+    {
+        Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchDistance);
+
+        // After sorting batches by distance, we need a separate step to build instances if adjacent batches have the same state
+        Batch* start = nullptr;
+        for (auto it = batches.Begin(); it != batches.End(); ++it)
+        {
+            Batch* current = &*it;
+            if (start && current->type == GEOM_STATIC && current->pass == start->pass && current->geometry == start->geometry &&
+                current->lights == start->lights)
+            {
+                if (start->type == GEOM_INSTANCED)
+                    instanceDatas[start->instanceDataIndex].worldMatrices.Push(current->worldMatrix);
+                else
+                {
+                    // Begin new instanced batch
+                    start->type = GEOM_INSTANCED;
+                    size_t newInstanceDataIndex = instanceDatas.Size();
+                    instanceDatas.Resize(newInstanceDataIndex + 1);
+                    InstanceData& newInstanceData = instanceDatas.Back();
+                    newInstanceData.skipBatches = true;
+                    newInstanceData.worldMatrices.Push(start->worldMatrix);
+                    newInstanceData.worldMatrices.Push(current->worldMatrix);
+                    start->instanceDataIndex = newInstanceDataIndex; // Overwrites the non-instanced world matrix
+                }
+            }
+            else
+                start = (current->type == GEOM_STATIC) ? current : nullptr;
+        }
+    }
 }
 
 Renderer::Renderer() :
@@ -265,18 +297,18 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
 {
     PROFILE(CollectBatches);
 
-    // Find out the pass indices and queue for each requested pass
-    passes.Resize(numPasses);
+    // Setup batch queues for each requested pass
+    currentQueues.Resize(numPasses);
     for (size_t i = 0; i < numPasses; ++i)
     {
         const PassDesc& srcPass = passes_[i];
-        RendererPassDesc& pass = passes[i];
-        pass.baseIndex = Material::PassIndex(srcPass.name);
-        pass.additiveIndex = srcPass.lit ? Material::PassIndex(srcPass.name + "add") : 0;
-        // Note: base and additive passes are mixed in the same queue
-        pass.batchQueue = &batchQueues[pass.baseIndex];
-        pass.sort = srcPass.sort;
-        pass.lit = srcPass.lit;
+        size_t baseIndex = Material::PassIndex(srcPass.name);
+        BatchQueue* batchQueue = &batchQueues[baseIndex];
+        currentQueues[i] = batchQueue;
+        batchQueue->sort = srcPass.sort;
+        batchQueue->lit = srcPass.lit;
+        batchQueue->baseIndex = baseIndex;
+        batchQueue->additiveIndex = srcPass.lit ? Material::PassIndex(srcPass.name + "add") : 0;
     }
 
     {
@@ -305,75 +337,30 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
                     continue;
 
                 // Loop through requested passes
-                for (auto pIt = passes.Begin(); pIt != passes.End(); ++pIt)
+                for (auto pIt = currentQueues.Begin(); pIt != currentQueues.End(); ++pIt)
                 {
-                    newBatch.pass = material->GetPass(pIt->baseIndex);
+                    BatchQueue& batchQueue = **pIt;
+                    newBatch.pass = material->GetPass(batchQueue.baseIndex);
                     // Material may not have the requested pass at all, skip further processing as fast as possible in that case
                     if (!newBatch.pass)
                         continue;
                     
-                    BatchQueue& batchQueue = *pIt->batchQueue;
-                    bool isAdditive = false;
+                    newBatch.lights = lightList ? lightList->lightPasses[0] : batchQueue.lit ? &ambientLightPass : nullptr;
+                    newBatch.type = node->GetGeometryType();
+                    batchQueue.AddBatch(newBatch, node, false);
 
-                    // Loop through light passes
-                    size_t lightPassIndex = 0;
-                    for (;;)
+                    // Create additive light batches if necessary
+                    if (lightList && lightList->lightPasses.Size() > 1)
                     {
-                        newBatch.lights = lightList ? lightList->lightPasses[lightPassIndex] : pIt->lit ? &ambientLightPass : nullptr;
-                        newBatch.type = node->GetGeometryType();
+                        newBatch.pass = material->GetPass(batchQueue.additiveIndex);
+                        if (!newBatch.pass)
+                            continue;
 
-                        if (pIt->sort == SORT_STATE)
+                        for (size_t i = 1; i < lightList->lightPasses.Size(); ++i)
                         {
-                            if (newBatch.type == GEOM_STATIC)
-                            {
-                                newBatch.type = GEOM_INSTANCED;
-                                newBatch.CalculateSortKey(isAdditive);
-
-                                // Check if instance batch already exists
-                                auto iIt = batchQueue.instanceLookup.Find(newBatch.sortKey);
-                                if (iIt != batchQueue.instanceLookup.End())
-                                    batchQueue.instanceDatas[iIt->second].worldMatrices.Push(&node->WorldTransform());
-                                else
-                                {
-                                    // Begin new instanced batch
-                                    size_t newInstanceDataIndex = batchQueue.instanceDatas.Size();
-                                    batchQueue.instanceLookup[newBatch.sortKey] = newInstanceDataIndex;
-                                    newBatch.instanceDataIndex = newInstanceDataIndex;
-                                    batchQueue.batches.Push(newBatch);
-                                    batchQueue.instanceDatas.Resize(newInstanceDataIndex + 1);
-                                    InstanceData& newInstanceData = batchQueue.instanceDatas.Back();
-                                    newInstanceData.skipBatches = false;
-                                    newInstanceData.worldMatrices.Push(&node->WorldTransform());
-                                }
-                            }
-                            else
-                            {
-                                newBatch.worldMatrix = &node->WorldTransform();
-                                newBatch.CalculateSortKey(isAdditive);
-                                batchQueue.batches.Push(newBatch);
-                            }
-                        }
-                        else
-                        {
-                            newBatch.worldMatrix = &node->WorldTransform();
-                            newBatch.distance = node->SquaredDistance();
-                            // Push additive passes slightly to front to make them render after base passes
-                            if (isAdditive)
-                                newBatch.distance *= 0.999999f;
-                            batchQueue.batches.Push(newBatch);
-                        }
-
-                        // Move to the next light pass
-                        ++lightPassIndex;
-                        if (!lightList || lightPassIndex >= lightList->lightPasses.Size())
-                            break;
-                        else if (lightPassIndex == 1)
-                        {
-                            // Change to additive after the first light pass
-                            newBatch.pass = material->GetPass(pIt->additiveIndex);
-                            if (!newBatch.pass)
-                                break; // No additive pass defined
-                            isAdditive = true;
+                            newBatch.lights = lightList->lightPasses[i];
+                            newBatch.type = node->GetGeometryType();
+                            batchQueue.AddBatch(newBatch, node, true);
                         }
                     }
                 }
@@ -383,10 +370,11 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
         objectsPrepared = true;
     }
 
-    for (auto pIt = passes.Begin(); pIt < passes.End(); ++pIt)
+    for (auto pIt = currentQueues.Begin(); pIt != currentQueues.End(); ++pIt)
     {
-        SortBatches(*pIt->batchQueue, pIt->sort);
-        CopyInstanceTransforms(*pIt->batchQueue);
+        BatchQueue& batchQueue = **pIt;
+        batchQueue.Sort();
+        CopyInstanceTransforms(batchQueue);
     }
 }
 
@@ -565,45 +553,6 @@ void Renderer::AddLightToNode(GeometryNode* node, Light* light, LightList* light
             newList->lights = oldList->lights;
             newList->lights.Push(light);
             node->lightList = newList;
-        }
-    }
-}
-
-void Renderer::SortBatches(BatchQueue& batchQueue, BatchSortMode sort)
-{
-    PROFILE(SortBatches);
-
-    if (sort == SORT_STATE)
-        Sort(batchQueue.batches.Begin(), batchQueue.batches.End(), CompareBatchState);
-    else
-    {
-        Sort(batchQueue.batches.Begin(), batchQueue.batches.End(), CompareBatchDistance);
-
-        // After sorting batches by distance, we need a separate step to build instances if adjacent batches have the same state
-        Batch* start = nullptr;
-        for (auto it = batchQueue.batches.Begin(); it != batchQueue.batches.End(); ++it)
-        {
-            Batch* current = &*it;
-            if (start && current->type == GEOM_STATIC && current->pass == start->pass && current->geometry == start->geometry &&
-                current->lights == start->lights)
-            {
-                if (start->type == GEOM_INSTANCED)
-                    batchQueue.instanceDatas[start->instanceDataIndex].worldMatrices.Push(current->worldMatrix);
-                else
-                {
-                    // Begin new instanced batch
-                    start->type = GEOM_INSTANCED;
-                    size_t newInstanceDataIndex = batchQueue.instanceDatas.Size();
-                    batchQueue.instanceDatas.Resize(newInstanceDataIndex + 1);
-                    InstanceData& newInstanceData = batchQueue.instanceDatas.Back();
-                    newInstanceData.skipBatches = true;
-                    newInstanceData.worldMatrices.Push(start->worldMatrix);
-                    newInstanceData.worldMatrices.Push(current->worldMatrix);
-                    start->instanceDataIndex = newInstanceDataIndex; // Overwrites the non-instanced world matrix
-                }
-            }
-            else
-                start = (current->type == GEOM_STATIC) ? current : nullptr;
         }
     }
 }

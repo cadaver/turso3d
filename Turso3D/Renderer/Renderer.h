@@ -76,21 +76,6 @@ struct TURSO3D_API PassDesc
     bool lit;
 };
 
-/// Internal pass description.
-struct TURSO3D_API RendererPassDesc
-{
-    /// Batch queue
-    BatchQueue* batchQueue;
-    /// Base pass index.
-    size_t baseIndex;
-    /// Additive pass index (if needed.)
-    size_t additiveIndex;
-    /// Sorting mode.
-    BatchSortMode sort;
-    /// Lighting flag.
-    bool lit;
-};
-
 /// Light information for a rendering pass.
 struct TURSO3D_API LightPass
 {
@@ -120,8 +105,15 @@ struct TURSO3D_API LightList
 /// Description of a draw call.
 struct TURSO3D_API Batch
 {
-    /// Calculate sort key from state.
-    void CalculateSortKey(bool isAdditive = false);
+    /// Calculate sort key for state sorting.
+    void CalculateSortKey(bool isAdditive)
+    {
+        sortKey = ((((unsigned long long)pass->Parent() * (unsigned long long)lights * type) & 0x7fffffff) << 32) |
+            (((unsigned long long)geometry) & 0xffffffff);
+        // Ensure that additive passes are drawn after base passes
+        if (isAdditive)
+            sortKey |= 0x8000000000000000;
+    }
 
     /// Geometry.
     Geometry* geometry;
@@ -165,6 +157,65 @@ struct TURSO3D_API BatchQueue
 {
     /// Clear structures.
     void Clear();
+    /// Sort batches and build instances in distance sorted mode.
+    void Sort();
+
+    /// Add a batch.
+    void AddBatch(Batch& batch, GeometryNode* node, bool isAdditive)
+    {
+        if (sort == SORT_STATE)
+        {
+            if (batch.type == GEOM_STATIC)
+            {
+                batch.type = GEOM_INSTANCED;
+                batch.CalculateSortKey(isAdditive);
+
+                // Optimization: skip HashMap query
+                if (batch.sortKey == lastInstanceSortKey)
+                    instanceDatas[lastInstanceDataIndex].worldMatrices.Push(&node->WorldTransform());
+                else
+                {
+                    // Check if instance batch already exists
+                    auto iIt = instanceLookup.Find(batch.sortKey);
+                    if (iIt != instanceLookup.End())
+                    {
+                        instanceDatas[iIt->second].worldMatrices.Push(&node->WorldTransform());
+                        lastInstanceSortKey = batch.sortKey;
+                        lastInstanceDataIndex = iIt->second;
+                    }
+                    else
+                    {
+                        // Begin new instanced batch
+                        size_t newInstanceDataIndex = instanceDatas.Size();
+                        instanceLookup[batch.sortKey] = newInstanceDataIndex;
+                        batch.instanceDataIndex = newInstanceDataIndex;
+                        batches.Push(batch);
+                        instanceDatas.Resize(newInstanceDataIndex + 1);
+                        InstanceData& newInstanceData = instanceDatas.Back();
+                        newInstanceData.skipBatches = false;
+                        newInstanceData.worldMatrices.Push(&node->WorldTransform());
+                        lastInstanceSortKey = batch.sortKey;
+                        lastInstanceDataIndex = newInstanceDataIndex;
+                    }
+                }
+            }
+            else
+            {
+                batch.worldMatrix = &node->WorldTransform();
+                batch.CalculateSortKey(isAdditive);
+                batches.Push(batch);
+            }
+        }
+        else
+        {
+            batch.worldMatrix = &node->WorldTransform();
+            batch.distance = node->SquaredDistance();
+            // Push additive passes slightly to front to make them render after base passes
+            if (isAdditive)
+                batch.distance *= 0.999999f;
+            batches.Push(batch);
+        }
+    }
     
     /// Batches, which may be instanced or non-instanced.
     Vector<Batch> batches;
@@ -172,6 +223,18 @@ struct TURSO3D_API BatchQueue
     Vector<InstanceData> instanceDatas;
     /// Indices for instance datas by state sort key. Used only in state-sorted mode.
     HashMap<unsigned long long, size_t> instanceLookup;
+    /// Sorting mode.
+    BatchSortMode sort;
+    /// Lighting flag.
+    bool lit;
+    /// Base pass index.
+    size_t baseIndex;
+    /// Additive pass index (if needed.)
+    size_t additiveIndex;
+    /// Last queried instance sort key.
+    unsigned long long lastInstanceSortKey;
+    /// Index of last instance data.
+    size_t lastInstanceDataIndex;
 };
 
 /// High-level rendering subsystem. Performs rendering of 3D scenes.
@@ -244,8 +307,8 @@ private:
     Vector<Light*> lights;
     /// Batch queues per pass.
     HashMap<size_t, BatchQueue> batchQueues;
-    /// Internal pass descriptions.
-    Vector<RendererPassDesc> passes;
+    /// Current batch queues being filled.
+    Vector<BatchQueue*> currentQueues;
     /// Instance transforms for uploading to the instance vertex buffer.
     Vector<Matrix3x4> instanceTransforms;
     /// Lit geometries query result.

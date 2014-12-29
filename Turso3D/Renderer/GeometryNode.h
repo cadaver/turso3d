@@ -42,6 +42,8 @@ struct TURSO3D_API Geometry : public RefCounted
     size_t drawStart;
     /// Draw range count. Specifies number of indices if index buffer defined, number of vertices otherwise.
     size_t drawCount;
+    /// LOD transition distance.
+    size_t lodDistance;
 };
 
 /// Draw call source data.

@@ -16,7 +16,8 @@ namespace Turso3D
 Geometry::Geometry() : 
     primitiveType(TRIANGLE_LIST),
     drawStart(0),
-    drawCount(0)
+    drawCount(0),
+    lodDistance(0.0f)
 {
 }
 
