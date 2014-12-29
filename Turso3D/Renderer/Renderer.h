@@ -16,6 +16,7 @@ class Light;
 class Octree;
 class Scene;
 class VertexBuffer;
+struct BatchQueue;
 struct SourceBatch;
 
 /// Shader constant buffers used by high-level rendering.
@@ -51,16 +52,55 @@ static const unsigned char INSTANCE_TEXCOORD = 4;
 /// Maximum number of lights per pass.
 static const size_t MAX_LIGHTS_PER_PASS = 4;
 
+/// Description of a pass from the client to the renderer.
+struct TURSO3D_API PassDesc
+{
+    /// Construct undefined.
+    PassDesc()
+    {
+    }
+    
+    /// Construct with parameters.
+    PassDesc(const String& name_, BatchSortMode sort_ = SORT_STATE, bool lit_ = true) :
+        name(name_),
+        sort(sort_),
+        lit(lit_)
+    {
+    }
+
+    /// %Pass name.
+    String name;
+    /// Sorting mode.
+    BatchSortMode sort;
+    /// Lighting flag.
+    bool lit;
+};
+
+/// Internal pass description.
+struct TURSO3D_API RendererPassDesc
+{
+    /// Batch queue
+    BatchQueue* batchQueue;
+    /// Base pass index.
+    size_t baseIndex;
+    /// Additive pass index (if needed.)
+    size_t additiveIndex;
+    /// Sorting mode.
+    BatchSortMode sort;
+    /// Lighting flag.
+    bool lit;
+};
+
 /// Light information for a rendering pass.
 struct TURSO3D_API LightPass
 {
-    /// Light positions.
+    /// %Light positions.
     Vector4 lightPositions[MAX_LIGHTS_PER_PASS];
-    /// Light directions.
+    /// %Light directions.
     Vector4 lightDirections[MAX_LIGHTS_PER_PASS];
-    /// Light attenuation parameters.
+    /// %Light attenuation parameters.
     Vector4 lightAttenuations[MAX_LIGHTS_PER_PASS];
-    /// Light colors.
+    /// %Light colors.
     Color lightColors[MAX_LIGHTS_PER_PASS];
     /// Pixel shader variation index.
     unsigned psIdx;
@@ -149,9 +189,13 @@ public:
     void CollectObjects(Scene* scene, Camera* camera);
     /// Collect light interactions with geometries from the current view.
     void CollectLightInteractions();
-    /// Collect and sort batches from a pass.
-    void CollectBatches(const String& pass, BatchSortMode sort = SORT_STATE, bool lit = true);
-    /// Render the collected batches.
+    /// Collect and sort batches from the visible objects. To not go through the objects several times, all the passes should be specified at once instead of multiple calls to CollectBatches().
+    void CollectBatches(const Vector<PassDesc>& passes);
+    /// Collect and sort batches from the visible objects. Convenience function for one pass only.
+    void CollectBatches(const PassDesc& pass);
+    /// Collect and sort batches from the visible objects.
+    void CollectBatches(size_t numPasses, const PassDesc* passes);
+    /// Render a specific pass.
     void RenderBatches(const String& pass);
 
 private:
@@ -200,6 +244,8 @@ private:
     Vector<Light*> lights;
     /// Batch queues per pass.
     HashMap<size_t, BatchQueue> batchQueues;
+    /// Internal pass descriptions.
+    Vector<RendererPassDesc> passes;
     /// Instance transforms for uploading to the instance vertex buffer.
     Vector<Matrix3x4> instanceTransforms;
     /// Lit geometries query result.

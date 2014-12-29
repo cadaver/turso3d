@@ -161,10 +161,15 @@ public:
                 break;
 
             renderer->CollectObjects(scene, camera);
-            renderer->CollectBatches("opaque");
+
+            Vector<PassDesc> passes;
+            passes.Push(PassDesc("opaque", SORT_STATE, true));
+            passes.Push(PassDesc("alpha", SORT_BACK_TO_FRONT, true));
+            renderer->CollectBatches(passes);
 
             graphics->Clear(CLEAR_COLOR | CLEAR_DEPTH, Color(0.0f, 0.0f, 0.5f));
             renderer->RenderBatches("opaque");
+            renderer->RenderBatches("alpha");
             graphics->Present();
 
             profiler->EndFrame();
