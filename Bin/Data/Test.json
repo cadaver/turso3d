@@ -1,0 +1,29 @@
+{
+  "passes": {
+    "opaque": {
+      "vs": "Diffuse",
+      "ps": "Diffuse",
+      "depthFunc": "lessEqual",
+      "depthWrite": true,
+      "depthClip": true,
+      "alphaToCoverage": false,
+      "blendMode": "replace",
+      "fillMode": "solid",
+      "cullMode": "back"
+    },
+    "opaqueadd": {
+      "vs": "Diffuse",
+      "ps": "Diffuse",
+      "depthFunc": "lessEqual",
+      "depthWrite": false,
+      "depthClip": true,
+      "alphaToCoverage": false,
+      "blendMode": "add",
+      "fillMode": "solid",
+      "cullMode": "back"
+    }
+  },
+  "textures": {
+    "0": "Test.png"
+  }
+}

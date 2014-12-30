@@ -57,8 +57,6 @@ void BatchQueue::Clear()
     batches.Clear();
     instanceDatas.Clear();
     instanceLookup.Clear();
-    lastInstanceSortKey = 0;
-    lastInstanceDataIndex = 0;
 }
 
 void BatchQueue::Sort()

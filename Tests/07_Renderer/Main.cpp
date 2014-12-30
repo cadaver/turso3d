@@ -40,54 +40,10 @@ public:
 
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &RendererTest::HandleCloseRequest);
 
-        SharedPtr<Material> mat = Object::Create<Material>();
-        mat->SetTexture(0, cache->LoadResource<Texture>("Test.png"));
-        // Base pass
-        Pass* pass = mat->CreatePass("opaque");
-        pass->SetShaders("Diffuse", "Diffuse");
-        // Additive pass for more than 4 lights
-        pass = mat->CreatePass("opaqueadd");
-        pass->SetShaders("Diffuse", "Diffuse");
-        pass->SetBlendMode(BLEND_MODE_ADD);
-        pass->depthWrite = false;
-
-        float vertexData[] = {
-            // Position         // Normal           // Texcoord
-            -0.5f, 0.5f, 0.0f,  0.0f, 0.0f, -1.0f,  0.0f, 0.0f,
-            0.5f, 0.5f, 0.0f,   0.0f, 0.0f, -1.0f,  1.0f, 0.0f,
-            0.5f, -0.5f, 0.0f,  0.0f, 0.0f, -1.0f,  1.0f, 1.0f,
-            -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, -1.0f,  0.0f, 1.0f
-        };
-
-        Vector<VertexElement> vertexDeclaration;
-        vertexDeclaration.Push(VertexElement(ELEM_VECTOR3, SEM_POSITION));
-        vertexDeclaration.Push(VertexElement(ELEM_VECTOR3, SEM_NORMAL));
-        vertexDeclaration.Push(VertexElement(ELEM_VECTOR2, SEM_TEXCOORD));
-        SharedPtr<VertexBuffer> vb = new VertexBuffer();
-        vb->Define(USAGE_IMMUTABLE, 4, vertexDeclaration, true, vertexData);
-
-        unsigned short indexData[] = {
-            0,
-            1,
-            3,
-            1,
-            2,
-            3,
-        };
-
-        SharedPtr<IndexBuffer> ib = new IndexBuffer();
-        ib->Define(USAGE_IMMUTABLE, 6, sizeof(unsigned short), true, indexData);
-
         SharedPtr<Scene> scene = new Scene();
         scene->CreateChild<Octree>();
         Camera* camera = scene->CreateChild<Camera>();
-        camera->SetPosition(Vector3(0.0f, 0.0f, -750.0f));
-
-        SharedPtr<Geometry> geom = new Geometry();
-        geom->vertexBuffer = vb;
-        geom->indexBuffer = ib;
-        geom->drawStart = 0;
-        geom->drawCount = 6;
+        camera->SetPosition(Vector3(0.0f, 3.0f, -50.0f));
 
         Light* light = scene->CreateChild<Light>();
         light->SetLightType(LIGHT_DIRECTIONAL);
@@ -98,15 +54,14 @@ public:
 
         for (int x = -125; x < 125; ++x)
         {
-            for (int y = -125; y < 125; ++y)
+            for (int z = -125; z < 125; ++z)
             {
-                GeometryNode* node = scene->CreateChild<GeometryNode>();
-                node->SetPosition(Vector3(2.0f * x, 2.0f * y, 0.0f));
-                node->SetNumGeometries(1);
-                node->SetGeometry(0, geom);
-                node->SetMaterial(0, mat);
-                node->SetLocalBoundingBox(BoundingBox(Vector3(-0.5f, -0.5f, 0.0f), Vector3(0.5f, 0.5f, 0.0f)));
-                nodes.Push(node);
+                StaticModel* modelNode = scene->CreateChild<StaticModel>();
+                modelNode->SetPosition(Vector3(2.0f * x, 0.0f, 2.0f * z));
+                modelNode->SetModel(cache->LoadResource<Model>("Box.mdl"));
+                for (size_t i = 0; i < modelNode->NumGeometries(); ++i)
+                    modelNode->SetMaterial(i, cache->LoadResource<Material>("Test.json"));
+                nodes.Push(modelNode);
             }
         }
 
@@ -149,7 +104,7 @@ public:
             if (animate)
             {
                 PROFILE(AnimateNodes);
-                nodeRot = Quaternion(0.0f, 0.0f, 100.0f * dt) * nodeRot;
+                nodeRot = Quaternion(-100.0f * dt, 0.0f, 0.0f) * nodeRot;
                 nodeRot.Normalize();
 
                 for (auto it = nodes.Begin(); it != nodes.End(); ++it)

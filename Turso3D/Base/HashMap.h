@@ -18,7 +18,7 @@ public:
     class KeyValue
     {
     public:
-        /// Construct with default key.
+        /// Default-construct.
         KeyValue() :
             first(T())
         {

@@ -39,7 +39,7 @@ struct TURSO3D_API IndexBufferDesc
 /// Model's bone description.
 struct TURSO3D_API Bone
 {
-    /// Construct with defaults.
+    /// Default-construct.
     Bone();
     /// Destruct.
     ~Bone();

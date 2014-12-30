@@ -18,7 +18,7 @@ struct ResourceRefList;
 class TURSO3D_API Stream
 {
 public:
-    /// Construct with zero size.
+    /// Default-construct with zero size.
     Stream();
     /// Construct with defined byte size.
     Stream(size_t numBytes);

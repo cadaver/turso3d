@@ -366,8 +366,7 @@ void Octree::CollectNodes(Vector<OctreeNode*>& result1, unsigned short nodeFlags
     unsigned short nodeFlags2, const Octant* octant, unsigned layerMask) const
 {
     const Vector<OctreeNode*>& octantNodes = octant->nodes;
-    unsigned short combinedFlags = nodeFlags1 | nodeFlags2;
-
+    
     for (auto it = octantNodes.Begin(); it != octantNodes.End(); ++it)
     {
         OctreeNode* node = *it;

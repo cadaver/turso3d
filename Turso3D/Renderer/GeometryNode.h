@@ -26,7 +26,7 @@ enum GeometryType
 /// Description of geometry to be rendered. %Scene nodes that render the same object can share these to reduce memory load and allow instancing.
 struct TURSO3D_API Geometry : public RefCounted
 {
-    /// Construct with defaults.
+    /// Default-construct.
     Geometry();
     /// Destruct.
     ~Geometry();

@@ -171,33 +171,21 @@ struct TURSO3D_API BatchQueue
                 batch.type = GEOM_INSTANCED;
                 batch.CalculateSortKey(isAdditive);
 
-                // Optimization: skip HashMap query
-                if (batch.sortKey == lastInstanceSortKey)
-                    instanceDatas[lastInstanceDataIndex].worldMatrices.Push(&node->WorldTransform());
+                // Check if instance batch already exists
+                auto iIt = instanceLookup.Find(batch.sortKey);
+                if (iIt != instanceLookup.End())
+                    instanceDatas[iIt->second].worldMatrices.Push(&node->WorldTransform());
                 else
                 {
-                    // Check if instance batch already exists
-                    auto iIt = instanceLookup.Find(batch.sortKey);
-                    if (iIt != instanceLookup.End())
-                    {
-                        instanceDatas[iIt->second].worldMatrices.Push(&node->WorldTransform());
-                        lastInstanceSortKey = batch.sortKey;
-                        lastInstanceDataIndex = iIt->second;
-                    }
-                    else
-                    {
-                        // Begin new instanced batch
-                        size_t newInstanceDataIndex = instanceDatas.Size();
-                        instanceLookup[batch.sortKey] = newInstanceDataIndex;
-                        batch.instanceDataIndex = newInstanceDataIndex;
-                        batches.Push(batch);
-                        instanceDatas.Resize(newInstanceDataIndex + 1);
-                        InstanceData& newInstanceData = instanceDatas.Back();
-                        newInstanceData.skipBatches = false;
-                        newInstanceData.worldMatrices.Push(&node->WorldTransform());
-                        lastInstanceSortKey = batch.sortKey;
-                        lastInstanceDataIndex = newInstanceDataIndex;
-                    }
+                    // Begin new instanced batch
+                    size_t newInstanceDataIndex = instanceDatas.Size();
+                    instanceLookup[batch.sortKey] = newInstanceDataIndex;
+                    batch.instanceDataIndex = newInstanceDataIndex;
+                    batches.Push(batch);
+                    instanceDatas.Resize(newInstanceDataIndex + 1);
+                    InstanceData& newInstanceData = instanceDatas.Back();
+                    newInstanceData.skipBatches = false;
+                    newInstanceData.worldMatrices.Push(&node->WorldTransform());
                 }
             }
             else
@@ -232,10 +220,6 @@ struct TURSO3D_API BatchQueue
     size_t baseIndex;
     /// Additive pass index (if needed.)
     size_t additiveIndex;
-    /// Last queried instance sort key.
-    unsigned long long lastInstanceSortKey;
-    /// Index of last instance data.
-    size_t lastInstanceDataIndex;
 };
 
 /// High-level rendering subsystem. Performs rendering of 3D scenes.

@@ -287,7 +287,7 @@ struct TURSO3D_API Constant
 /// Description of a blend mode.
 struct TURSO3D_API BlendModeDesc
 {
-    /// Construct with defaults.
+    /// Default-construct.
     BlendModeDesc()
     {
         Reset();
@@ -341,7 +341,7 @@ struct TURSO3D_API BlendModeDesc
 /// Description of a stencil test.
 struct TURSO3D_API StencilTestDesc
 {
-    /// Construct with defauls.
+    /// Default-construct.
     StencilTestDesc()
     {
         Reset();
@@ -387,7 +387,7 @@ struct TURSO3D_API StencilTestDesc
 /// Collection of render state.
 struct RenderState
 {
-    /// Construct with defaults.
+    /// Default-construct.
     RenderState()
     {
         Reset();
