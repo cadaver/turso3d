@@ -129,6 +129,8 @@ public:
     static unsigned PassIndex(const String& name, bool createNew = true);
     /// Return pass name by index.
     static const String& PassName(size_t index);
+    /// Return a default opaque untextured material.
+    static Material* DefaultMaterial();
 
     /// Material textures.
     HashMap<size_t, SharedPtr<Texture> > textures;
@@ -143,6 +145,8 @@ private:
     /// JSON data used for loading.
     AutoPtr<JSONFile> loadJSON;
 
+    /// Default material.
+    static SharedPtr<Material> defaultMaterial;
     /// Pass name to index mapping.
     static HashMap<String, unsigned> passIndices;
     /// Pass names by index.

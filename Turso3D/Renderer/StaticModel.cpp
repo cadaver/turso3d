@@ -69,21 +69,21 @@ void StaticModel::SetModel(Model* model_)
 
     if (!model)
     {
-        batches.Clear();
-        boundingBox = BoundingBox(0.0f, 0.0f);
+        SetNumGeometries(0);
+        SetLocalBoundingBox(BoundingBox(0.0f, 0.0f));
         return;
     }
 
-    batches.Resize(model->NumGeometries());
+    SetNumGeometries(model->NumGeometries());
     // Start at LOD level 0
     for (size_t i = 0; i < batches.Size(); ++i)
     {
-        batches[i].geometry = model->GetGeometry(i, 0);
+        SetGeometry(i, model->GetGeometry(i, 0));
         if (model->NumLodLevels(i) > 1)
             hasLodLevels = true;
     }
 
-    boundingBox = model->LocalBoundingBox();
+    SetLocalBoundingBox(model->LocalBoundingBox());
 }
 
 void StaticModel::SetLodBias(float bias)

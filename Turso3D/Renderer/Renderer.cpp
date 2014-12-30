@@ -332,8 +332,7 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
                 Batch newBatch;
                 newBatch.geometry = bIt->geometry.Get();
                 Material* material = bIt->material.Get();
-                if (!material)
-                    continue;
+                assert(material);
 
                 // Loop through requested passes
                 for (auto pIt = currentQueues.Begin(); pIt != currentQueues.End(); ++pIt)
@@ -432,7 +431,7 @@ void Renderer::RenderBatches(const String& pass)
                 LoadPassShaders(pass);
             
             // Check that pass is legal
-            if (pass->shaders[SHADER_VS].Get() && pass->shaders[SHADER_PS].Get() && batch.geometry)
+            if (pass->shaders[SHADER_VS].Get() && pass->shaders[SHADER_PS].Get())
             {
                 // Get the shader variations
                 LightPass* lights = batch.lights;
@@ -442,6 +441,7 @@ void Renderer::RenderBatches(const String& pass)
 
                 // Set batch geometry
                 Geometry* geometry = batch.geometry;
+                assert(geometry);
                 VertexBuffer* vb = geometry->vertexBuffer.Get();
                 IndexBuffer* ib = geometry->indexBuffer.Get();
                 graphics->SetVertexBuffer(0, vb);

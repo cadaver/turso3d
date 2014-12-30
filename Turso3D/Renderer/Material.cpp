@@ -14,6 +14,7 @@
 namespace Turso3D
 {
 
+SharedPtr<Material> Material::defaultMaterial;
 HashMap<String, unsigned> Material::passIndices;
 Vector<String> Material::passNames;
 unsigned Material::nextPassIndex = 0;
@@ -395,5 +396,23 @@ const String& Material::PassName(size_t index)
 {
     return index < passNames.Size() ? passNames[index] : String::EMPTY;
 }
+
+Material* Material::DefaultMaterial()
+{
+    // Create on demand
+    if (!defaultMaterial)
+    {
+        defaultMaterial = new Material();
+        Pass* pass = defaultMaterial->CreatePass("opaque");
+        pass->SetShaders("NoTexture", "NoTexture");
+        pass = defaultMaterial->CreatePass("opaqueadd");
+        pass->SetShaders("NoTexture", "NoTexture");
+        pass->SetBlendMode(BLEND_MODE_ADD);
+        pass->depthWrite = false;
+    }
+
+    return defaultMaterial.Get();
+}
+
 
 }

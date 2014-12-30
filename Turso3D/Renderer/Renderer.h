@@ -4,6 +4,7 @@
 
 #include "../Base/AutoPtr.h"
 #include "../Graphics/GraphicsDefs.h"
+#include "../Math/Color.h"
 #include "../Math/Frustum.h"
 #include "GeometryNode.h"
 
@@ -77,7 +78,7 @@ struct TURSO3D_API PassDesc
     bool lit;
 };
 
-/// Light information for a rendering pass.
+/// %Light information for a rendering pass.
 struct TURSO3D_API LightPass
 {
     /// %Light positions.
@@ -245,6 +246,8 @@ public:
     void CollectBatches(size_t numPasses, const PassDesc* passes);
     /// Render a specific pass.
     void RenderBatches(const String& pass);
+    /// Return default material (opaque white.)
+    Material* DefaultMaterial();
 
 private:
     /// Assign a light list to a node. Creates new light lists as necessary to handle multiple lights.

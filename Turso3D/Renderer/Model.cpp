@@ -6,6 +6,7 @@
 #include "../Graphics/VertexBuffer.h"
 #include "../Scene/Node.h"
 #include "GeometryNode.h"
+#include "Material.h"
 #include "Model.h"
 
 #include "../Debug/DebugNew.h"

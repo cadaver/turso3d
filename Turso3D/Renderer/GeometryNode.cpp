@@ -8,6 +8,7 @@
 #include "Camera.h"
 #include "GeometryNode.h"
 #include "Material.h"
+#include "Renderer.h"
 
 #include "../Debug/DebugNew.h"
 
@@ -68,10 +69,23 @@ void GeometryNode::SetGeometryType(GeometryType type)
 void GeometryNode::SetNumGeometries(size_t num)
 {
     batches.Resize(num);
+    
+    // Ensure non-null materials
+    for (auto it = batches.Begin(); it != batches.End(); ++it)
+    {
+        if (!it->material.Get())
+            it->material = Material::DefaultMaterial();
+    }
 }
 
 void GeometryNode::SetGeometry(size_t index, Geometry* geometry)
 {
+    if (!geometry)
+    {
+        LOGERROR("Can not assign null geometry");
+        return;
+    }
+
     if (index < batches.Size())
         batches[index].geometry = geometry;
     else
@@ -81,7 +95,11 @@ void GeometryNode::SetGeometry(size_t index, Geometry* geometry)
 void GeometryNode::SetMaterial(size_t index, Material* material)
 {
     if (index < batches.Size())
+    {
+        if (!material)
+            material = Material::DefaultMaterial();
         batches[index].material = material;
+    }
     else
         LOGERRORF("Out of bounds batch index %d for setting material", (int)index);
 }

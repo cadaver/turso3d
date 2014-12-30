@@ -8,7 +8,7 @@ namespace Turso3D
 {
 
 /// %Scene node that renders an unanimated model.
-class StaticModel : public GeometryNode
+class TURSO3D_API StaticModel : public GeometryNode
 {
     OBJECT(StaticModel);
 

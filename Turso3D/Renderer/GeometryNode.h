@@ -55,9 +55,9 @@ struct TURSO3D_API SourceBatch
     /// Destruct.
     ~SourceBatch();
 
-    /// The geometry to render.
+    /// The geometry to render. Must be non-null.
     SharedPtr<Geometry> geometry;
-    /// The material to use for rendering.
+    /// The material to use for rendering. Must be non-null.
     SharedPtr<Material> material;
 };
 
@@ -76,13 +76,13 @@ public:
     /// Prepare object for rendering. Called by Renderer.
     virtual void OnPrepareRender(Camera* camera);
 
-    /// Set geometry type in all batches.
+    /// Set geometry type, which is shared by all geometries.
     void SetGeometryType(GeometryType type);
-    /// Set number of geometries / batches.
+    /// Set number of geometries.
     void SetNumGeometries(size_t num);
-    /// Set geometry in batch.
+    /// Set geometry at index.
     void SetGeometry(size_t index, Geometry* geometry);
-    /// Set material in batch.
+    /// Set material at geometry index. Specifying null will use the default material (opaque white) defined by Renderer.
     void SetMaterial(size_t index, Material* material);
     /// Set local space bounding box.
     void SetLocalBoundingBox(const BoundingBox& box);
@@ -91,11 +91,11 @@ public:
     GeometryType GetGeometryType() const { return geometryType; }
     /// Return number of geometries.
     size_t NumGeometries() const { return batches.Size(); }
-    /// Return geometry by batch index.
+    /// Return geometry by index.
     Geometry* GetGeometry(size_t index) const;
-    /// Return material by batch index.
+    /// Return material by geometry index.
     Material* GetMaterial(size_t index) const;
-    /// Return source information for all batches.
+    /// Return source information for all draw calls.
     const Vector<SourceBatch>& Batches() const { return batches; }
     /// Return local space bounding box.
     const BoundingBox& LocalBoundingBox() const { return boundingBox; }
@@ -110,7 +110,6 @@ public:
 protected:
     /// Recalculate the world space bounding box.
     void OnWorldBoundingBoxUpdate() const override;
-
     /// Set materials list. Used in serialization.
     void SetMaterialsAttr(const ResourceRefList& materials);
     /// Return materials list. Used in serialization.

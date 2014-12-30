@@ -1,0 +1,13 @@
+#include "CommonCode.ps"
+
+struct PSInput
+{
+    float4 position : SV_POSITION;
+    float3 normal : NORMAL;
+    float3 worldPos : TEXCOORD1;
+};
+
+float4 main(PSInput input) : SV_TARGET
+{
+    return CalculateLighting(input.worldPos, normalize(input.normal));
+}

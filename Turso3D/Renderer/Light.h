@@ -19,7 +19,7 @@ enum LightType
 };
 
 /// Dynamic light scene node.
-class Light : public OctreeNode
+class TURSO3D_API Light : public OctreeNode
 {
     OBJECT(Light);
     
