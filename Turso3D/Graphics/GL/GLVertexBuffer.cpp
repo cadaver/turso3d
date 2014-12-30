@@ -53,8 +53,8 @@ void VertexBuffer::Recreate()
     {
         // Also make a copy of the current vertex elements, as they are passed by reference and manipulated by Define()
         Vector<VertexElement> srcElements = elements;
-        Define(usage, numVertices, srcElements, shadowData != nullptr, shadowData);
-        SetDataLost(shadowData == nullptr);
+        Define(usage, numVertices, srcElements, !shadowData.IsNull(), shadowData.Get());
+        SetDataLost(!shadowData.IsNull());
     }
 }
 

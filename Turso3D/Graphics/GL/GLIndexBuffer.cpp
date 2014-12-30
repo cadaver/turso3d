@@ -41,8 +41,8 @@ void IndexBuffer::Recreate()
 {
     if (numIndices)
     {
-        Define(usage, numIndices, indexSize, shadowData != nullptr, shadowData);
-        SetDataLost(shadowData == nullptr);
+        Define(usage, numIndices, indexSize, !shadowData.IsNull(), shadowData.Get());
+        SetDataLost(!shadowData.IsNull());
     }
 }
 
