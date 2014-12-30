@@ -71,7 +71,7 @@ template <class T> Vector<String> ResourceNames(const Vector<T*>& resources)
 /// Make a resource ref list from a vector of resource poitners.
 template <class T> ResourceRefList MakeResourceRefList(const Vector<T*>& resources)
 {
-    return ResourceRefList(T::GetTypeStatic(), GetResourceNames(resources));
+    return ResourceRefList(T::TypeStatic(), GetResourceNames(resources));
 }
 
 }

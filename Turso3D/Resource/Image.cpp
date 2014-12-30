@@ -494,7 +494,7 @@ bool Image::BeginLoad(Stream& source)
                 *dest++ = 0xff;
             }
 
-            SetData(rgbaData);
+            SetData(rgbaData.Get());
         }
 
         FreePixelData(pixelData);

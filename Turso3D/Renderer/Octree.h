@@ -153,8 +153,7 @@ private:
             for (auto it = octantNodes.Begin(); it != octantNodes.End(); ++it)
             {
                 OctreeNode* node = *it;
-                unsigned short flags = node->Flags();
-                if ((flags & NF_ENABLED) && (flags & nodeFlags) && (node->LayerMask() & layerMask) &&
+                if ((node->Flags() & nodeFlags) == nodeFlags && (node->LayerMask() & layerMask) &&
                     volume.IsInsideFast(node->WorldBoundingBox()) != OUTSIDE)
                     result.Push(node);
             }
@@ -180,16 +179,15 @@ private:
         else
         {
             const Vector<OctreeNode*>& octantNodes = octant->nodes;
-            unsigned short combinedFlags = nodeFlags1 | nodeFlags2;
 
             for (auto it = octantNodes.Begin(); it != octantNodes.End(); ++it)
             {
                 OctreeNode* node = *it;
                 unsigned short flags = node->Flags();
-                if ((flags & NF_ENABLED) && (flags & combinedFlags) && (node->LayerMask() & layerMask) &&
+                if (((flags & nodeFlags1) == nodeFlags1 || (flags & nodeFlags2) == nodeFlags2) && (node->LayerMask() & layerMask) &&
                     volume.IsInsideFast(node->WorldBoundingBox()) != OUTSIDE)
                 {
-                    if (flags & nodeFlags1)
+                    if ((flags & nodeFlags1) == nodeFlags1)
                         result1.Push(node);
                     else
                         result2.Push(node);

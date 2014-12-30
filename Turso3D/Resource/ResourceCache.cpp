@@ -238,7 +238,7 @@ Resource* ResourceCache::LoadResource(StringHash type, const String& nameIn)
 {
     String name = SanitateResourceName(nameIn);
 
-    // If empty name, return null pointer immediately
+    // If empty name, return null pointer immediately without logging an error
     if (name.IsEmpty())
         return nullptr;
 

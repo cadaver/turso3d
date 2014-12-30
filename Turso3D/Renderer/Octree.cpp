@@ -351,8 +351,7 @@ void Octree::CollectNodes(Vector<OctreeNode*>& result, const Octant* octant, uns
     for (auto it = octantNodes.Begin(); it != octantNodes.End(); ++it)
     {
         OctreeNode* node = *it;
-        unsigned short flags = node->Flags();
-        if ((flags & NF_ENABLED) && (flags & nodeFlags) && (node->LayerMask() & layerMask))
+        if ((node->Flags() & nodeFlags) == nodeFlags && (node->LayerMask() & layerMask))
             result.Push(node);
     }
 
@@ -373,9 +372,9 @@ void Octree::CollectNodes(Vector<OctreeNode*>& result1, unsigned short nodeFlags
     {
         OctreeNode* node = *it;
         unsigned short flags = node->Flags();
-        if ((flags & NF_ENABLED) && (flags & combinedFlags) && (node->LayerMask() & layerMask))
+        if (((flags & nodeFlags1) == nodeFlags1 || (flags & nodeFlags2) == nodeFlags2) && (node->LayerMask() & layerMask))
         {
-            if (flags & nodeFlags1)
+            if ((flags & nodeFlags1) == nodeFlags1)
                 result1.Push(node);
             else
                 result2.Push(node);
@@ -400,8 +399,7 @@ void Octree::CollectNodes(Vector<RaycastResult>& result, const Octant* octant, c
     for (auto it = octantNodes.Begin(); it != octantNodes.End(); ++it)
     {
         OctreeNode* node = *it;
-        unsigned short flags = node->Flags();
-        if ((flags & NF_ENABLED) && (flags & nodeFlags) && (node->LayerMask() & layerMask))
+        if ((node->Flags() & nodeFlags) == nodeFlags && (node->LayerMask() & layerMask))
             node->OnRaycast(result, ray, maxDistance);
     }
 
@@ -423,8 +421,7 @@ void Octree::CollectNodes(Vector<Pair<OctreeNode*, float> >& result, const Octan
     for (auto it = octantNodes.Begin(); it != octantNodes.End(); ++it)
     {
         OctreeNode* node = *it;
-        unsigned short flags = node->Flags();
-        if ((flags & NF_ENABLED) && (flags & nodeFlags) && (node->LayerMask() & layerMask))
+        if ((node->Flags() & nodeFlags) == nodeFlags && (node->LayerMask() & layerMask))
         {
             float distance = ray.HitDistance(node->WorldBoundingBox());
             if (distance < maxDistance)

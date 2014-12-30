@@ -41,7 +41,7 @@ struct TURSO3D_API ResourceRef
     }
     
     /// Construct with type and resource name.
-    ResourceRef(StringHash type, const String& name_) :
+    ResourceRef(StringHash type, const String& name_ = String::EMPTY) :
         type(type),
         name(name_)
     {
@@ -94,7 +94,7 @@ struct TURSO3D_API ResourceRefList
     }
 
     /// Construct with type and name list.
-    ResourceRefList(StringHash type, const Vector<String>& names_) :
+    ResourceRefList(StringHash type, const Vector<String>& names_ = Vector<String>()) :
         type(type),
         names(names_)
     {

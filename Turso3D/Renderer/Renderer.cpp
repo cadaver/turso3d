@@ -10,11 +10,12 @@
 #include "../Resource/ResourceCache.h"
 #include "../Scene/Scene.h"
 #include "Camera.h"
-#include "GeometryNode.h"
 #include "Light.h"
 #include "Material.h"
+#include "Model.h"
 #include "Octree.h"
 #include "Renderer.h"
+#include "StaticModel.h"
 
 #include "../Debug/DebugNew.h"
 
@@ -186,8 +187,8 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     projectionMatrix = camera->ProjectionMatrix();
     viewProjMatrix = projectionMatrix * viewMatrix;
 
-    octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(geometries), NF_GEOMETRY, reinterpret_cast<Vector<OctreeNode*>&>(lights),
-        NF_LIGHT, frustum, camera->ViewMask());
+    octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(geometries), NF_ENABLED | NF_GEOMETRY, reinterpret_cast<Vector<OctreeNode*>&>(lights),
+        NF_ENABLED | NF_LIGHT, frustum, camera->ViewMask());
     
     CollectLightInteractions();
 
@@ -224,7 +225,7 @@ void Renderer::CollectLightInteractions()
 
             case LIGHT_POINT:
                 litGeometries.Clear();
-                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldSphere(), NF_GEOMETRY,
+                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldSphere(), NF_ENABLED | NF_GEOMETRY,
                     lightMask);
                 for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
                     AddLightToNode(*gIt, light, lightList);
@@ -232,7 +233,7 @@ void Renderer::CollectLightInteractions()
 
             case LIGHT_SPOT:
                 litGeometries.Clear();
-                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldFrustum(), NF_GEOMETRY,
+                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldFrustum(), NF_ENABLED | NF_GEOMETRY,
                     lightMask);
                 for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
                     AddLightToNode(*gIt, light, lightList);
@@ -654,7 +655,9 @@ void RegisterRendererLibrary()
     GeometryNode::RegisterObject();
     Light::RegisterObject();
     Material::RegisterObject();
+    Model::RegisterObject();
     Octree::RegisterObject();
+    StaticModel::RegisterObject();
 }
 
 }

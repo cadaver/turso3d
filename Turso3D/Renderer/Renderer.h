@@ -5,13 +5,14 @@
 #include "../Base/AutoPtr.h"
 #include "../Graphics/GraphicsDefs.h"
 #include "../Math/Frustum.h"
-#include "../Object/Object.h"
+#include "GeometryNode.h"
 
 namespace Turso3D
 {
 
 class Camera;
 class ConstantBuffer;
+class GeometryNode;
 class Light;
 class Octree;
 class Scene;

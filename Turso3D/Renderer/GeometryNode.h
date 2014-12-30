@@ -3,6 +3,7 @@
 #pragma once
 
 #include "../Graphics/GraphicsDefs.h"
+#include "../IO/ResourceRef.h"
 #include "OctreeNode.h"
 
 namespace Turso3D
@@ -43,7 +44,7 @@ struct TURSO3D_API Geometry : public RefCounted
     /// Draw range count. Specifies number of indices if index buffer defined, number of vertices otherwise.
     size_t drawCount;
     /// LOD transition distance.
-    size_t lodDistance;
+    float lodDistance;
 };
 
 /// Draw call source data.
@@ -109,6 +110,11 @@ public:
 protected:
     /// Recalculate the world space bounding box.
     void OnWorldBoundingBoxUpdate() const override;
+
+    /// Set materials list. Used in serialization.
+    void SetMaterialsAttr(const ResourceRefList& materials);
+    /// Return materials list. Used in serialization.
+    ResourceRefList MaterialsAttr() const;
 
     /// Geometry type.
     GeometryType geometryType;

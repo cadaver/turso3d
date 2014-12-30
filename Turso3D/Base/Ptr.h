@@ -441,9 +441,9 @@ public:
     bool operator == (const SharedArrayPtr<T>& rhs) const { return ptr == rhs.ptr; }
     /// Test for inequality with another shared array pointer.
     bool operator != (const SharedArrayPtr<T>& rhs) const { return !(*this == rhs); }
-    /// Convert to a raw pointer.
-    operator T* () const { return ptr; }
-    
+    /// Convert to bool.
+    operator bool() const { return ptr != nullptr; }
+
     /// Release the array reference and reset to null. Destroy the array if was the last reference.
     void Reset()
     {
@@ -623,9 +623,9 @@ public:
     bool operator != (const WeakArrayPtr<T>& rhs) const { return !(*this == rhs); }
     /// Test for inequality with a shared array pointer.
     bool operator != (const SharedArrayPtr<T>& rhs) const { return !(*this == rhs); }
-    /// Convert to a raw pointer.
-    operator T* () const { return Get(); }
-    
+    /// Convert to bool.
+    operator bool() const { return Get() != nullptr; }
+
     /// Release the weak array reference and reset to null.
     void Reset()
     {

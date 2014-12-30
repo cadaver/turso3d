@@ -156,8 +156,8 @@ public:
     T& operator [] (size_t index) { assert(array); return array[index]; }
     /// Const-index the array.
     const T& operator [] (size_t index) const { assert(array); return array[index]; }
-    /// Convert to the array.
-    operator T* () const { return array; }
+    /// Convert to bool.
+    operator bool () const { return array != nullptr; }
 
     /// Return the array.
     T* Get() const { return array; }

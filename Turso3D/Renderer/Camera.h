@@ -50,7 +50,7 @@ class TURSO3D_API Camera : public SpatialNode
     void SetAspectRatio(float aspectRatio);
     /// Set zoom.
     void SetZoom(float zoom);
-    /// Set LOD bias.
+    /// Set LOD bias. Values higher than 1 use higher quality LOD (acts if distance is smaller.)
     void SetLodBias(float bias);
     /// Set view layer mask. Will be checked against scene objects' layers to see what to render.
     void SetViewMask(unsigned mask);

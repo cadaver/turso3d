@@ -4,6 +4,7 @@
 #include "../Graphics/ConstantBuffer.h"
 #include "../Graphics/IndexBuffer.h"
 #include "../Graphics/VertexBuffer.h"
+#include "../Resource/ResourceCache.h"
 #include "Camera.h"
 #include "GeometryNode.h"
 #include "Material.h"
@@ -50,6 +51,8 @@ void GeometryNode::RegisterObject()
 {
     RegisterFactory<GeometryNode>();
     CopyBaseAttributes<GeometryNode, SpatialNode>();
+    RegisterMixedRefAttribute("materials", &GeometryNode::MaterialsAttr, &GeometryNode::SetMaterialsAttr,
+        ResourceRefList(Material::TypeStatic()));
 }
 
 void GeometryNode::OnPrepareRender(Camera* camera)
@@ -104,6 +107,24 @@ void GeometryNode::OnWorldBoundingBoxUpdate() const
 {
     worldBoundingBox = boundingBox.Transformed(WorldTransform());
     SetFlag(NF_BOUNDING_BOX_DIRTY, false);
+}
+
+void GeometryNode::SetMaterialsAttr(const ResourceRefList& materials)
+{
+    ResourceCache* cache = Subsystem<ResourceCache>();
+    for (size_t i = 0; i < materials.names.Size(); ++i)
+        SetMaterial(i, cache->LoadResource<Material>(materials.names[i]));
+}
+
+ResourceRefList GeometryNode::MaterialsAttr() const
+{
+    ResourceRefList ret(Material::TypeStatic());
+    
+    ret.names.Resize(batches.Size());
+    for (size_t i = 0; i < batches.Size(); ++i)
+        ret.names[i] = ResourceName(batches[i].material.Get());
+
+    return ret;
 }
 
 }
