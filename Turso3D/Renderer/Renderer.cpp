@@ -101,43 +101,8 @@ void BatchQueue::Sort()
 Renderer::Renderer() :
     frameNumber(0),
     instanceTransformsDirty(false),
-    objectsPrepared(false),
     perFrameConstantsSet(false)
 {
-    Vector<Constant> constants;
-    
-    vsFrameConstantBuffer = new ConstantBuffer();
-    constants.Push(Constant(ELEM_MATRIX3X4, "viewMatrix"));
-    constants.Push(Constant(ELEM_MATRIX4, "projectionMatrix"));
-    constants.Push(Constant(ELEM_MATRIX4, "viewProjMatrix"));
-    vsFrameConstantBuffer->Define(USAGE_DEFAULT, constants);
-
-    psFrameConstantBuffer = new ConstantBuffer();
-    constants.Clear();
-    constants.Push(Constant(ELEM_VECTOR4, "ambientColor"));
-    psFrameConstantBuffer->Define(USAGE_DEFAULT, constants);
-
-    vsObjectConstantBuffer = new ConstantBuffer();
-    constants.Clear();
-    constants.Push(Constant(ELEM_MATRIX3X4, "worldMatrix"));
-    vsObjectConstantBuffer->Define(USAGE_DEFAULT, constants);
-
-    psLightConstantBuffer = new ConstantBuffer();
-    constants.Clear();
-    constants.Push(Constant(ELEM_VECTOR4, "lightPositions", MAX_LIGHTS_PER_PASS));
-    constants.Push(Constant(ELEM_VECTOR4, "lightDirections", MAX_LIGHTS_PER_PASS));
-    constants.Push(Constant(ELEM_VECTOR4, "lightColors", MAX_LIGHTS_PER_PASS));
-    constants.Push(Constant(ELEM_VECTOR4, "lightAttenuations", MAX_LIGHTS_PER_PASS));
-    psLightConstantBuffer->Define(USAGE_DEFAULT, constants);
-
-    // Instance vertex buffer contains texcoords 4-6 which define the instances' world matrices
-    instanceVertexBuffer = new VertexBuffer();
-    instanceVertexElements.Push(VertexElement(ELEM_VECTOR4, SEM_TEXCOORD, INSTANCE_TEXCOORD, true));
-    instanceVertexElements.Push(VertexElement(ELEM_VECTOR4, SEM_TEXCOORD, INSTANCE_TEXCOORD + 1, true));
-    instanceVertexElements.Push(VertexElement(ELEM_VECTOR4, SEM_TEXCOORD, INSTANCE_TEXCOORD + 2, true));
-
-    // Setup ambient light only -pass
-    ambientLightPass.psIdx = LIGHTBIT_AMBIENT;
 }
 
 Renderer::~Renderer()
@@ -148,9 +113,9 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
 {
     PROFILE(CollectObjects);
 
-    // Acquire Graphics subsystem now
+    // Acquire Graphics subsystem now, which needs to be initialized with a screen mode
     if (!graphics)
-        graphics = Subsystem<Graphics>();
+        Initialize();
 
     geometries.Clear();
     lights.Clear();
@@ -190,7 +155,6 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     
     CollectLightInteractions();
 
-    objectsPrepared = false;
     perFrameConstantsSet = false;
 }
 
@@ -199,9 +163,15 @@ void Renderer::CollectLightInteractions()
     {
         PROFILE(CollectLightInteractions);
 
+        bool geometriesPrepared = false;
+
+        // Prepare geometries for rendering and add any directional lights to them
         for (auto it = lights.Begin(); it != lights.End(); ++it)
         {
             Light* light = *it;
+            if (light->GetLightType() != LIGHT_DIRECTIONAL)
+                continue;
+            
             unsigned lightMask = light->LightMask();
 
             // Create a light list that contains only this light. It will be used for nodes that have no light interactions so far
@@ -210,33 +180,62 @@ void Renderer::CollectLightInteractions()
             lightList->lights.Push(light);
             lightList->key = key;
 
-            switch (light->GetLightType())
+            for (auto it = geometries.Begin(); it != geometries.End(); ++it)
             {
-            case LIGHT_DIRECTIONAL:
-                for (auto gIt = geometries.Begin(); gIt != geometries.End(); ++gIt)
+                GeometryNode* node = *it;
+                if (!geometriesPrepared)
                 {
-                    GeometryNode* node = *gIt;
-                    if (lightMask & node->LayerMask())
-                        AddLightToNode(node, light, lightList);
+                    /// \todo Collect combined scene bounding box here if needed for shadow mapping
+                    node->OnPrepareRender(camera);
+                    node->lightList = nullptr;
+                    node->lastFrameNumber = frameNumber;
                 }
-                break;
-
-            case LIGHT_POINT:
-                litGeometries.Clear();
-                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldSphere(), NF_ENABLED | NF_GEOMETRY,
-                    lightMask);
-                for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
-                    AddLightToNode(*gIt, light, lightList);
-                break;
-
-            case LIGHT_SPOT:
-                litGeometries.Clear();
-                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldFrustum(), NF_ENABLED | NF_GEOMETRY,
-                    lightMask);
-                for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
-                    AddLightToNode(*gIt, light, lightList);
-                break;
+                if (node->LayerMask() & lightMask)
+                    AddLightToNode(node, light, lightList);
             }
+
+            geometriesPrepared = true;
+        }
+
+        // If no directional lights, update geometries separately
+        if (!geometriesPrepared)
+        {
+            for (auto it = geometries.Begin(); it != geometries.End(); ++it)
+            {
+                GeometryNode* node = *it;
+                node->OnPrepareRender(camera);
+                node->lightList = nullptr;
+                node->lastFrameNumber = frameNumber;
+            }
+        }
+
+        // Finally add point and spot lights
+        for (auto it = lights.Begin(); it != lights.End(); ++it)
+        {
+            Light* light = *it;
+            if (light->GetLightType() == LIGHT_DIRECTIONAL)
+                continue;
+
+            litGeometries.Clear();
+            if (light->GetLightType() == LIGHT_POINT)
+            {
+                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldSphere(), NF_ENABLED | NF_GEOMETRY,
+                    light->LightMask());
+            }
+            else
+            {
+                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldFrustum(), NF_ENABLED | NF_GEOMETRY,
+                    light->LightMask());
+            }
+
+            // Create a light list that contains only this light. It will be used for nodes that have no light interactions so far
+            unsigned long long key = (unsigned long long)light;
+            LightList* lightList = &lightLists[key];
+            lightList->lights.Push(light);
+            lightList->key = key;
+            
+            for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
+                AddLightToNode(*gIt, light, lightList);
         }
     }
 
@@ -319,12 +318,7 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
             GeometryNode* node = *gIt;
             const Vector<SourceBatch>& sourceBatches = node->Batches();
 
-            // Prepare scene node for rendering now
-            if (!objectsPrepared)
-                node->OnPrepareRender(camera);
-
-            // If node's lastFrameNumber is unchanged, it has no light interactions this frame
-            LightList* lightList = node->lastFrameNumber == frameNumber ? node->lightList : nullptr;
+            LightList* lightList = node->lightList;
 
             // Loop through node's batches
             for (auto bIt = sourceBatches.Begin(); bIt != sourceBatches.End(); ++bIt)
@@ -364,8 +358,6 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
                 }
             }
         }
-
-        objectsPrepared = true;
     }
 
     for (auto pIt = currentQueues.Begin(); pIt != currentQueues.End(); ++pIt)
@@ -528,12 +520,52 @@ void Renderer::RenderBatches(const String& pass)
     }
 }
 
+void Renderer::Initialize()
+{
+    graphics = Subsystem<Graphics>();
+    assert(graphics && graphics->IsInitialized());
+
+    Vector<Constant> constants;
+
+    vsFrameConstantBuffer = new ConstantBuffer();
+    constants.Push(Constant(ELEM_MATRIX3X4, "viewMatrix"));
+    constants.Push(Constant(ELEM_MATRIX4, "projectionMatrix"));
+    constants.Push(Constant(ELEM_MATRIX4, "viewProjMatrix"));
+    vsFrameConstantBuffer->Define(USAGE_DEFAULT, constants);
+
+    psFrameConstantBuffer = new ConstantBuffer();
+    constants.Clear();
+    constants.Push(Constant(ELEM_VECTOR4, "ambientColor"));
+    psFrameConstantBuffer->Define(USAGE_DEFAULT, constants);
+
+    vsObjectConstantBuffer = new ConstantBuffer();
+    constants.Clear();
+    constants.Push(Constant(ELEM_MATRIX3X4, "worldMatrix"));
+    vsObjectConstantBuffer->Define(USAGE_DEFAULT, constants);
+
+    psLightConstantBuffer = new ConstantBuffer();
+    constants.Clear();
+    constants.Push(Constant(ELEM_VECTOR4, "lightPositions", MAX_LIGHTS_PER_PASS));
+    constants.Push(Constant(ELEM_VECTOR4, "lightDirections", MAX_LIGHTS_PER_PASS));
+    constants.Push(Constant(ELEM_VECTOR4, "lightColors", MAX_LIGHTS_PER_PASS));
+    constants.Push(Constant(ELEM_VECTOR4, "lightAttenuations", MAX_LIGHTS_PER_PASS));
+    psLightConstantBuffer->Define(USAGE_DEFAULT, constants);
+
+    // Instance vertex buffer contains texcoords 4-6 which define the instances' world matrices
+    instanceVertexBuffer = new VertexBuffer();
+    instanceVertexElements.Push(VertexElement(ELEM_VECTOR4, SEM_TEXCOORD, INSTANCE_TEXCOORD, true));
+    instanceVertexElements.Push(VertexElement(ELEM_VECTOR4, SEM_TEXCOORD, INSTANCE_TEXCOORD + 1, true));
+    instanceVertexElements.Push(VertexElement(ELEM_VECTOR4, SEM_TEXCOORD, INSTANCE_TEXCOORD + 2, true));
+
+    // Setup ambient light only -pass
+    ambientLightPass.psIdx = LIGHTBIT_AMBIENT;
+}
+
 void Renderer::AddLightToNode(GeometryNode* node, Light* light, LightList* lightList)
 {
-    if (node->lastFrameNumber != frameNumber)
+    if (!node->lightList)
     {
         // First light assigned on this frame
-        node->lastFrameNumber = frameNumber;
         node->lightList = lightList;
     }
     else

@@ -104,7 +104,7 @@ public:
 
     /// %Light list for rendering. Assigned by Renderer.
     LightList* lightList;
-    /// Last frame number of light list modification. Used to detect unlit objects without an extra pass through all geometries.
+    /// Last frame number of being visible. Assigned by Renderer.
     unsigned lastFrameNumber;
 
 protected:

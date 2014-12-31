@@ -31,12 +31,11 @@ public:
         log = new Log();
         input = new Input();
         profiler = new Profiler();
-
         graphics = new Graphics();
+        renderer = new Renderer();
+
         graphics->RenderWindow()->SetTitle("Renderer test");
         graphics->SetMode(IntVector2(640, 480), false, true);
-
-        renderer = new Renderer();
 
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &RendererTest::HandleCloseRequest);
 
@@ -67,13 +66,22 @@ public:
 
         float yaw = 0.0f, pitch = 0.0f;
         HiresTimer frameTimer;
+        Timer profilerTimer;
         float dt = 0.0f;
         bool animate = false;
         Quaternion nodeRot = Quaternion::IDENTITY;
+        String profilerOutput;
 
         for (;;)
         {
             frameTimer.Reset();
+            if (profilerTimer.ElapsedMSec() >= 1000)
+            {
+                profilerOutput = profiler->OutputResults();
+                profilerTimer.Reset();
+                profiler->BeginInterval();
+            }
+
             profiler->BeginFrame();
 
             input->Update();
@@ -131,14 +139,7 @@ public:
             dt = frameTimer.ElapsedUSec() * 0.000001f;
         }
 
-        profiler->BeginFrame();
-        {
-            PROFILE(DestroyScene);
-            scene.Reset();
-        }
-        profiler->EndFrame();
-
-        LOGRAW(profiler->OutputResults());
+        LOGRAW(profilerOutput);
     }
 
     void HandleCloseRequest(Event& /* event */)

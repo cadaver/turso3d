@@ -250,6 +250,8 @@ public:
     Material* DefaultMaterial();
 
 private:
+    /// Initialize. Needs the Graphics subsystem and rendering context to exist.
+    void Initialize();
     /// Assign a light list to a node. Creates new light lists as necessary to handle multiple lights.
     void AddLightToNode(GeometryNode* node, Light* light, LightList* lightList);
     /// Sort batch queue. For distance sorted queues, build instances after sorting.
@@ -311,8 +313,6 @@ private:
     unsigned frameNumber;
     /// Instance vertex buffer dirty flag.
     bool instanceTransformsDirty;
-    /// Objects prepared flag.
-    bool objectsPrepared;
     /// Per frame constants set flag.
     bool perFrameConstantsSet;
 };
