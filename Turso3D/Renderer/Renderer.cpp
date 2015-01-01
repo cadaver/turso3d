@@ -235,7 +235,12 @@ void Renderer::CollectLightInteractions()
             lightList->key = key;
             
             for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
-                AddLightToNode(*gIt, light, lightList);
+            {
+                GeometryNode* node = *gIt;
+                // Add light only to nodes which are actually inside the frustum this frame
+                if (node->lastFrameNumber == frameNumber)
+                    AddLightToNode(node, light, lightList);
+            }
         }
     }
 
