@@ -4,8 +4,11 @@
 
 #include "../Base/AutoPtr.h"
 #include "../Graphics/GraphicsDefs.h"
+#include "../Graphics/Texture.h"
+#include "../Math/AreaAllocator.h"
 #include "../Math/Color.h"
 #include "../Math/Frustum.h"
+#include "../Resource/Image.h"
 #include "GeometryNode.h"
 
 namespace Turso3D
@@ -223,6 +226,44 @@ struct TURSO3D_API BatchQueue
     unsigned char additiveIndex;
 };
 
+/// Shadow map data structure.
+struct TURSO3D_API ShadowMap
+{
+    /// Default-construct.
+    ShadowMap();
+    /// Destruct.
+    ~ShadowMap();
+
+    /// Rectangle allocator.
+    AreaAllocator allocator;
+    /// Shadow texture.
+    SharedPtr<Texture> texture;
+};
+
+/// Shadow rendering view.
+struct TURSO3D_API ShadowView
+{
+    /// Shadow camera.
+    Camera* shadowCamera;
+    /// Viewport within the shadow map.
+    IntRect viewport;
+    /// Shadow caster geometries.
+    Vector<GeometryNode>* shadowCasters;
+    /// Shadow batch queue.
+    BatchQueue shadowQueue;
+};
+
+/// Shadowed light structure.
+struct TURSO3D_API ShadowLight
+{
+    /// Shadow-casting light.
+    Light* light;
+    /// Shadow map index.
+    size_t shadowMapIndex;
+    /// Shadow view indices.
+    Vector<size_t> shadowViews;
+};
+
 /// High-level rendering subsystem. Performs rendering of 3D scenes.
 class TURSO3D_API Renderer : public Object
 {
@@ -234,6 +275,8 @@ public:
     /// Destruct.
     ~Renderer();
 
+    /// Set number, size and format of shadow maps. These will be divided among the lights that need to render shadow maps.
+    void SetupShadowMaps(size_t num, const IntVector2& size, ImageFormat format);
     /// Initialize rendering of a new view and collect visible objects from the camera's point of view.
     void CollectObjects(Scene* scene, Camera* camera);
     /// Collect light interactions with geometries from the current view.
@@ -246,8 +289,6 @@ public:
     void CollectBatches(size_t numPasses, const PassDesc* passes);
     /// Render a specific pass.
     void RenderBatches(const String& pass);
-    /// Return default material (opaque white.)
-    Material* DefaultMaterial();
 
 private:
     /// Initialize. Needs the Graphics subsystem and rendering context to exist.
@@ -307,6 +348,14 @@ private:
     HashMap<unsigned long long, LightList> lightLists;
     /// %Light passes.
     HashMap<unsigned long long, LightPass> lightPasses;
+    /// Shadow maps.
+    Vector<ShadowMap> shadowMaps;
+    /// Shadow cameras.
+    Vector<SharedPtr<Camera> > shadowCameras;
+    /// Shadow casting lights.
+    Vector<ShadowLight> shadowLights;
+    /// Shadow camera views.
+    Vector<ShadowView> shadowViews;
     /// Ambient only light pass.
     LightPass ambientLightPass;
     /// Current frame number.

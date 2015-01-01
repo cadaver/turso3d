@@ -6,6 +6,7 @@
 #include "../Graphics/Graphics.h"
 #include "../Graphics/Shader.h"
 #include "../Graphics/ShaderVariation.h"
+#include "../Graphics/Texture.h"
 #include "../Graphics/VertexBuffer.h"
 #include "../Resource/ResourceCache.h"
 #include "../Scene/Scene.h"
@@ -98,6 +99,16 @@ void BatchQueue::Sort()
     }
 }
 
+ShadowMap::ShadowMap()
+{
+    // Construct texture but do not define its size yet
+    texture = new Texture();
+}
+
+ShadowMap::~ShadowMap()
+{
+}
+
 Renderer::Renderer() :
     frameNumber(0),
     instanceTransformsDirty(false),
@@ -107,6 +118,13 @@ Renderer::Renderer() :
 
 Renderer::~Renderer()
 {
+}
+
+void Renderer::SetupShadowMaps(size_t num, const IntVector2& size, ImageFormat format)
+{
+    shadowMaps.Resize(num);
+    for (auto it = shadowMaps.Begin(); it != shadowMaps.End(); ++it)
+        it->texture->Define(TEX_2D, USAGE_RENDERTARGET, size.x, size.y, format, 1);
 }
 
 void Renderer::CollectObjects(Scene* scene_, Camera* camera_)

@@ -8,7 +8,6 @@
 #include "Camera.h"
 #include "GeometryNode.h"
 #include "Material.h"
-#include "Renderer.h"
 
 #include "../Debug/DebugNew.h"
 
