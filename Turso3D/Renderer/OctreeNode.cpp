@@ -19,6 +19,17 @@ OctreeNode::~OctreeNode()
     RemoveFromOctree();
 }
 
+void OctreeNode::RegisterObject()
+{
+    CopyBaseAttributes<OctreeNode, SpatialNode>();
+    RegisterAttribute("castShadows", &OctreeNode::CastShadows, &OctreeNode::SetCastShadows, false);
+}
+
+void OctreeNode::SetCastShadows(bool enable)
+{
+    SetFlag(NF_CASTSHADOWS, enable);
+}
+
 void OctreeNode::OnRaycast(Vector<RaycastResult>& dest, const Ray& ray, float maxDistance)
 {
     float distance = ray.HitDistance(WorldBoundingBox());

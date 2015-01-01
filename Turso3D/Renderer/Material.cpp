@@ -15,9 +15,9 @@ namespace Turso3D
 {
 
 SharedPtr<Material> Material::defaultMaterial;
-HashMap<String, unsigned> Material::passIndices;
+HashMap<String, unsigned char> Material::passIndices;
 Vector<String> Material::passNames;
-unsigned Material::nextPassIndex = 0;
+unsigned char Material::nextPassIndex = 0;
 
 Pass::Pass(Material* parent_, const String& name_) :
     parent(parent_),
@@ -231,17 +231,13 @@ bool Material::EndLoad()
     }
     
     /// \todo Queue texture loads during BeginLoad()
-    textures.Clear();
+    ResetTextures();
     if (root.Contains("textures"))
     {
         ResourceCache* cache = Subsystem<ResourceCache>();
         const JSONObject& jsonTextures = root["textures"].GetObject();
         for (auto it = jsonTextures.Begin(); it != jsonTextures.End(); ++it)
-        {
-            size_t unit = it->first.ToInt();
-            if (unit < MAX_TEXTURE_UNITS)
-                SetTexture(unit, cache->LoadResource<Texture>(it->second.GetString()));
-        }
+            SetTexture(it->first.ToInt(), cache->LoadResource<Texture>(it->second.GetString()));
     }
 
     loadJSON.Reset();
@@ -277,15 +273,11 @@ bool Material::Save(Stream& dest)
     if (constantBuffers[SHADER_PS])
         constantBuffers[SHADER_PS]->SaveJSON(root["psConstantBuffer"]);
 
-    if (textures.Size())
+    root["textures"].SetEmptyObject();
+    for (size_t i = 0; i < MAX_MATERIAL_TEXTURE_UNITS; ++i)
     {
-        root["textures"].SetEmptyObject();
-        for (auto it = textures.Begin(); it != textures.End(); ++it)
-        {
-            Texture* tex = it->second;
-            if (tex)
-                root["textures"][String((int)it->first)] = tex->Name();
-        }
+        if (textures[i])
+            root["textures"][String((int)i)] = textures[i]->Name();
     }
 
     return saveJSON.Save(dest);
@@ -312,19 +304,14 @@ void Material::RemovePass(const String& name)
 
 void Material::SetTexture(size_t index, Texture* texture)
 {
-    if (index < MAX_TEXTURE_UNITS)
+    if (index < MAX_MATERIAL_TEXTURE_UNITS)
         textures[index] = texture;
-}
-
-void Material::RemoveTexture(size_t index)
-{
-    if (index < MAX_TEXTURE_UNITS)
-        textures.Erase(index);
 }
 
 void Material::ResetTextures()
 {
-    textures.Clear();
+    for (size_t i = 0; i < MAX_MATERIAL_TEXTURE_UNITS; ++i)
+        textures[i].Reset();
 }
 
 void Material::SetConstantBuffer(ShaderStage stage, ConstantBuffer* buffer)
@@ -352,15 +339,14 @@ Pass* Material::FindPass(const String& name) const
     return GetPass(PassIndex(name, false));
 }
 
-Pass* Material::GetPass(size_t index) const
+Pass* Material::GetPass(unsigned char index) const
 {
     return index < passes.Size() ? passes[index].Get() : nullptr;
 }
 
 Texture* Material::GetTexture(size_t index) const
 {
-    auto it = textures.Find(index);
-    return it != textures.End() ? it->second.Get() : nullptr;
+    return index < MAX_MATERIAL_TEXTURE_UNITS ? textures[index].Get() : nullptr;
 }
 
 ConstantBuffer* Material::GetConstantBuffer(ShaderStage stage) const
@@ -373,7 +359,7 @@ const String& Material::ShaderDefines(ShaderStage stage) const
     return stage < MAX_SHADER_STAGES ? shaderDefines[stage] : String::EMPTY;
 }
 
-unsigned Material::PassIndex(const String& name, bool createNew)
+unsigned char Material::PassIndex(const String& name, bool createNew)
 {
     String nameLower = name.ToLower();
     auto it = passIndices.Find(nameLower);
@@ -388,11 +374,11 @@ unsigned Material::PassIndex(const String& name, bool createNew)
             return nextPassIndex++;
         }
         else
-            return M_MAX_UNSIGNED;
+            return 0xff;
     }
 }
 
-const String& Material::PassName(size_t index)
+const String& Material::PassName(unsigned char index)
 {
     return index < passNames.Size() ? passNames[index] : String::EMPTY;
 }
@@ -405,6 +391,7 @@ Material* Material::DefaultMaterial()
         defaultMaterial = new Material();
         Pass* pass = defaultMaterial->CreatePass("opaque");
         pass->SetShaders("NoTexture", "NoTexture");
+
         pass = defaultMaterial->CreatePass("opaqueadd");
         pass->SetShaders("NoTexture", "NoTexture");
         pass->SetBlendMode(BLEND_MODE_ADD);

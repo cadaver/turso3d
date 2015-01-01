@@ -40,6 +40,7 @@ void Light::RegisterObject()
 {
     RegisterFactory<Light>();
 
+    CopyBaseAttributes<Light, OctreeNode>();
     RegisterAttribute("lightType", &Light::LightTypeAttr, &Light::SetLightTypeAttr, (int)DEFAULT_LIGHTTYPE, lightTypeNames);
     RegisterRefAttribute("color", &Light::GetColor, &Light::SetColor, DEFAULT_COLOR);
     RegisterAttribute("range", &Light::Range, &Light::SetRange, DEFAULT_RANGE);

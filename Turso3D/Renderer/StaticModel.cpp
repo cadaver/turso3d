@@ -29,7 +29,9 @@ StaticModel::~StaticModel()
 void StaticModel::RegisterObject()
 {
     RegisterFactory<StaticModel>();
-    CopyBaseAttributes<StaticModel, SpatialNode>();
+    // Copy base attributes from OctreeNode instead of GeometryNode, as the model attribute needs to be set first so that
+    // there is the correct amount of materials to assign
+    CopyBaseAttributes<StaticModel, OctreeNode>();
     RegisterMixedRefAttribute("model", &StaticModel::ModelAttr, &StaticModel::SetModelAttr, ResourceRef(Model::TypeStatic()));
     RegisterMixedRefAttribute("materials", &GeometryNode::MaterialsAttr, &GeometryNode::SetMaterialsAttr,
         ResourceRefList(Material::TypeStatic()));

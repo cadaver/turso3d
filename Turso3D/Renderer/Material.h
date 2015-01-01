@@ -105,9 +105,7 @@ public:
     void RemovePass(const String& name);
     /// Set a texture.
     void SetTexture(size_t index, Texture* texture);
-    /// Remove a texture.
-    void RemoveTexture(size_t index);
-    /// Remove all textures.
+    /// Reset all texture assignments.
     void ResetTextures();
     /// Set a constant buffer.
     void SetConstantBuffer(ShaderStage stage, ConstantBuffer* buffer);
@@ -117,7 +115,7 @@ public:
     /// Return pass by name or null if not found. Should not be called in performance-sensitive rendering loops.
     Pass* FindPass(const String& name) const;
     /// Return pass by index or null if not found.
-    Pass* GetPass(size_t index) const;
+    Pass* GetPass(unsigned char index) const;
     /// Return texture by texture unit.
     Texture* GetTexture(size_t index) const;
     /// Return constant buffer by stage.
@@ -126,14 +124,14 @@ public:
     const String& ShaderDefines(ShaderStage stage) const;
 
     /// Return pass index from name. By default reserve a new index if the name was not known.
-    static unsigned PassIndex(const String& name, bool createNew = true);
+    static unsigned char PassIndex(const String& name, bool createNew = true);
     /// Return pass name by index.
-    static const String& PassName(size_t index);
+    static const String& PassName(unsigned char index);
     /// Return a default opaque untextured material.
     static Material* DefaultMaterial();
 
     /// Material textures.
-    HashMap<size_t, SharedPtr<Texture> > textures;
+    SharedPtr<Texture> textures[MAX_MATERIAL_TEXTURE_UNITS];
     /// Constant buffers.
     SharedPtr<ConstantBuffer> constantBuffers[MAX_SHADER_STAGES];
     /// Global shader defines.
@@ -148,11 +146,11 @@ private:
     /// Default material.
     static SharedPtr<Material> defaultMaterial;
     /// Pass name to index mapping.
-    static HashMap<String, unsigned> passIndices;
+    static HashMap<String, unsigned char> passIndices;
     /// Pass names by index.
     static Vector<String> passNames;
     /// Next free pass index.
-    static unsigned nextPassIndex;
+    static unsigned char nextPassIndex;
 };
 
 }

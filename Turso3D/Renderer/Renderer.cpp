@@ -300,7 +300,7 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
     for (size_t i = 0; i < numPasses; ++i)
     {
         const PassDesc& srcPass = passes_[i];
-        size_t baseIndex = Material::PassIndex(srcPass.name);
+        unsigned char baseIndex = Material::PassIndex(srcPass.name);
         BatchQueue* batchQueue = &batchQueues[baseIndex];
         currentQueues[i] = batchQueue;
         batchQueue->sort = srcPass.sort;
@@ -406,7 +406,7 @@ void Renderer::RenderBatches(const String& pass)
     {
         PROFILE(SubmitDrawCalls);
 
-        size_t passIndex = Material::PassIndex(pass);
+        unsigned char passIndex = Material::PassIndex(pass);
         BatchQueue& batchQueue = batchQueues[passIndex];
         Vector<Batch>& batches = batchQueue.batches;
         Pass* lastPass = nullptr;
@@ -455,11 +455,10 @@ void Renderer::RenderBatches(const String& pass)
                 Material* material = pass->Parent();
                 if (material != lastMaterial)
                 {
-                    const HashMap<size_t, SharedPtr<Texture> >& textures = material->textures;
-                    for (auto it = textures.Begin(); it != textures.End(); ++it)
+                    for (size_t i = 0; i < MAX_MATERIAL_TEXTURE_UNITS; ++i)
                     {
-                        if (it->second)
-                            graphics->SetTexture(it->first, it->second.Get());
+                        if (material->textures[i])
+                            graphics->SetTexture(i, material->textures[i]);
                     }
                     graphics->SetConstantBuffer(SHADER_VS, CB_MATERIAL, material->constantBuffers[SHADER_VS].Get());
                     graphics->SetConstantBuffer(SHADER_PS, CB_MATERIAL, material->constantBuffers[SHADER_PS].Get());
@@ -681,13 +680,14 @@ void RegisterRendererLibrary()
 
     // Scene node base attributes are needed
     RegisterSceneLibrary();
+    Octree::RegisterObject();
     Camera::RegisterObject();
+    OctreeNode::RegisterObject();
     GeometryNode::RegisterObject();
+    StaticModel::RegisterObject();
     Light::RegisterObject();
     Material::RegisterObject();
     Model::RegisterObject();
-    Octree::RegisterObject();
-    StaticModel::RegisterObject();
 }
 
 }

@@ -49,7 +49,7 @@ static const size_t PS_LIGHT_ATTENUATIONS = 2;
 static const size_t PS_LIGHT_COLORS = 3;
 
 /// Texture coordinate index for the instance world matrix.
-static const unsigned char INSTANCE_TEXCOORD = 4;
+static const size_t INSTANCE_TEXCOORD = 4;
 
 /// Maximum number of lights per pass.
 static const size_t MAX_LIGHTS_PER_PASS = 4;
@@ -218,9 +218,9 @@ struct TURSO3D_API BatchQueue
     /// Lighting flag.
     bool lit;
     /// Base pass index.
-    size_t baseIndex;
+    unsigned char baseIndex;
     /// Additive pass index (if needed.)
-    size_t additiveIndex;
+    unsigned char additiveIndex;
 };
 
 /// High-level rendering subsystem. Performs rendering of 3D scenes.
@@ -296,7 +296,7 @@ private:
     /// Lights in frustum.
     Vector<Light*> lights;
     /// Batch queues per pass.
-    HashMap<size_t, BatchQueue> batchQueues;
+    HashMap<unsigned char, BatchQueue> batchQueues;
     /// Current batch queues being filled.
     Vector<BatchQueue*> currentQueues;
     /// Instance transforms for uploading to the instance vertex buffer.

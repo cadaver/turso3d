@@ -19,6 +19,7 @@ static const unsigned short NF_BOUNDING_BOX_DIRTY = 0x20;
 static const unsigned short NF_OCTREE_UPDATE_QUEUED = 0x40;
 static const unsigned short NF_GEOMETRY = 0x80;
 static const unsigned short NF_LIGHT = 0x100;
+static const unsigned short NF_CASTSHADOWS = 0x200;
 static const unsigned char LAYER_DEFAULT = 0x0;
 static const unsigned char TAG_NONE = 0x0;
 static const unsigned LAYERMASK_ALL = 0xffffffff;
@@ -84,7 +85,7 @@ public:
     void RemoveChild(size_t index);
     /// Remove all child nodes.
     void RemoveAllChildren();
-    /// Remove self immediately. As this will delete the node (if no other strong references) no operations on the node are valid after calling this.
+    /// Remove self immediately. As this will delete the node (if no other strong references exist) no operations on the node are permitted after calling this.
     void RemoveSelf();
     /// Create child node of the specified type, template version.
     template <class T> T* CreateChild() { return static_cast<T*>(CreateChild(T::TypeStatic())); }

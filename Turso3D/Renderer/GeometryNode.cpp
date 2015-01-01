@@ -51,7 +51,7 @@ GeometryNode::~GeometryNode()
 void GeometryNode::RegisterObject()
 {
     RegisterFactory<GeometryNode>();
-    CopyBaseAttributes<GeometryNode, SpatialNode>();
+    CopyBaseAttributes<GeometryNode, OctreeNode>();
     RegisterMixedRefAttribute("materials", &GeometryNode::MaterialsAttr, &GeometryNode::SetMaterialsAttr,
         ResourceRefList(Material::TypeStatic()));
 }

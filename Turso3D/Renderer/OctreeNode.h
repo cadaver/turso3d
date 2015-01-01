@@ -26,9 +26,17 @@ public:
     /// Destruct. Remove self from the octree.
     ~OctreeNode();
 
+    /// Register attributes.
+    static void RegisterObject();
+
     /// Perform ray test on self and add possible hit to the result vector.
     virtual void OnRaycast(Vector<RaycastResult>& dest, const Ray& ray, float maxDistance);
 
+    /// Set whether to cast shadows. Default false on both lights and geometries.
+    void SetCastShadows(bool enable);
+
+    /// Return whether casts shadows.
+    bool CastShadows() const { return TestFlag(NF_CASTSHADOWS); }
     /// Return current octree this node resides in.
     Octree* CurrentOctree() const { return octree; }
     /// Return current octree octant this node resides in.

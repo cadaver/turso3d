@@ -24,6 +24,8 @@ static const size_t MAX_VERTEX_STREAMS = 4;
 static const size_t MAX_CONSTANT_BUFFERS = 15;
 /// Maximum number of textures in use at once.
 static const size_t MAX_TEXTURE_UNITS = 16;
+/// Maximum number of textures reserved for materials, starting from 0.
+static const size_t MAX_MATERIAL_TEXTURE_UNITS = 8;
 /// Maximum number of color rendertargets in use at once.
 static const size_t MAX_RENDERTARGETS = 4;
 
