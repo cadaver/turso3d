@@ -65,8 +65,7 @@ Texture::Texture() :
     sampler(nullptr),
     type(TEX_2D),
     usage(USAGE_DEFAULT),
-    width(0),
-    height(0),
+    size(IntVector2::ZERO),
     format(FMT_NONE)
 {
 }
@@ -141,7 +140,7 @@ void Texture::Release()
     }
 }
 
-bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int height_, ImageFormat format_, size_t numLevels_, const ImageLevel* initialData)
+bool Texture::Define(TextureType type_, ResourceUsage usage_, const IntVector2& size_, ImageFormat format_, size_t numLevels_, const ImageLevel* initialData)
 {
     PROFILE(DefineTexture);
 
@@ -170,8 +169,8 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int he
 
         D3D11_TEXTURE2D_DESC textureDesc;
         memset(&textureDesc, 0, sizeof textureDesc);
-        textureDesc.Width = width_;
-        textureDesc.Height = height_;
+        textureDesc.Width = size_.x;
+        textureDesc.Height = size_.y;
         textureDesc.MipLevels = (unsigned)numLevels_;
         textureDesc.ArraySize = 1;
         textureDesc.Format = textureFormat[format_];
@@ -204,8 +203,7 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int he
         d3dDevice->CreateTexture2D(&textureDesc, subResourceData.Size() ? &subResourceData[0] : (D3D11_SUBRESOURCE_DATA*)0, (ID3D11Texture2D**)&texture);
         if (!texture)
         {
-            width = 0;
-            height = 0;
+            size = IntVector2::ZERO;
             format = FMT_NONE;
             numLevels = 0;
 
@@ -214,12 +212,11 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int he
         }
         else
         {
-            width = width_;
-            height = height_;
+            size = size_;
             format = format_;
             numLevels = numLevels_;
 
-            LOGDEBUGF("Created texture width %d height %d format %d numLevels %d", width, height, (int)format, numLevels);
+            LOGDEBUGF("Created texture width %d height %d format %d numLevels %d", size.x, size.y, (int)format, numLevels);
         }
 
         D3D11_SHADER_RESOURCE_VIEW_DESC resourceViewDesc;
@@ -338,7 +335,7 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
             return false;
         }
 
-        IntRect levelRect(0, 0, Max(width >> level, 1), Max(height >> level, 1));
+        IntRect levelRect(0, 0, Max(size.x >> level, 1), Max(size.y >> level, 1));
         if (levelRect.IsInside(rect) != INSIDE)
         {
             LOGERROR("Texture update region is outside level");

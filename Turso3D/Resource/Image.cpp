@@ -221,8 +221,7 @@ struct DDSurfaceDesc2
 /// \endcond
 
 Image::Image() :
-    width(0),
-    height(0),
+    size(IntVector2::ZERO),
     format(FMT_NONE),
     numLevels(1)
 {
@@ -271,8 +270,7 @@ bool Image::BeginLoad(Stream& source)
 
         size_t dataSize = source.Size() - source.Position();
         data = new unsigned char[dataSize];
-        width = ddsd.dwWidth;
-        height = ddsd.dwHeight;
+        size = IntVector2(ddsd.dwWidth, ddsd.dwHeight);
         numLevels = ddsd.dwMipMapCount ? ddsd.dwMipMapCount : 1;
         source.Read(data.Get(), dataSize);
     }
@@ -364,8 +362,7 @@ bool Image::BeginLoad(Stream& source)
         size_t dataSize = source.Size() - source.Position() - mipmaps * sizeof(unsigned);
 
         data = new unsigned char[dataSize];
-        width = imageWidth;
-        height = imageHeight;
+        size = IntVector2(imageWidth, imageHeight);
         numLevels = mipmaps;
 
         size_t dataOffset = 0;
@@ -457,8 +454,7 @@ bool Image::BeginLoad(Stream& source)
         size_t dataSize = source.Size() - source.Position();
 
         data = new unsigned char[dataSize];
-        width = imageWidth;
-        height = imageHeight;
+        size = IntVector2(imageWidth, imageHeight);
         numLevels = mipmapCount;
 
         source.Read(data.Get(), dataSize);
@@ -476,7 +472,7 @@ bool Image::BeginLoad(Stream& source)
             return false;
         }
         
-        SetSize(imageWidth, imageHeight, componentsToFormat[imageComponents]);
+        SetSize(IntVector2(imageWidth, imageHeight), componentsToFormat[imageComponents]);
 
         if (imageComponents != 3)
             SetData(pixelData);
@@ -527,20 +523,20 @@ bool Image::Save(Stream& dest)
     }
 
     int len;
-    unsigned char *png = stbi_write_png_to_mem(data.Get(), 0, width, height, components, &len);
+    unsigned char *png = stbi_write_png_to_mem(data.Get(), 0, size.x, size.y, components, &len);
     bool success = dest.Write(png, len) == (size_t)len;
     free(png);
     return success;
 }
 
-void Image::SetSize(int newWidth, int newHeight, ImageFormat newFormat)
+void Image::SetSize(const IntVector2& newSize, ImageFormat newFormat)
 {
-    if (newWidth == width && newHeight == height && newFormat == format)
+    if (newSize == size && newFormat == format)
         return;
 
-    if (newWidth <= 0 || newHeight <= 0)
+    if (newSize.x <= 0 || newSize.y <= 0)
     {
-        LOGERROR("Can not set negative image size");
+        LOGERROR("Can not set zero or negative image size");
         return;
     }
     if (pixelByteSizes[newFormat] == 0)
@@ -549,9 +545,8 @@ void Image::SetSize(int newWidth, int newHeight, ImageFormat newFormat)
         return;
     }
 
-    data = new unsigned char[newWidth * newHeight * pixelByteSizes[newFormat]];
-    width = newWidth;
-    height = newHeight;
+    data = new unsigned char[newSize.x * newSize.y * pixelByteSizes[newFormat]];
+    size = newSize;
     format = newFormat;
     numLevels = 1;
 }
@@ -559,7 +554,7 @@ void Image::SetSize(int newWidth, int newHeight, ImageFormat newFormat)
 void Image::SetData(const unsigned char* pixelData)
 {
     if (!IsCompressed())
-        memcpy(data.Get(), pixelData, width * height * PixelByteSize());
+        memcpy(data.Get(), pixelData, size.x * size.y * PixelByteSize());
     else
         LOGERROR("Can not set pixel data of a compressed image");
 }
@@ -592,101 +587,57 @@ bool Image::GenerateMipImage(Image& dest) const
         return false;
     }
 
-    int widthOut = width / 2;
-    int heightOut = height / 2;
-
-    if (widthOut < 1)
-        widthOut = 1;
-    if (heightOut < 1)
-        heightOut = 1;
-
-    dest.SetSize(widthOut, heightOut, format);
+    IntVector2 sizeOut(Max(size.x / 2, 1), Max(size.y / 2, 1));
+    dest.SetSize(sizeOut, format);
 
     const unsigned char* pixelDataIn = data.Get();
     unsigned char* pixelDataOut = dest.data.Get();
 
-    // 1D case
-    if (height == 1 || width == 1)
+    switch (components)
     {
-        // Loop using the larger dimension
-        if (widthOut < heightOut)
-            widthOut = heightOut;
-
-        switch (components)
+    case 1:
+        for (int y = 0; y < sizeOut.y; ++y)
         {
-        case 1:
-            for (int x = 0; x < widthOut; ++x)
-                pixelDataOut[x] = ((unsigned)pixelDataIn[x*2] + pixelDataIn[x*2+1]) >> 1;
-            break;
+            const unsigned char* inUpper = &pixelDataIn[(y * 2) * size.x];
+            const unsigned char* inLower = &pixelDataIn[(y * 2 + 1) * size.x];
+            unsigned char* out = &pixelDataOut[y * sizeOut.x];
 
-        case 2:
-            for (int x = 0; x < widthOut*2; x += 2)
-            {
-                pixelDataOut[x] = ((unsigned)pixelDataIn[x*2] + pixelDataIn[x*2+2]) >> 1;
-                pixelDataOut[x+1] = ((unsigned)pixelDataIn[x*2+1] + pixelDataIn[x*2+3]) >> 1;
-            }
-            break;
-
-        case 4:
-            for (int x = 0; x < widthOut*4; x += 4)
-            {
-                pixelDataOut[x] = ((unsigned)pixelDataIn[x*2] + pixelDataIn[x*2+4]) >> 1;
-                pixelDataOut[x+1] = ((unsigned)pixelDataIn[x*2+1] + pixelDataIn[x*2+5]) >> 1;
-                pixelDataOut[x+2] = ((unsigned)pixelDataIn[x*2+2] + pixelDataIn[x*2+6]) >> 1;
-                pixelDataOut[x+3] = ((unsigned)pixelDataIn[x*2+3] + pixelDataIn[x*2+7]) >> 1;
-            }
-            break;
+            for (int x = 0; x < sizeOut.x; ++x)
+                out[x] = ((unsigned)inUpper[x * 2] + inUpper[x * 2 + 1] + inLower[x * 2] + inLower[x * 2 + 1]) >> 2;
         }
-    }
-    // 2D case
-    else
-    {
-        switch (components)
+        break;
+
+    case 2:
+        for (int y = 0; y < sizeOut.y; ++y)
         {
-        case 1:
-            for (int y = 0; y < heightOut; ++y)
+            const unsigned char* inUpper = &pixelDataIn[(y * 2) * size.x * 2];
+            const unsigned char* inLower = &pixelDataIn[(y * 2 + 1) * size.x * 2];
+            unsigned char* out = &pixelDataOut[y * sizeOut.x * 2];
+
+            for (int x = 0; x < sizeOut.x * 2; x += 2)
             {
-                const unsigned char* inUpper = &pixelDataIn[(y*2)*width];
-                const unsigned char* inLower = &pixelDataIn[(y*2+1)*width];
-                unsigned char* out = &pixelDataOut[y*widthOut];
-
-                for (int x = 0; x < widthOut; ++x)
-                    out[x] = ((unsigned)inUpper[x*2] + inUpper[x*2+1] + inLower[x*2] + inLower[x*2+1]) >> 2;
+                out[x] = ((unsigned)inUpper[x * 2] + inUpper[x * 2 + 2] + inLower[x * 2] + inLower[x * 2 + 2]) >> 2;
+                out[x + 1] = ((unsigned)inUpper[x * 2 + 1] + inUpper[x * 2 + 3] + inLower[x * 2 + 1] + inLower[x * 2 + 3]) >> 2;
             }
-            break;
-
-        case 2:
-            for (int y = 0; y < heightOut; ++y)
-            {
-                const unsigned char* inUpper = &pixelDataIn[(y*2)*width*2];
-                const unsigned char* inLower = &pixelDataIn[(y*2+1)*width*2];
-                unsigned char* out = &pixelDataOut[y*widthOut*2];
-
-                for (int x = 0; x < widthOut*2; x += 2)
-                {
-                    out[x] = ((unsigned)inUpper[x*2] + inUpper[x*2+2] + inLower[x*2] + inLower[x*2+2]) >> 2;
-                    out[x+1] = ((unsigned)inUpper[x*2+1] + inUpper[x*2+3] + inLower[x*2+1] + inLower[x*2+3]) >> 2;
-                }
-            }
-            break;
-
-        case 4:
-            for (int y = 0; y < heightOut; ++y)
-            {
-                const unsigned char* inUpper = &pixelDataIn[(y*2)*width*4];
-                const unsigned char* inLower = &pixelDataIn[(y*2+1)*width*4];
-                unsigned char* out = &pixelDataOut[y*widthOut*4];
-
-                for (int x = 0; x < widthOut*4; x += 4)
-                {
-                    out[x] = ((unsigned)inUpper[x*2] + inUpper[x*2+4] + inLower[x*2] + inLower[x*2+4]) >> 2;
-                    out[x+1] = ((unsigned)inUpper[x*2+1] + inUpper[x*2+5] + inLower[x*2+1] + inLower[x*2+5]) >> 2;
-                    out[x+2] = ((unsigned)inUpper[x*2+2] + inUpper[x*2+6] + inLower[x*2+2] + inLower[x*2+6]) >> 2;
-                    out[x+3] = ((unsigned)inUpper[x*2+3] + inUpper[x*2+7] + inLower[x*2+3] + inLower[x*2+7]) >> 2;
-                }
-            }
-            break;
         }
+        break;
+
+    case 4:
+        for (int y = 0; y < sizeOut.y; ++y)
+        {
+            const unsigned char* inUpper = &pixelDataIn[(y * 2) * size.x * 4];
+            const unsigned char* inLower = &pixelDataIn[(y * 2 + 1) * size.x * 4];
+            unsigned char* out = &pixelDataOut[y * sizeOut.x * 4];
+
+            for (int x = 0; x < sizeOut.x * 4; x += 4)
+            {
+                out[x] = ((unsigned)inUpper[x * 2] + inUpper[x * 2 + 4] + inLower[x * 2] + inLower[x * 2 + 4]) >> 2;
+                out[x + 1] = ((unsigned)inUpper[x * 2 + 1] + inUpper[x * 2 + 5] + inLower[x * 2 + 1] + inLower[x * 2 + 5]) >> 2;
+                out[x + 2] = ((unsigned)inUpper[x * 2 + 2] + inUpper[x * 2 + 6] + inLower[x * 2 + 2] + inLower[x * 2 + 6]) >> 2;
+                out[x + 3] = ((unsigned)inUpper[x * 2 + 3] + inUpper[x * 2 + 7] + inLower[x * 2 + 3] + inLower[x * 2 + 7]) >> 2;
+            }
+        }
+        break;
     }
 
     return true;
@@ -704,11 +655,10 @@ ImageLevel Image::Level(size_t index) const
 
     for (;;)
     {
-        level.width = Max(width >> i, 1);
-        level.height = Max(height >> i, 1);
+        level.size = IntVector2(Max(size.x >> i, 1), Max(size.y >> i, 1));
         level.data = data.Get() + offset;
 
-        size_t dataSize = CalculateDataSize(level.width, level.height, format, &level.rows, &level.rowSize);
+        size_t dataSize = CalculateDataSize(level.size, format, &level.rows, &level.rowSize);
         if (i == index)
             return level;
 
@@ -740,18 +690,18 @@ bool Image::DecompressLevel(unsigned char* dest, size_t index) const
     case FMT_DXT1:
     case FMT_DXT3:
     case FMT_DXT5:
-        DecompressImageDXT(dest, level.data, level.width, level.height, format);
+        DecompressImageDXT(dest, level.data, level.size.x, level.size.y, format);
         break;
 
     case FMT_ETC1:
-        DecompressImageETC(dest, level.data, level.width, level.height);
+        DecompressImageETC(dest, level.data, level.size.x, level.size.y);
         break;
 
     case FMT_PVRTC_RGB_2BPP:
     case FMT_PVRTC_RGBA_2BPP:
     case FMT_PVRTC_RGB_4BPP:
     case FMT_PVRTC_RGBA_4BPP:
-        DecompressImagePVRTC(dest, level.data, level.width, level.height, format);
+        DecompressImagePVRTC(dest, level.data, level.size.x, level.size.y, format);
         break;
 
     default:
@@ -762,28 +712,28 @@ bool Image::DecompressLevel(unsigned char* dest, size_t index) const
     return true;
 }
 
-size_t Image::CalculateDataSize(int width, int height, ImageFormat format, size_t* dstRows, size_t* dstRowSize)
+size_t Image::CalculateDataSize(const IntVector2& size, ImageFormat format, size_t* dstRows, size_t* dstRowSize)
 {
     size_t rows, rowSize, dataSize;
 
     if (format < FMT_DXT1)
     {
-        rows = height;
-        rowSize = width * pixelByteSizes[format];
+        rows = size.y;
+        rowSize = size.x * pixelByteSizes[format];
         dataSize = rows * rowSize;
     }
     else if (format < FMT_PVRTC_RGB_2BPP)
     {
         size_t blockSize = (format == FMT_DXT1 || format == FMT_ETC1) ? 8 : 16;
-        rows = (height + 3) / 4;
-        rowSize = ((width + 3) / 4) * blockSize;
+        rows = (size.y + 3) / 4;
+        rowSize = ((size.x + 3) / 4) * blockSize;
         dataSize = rows * rowSize;
     }
     else
     {
         size_t blockSize = format < FMT_PVRTC_RGB_4BPP ? 2 : 4;
-        size_t dataWidth = Max(width, blockSize == 2 ? 16 : 8);
-        rows = Max(height, 8);
+        size_t dataWidth = Max(size.x, blockSize == 2 ? 16 : 8);
+        rows = Max(size.y, 8);
         dataSize = (dataWidth * rows * blockSize + 7) >> 3;
         rowSize = dataSize / rows;
     }

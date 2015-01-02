@@ -109,8 +109,18 @@ ShadowMap::~ShadowMap()
 {
 }
 
+ShadowView::ShadowView() :
+    shadowCamera(new Camera())
+{
+}
+
+ShadowView::~ShadowView()
+{
+}
+
 Renderer::Renderer() :
     frameNumber(0),
+    usedShadowViews(0),
     instanceTransformsDirty(false),
     perFrameConstantsSet(false)
 {
@@ -120,11 +130,15 @@ Renderer::~Renderer()
 {
 }
 
-void Renderer::SetupShadowMaps(size_t num, const IntVector2& size, ImageFormat format)
+void Renderer::SetupShadowMaps(size_t num, int size, ImageFormat format)
 {
+    if (size < 1)
+        size = 1;
+    size = NextPowerOfTwo(size);
+
     shadowMaps.Resize(num);
     for (auto it = shadowMaps.Begin(); it != shadowMaps.End(); ++it)
-        it->texture->Define(TEX_2D, USAGE_RENDERTARGET, size.x, size.y, format, 1);
+        it->texture->Define(TEX_2D, USAGE_RENDERTARGET, IntVector2(size, size), format, 1);
 }
 
 void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
@@ -142,6 +156,10 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     lightPasses.Clear();
     for (auto it = batchQueues.Begin(); it != batchQueues.End(); ++it)
         it->second.Clear();
+    shadowLights.Clear();
+    for (auto it = shadowViews.Begin(); it != shadowViews.End(); ++it)
+        it->shadowQueue.Clear();
+    usedShadowViews = 0;
 
     scene = scene_;
     camera = camera_;
@@ -187,6 +205,8 @@ void Renderer::CollectLightInteractions()
         for (auto it = lights.Begin(); it != lights.End(); ++it)
         {
             Light* light = *it;
+            light->hasReceivers = false;
+
             if (light->GetLightType() != LIGHT_DIRECTIONAL)
                 continue;
             
@@ -228,6 +248,7 @@ void Renderer::CollectLightInteractions()
         }
 
         // Finally add point and spot lights
+        /// \todo The frustum queries can be threaded
         for (auto it = lights.Begin(); it != lights.End(); ++it)
         {
             Light* light = *it;
@@ -299,6 +320,15 @@ void Renderer::CollectLightInteractions()
                     list.lightPasses.Push(newLightPass);
                 }
             }
+        }
+    }
+
+    {
+        /// \todo Thread this
+        PROFILE(ProcessShadowLights);
+
+        for (auto it = lights.Begin(); it != lights.End(); ++it)
+        {
         }
     }
 }
@@ -585,6 +615,8 @@ void Renderer::Initialize()
 
 void Renderer::AddLightToNode(GeometryNode* node, Light* light, LightList* lightList)
 {
+    light->hasReceivers = true;
+
     if (!node->lightList)
     {
         // First light assigned on this frame

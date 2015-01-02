@@ -125,8 +125,7 @@ Texture::Texture() :
     texture(0),
     type(TEX_2D),
     usage(USAGE_DEFAULT),
-    width(0),
-    height(0),
+    size(IntVector2::ZERO),
     format(FMT_NONE)
 {
 }
@@ -188,11 +187,11 @@ void Texture::Recreate()
     }
 
     // If failed to reload, recreate the texture without data and mark data lost
-    Define(type, usage, width, height, format, numLevels);
+    Define(type, usage, size, format, numLevels);
     SetDataLost(true);
 }
 
-bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int height_, ImageFormat format_, size_t numLevels_, const ImageLevel* initialData)
+bool Texture::Define(TextureType type_, ResourceUsage usage_, const IntVector2& size_, ImageFormat format_, size_t numLevels_, const ImageLevel* initialData)
 {
     PROFILE(DefineTexture);
 
@@ -220,8 +219,7 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int he
         glGenTextures(1, &texture);
         if (!texture)
         {
-            width = 0;
-            height = 0;
+            size = IntVector2::ZERO;
             format = FMT_NONE;
             numLevels = 0;
 
@@ -232,28 +230,27 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, int width_, int he
         // Ensure the texture is bound for creation
         graphics->SetTexture(0, this);
 
-        width = width_;
-        height = height_;
+        size = size_;
         format = format_;
         numLevels = numLevels_;
 
         // If not compressed and no initial data, create the initial level 0 texture with null data
         if (!IsCompressed() && !initialData)
-            glTexImage2D(glTargets[type], 0, glInternalFormats[format], width, height, 0, glFormats[format], glDataTypes[format], 0);
+            glTexImage2D(glTargets[type], 0, glInternalFormats[format], size.x, size.y, 0, glFormats[format], glDataTypes[format], 0);
 
         if (initialData)
         {
             // Hack for allowing immutable texture to set initial data
             usage = USAGE_DEFAULT;
             for (size_t i = 0; i < numLevels; ++i)
-                SetData(i, IntRect(0, 0, Max(width >> i, 1), Max(height >> i, 1)), initialData[i]);
+                SetData(i, IntRect(0, 0, Max(size.x >> i, 1), Max(size.y >> i, 1)), initialData[i]);
             usage = usage_;
         }
 
         glTexParameteri(glTargets[type], GL_TEXTURE_BASE_LEVEL, 0);
         glTexParameteri(glTargets[type], GL_TEXTURE_MAX_LEVEL, (unsigned)numLevels - 1);
 
-        LOGDEBUGF("Created texture width %d height %d format %d numLevels %d", width, height, (int)format, numLevels);
+        LOGDEBUGF("Created texture width %d height %d format %d numLevels %d", size.x, size.y, (int)format, numLevels);
     }
 
     return true;
@@ -344,7 +341,7 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
             return false;
         }
         
-        IntRect levelRect(0, 0, Max(width >> level, 1), Max(height >> level, 1));
+        IntRect levelRect(0, 0, Max(size.x >> level, 1), Max(size.y >> level, 1));
         if (levelRect.IsInside(rect) != INSIDE)
         {
             LOGERRORF("Texture update region %s is outside level %s", rect.ToString().CString(), levelRect.ToString().CString());
@@ -373,12 +370,13 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
             if (wholeLevel)
             {
                 glCompressedTexImage2D(glTargets[type], (unsigned)level, glInternalFormats[format], rect.Width(), rect.Height(),
-                    0, (unsigned)Image::CalculateDataSize(rect.Width(), rect.Height(), format), data.data);
+                    0, (unsigned)Image::CalculateDataSize(IntVector2(rect.Width(), rect.Height()), format), data.data);
             }
             else
             {
                 glCompressedTexSubImage2D(glTargets[type], (unsigned)level, rect.left, rect.top, rect.Width(), rect.Height(),
-                    glFormats[format], (unsigned)Image::CalculateDataSize(rect.Width(), rect.Height(), format), data.data);
+                    glFormats[format], (unsigned)Image::CalculateDataSize(IntVector2(rect.Width(), rect.Height()), format),
+                    data.data);
             }
         }
     }

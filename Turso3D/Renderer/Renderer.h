@@ -240,19 +240,6 @@ struct TURSO3D_API ShadowMap
     SharedPtr<Texture> texture;
 };
 
-/// Shadow rendering view.
-struct TURSO3D_API ShadowView
-{
-    /// Shadow camera.
-    Camera* shadowCamera;
-    /// Viewport within the shadow map.
-    IntRect viewport;
-    /// Shadow caster geometries.
-    Vector<GeometryNode>* shadowCasters;
-    /// Shadow batch queue.
-    BatchQueue shadowQueue;
-};
-
 /// Shadowed light structure.
 struct TURSO3D_API ShadowLight
 {
@@ -262,6 +249,24 @@ struct TURSO3D_API ShadowLight
     size_t shadowMapIndex;
     /// Shadow view indices.
     Vector<size_t> shadowViews;
+};
+
+/// Shadow rendering view.
+struct TURSO3D_API ShadowView
+{
+    /// Default-construct. Create the shadow camera.
+    ShadowView();
+    /// Destruct.
+    ~ShadowView();
+
+    /// Shadow camera.
+    SharedPtr<Camera> shadowCamera;
+    /// Viewport within the shadow map.
+    IntRect viewport;
+    /// Shadow caster geometries.
+    Vector<GeometryNode>* shadowCasters;
+    /// Shadow batch queue.
+    BatchQueue shadowQueue;
 };
 
 /// High-level rendering subsystem. Performs rendering of 3D scenes.
@@ -276,7 +281,7 @@ public:
     ~Renderer();
 
     /// Set number, size and format of shadow maps. These will be divided among the lights that need to render shadow maps.
-    void SetupShadowMaps(size_t num, const IntVector2& size, ImageFormat format);
+    void SetupShadowMaps(size_t num, int size, ImageFormat format);
     /// Initialize rendering of a new view and collect visible objects from the camera's point of view.
     void CollectObjects(Scene* scene, Camera* camera);
     /// Collect light interactions with geometries from the current view.
@@ -350,8 +355,6 @@ private:
     HashMap<unsigned long long, LightPass> lightPasses;
     /// Shadow maps.
     Vector<ShadowMap> shadowMaps;
-    /// Shadow cameras.
-    Vector<SharedPtr<Camera> > shadowCameras;
     /// Shadow casting lights.
     Vector<ShadowLight> shadowLights;
     /// Shadow camera views.
@@ -360,6 +363,8 @@ private:
     LightPass ambientLightPass;
     /// Current frame number.
     unsigned frameNumber;
+    /// Used shadow views so far.
+    size_t usedShadowViews;
     /// Instance vertex buffer dirty flag.
     bool instanceTransformsDirty;
     /// Per frame constants set flag.

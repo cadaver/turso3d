@@ -13,6 +13,7 @@ static const LightType DEFAULT_LIGHTTYPE = LIGHT_POINT;
 static const Color DEFAULT_COLOR = Color(1.0f, 1.0f, 1.0f, 0.5f);
 static const float DEFAULT_RANGE = 10.0f;
 static const float DEFAULT_FOV = 30.0f;
+static const int DEFAULT_SHADOWMAP_SIZE = 512;
 
 static const char* lightTypeNames[] =
 {
@@ -27,7 +28,10 @@ Light::Light() :
     color(DEFAULT_COLOR),
     range(DEFAULT_RANGE),
     fov(DEFAULT_FOV),
-    lightMask(M_MAX_UNSIGNED)
+    lightMask(M_MAX_UNSIGNED),
+    shadowMapSize(DEFAULT_SHADOWMAP_SIZE),
+    shadowMap(nullptr),
+    hasReceivers(false)
 {
     SetFlag(NF_LIGHT, true);
 }
@@ -46,6 +50,7 @@ void Light::RegisterObject()
     RegisterAttribute("range", &Light::Range, &Light::SetRange, DEFAULT_RANGE);
     RegisterAttribute("fov", &Light::Fov, &Light::SetFov, DEFAULT_FOV);
     RegisterAttribute("lightMask", &Light::LightMask, &Light::SetLightMask, M_MAX_UNSIGNED);
+    RegisterAttribute("shadowMapSize", &Light::ShadowMapSize, &Light::SetShadowMapSize, DEFAULT_SHADOWMAP_SIZE);
 }
 
 void Light::OnRaycast(Vector<RaycastResult>& dest, const Ray& ray, float maxDistance)
@@ -120,6 +125,14 @@ void Light::SetFov(float fov_)
 void Light::SetLightMask(unsigned lightMask_)
 {
     lightMask = lightMask_;
+}
+
+void Light::SetShadowMapSize(int size)
+{
+    if (size < 1)
+        size = 1;
+
+    shadowMapSize = NextPowerOfTwo(size);
 }
 
 Frustum Light::WorldFrustum() const

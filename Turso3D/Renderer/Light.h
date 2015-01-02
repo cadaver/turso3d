@@ -10,6 +10,8 @@
 namespace Turso3D
 {
 
+class Texture;
+
 /// %Light types.
 enum LightType
 {
@@ -21,6 +23,8 @@ enum LightType
 /// Dynamic light scene node.
 class TURSO3D_API Light : public OctreeNode
 {
+    friend class Renderer;
+
     OBJECT(Light);
     
 public:
@@ -45,6 +49,8 @@ public:
     void SetFov(float fov);
     /// Set light layer mask. Will be checked against scene objects' layers to see what objects to illuminate.
     void SetLightMask(unsigned mask);
+    /// Set shadow map resolution in pixels.
+    void SetShadowMapSize(int size);
 
     /// Return light type.
     LightType GetLightType() const { return lightType; }
@@ -56,6 +62,8 @@ public:
     float Fov() const { return fov; }
     /// Return light layer mask.
     unsigned LightMask() const { return lightMask; }
+    /// Return shadow map resolution in pixels.
+    int ShadowMapSize() const { return shadowMapSize; }
     /// Return spotlight world space frustum.
     Frustum WorldFrustum() const;
     /// Return point light world space sphere.
@@ -81,6 +89,12 @@ private:
     float fov;
     /// Light layer mask.
     unsigned lightMask;
+    /// Shadow map resolution in pixels.
+    int shadowMapSize;
+    /// Current shadow map texture. Assigned by Renderer.
+    Texture* shadowMap;
+    /// Whether has light receiver geometries. Assigned by Renderer.
+    bool hasReceivers;
 };
 
 }

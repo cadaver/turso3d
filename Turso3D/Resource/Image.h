@@ -3,6 +3,7 @@
 #pragma once
 
 #include "../Base/AutoPtr.h"
+#include "../Math/IntVector2.h"
 #include "Resource.h"
 
 struct SDL_Surface;
@@ -47,8 +48,7 @@ struct TURSO3D_API ImageLevel
     /// Default construct.
     ImageLevel() :
         data(nullptr),
-        width(0),
-        height(0),
+        size(IntVector2::ZERO),
         rowSize(0),
         rows(0)
     {
@@ -56,10 +56,8 @@ struct TURSO3D_API ImageLevel
 
     /// Pointer to pixel data.
     unsigned char* data;
-    /// Level width.
-    int width;
-    /// Level height.
-    int height;
+    /// Level size.
+    IntVector2 size;
     /// Row size in bytes.
     size_t rowSize;
     /// Number of rows.
@@ -86,14 +84,16 @@ public:
     bool Save(Stream& dest) override;
 
     /// Set new image pixel dimensions and format. Setting a compressed format is not supported.
-    void SetSize(int newWidth, int newHeight, ImageFormat newFormat);
+    void SetSize(const IntVector2& newSize, ImageFormat newFormat);
     /// Set new pixel data.
     void SetData(const unsigned char* pixelData);
 
+    /// Return image dimensions in pixels.
+    const IntVector2& Size() const { return size; }
     /// Return image width in pixels.
-    int Width() const { return width; }
+    int Width() const { return size.x; }
     /// Return image height in pixels.
-    int Height() const { return height; }
+    int Height() const { return size.y; }
     /// Return number of components in a pixel. Will return 0 for formats which are not 8 bits per pixel.
     int Components() const { return components[format]; }
     /// Return byte size of a pixel. Will return 0 for block compressed formats.
@@ -114,7 +114,7 @@ public:
     bool DecompressLevel(unsigned char* dest, size_t levelIndex) const;
 
     /// Calculate the data size of an image level.
-    static size_t CalculateDataSize(int width, int height, ImageFormat format, size_t* numRows = 0, size_t* rowSize = 0);
+    static size_t CalculateDataSize(const IntVector2& size, ImageFormat format, size_t* numRows = 0, size_t* rowSize = 0);
 
     /// Pixel components per format.
     static const int components[];
@@ -127,10 +127,8 @@ private:
     /// Free the decoded pixel data.
     static void FreePixelData(unsigned char* pixelData);
 
-    /// Image width in pixels.
-    int width;
-    /// Image height in pixels.
-    int height;
+    /// Image dimensions.
+    IntVector2 size;
     /// Image format.
     ImageFormat format;
     /// Number of mip levels. 1 for uncompressed images.

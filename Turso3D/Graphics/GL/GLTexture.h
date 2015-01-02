@@ -37,7 +37,7 @@ public:
     void Recreate() override;
 
     /// Define texture type and dimensions and set initial data. %ImageLevel structures only need the data pointer and row pitch filled. Return true on success.
-    bool Define(TextureType type, ResourceUsage usage, int width, int height, ImageFormat format, size_t numLevels, const ImageLevel* initialData = 0);
+    bool Define(TextureType type, ResourceUsage usage, const IntVector2& size, ImageFormat format, size_t numLevels, const ImageLevel* initialData = 0);
     /// Define sampling parameters. Return true on success.
     bool DefineSampler(TextureFilterMode filter = FILTER_TRILINEAR, TextureAddressMode u = ADDRESS_WRAP, TextureAddressMode v = ADDRESS_WRAP, TextureAddressMode w = ADDRESS_WRAP, unsigned maxAnisotropy = 16, float minLod = 0, float maxLod = M_INFINITY, const Color& borderColor = Color::BLACK);
     /// Set data for a mipmap level. Not supported for immutable textures. Return true on success.
@@ -45,10 +45,12 @@ public:
 
     /// Return texture type.
     TextureType TexType() const { return type; }
+    /// Return dimensions.
+    const IntVector2& Size() const { return size; }
     /// Return width.
-    int Width() const { return width; }
+    int Width() const { return size.x; }
     /// Return height.
-    int Height() const { return height; }
+    int Height() const { return size.y; }
     /// Return image format.
     ImageFormat Format() const { return format; }
     /// Return whether uses a compressed format.
@@ -91,10 +93,8 @@ private:
     TextureType type;
     /// Texture usage mode.
     ResourceUsage usage;
-    /// Texture width in pixels.
-    int width;
-    /// Texture height in pixels.
-    int height;
+    /// Texture dimensions in pixels.
+    IntVector2 size;
     /// Image format.
     ImageFormat format;
     /// Number of mipmap levels.

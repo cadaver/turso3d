@@ -28,7 +28,7 @@ bool Texture::BeginLoad(Stream& source)
     if (loadImages[0]->Format() >= FMT_ETC1)
     {
         Image* rgbaImage = new Image();
-        rgbaImage->SetSize(loadImages[0]->Width(), loadImages[0]->Height(), FMT_RGBA8);
+        rgbaImage->SetSize(loadImages[0]->Size(), FMT_RGBA8);
         loadImages[0]->DecompressLevel(rgbaImage->Data(), 0);
         loadImages[0] = rgbaImage; // This destroys the original compressed image
     }
@@ -63,7 +63,7 @@ bool Texture::EndLoad()
     }
 
     Image* image = loadImages[0];
-    bool success = Define(TEX_2D, USAGE_IMMUTABLE, image->Width(), image->Height(), image->Format(), initialData.Size(), &initialData[0]);
+    bool success = Define(TEX_2D, USAGE_IMMUTABLE, image->Size(), image->Format(), initialData.Size(), &initialData[0]);
     /// \todo Read a parameter file for the sampling parameters
     success &= DefineSampler(FILTER_TRILINEAR, ADDRESS_WRAP, ADDRESS_WRAP, ADDRESS_WRAP, 16, 0.0f, M_INFINITY, Color::BLACK);
 

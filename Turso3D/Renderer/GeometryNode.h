@@ -64,6 +64,10 @@ struct TURSO3D_API SourceBatch
 /// Base class for scene nodes that contain geometry to be rendered.
 class TURSO3D_API GeometryNode : public OctreeNode
 {
+    friend class Renderer;
+
+    OBJECT(GeometryNode);
+
 public:
     /// Construct.
     GeometryNode();
@@ -102,11 +106,6 @@ public:
     /// Return squared distance from camera in the current view.
     float SquaredDistance() const { return squaredDistance; }
 
-    /// %Light list for rendering. Assigned by Renderer.
-    LightList* lightList;
-    /// Last frame number of being visible. Assigned by Renderer.
-    unsigned lastFrameNumber;
-
 protected:
     /// Recalculate the world space bounding box.
     void OnWorldBoundingBoxUpdate() const override;
@@ -115,15 +114,19 @@ protected:
     /// Return materials list. Used in serialization.
     ResourceRefList MaterialsAttr() const;
 
+    /// %Light list for rendering. Assigned by Renderer.
+    LightList* lightList;
+    /// Last frame number of being visible. Assigned by Renderer.
+    unsigned lastFrameNumber;
     /// Geometry type.
     GeometryType geometryType;
     /// Draw call source datas.
     Vector<SourceBatch> batches;
-    /// Local space bounding box.
-    BoundingBox boundingBox;
     /// Squared distance from camera in the current view.
     /// \todo Should be per-batch to allow correct distance sorting of alpha-blended submeshes
     float squaredDistance;
+    /// Local space bounding box.
+    BoundingBox boundingBox;
 };
 
 }

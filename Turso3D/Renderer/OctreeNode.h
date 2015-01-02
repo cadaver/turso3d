@@ -16,8 +16,6 @@ struct RaycastResult;
 /// Base class for scene nodes that insert themselves to the octree for rendering.
 class TURSO3D_API OctreeNode : public SpatialNode
 {
-    OBJECT(OctreeNode);
-
     friend class Octree;
 
 public:
