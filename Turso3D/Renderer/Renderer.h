@@ -164,51 +164,8 @@ struct TURSO3D_API BatchQueue
     void Clear();
     /// Sort batches and build instances in distance sorted mode.
     void Sort();
-
     /// Add a batch.
-    void AddBatch(Batch& batch, GeometryNode* node, bool isAdditive)
-    {
-        if (sort == SORT_STATE)
-        {
-            if (batch.type == GEOM_STATIC)
-            {
-                batch.type = GEOM_INSTANCED;
-                batch.CalculateSortKey(isAdditive);
-
-                // Check if instance batch already exists
-                auto iIt = instanceLookup.Find(batch.sortKey);
-                if (iIt != instanceLookup.End())
-                    instanceDatas[iIt->second].worldMatrices.Push(&node->WorldTransform());
-                else
-                {
-                    // Begin new instanced batch
-                    size_t newInstanceDataIndex = instanceDatas.Size();
-                    instanceLookup[batch.sortKey] = newInstanceDataIndex;
-                    batch.instanceDataIndex = newInstanceDataIndex;
-                    batches.Push(batch);
-                    instanceDatas.Resize(newInstanceDataIndex + 1);
-                    InstanceData& newInstanceData = instanceDatas.Back();
-                    newInstanceData.skipBatches = false;
-                    newInstanceData.worldMatrices.Push(&node->WorldTransform());
-                }
-            }
-            else
-            {
-                batch.worldMatrix = &node->WorldTransform();
-                batch.CalculateSortKey(isAdditive);
-                batches.Push(batch);
-            }
-        }
-        else
-        {
-            batch.worldMatrix = &node->WorldTransform();
-            batch.distance = node->SquaredDistance();
-            // Push additive passes slightly to front to make them render after base passes
-            if (isAdditive)
-                batch.distance *= 0.999999f;
-            batches.Push(batch);
-        }
-    }
+    void AddBatch(Batch& batch, GeometryNode* node, bool isAdditive);
     
     /// Batches, which may be instanced or non-instanced.
     Vector<Batch> batches;

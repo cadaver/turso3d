@@ -60,6 +60,50 @@ void BatchQueue::Clear()
     instanceLookup.Clear();
 }
 
+void BatchQueue::AddBatch(Batch& batch, GeometryNode* node, bool isAdditive)
+{
+    if (sort == SORT_STATE)
+    {
+        if (batch.type == GEOM_STATIC)
+        {
+            batch.type = GEOM_INSTANCED;
+            batch.CalculateSortKey(isAdditive);
+
+            // Check if instance batch already exists
+            auto iIt = instanceLookup.Find(batch.sortKey);
+            if (iIt != instanceLookup.End())
+                instanceDatas[iIt->second].worldMatrices.Push(&node->WorldTransform());
+            else
+            {
+                // Begin new instanced batch
+                size_t newInstanceDataIndex = instanceDatas.Size();
+                instanceLookup[batch.sortKey] = newInstanceDataIndex;
+                batch.instanceDataIndex = newInstanceDataIndex;
+                batches.Push(batch);
+                instanceDatas.Resize(newInstanceDataIndex + 1);
+                InstanceData& newInstanceData = instanceDatas.Back();
+                newInstanceData.skipBatches = false;
+                newInstanceData.worldMatrices.Push(&node->WorldTransform());
+            }
+        }
+        else
+        {
+            batch.worldMatrix = &node->WorldTransform();
+            batch.CalculateSortKey(isAdditive);
+            batches.Push(batch);
+        }
+    }
+    else
+    {
+        batch.worldMatrix = &node->WorldTransform();
+        batch.distance = node->SquaredDistance();
+        // Push additive passes slightly to front to make them render after base passes
+        if (isAdditive)
+            batch.distance *= 0.999999f;
+        batches.Push(batch);
+    }
+}
+
 void BatchQueue::Sort()
 {
     PROFILE(SortBatches);
@@ -330,16 +374,17 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
     {
         PROFILE(BuildBatches);
 
-        // Loop through scene nodes
+        Vector<BatchQueue*>::Iterator pBegin = currentQueues.Begin();
+        Vector<BatchQueue*>::Iterator pEnd = currentQueues.End();
+
+        // Loop through geometry nodes
         for (auto gIt = geometries.Begin(), gEnd = geometries.End(); gIt != gEnd; ++gIt)
         {
             GeometryNode* node = *gIt;
-            const Vector<SourceBatch>& sourceBatches = node->Batches();
-
             LightList* lightList = node->lightList;
 
-            // Loop through node's batches
-            for (auto bIt = sourceBatches.Begin(), bEnd = sourceBatches.End(); bIt != bEnd; ++bIt)
+            // Loop through node's geometries
+            for (auto bIt = node->Batches().Begin(), bEnd = node->Batches().End(); bIt != bEnd; ++bIt)
             {
                 Batch newBatch;
                 newBatch.geometry = bIt->geometry.Get();
@@ -347,7 +392,7 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
                 assert(material);
 
                 // Loop through requested passes
-                for (auto pIt = currentQueues.Begin(), pEnd = currentQueues.End(); pIt != pEnd; ++pIt)
+                for (auto pIt = pBegin; pIt != pEnd; ++pIt)
                 {
                     BatchQueue& batchQueue = **pIt;
                     newBatch.pass = material->GetPass(batchQueue.baseIndex);
