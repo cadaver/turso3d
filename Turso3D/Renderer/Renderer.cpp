@@ -72,7 +72,7 @@ void BatchQueue::Sort()
 
         // After sorting batches by distance, we need a separate step to build instances if adjacent batches have the same state
         Batch* start = nullptr;
-        for (auto it = batches.Begin(); it != batches.End(); ++it)
+        for (auto it = batches.Begin(), end = batches.End(); it != end; ++it)
         {
             Batch* current = &*it;
             if (start && current->type == GEOM_STATIC && current->pass == start->pass && current->geometry == start->geometry &&
@@ -198,7 +198,7 @@ void Renderer::CollectLightInteractions()
     {
         PROFILE(CollectLightInteractions);
 
-        for (auto it = lights.Begin(); it != lights.End(); ++it)
+        for (auto it = lights.Begin(), end = lights.End(); it != end; ++it)
         {
             Light* light = *it;
             unsigned lightMask = light->LightMask();
@@ -214,9 +214,9 @@ void Renderer::CollectLightInteractions()
             switch (light->GetLightType())
             {
             case LIGHT_DIRECTIONAL:
-                for (auto it = geometries.Begin(); it != geometries.End(); ++it)
+                for (auto gIt = geometries.Begin(), gEnd = geometries.End(); gIt != gEnd; ++gIt)
                 {
-                    GeometryNode* node = *it;
+                    GeometryNode* node = *gIt;
                     if (node->LayerMask() & lightMask)
                         AddLightToNode(node, light, lightList);
                 }
@@ -225,7 +225,7 @@ void Renderer::CollectLightInteractions()
             case LIGHT_POINT:
                 octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldSphere(), NF_ENABLED |
                     NF_GEOMETRY, lightMask);
-                for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
+                for (auto gIt = litGeometries.Begin(), gEnd = litGeometries.End(); gIt != gEnd; ++gIt)
                 {
                     GeometryNode* node = *gIt;
                     // Add light only to nodes which are actually inside the frustum this frame
@@ -237,7 +237,7 @@ void Renderer::CollectLightInteractions()
             case LIGHT_SPOT:
                 octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldFrustum(), NF_ENABLED |
                     NF_GEOMETRY, lightMask);
-                for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
+                for (auto gIt = litGeometries.Begin(), gEnd = litGeometries.End(); gIt != gEnd; ++gIt)
                 {
                     GeometryNode* node = *gIt;
                     if (node->lastFrameNumber == frameNumber)
@@ -252,7 +252,7 @@ void Renderer::CollectLightInteractions()
         PROFILE(BuildLightPasses);
         
         /// \todo Some light lists may not be referred to by any nodes. Creating passes for them is a waste
-        for (auto it = lightLists.Begin(); it != lightLists.End(); ++it)
+        for (auto it = lightLists.Begin(), end = lightLists.End(); it != end; ++it)
         {
             LightList& list = it->second;
             for (size_t i = 0; i < list.lights.Size(); i += MAX_LIGHTS_PER_PASS)
@@ -292,7 +292,7 @@ void Renderer::CollectLightInteractions()
         /// \todo Thread this
         PROFILE(ProcessShadowLights);
 
-        for (auto it = lights.Begin(); it != lights.End(); ++it)
+        for (auto it = lights.Begin(), end = lights.End(); it != end; ++it)
         {
         }
     }
@@ -331,7 +331,7 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
         PROFILE(BuildBatches);
 
         // Loop through scene nodes
-        for (auto gIt = geometries.Begin(); gIt != geometries.End(); ++gIt)
+        for (auto gIt = geometries.Begin(), gEnd = geometries.End(); gIt != gEnd; ++gIt)
         {
             GeometryNode* node = *gIt;
             const Vector<SourceBatch>& sourceBatches = node->Batches();
@@ -339,7 +339,7 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
             LightList* lightList = node->lightList;
 
             // Loop through node's batches
-            for (auto bIt = sourceBatches.Begin(); bIt != sourceBatches.End(); ++bIt)
+            for (auto bIt = sourceBatches.Begin(), bEnd = sourceBatches.End(); bIt != bEnd; ++bIt)
             {
                 Batch newBatch;
                 newBatch.geometry = bIt->geometry.Get();
@@ -347,7 +347,7 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
                 assert(material);
 
                 // Loop through requested passes
-                for (auto pIt = currentQueues.Begin(); pIt != currentQueues.End(); ++pIt)
+                for (auto pIt = currentQueues.Begin(), pEnd = currentQueues.End(); pIt != pEnd; ++pIt)
                 {
                     BatchQueue& batchQueue = **pIt;
                     newBatch.pass = material->GetPass(batchQueue.baseIndex);

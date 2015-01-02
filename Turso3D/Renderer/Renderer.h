@@ -319,48 +319,48 @@ private:
     Camera* camera;
     /// Current octree.
     Octree* octree;
-    /// Camera's view frustum.
-    Frustum frustum;
-    /// Camera's view mask.
-    unsigned viewMask;
-    /// Current frame number.
-    unsigned frameNumber;
-    /// Lights in frustum.
-    Vector<Light*> lights;
-    /// Geometries in frustum.
-    Vector<GeometryNode*> geometries;
-    /// Current batch queues being filled.
-    Vector<BatchQueue*> currentQueues;
-    /// Batch queues per pass.
-    HashMap<unsigned char, BatchQueue> batchQueues;
-    /// %Light lists.
-    HashMap<unsigned long long, LightList> lightLists;
-    /// %Light passes.
-    HashMap<unsigned long long, LightPass> lightPasses;
-    /// Instance transforms for uploading to the instance vertex buffer.
-    Vector<Matrix3x4> instanceTransforms;
-    /// Lit geometries query result.
-    Vector<GeometryNode*> litGeometries;
-    /// Shadow maps.
-    Vector<ShadowMap> shadowMaps;
-    /// Shadow casting lights.
-    Vector<ShadowLight> shadowLights;
-    /// Shadow camera views.
-    Vector<ShadowView> shadowViews;
-    /// Ambient only light pass.
-    LightPass ambientLightPass;
-    /// Used shadow views so far.
-    size_t usedShadowViews;
-    /// Instance vertex buffer dirty flag.
-    bool instanceTransformsDirty;
-    /// Per frame constants set flag.
-    bool perFrameConstantsSet;
     /// Camera's view matrix.
     Matrix3x4 viewMatrix;
     /// Camera's projection matrix.
     Matrix4 projectionMatrix;
     /// Combined view-projection matrix.
     Matrix4 viewProjMatrix;
+    /// Camera's view frustum.
+    Frustum frustum;
+    /// Camera's view mask.
+    unsigned viewMask;
+    /// Geometries in frustum.
+    Vector<GeometryNode*> geometries;
+    /// Lights in frustum.
+    Vector<Light*> lights;
+    /// Batch queues per pass.
+    HashMap<unsigned char, BatchQueue> batchQueues;
+    /// Current batch queues being filled.
+    Vector<BatchQueue*> currentQueues;
+    /// Instance transforms for uploading to the instance vertex buffer.
+    Vector<Matrix3x4> instanceTransforms;
+    /// Lit geometries query result.
+    Vector<GeometryNode*> litGeometries;
+    /// %Light lists.
+    HashMap<unsigned long long, LightList> lightLists;
+    /// %Light passes.
+    HashMap<unsigned long long, LightPass> lightPasses;
+    /// Ambient only light pass.
+    LightPass ambientLightPass;
+    /// Current frame number.
+    unsigned frameNumber;
+    /// Used shadow views so far.
+    size_t usedShadowViews;
+    /// Instance vertex buffer dirty flag.
+    bool instanceTransformsDirty;
+    /// Per frame constants set flag.
+    bool perFrameConstantsSet;
+    /// Shadow maps.
+    Vector<ShadowMap> shadowMaps;
+    /// Shadow casting lights.
+    Vector<ShadowLight> shadowLights;
+    /// Shadow camera views.
+    Vector<ShadowView> shadowViews;
     /// Per-frame vertex shader constant buffer.
     AutoPtr<ConstantBuffer> vsFrameConstantBuffer;
     /// Per-frame pixel shader constant buffer.
