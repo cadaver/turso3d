@@ -52,6 +52,8 @@ public:
     bool depthClip;
     /// Alpha to coverage enable.
     bool alphaToCoverage;
+    /// Color write mask.
+    unsigned char colorWriteMask;
     /// Blend mode parameters.
     BlendModeDesc blendMode;
     /// Polygon culling mode.

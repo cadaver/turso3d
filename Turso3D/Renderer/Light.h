@@ -4,6 +4,8 @@
 
 #include "../Math/Color.h"
 #include "../Math/Frustum.h"
+#include "../Math/IntRect.h"
+#include "../Math/IntVector2.h"
 #include "../Math/Sphere.h"
 #include "OctreeNode.h"
 
@@ -11,6 +13,7 @@ namespace Turso3D
 {
 
 class Texture;
+struct ShadowView;
 
 /// %Light types.
 enum LightType
@@ -51,6 +54,10 @@ public:
     void SetLightMask(unsigned mask);
     /// Set shadow map resolution in pixels.
     void SetShadowMapSize(int size);
+    /// Set number of cascaded shadow splits (directional lights only.)
+    void SetNumCascadeSplits(int num);
+    /// Set cascade split lambda (directional lights only.)
+    void SetCascadeLambda(float lambda);
 
     /// Return light type.
     LightType GetLightType() const { return lightType; }
@@ -64,10 +71,21 @@ public:
     unsigned LightMask() const { return lightMask; }
     /// Return shadow map resolution in pixels.
     int ShadowMapSize() const { return shadowMapSize; }
+    /// Return number of cascaded shadow splits.
+    int NumCascadesplits() const { return numCascadeSplits; }
+    /// Return cascade split lambda.
+    float CascadeLambda() const { return cascadeLambda; }
+    /// Return required total shadow map size, which depends on light type and cascade splits.
+    IntVector2 TotalShadowMapSize() const;
+    /// Return number of required shadow views / cameras.
+    size_t NumShadowViews() const;
     /// Return spotlight world space frustum.
     Frustum WorldFrustum() const;
     /// Return point light world space sphere.
     Sphere WorldSphere() const;
+
+    /// Setup the provided shadow view. Called by Renderer.
+    void SetupShadowView(size_t index, ShadowView& view, const IntRect& shadowRect);
 
 protected:
     /// Recalculate the world space bounding box.
@@ -91,6 +109,10 @@ private:
     unsigned lightMask;
     /// Shadow map resolution in pixels.
     int shadowMapSize;
+    /// Cascade splits.
+    int numCascadeSplits;
+    /// Cascade lambda.
+    float cascadeLambda;
     /// Current shadow map texture. Assigned by Renderer.
     Texture* shadowMap;
     /// Whether has light receiver geometries. Assigned by Renderer.

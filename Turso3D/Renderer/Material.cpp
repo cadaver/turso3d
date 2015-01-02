@@ -50,6 +50,8 @@ bool Pass::LoadJSON(const JSONValue& source)
         depthClip = source["depthClip"].GetBool();
     if (source.Contains("alphaToCoverage"))
         alphaToCoverage = source["alphaToCoverage"].GetBool();
+    if (source.Contains("colorWriteMask"))
+        colorWriteMask = (unsigned char)source["colorWriteMask"].GetNumber();
     if (source.Contains("blendMode"))
         blendMode = blendModes[String::ListIndex(source["blendMode"].GetString(), blendModeNames, BLEND_MODE_REPLACE)];
     else
@@ -95,6 +97,7 @@ bool Pass::SaveJSON(JSONValue& dest)
     dest["depthWrite"] = depthWrite;
     dest["depthClip"] = depthClip;
     dest["alphaToCoverage"] = alphaToCoverage;
+    dest["colorWriteMask"] = colorWriteMask;
 
     // Prefer saving a predefined blend mode if possible for better readability
     bool blendModeFound = false;
@@ -145,6 +148,7 @@ void Pass::Reset()
     depthWrite = true;
     depthClip = true;
     alphaToCoverage = false;
+    colorWriteMask = COLORMASK_ALL;
     blendMode.Reset();
     cullMode = CULL_BACK;
     fillMode = FILL_SOLID;
@@ -396,6 +400,10 @@ Material* Material::DefaultMaterial()
         pass->SetShaders("NoTexture", "NoTexture");
         pass->SetBlendMode(BLEND_MODE_ADD);
         pass->depthWrite = false;
+
+        pass = defaultMaterial->CreatePass("shadow");
+        pass->SetShaders("NoTexture", "NoTexture");
+        pass->colorWriteMask = COLORMASK_NONE;
     }
 
     return defaultMaterial.Get();

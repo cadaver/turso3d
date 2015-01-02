@@ -10,11 +10,6 @@
 namespace Turso3D
 {
 
-static const float DEFAULT_NEARCLIP = 0.1f;
-static const float DEFAULT_FARCLIP = 1000.0f;
-static const float DEFAULT_FOV = 45.0f;
-static const float DEFAULT_ORTHOSIZE = 20.0f;
-
 /// Billboard camera facing modes.
 enum FaceCameraMode
 {

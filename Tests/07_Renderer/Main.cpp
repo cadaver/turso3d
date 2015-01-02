@@ -44,6 +44,8 @@ public:
         graphics->RenderWindow()->SetTitle("Renderer test");
         graphics->SetMode(IntVector2(640, 480), false, true);
 
+        renderer->SetupShadowMaps(1, 1024, FMT_D32);
+
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &RendererTest::HandleCloseRequest);
 
         SharedPtr<Scene> scene = new Scene();
@@ -52,23 +54,35 @@ public:
         camera->SetPosition(Vector3(0.0f, 3.0f, -50.0f));
 
         Light* light = scene->CreateChild<Light>();
-        light->SetLightType(LIGHT_DIRECTIONAL);
-        light->SetDirection(Vector3::FORWARD);
-        light->SetColor(Color(1.0f, 0.7f, 0.3f));
+        light->SetPosition(Vector3(0.0f, 50.0f, 0.0f));
+        light->SetLightType(LIGHT_SPOT);
+        light->SetRange(100.0f);
+        light->SetFov(45.0f);
+        light->SetDirection(Vector3::DOWN);
+        light->SetCastShadows(true);
 
         Vector<GeometryNode*> nodes;
 
-        for (int x = -125; x < 125; ++x)
+        for (int x = -10; x < 10; ++x)
         {
-            for (int z = -125; z < 125; ++z)
+            for (int z = -10; z < 10; ++z)
             {
                 StaticModel* modelNode = scene->CreateChild<StaticModel>();
-                modelNode->SetPosition(Vector3(2.0f * x, 0.0f, 2.0f * z));
+                modelNode->SetPosition(Vector3(2.0f * x, 1.0f, 2.0f * z));
                 modelNode->SetModel(cache->LoadResource<Model>("Box.mdl"));
-                for (size_t i = 0; i < modelNode->NumGeometries(); ++i)
-                    modelNode->SetMaterial(i, cache->LoadResource<Material>("Test.json"));
+                modelNode->SetCastShadows(true);
+                //for (size_t i = 0; i < modelNode->NumGeometries(); ++i)
+                //    modelNode->SetMaterial(i, cache->LoadResource<Material>("Test.json"));
                 nodes.Push(modelNode);
             }
+        }
+
+        {
+            StaticModel* modelNode = scene->CreateChild<StaticModel>();
+            modelNode->SetModel(cache->LoadResource<Model>("Box.mdl"));
+            modelNode->SetScale(Vector3(50.0f, 0.1f, 50.0f));
+            //for (size_t i = 0; i < modelNode->NumGeometries(); ++i)
+            //    modelNode->SetMaterial(i, cache->LoadResource<Material>("Test.json"));
         }
 
         float yaw = 0.0f, pitch = 0.0f;
@@ -131,12 +145,16 @@ public:
                 break;
 
             renderer->CollectObjects(scene, camera);
+            renderer->CollectLightInteractions();
 
             Vector<PassDesc> passes;
             passes.Push(PassDesc("opaque", SORT_STATE, true));
             passes.Push(PassDesc("alpha", SORT_BACK_TO_FRONT, true));
             renderer->CollectBatches(passes);
 
+            renderer->RenderShadowMaps();
+            graphics->ResetRenderTargets();
+            graphics->ResetViewport();
             graphics->Clear(CLEAR_COLOR | CLEAR_DEPTH, Color(0.0f, 0.0f, 0.5f));
             renderer->RenderBatches("opaque");
             renderer->RenderBatches("alpha");

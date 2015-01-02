@@ -4,7 +4,9 @@
 
 #include "../Debug/DebugNew.h"
 #include "../Math/Ray.h"
+#include "Camera.h"
 #include "Octree.h"
+#include "Renderer.h"
 
 namespace Turso3D
 {
@@ -12,8 +14,10 @@ namespace Turso3D
 static const LightType DEFAULT_LIGHTTYPE = LIGHT_POINT;
 static const Color DEFAULT_COLOR = Color(1.0f, 1.0f, 1.0f, 0.5f);
 static const float DEFAULT_RANGE = 10.0f;
-static const float DEFAULT_FOV = 30.0f;
+static const float DEFAULT_SPOT_FOV = 30.0f;
 static const int DEFAULT_SHADOWMAP_SIZE = 512;
+static const int DEFAULT_CASCADE_SPLITS = 3;
+static const float DEFAULT_CASCADE_LAMBDA = 0.8f;
 
 static const char* lightTypeNames[] =
 {
@@ -27,9 +31,11 @@ Light::Light() :
     lightType(DEFAULT_LIGHTTYPE),
     color(DEFAULT_COLOR),
     range(DEFAULT_RANGE),
-    fov(DEFAULT_FOV),
+    fov(DEFAULT_SPOT_FOV),
     lightMask(M_MAX_UNSIGNED),
     shadowMapSize(DEFAULT_SHADOWMAP_SIZE),
+    numCascadeSplits(DEFAULT_CASCADE_SPLITS),
+    cascadeLambda(DEFAULT_CASCADE_LAMBDA),
     shadowMap(nullptr),
     hasReceivers(false)
 {
@@ -48,9 +54,11 @@ void Light::RegisterObject()
     RegisterAttribute("lightType", &Light::LightTypeAttr, &Light::SetLightTypeAttr, (int)DEFAULT_LIGHTTYPE, lightTypeNames);
     RegisterRefAttribute("color", &Light::GetColor, &Light::SetColor, DEFAULT_COLOR);
     RegisterAttribute("range", &Light::Range, &Light::SetRange, DEFAULT_RANGE);
-    RegisterAttribute("fov", &Light::Fov, &Light::SetFov, DEFAULT_FOV);
+    RegisterAttribute("fov", &Light::Fov, &Light::SetFov, DEFAULT_SPOT_FOV);
     RegisterAttribute("lightMask", &Light::LightMask, &Light::SetLightMask, M_MAX_UNSIGNED);
     RegisterAttribute("shadowMapSize", &Light::ShadowMapSize, &Light::SetShadowMapSize, DEFAULT_SHADOWMAP_SIZE);
+    RegisterAttribute("numCascadeSplits", &Light::NumCascadesplits, &Light::SetNumCascadeSplits, DEFAULT_CASCADE_SPLITS);
+    RegisterAttribute("cascadeLambda", &Light::CascadeLambda, &Light::SetCascadeLambda, DEFAULT_CASCADE_LAMBDA);
 }
 
 void Light::OnRaycast(Vector<RaycastResult>& dest, const Ray& ray, float maxDistance)
@@ -135,6 +143,43 @@ void Light::SetShadowMapSize(int size)
     shadowMapSize = NextPowerOfTwo(size);
 }
 
+void Light::SetNumCascadeSplits(int num)
+{
+    numCascadeSplits = Clamp(num, 1, 4);
+}
+
+void Light::SetCascadeLambda(float lambda)
+{
+    cascadeLambda = Clamp(lambda, 0.1f, 1.0f);
+}
+
+IntVector2 Light::TotalShadowMapSize() const
+{
+    if (lightType == LIGHT_DIRECTIONAL)
+    {
+        if (numCascadeSplits == 1)
+            return IntVector2(shadowMapSize, shadowMapSize);
+        else if (numCascadeSplits == 2)
+            return IntVector2(shadowMapSize * 2, shadowMapSize);
+        else
+            return IntVector2(shadowMapSize * 2, shadowMapSize * 2);
+    }
+    else if (lightType == LIGHT_POINT)
+        return IntVector2(shadowMapSize * 3, shadowMapSize * 2);
+    else
+        return IntVector2(shadowMapSize, shadowMapSize);
+}
+
+size_t Light::NumShadowViews() const
+{
+    if (lightType == LIGHT_DIRECTIONAL)
+        return numCascadeSplits;
+    else if (lightType == LIGHT_POINT)
+        return 6;
+    else
+        return 1;
+}
+
 Frustum Light::WorldFrustum() const
 {
     const Matrix3x4& transform = WorldTransform();
@@ -147,6 +192,24 @@ Frustum Light::WorldFrustum() const
 Sphere Light::WorldSphere() const
 {
     return Sphere(WorldPosition(), range);
+}
+
+void Light::SetupShadowView(size_t index, ShadowView& view, const IntRect& shadowRect)
+{
+    Camera* camera = view.shadowCamera;
+
+    switch (lightType)
+    {
+    case LIGHT_SPOT:
+        camera->SetPosition(WorldPosition());
+        camera->SetRotation(WorldRotation());
+        camera->SetFarClip(Range());
+        camera->SetNearClip(Range() * 0.001f);
+        camera->SetOrthographic(false);
+        camera->SetAspectRatio(1.0f);
+        view.viewport = shadowRect;
+        break;
+    }
 }
 
 void Light::OnWorldBoundingBoxUpdate() const

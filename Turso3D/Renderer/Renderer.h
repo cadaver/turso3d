@@ -10,6 +10,7 @@
 #include "../Math/Frustum.h"
 #include "../Resource/Image.h"
 #include "GeometryNode.h"
+#include "Material.h"
 
 namespace Turso3D
 {
@@ -191,10 +192,17 @@ struct TURSO3D_API ShadowMap
     /// Destruct.
     ~ShadowMap();
 
+    /// Clear allocator and use flag.
+    void Clear();
+
     /// Rectangle allocator.
     AreaAllocator allocator;
-    /// Shadow texture.
+    /// Shadow map texture.
     SharedPtr<Texture> texture;
+    /// Shadow view indices that use this shadow map.
+    Vector<size_t> shadowViews;
+    /// Use flag. When false, clearing and rendering the shadow map can be skipped.
+    bool used;
 };
 
 /// Shadowed light structure.
@@ -202,9 +210,9 @@ struct TURSO3D_API ShadowLight
 {
     /// Shadow-casting light.
     Light* light;
-    /// Shadow map index.
-    size_t shadowMapIndex;
-    /// Shadow view indices.
+    /// Shadow map rect, which includes space for all the individal shadow views.
+    IntRect shadowRect;
+    /// Shadow view indices used by this light.
     Vector<size_t> shadowViews;
 };
 
@@ -216,12 +224,15 @@ struct TURSO3D_API ShadowView
     /// Destruct.
     ~ShadowView();
 
+    /// Clear existing shadow casters and batch queue.
+    void Clear();
+
     /// Shadow camera.
     SharedPtr<Camera> shadowCamera;
     /// Viewport within the shadow map.
     IntRect viewport;
     /// Shadow caster geometries.
-    Vector<GeometryNode>* shadowCasters;
+    Vector<GeometryNode*> shadowCasters;
     /// Shadow batch queue.
     BatchQueue shadowQueue;
 };
@@ -241,7 +252,7 @@ public:
     void SetupShadowMaps(size_t num, int size, ImageFormat format);
     /// Initialize rendering of a new view and collect visible objects from the camera's point of view.
     void CollectObjects(Scene* scene, Camera* camera);
-    /// Collect light interactions with geometries from the current view.
+    /// Collect light interactions with geometries from the current view. If lights are shadowed, collects batches for shadow casters.
     void CollectLightInteractions();
     /// Collect and sort batches from the visible objects. To not go through the objects several times, all the passes should be specified at once instead of multiple calls to CollectBatches().
     void CollectBatches(const Vector<PassDesc>& passes);
@@ -249,7 +260,9 @@ public:
     void CollectBatches(const PassDesc& pass);
     /// Collect and sort batches from the visible objects.
     void CollectBatches(size_t numPasses, const PassDesc* passes);
-    /// Render a specific pass.
+    /// Render shadow maps. Should be called after all CollectBatches() calls but before RenderBatches(). Note that you must reassign your rendertarget and viewport after calling this.
+    void RenderShadowMaps();
+    /// Render a specific pass to the currently set rendertarget and viewport.
     void RenderBatches(const String& pass);
 
 private:
@@ -257,12 +270,16 @@ private:
     void Initialize();
     /// Octree callback for collecting lights and geometries.
     void CollectGeometriesAndLights(Vector<OctreeNode*>::ConstIterator begin, Vector<OctreeNode*>::ConstIterator end, bool inside);
+    /// Collect shadow caster batches.
+    void CollectShadowBatches(ShadowView& view);
     /// Assign a light list to a node. Creates new light lists as necessary to handle multiple lights.
     void AddLightToNode(GeometryNode* node, Light* light, LightList* lightList);
     /// Sort batch queue. For distance sorted queues, build instances after sorting.
     void SortBatches(BatchQueue& batchQueue, BatchSortMode sort);
     /// Copy instance transforms from batch queue to the global vector.
     void CopyInstanceTransforms(BatchQueue& batchQueue);
+    /// Render batches from a specific queue and camera.
+    void RenderBatches(BatchQueue& batchQueue, Camera* camera);
     /// Load shaders for a pass.
     void LoadPassShaders(Pass* pass);
     /// Return or create a shader variation for a pass. Vertex shader variations handle different geometry types and pixel shader variations handle different light combinations.
@@ -272,16 +289,10 @@ private:
     WeakPtr<Graphics> graphics;
     /// Current scene.
     Scene* scene;
-    /// Current camera.
+    /// Current scene camera.
     Camera* camera;
     /// Current octree.
     Octree* octree;
-    /// Camera's view matrix.
-    Matrix3x4 viewMatrix;
-    /// Camera's projection matrix.
-    Matrix4 projectionMatrix;
-    /// Combined view-projection matrix.
-    Matrix4 viewProjMatrix;
     /// Camera's view frustum.
     Frustum frustum;
     /// Camera's view mask.
@@ -304,14 +315,14 @@ private:
     HashMap<unsigned long long, LightPass> lightPasses;
     /// Ambient only light pass.
     LightPass ambientLightPass;
+    /// Last camera rendered from during this frame.
+    Camera* lastCamera;
     /// Current frame number.
     unsigned frameNumber;
     /// Used shadow views so far.
     size_t usedShadowViews;
     /// Instance vertex buffer dirty flag.
     bool instanceTransformsDirty;
-    /// Per frame constants set flag.
-    bool perFrameConstantsSet;
     /// Shadow maps.
     Vector<ShadowMap> shadowMaps;
     /// Shadow casting lights.

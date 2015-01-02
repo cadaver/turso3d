@@ -153,6 +153,13 @@ ShadowMap::~ShadowMap()
 {
 }
 
+void ShadowMap::Clear()
+{
+    allocator.Reset(texture->Width(), texture->Height(), 0, 0, false);
+    shadowViews.Clear();
+    used = false;
+}
+
 ShadowView::ShadowView() :
     shadowCamera(new Camera())
 {
@@ -162,11 +169,16 @@ ShadowView::~ShadowView()
 {
 }
 
+void ShadowView::Clear()
+{
+    shadowCasters.Clear();
+    shadowQueue.Clear();
+}
+
 Renderer::Renderer() :
     frameNumber(0),
     usedShadowViews(0),
-    instanceTransformsDirty(false),
-    perFrameConstantsSet(false)
+    instanceTransformsDirty(false)
 {
 }
 
@@ -202,9 +214,11 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
         it->second.Clear();
     shadowLights.Clear();
     for (auto it = shadowViews.Begin(); it != shadowViews.End(); ++it)
-        it->shadowQueue.Clear();
+        it->Clear();
+    for (auto it = shadowMaps.Begin(); it != shadowMaps.End(); ++it)
+        it->Clear();
+    lastCamera = nullptr;
     usedShadowViews = 0;
-    perFrameConstantsSet = false;
 
     scene = scene_;
     camera = camera_;
@@ -227,20 +241,17 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     octree->Update();
 
     frustum = camera->WorldFrustum();
-    viewMatrix = camera->ViewMatrix();
-    projectionMatrix = camera->ProjectionMatrix();
-    viewProjMatrix = projectionMatrix * viewMatrix;
     viewMask = camera->ViewMask();
 
     octree->FindNodes(frustum, this, &Renderer::CollectGeometriesAndLights);
-    
-    CollectLightInteractions();
 }
 
 void Renderer::CollectLightInteractions()
 {
+    PROFILE(CollectLightInteractions);
+
     {
-        PROFILE(CollectLightInteractions);
+        PROFILE(CollectLitObjects);
 
         for (auto it = lights.Begin(), end = lights.End(); it != end; ++it)
         {
@@ -338,7 +349,58 @@ void Renderer::CollectLightInteractions()
 
         for (auto it = lights.Begin(), end = lights.End(); it != end; ++it)
         {
+            Light* light = *it;
+            light->shadowMap = nullptr;
+            if (!light->CastShadows() || !light->hasReceivers)
+                continue;
+
+            // Try to allocate shadow map rect
+            /// \todo Sort lights in importance order and/or fall back to smaller size on failure
+            IntVector2 shadowSize = light->TotalShadowMapSize();
+            IntRect shadowRect;
+            size_t idx;
+            for (idx = 0; idx < shadowMaps.Size(); ++idx)
+            {
+                ShadowMap& shadowMap = shadowMaps[idx];
+                int x, y;
+                if (shadowMap.allocator.Allocate(shadowSize.x, shadowSize.y, x, y))
+                {
+                    shadowRect = IntRect(x, y, x + shadowSize.x, y + shadowSize.y);
+                    shadowMap.used = true;
+                    break;
+                }
+            }
+
+            // No room in any shadow map
+            if (idx >= shadowMaps.Size())
+                continue;
+
+            light->shadowMap = shadowMaps[idx].texture;
+            shadowLights.Resize(shadowLights.Size() + 1);
+            ShadowLight& shadow = shadowLights.Back();
+            shadow.light = light;
+            shadow.shadowRect = shadowRect;
+
+            size_t numShadowViews = light->NumShadowViews();
+            if (shadowViews.Size() < usedShadowViews + numShadowViews)
+                shadowViews.Resize(usedShadowViews + numShadowViews);
+
+            for (size_t i = 0; i < numShadowViews; ++i)
+            {
+                ShadowView& view = shadowViews[usedShadowViews + i];
+                light->SetupShadowView(i, view, shadow.shadowRect);
+                /// \todo Spotlights should reuse the lit geometries frustum query
+                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(view.shadowCasters), view.shadowCamera->WorldFrustum(), NF_ENABLED | NF_GEOMETRY, light->LightMask());
+                shadow.shadowViews.Push(usedShadowViews + i);
+                // Record shadow view also to the shadow map so that all shadows can be rendered with minimal rendertarget switches
+                shadowMaps[idx].shadowViews.Push(usedShadowViews + i);
+            }
+
+            usedShadowViews += numShadowViews;
         }
+
+        for (size_t i = 0; i < usedShadowViews; ++i)
+            CollectShadowBatches(shadowViews[i]);
     }
 }
 
@@ -431,155 +493,32 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
     }
 }
 
-void Renderer::RenderBatches(const String& pass)
+void Renderer::RenderShadowMaps()
 {
-    PROFILE(RenderBatches);
+    PROFILE(RenderShadowMaps);
 
-    if (!perFrameConstantsSet)
+    for (auto it = shadowMaps.Begin(); it != shadowMaps.End(); ++it)
     {
-        PROFILE(SetPerFrameConstants);
+        if (!it->used)
+            continue;
 
-        // Set per-frame values to the frame constant buffers
-        vsFrameConstantBuffer->SetConstant(VS_FRAME_VIEW_MATRIX, viewMatrix);
-        vsFrameConstantBuffer->SetConstant(VS_FRAME_PROJECTION_MATRIX, projectionMatrix);
-        vsFrameConstantBuffer->SetConstant(VS_FRAME_VIEWPROJ_MATRIX, viewProjMatrix);
-        vsFrameConstantBuffer->Apply();
-        
-        /// \todo Store the ambient color value somewhere, for example Camera. Also add fog settings
-        psFrameConstantBuffer->SetConstant(PS_FRAME_AMBIENT_COLOR, Color(0.5f, 0.5f, 0.5f, 1.0f));
-        psFrameConstantBuffer->Apply();
+        graphics->SetRenderTarget(nullptr, it->texture);
+        graphics->Clear(CLEAR_DEPTH);
 
-        graphics->SetConstantBuffer(SHADER_VS, CB_FRAME, vsFrameConstantBuffer);
-        graphics->SetConstantBuffer(SHADER_PS, CB_FRAME, psFrameConstantBuffer);
-        perFrameConstantsSet = true;
-    }
-
-    if (instanceTransformsDirty && instanceTransforms.Size())
-    {
-        PROFILE(SetInstanceTransforms);
-
-        if (instanceVertexBuffer->NumVertices() < instanceTransforms.Size())
-            instanceVertexBuffer->Define(USAGE_DYNAMIC, instanceTransforms.Size(), instanceVertexElements, false, &instanceTransforms[0]);
-        else
-            instanceVertexBuffer->SetData(0, instanceTransforms.Size(), &instanceTransforms[0]);
-        graphics->SetVertexBuffer(1, instanceVertexBuffer);
-        instanceTransformsDirty = false;
-    }
-
-    {
-        PROFILE(SubmitDrawCalls);
-
-        unsigned char passIndex = Material::PassIndex(pass);
-        BatchQueue& batchQueue = batchQueues[passIndex];
-        Vector<Batch>& batches = batchQueue.batches;
-        Pass* lastPass = nullptr;
-        Material* lastMaterial = nullptr;
-        LightPass* lastLights = nullptr;
-        
-        for (auto it = batches.Begin(); it != batches.End();)
+        for (auto vIt = it->shadowViews.Begin(); vIt < it->shadowViews.End(); ++vIt)
         {
-            const Batch& batch = *it;
-            InstanceData* instance = batch.type == GEOM_INSTANCED ? &batchQueue.instanceDatas[batch.instanceDataIndex] : nullptr;
-
-            Pass* pass = batch.pass;
-            if (!pass->shadersLoaded)
-                LoadPassShaders(pass);
-            
-            // Check that pass is legal
-            if (pass->shaders[SHADER_VS].Get() && pass->shaders[SHADER_PS].Get())
-            {
-                // Get the shader variations
-                LightPass* lights = batch.lights;
-                ShaderVariation* vs = FindShaderVariation(SHADER_VS, pass, batch.type);
-                ShaderVariation* ps = FindShaderVariation(SHADER_PS, pass, lights ? lights->psIdx : 0);
-                graphics->SetShaders(vs, ps);
-
-                // Set batch geometry
-                Geometry* geometry = batch.geometry;
-                assert(geometry);
-                VertexBuffer* vb = geometry->vertexBuffer.Get();
-                IndexBuffer* ib = geometry->indexBuffer.Get();
-                graphics->SetVertexBuffer(0, vb);
-                if (ib)
-                    graphics->SetIndexBuffer(ib);
-
-                // Apply pass render state
-                if (pass != lastPass)
-                {
-                    graphics->SetColorState(pass->blendMode, pass->alphaToCoverage);
-                    /// \todo Handle depth bias
-                    graphics->SetDepthState(pass->depthFunc, pass->depthWrite, pass->depthClip);
-                    graphics->SetRasterizerState(pass->cullMode, pass->fillMode);
-
-                    lastPass = pass;
-                }
-
-                // Apply material render state
-                Material* material = pass->Parent();
-                if (material != lastMaterial)
-                {
-                    for (size_t i = 0; i < MAX_MATERIAL_TEXTURE_UNITS; ++i)
-                    {
-                        if (material->textures[i])
-                            graphics->SetTexture(i, material->textures[i]);
-                    }
-                    graphics->SetConstantBuffer(SHADER_VS, CB_MATERIAL, material->constantBuffers[SHADER_VS].Get());
-                    graphics->SetConstantBuffer(SHADER_PS, CB_MATERIAL, material->constantBuffers[SHADER_PS].Get());
-
-                    lastMaterial = material;
-                }
-
-                // Apply object render state
-                if (geometry->constantBuffers[SHADER_VS])
-                    graphics->SetConstantBuffer(SHADER_VS, CB_OBJECT, geometry->constantBuffers[SHADER_VS].Get());
-                else if (!instance)
-                {
-                    vsObjectConstantBuffer->SetConstant(VS_OBJECT_WORLD_MATRIX, *batch.worldMatrix);
-                    vsObjectConstantBuffer->Apply();
-                    graphics->SetConstantBuffer(SHADER_VS, CB_OBJECT, vsObjectConstantBuffer.Get());
-                }
-                graphics->SetConstantBuffer(SHADER_PS, CB_OBJECT, geometry->constantBuffers[SHADER_PS].Get());
-            
-                // Apply light constant buffer
-                if (lights && lights != lastLights)
-                {
-                    // If light queue is ambient only, no need to update the constants
-                    if (lights->psIdx > LIGHTBIT_AMBIENT)
-                    {
-                        psLightConstantBuffer->SetData(lights->lightPositions);
-                        psLightConstantBuffer->Apply();
-                        graphics->SetConstantBuffer(SHADER_PS, CB_LIGHTS, psLightConstantBuffer.Get());
-                    }
-
-                    lastLights = lights;
-                }
-
-                if (instance)
-                {
-                    if (ib)
-                    {
-                        graphics->DrawIndexedInstanced(geometry->primitiveType, geometry->drawStart, geometry->drawCount, 0,
-                            instance->startIndex, instance->worldMatrices.Size());
-                    }
-                    else
-                    {
-                        graphics->DrawInstanced(geometry->primitiveType, geometry->drawStart, geometry->drawCount, 
-                            instance->startIndex, instance->worldMatrices.Size());
-                    }
-                }
-                else
-                {
-                    if (ib)
-                        graphics->DrawIndexed(geometry->primitiveType, geometry->drawStart, geometry->drawCount, 0);
-                    else
-                        graphics->Draw(geometry->primitiveType, geometry->drawStart, geometry->drawCount);
-                }
-            }
-
-            // Advance. If necessary, skip over the batches that were converted
-            it += instance ? instance->skipBatches ? instance->worldMatrices.Size() : 1 : 1;
+            ShadowView& view = shadowViews[*vIt];
+            graphics->SetViewport(view.viewport);
+            RenderBatches(view.shadowQueue, view.shadowCamera);
         }
     }
+}
+
+void Renderer::RenderBatches(const String& pass)
+{
+    unsigned char passIndex = Material::PassIndex(pass);
+    BatchQueue& batchQueue = batchQueues[passIndex];
+    RenderBatches(batchQueue, camera);
 }
 
 void Renderer::Initialize()
@@ -632,7 +571,7 @@ void Renderer::CollectGeometriesAndLights(Vector<OctreeNode*>::ConstIterator beg
         {
             OctreeNode* node = *it;
             unsigned short flags = node->Flags();
-            if ((node->LayerMask() & viewMask) && ((flags & (NF_ENABLED | NF_GEOMETRY | NF_LIGHT)) > NF_ENABLED))
+            if ((flags & NF_ENABLED) && (flags & (NF_GEOMETRY | NF_LIGHT)) && (node->LayerMask() & viewMask))
             {
                 if (flags & NF_GEOMETRY)
                 {
@@ -657,7 +596,7 @@ void Renderer::CollectGeometriesAndLights(Vector<OctreeNode*>::ConstIterator beg
         {
             OctreeNode* node = *it;
             unsigned short flags = node->Flags();
-            if ((node->LayerMask() & viewMask) && ((flags & (NF_ENABLED | NF_GEOMETRY | NF_LIGHT)) > NF_ENABLED) &&
+            if ((flags & NF_ENABLED) && (flags & (NF_GEOMETRY | NF_LIGHT)) && (node->LayerMask() & viewMask) &&
                 frustum.IsInsideFast(node->WorldBoundingBox()))
             {
                 if (flags & NF_GEOMETRY)
@@ -708,6 +647,44 @@ void Renderer::AddLightToNode(GeometryNode* node, Light* light, LightList* light
     }
 }
 
+void Renderer::CollectShadowBatches(ShadowView& view)
+{
+    {
+        PROFILE(CollectShadowBatches);
+
+        unsigned char passIndex = Material::PassIndex("shadow");
+        view.shadowQueue.sort = SORT_STATE;
+        view.shadowQueue.lit = false;
+
+        // Loop through shadow caster nodes
+        for (auto gIt = view.shadowCasters.Begin(), gEnd = view.shadowCasters.End(); gIt != gEnd; ++gIt)
+        {
+            GeometryNode* node = *gIt;
+            
+            // Loop through node's geometries
+            for (auto bIt = node->Batches().Begin(), bEnd = node->Batches().End(); bIt != bEnd; ++bIt)
+            {
+                Batch newBatch;
+                newBatch.geometry = bIt->geometry.Get();
+                Material* material = bIt->material.Get();
+                assert(material);
+
+                newBatch.pass = material->GetPass(passIndex);
+                // Material may not have the requested pass at all, skip further processing as fast as possible in that case
+                if (!newBatch.pass)
+                    continue;
+
+                newBatch.lights = nullptr;
+                newBatch.type = node->GetGeometryType();
+                view.shadowQueue.AddBatch(newBatch, node, false);
+            }
+        }
+    }
+
+    view.shadowQueue.Sort();
+    CopyInstanceTransforms(view.shadowQueue);
+}
+
 void Renderer::CopyInstanceTransforms(BatchQueue& batchQueue)
 {
     PROFILE(CopyInstanceTransforms);
@@ -726,6 +703,160 @@ void Renderer::CopyInstanceTransforms(BatchQueue& batchQueue)
 
     if (instanceTransforms.Size() != oldSize)
         instanceTransformsDirty = true;
+}
+
+void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera)
+{
+    PROFILE(RenderBatches);
+
+    if (camera != lastCamera)
+    {
+        PROFILE(SetPerFrameConstants);
+
+        // Set per-frame values to the frame constant buffers
+        Matrix3x4 viewMatrix = camera->ViewMatrix();
+        Matrix4 projectionMatrix = camera->ProjectionMatrix();
+        Matrix4 viewProjMatrix = projectionMatrix * viewMatrix;
+
+        vsFrameConstantBuffer->SetConstant(VS_FRAME_VIEW_MATRIX, viewMatrix);
+        vsFrameConstantBuffer->SetConstant(VS_FRAME_PROJECTION_MATRIX, projectionMatrix);
+        vsFrameConstantBuffer->SetConstant(VS_FRAME_VIEWPROJ_MATRIX, viewProjMatrix);
+        vsFrameConstantBuffer->Apply();
+
+        /// \todo Store the ambient color value somewhere, for example Camera. Also add fog settings
+        psFrameConstantBuffer->SetConstant(PS_FRAME_AMBIENT_COLOR, Color(0.33f, 0.33f, 0.33f, 1.0f));
+        psFrameConstantBuffer->Apply();
+
+        graphics->SetConstantBuffer(SHADER_VS, CB_FRAME, vsFrameConstantBuffer);
+        graphics->SetConstantBuffer(SHADER_PS, CB_FRAME, psFrameConstantBuffer);
+
+        lastCamera = camera;
+    }
+
+    if (instanceTransformsDirty && instanceTransforms.Size())
+    {
+        PROFILE(SetInstanceTransforms);
+
+        if (instanceVertexBuffer->NumVertices() < instanceTransforms.Size())
+            instanceVertexBuffer->Define(USAGE_DYNAMIC, instanceTransforms.Size(), instanceVertexElements, false, &instanceTransforms[0]);
+        else
+            instanceVertexBuffer->SetData(0, instanceTransforms.Size(), &instanceTransforms[0]);
+        graphics->SetVertexBuffer(1, instanceVertexBuffer);
+        instanceTransformsDirty = false;
+    }
+
+    {
+        PROFILE(SubmitDrawCalls);
+
+        Vector<Batch>& batches = batchQueue.batches;
+        Pass* lastPass = nullptr;
+        Material* lastMaterial = nullptr;
+        LightPass* lastLights = nullptr;
+
+        for (auto it = batches.Begin(); it != batches.End();)
+        {
+            const Batch& batch = *it;
+            InstanceData* instance = batch.type == GEOM_INSTANCED ? &batchQueue.instanceDatas[batch.instanceDataIndex] : nullptr;
+
+            Pass* pass = batch.pass;
+            if (!pass->shadersLoaded)
+                LoadPassShaders(pass);
+
+            // Check that pass is legal
+            if (pass->shaders[SHADER_VS].Get() && pass->shaders[SHADER_PS].Get())
+            {
+                // Get the shader variations
+                LightPass* lights = batch.lights;
+                ShaderVariation* vs = FindShaderVariation(SHADER_VS, pass, batch.type);
+                ShaderVariation* ps = FindShaderVariation(SHADER_PS, pass, lights ? lights->psIdx : 0);
+                graphics->SetShaders(vs, ps);
+
+                // Set batch geometry
+                Geometry* geometry = batch.geometry;
+                assert(geometry);
+                VertexBuffer* vb = geometry->vertexBuffer.Get();
+                IndexBuffer* ib = geometry->indexBuffer.Get();
+                graphics->SetVertexBuffer(0, vb);
+                if (ib)
+                    graphics->SetIndexBuffer(ib);
+
+                // Apply pass render state
+                if (pass != lastPass)
+                {
+                    graphics->SetColorState(pass->blendMode, pass->alphaToCoverage, pass->colorWriteMask);
+                    /// \todo Handle depth bias
+                    graphics->SetDepthState(pass->depthFunc, pass->depthWrite, pass->depthClip);
+                    graphics->SetRasterizerState(pass->cullMode, pass->fillMode);
+
+                    lastPass = pass;
+                }
+
+                // Apply material render state
+                Material* material = pass->Parent();
+                if (material != lastMaterial)
+                {
+                    for (size_t i = 0; i < MAX_MATERIAL_TEXTURE_UNITS; ++i)
+                    {
+                        if (material->textures[i])
+                            graphics->SetTexture(i, material->textures[i]);
+                    }
+                    graphics->SetConstantBuffer(SHADER_VS, CB_MATERIAL, material->constantBuffers[SHADER_VS].Get());
+                    graphics->SetConstantBuffer(SHADER_PS, CB_MATERIAL, material->constantBuffers[SHADER_PS].Get());
+
+                    lastMaterial = material;
+                }
+
+                // Apply object render state
+                if (geometry->constantBuffers[SHADER_VS])
+                    graphics->SetConstantBuffer(SHADER_VS, CB_OBJECT, geometry->constantBuffers[SHADER_VS].Get());
+                else if (!instance)
+                {
+                    vsObjectConstantBuffer->SetConstant(VS_OBJECT_WORLD_MATRIX, *batch.worldMatrix);
+                    vsObjectConstantBuffer->Apply();
+                    graphics->SetConstantBuffer(SHADER_VS, CB_OBJECT, vsObjectConstantBuffer.Get());
+                }
+                graphics->SetConstantBuffer(SHADER_PS, CB_OBJECT, geometry->constantBuffers[SHADER_PS].Get());
+
+                // Apply light constant buffer
+                if (lights && lights != lastLights)
+                {
+                    // If light queue is ambient only, no need to update the constants
+                    if (lights->psIdx > LIGHTBIT_AMBIENT)
+                    {
+                        psLightConstantBuffer->SetData(lights->lightPositions);
+                        psLightConstantBuffer->Apply();
+                        graphics->SetConstantBuffer(SHADER_PS, CB_LIGHTS, psLightConstantBuffer.Get());
+                    }
+
+                    lastLights = lights;
+                }
+
+                if (instance)
+                {
+                    if (ib)
+                    {
+                        graphics->DrawIndexedInstanced(geometry->primitiveType, geometry->drawStart, geometry->drawCount, 0,
+                            instance->startIndex, instance->worldMatrices.Size());
+                    }
+                    else
+                    {
+                        graphics->DrawInstanced(geometry->primitiveType, geometry->drawStart, geometry->drawCount,
+                            instance->startIndex, instance->worldMatrices.Size());
+                    }
+                }
+                else
+                {
+                    if (ib)
+                        graphics->DrawIndexed(geometry->primitiveType, geometry->drawStart, geometry->drawCount, 0);
+                    else
+                        graphics->Draw(geometry->primitiveType, geometry->drawStart, geometry->drawCount);
+                }
+            }
+
+            // Advance. If necessary, skip over the batches that were converted
+            it += instance ? instance->skipBatches ? instance->worldMatrices.Size() : 1 : 1;
+        }
+    }
 }
 
 void Renderer::LoadPassShaders(Pass* pass)
