@@ -122,7 +122,7 @@ public:
                 nodeRot = Quaternion(-100.0f * dt, 0.0f, 0.0f) * nodeRot;
                 nodeRot.Normalize();
 
-                for (auto it = nodes.Begin(); it != nodes.End(); ++it)
+                for (auto it = nodes.Begin(), end = nodes.End(); it != end; ++it)
                     (*it)->SetRotation(nodeRot);
             }
 

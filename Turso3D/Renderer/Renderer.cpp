@@ -669,13 +669,13 @@ void Renderer::CopyInstanceTransforms(BatchQueue& batchQueue)
 
     // Now go through all instance batches and copy to the global buffer
     size_t oldSize = instanceTransforms.Size();
-    for (auto it = batchQueue.instanceDatas.Begin(); it != batchQueue.instanceDatas.End(); ++it)
+    for (auto it = batchQueue.instanceDatas.Begin(), end = batchQueue.instanceDatas.End(); it != end; ++it)
     {
         size_t idx = instanceTransforms.Size();
         InstanceData& instance = *it;
         instance.startIndex = idx;
         instanceTransforms.Resize(idx + instance.worldMatrices.Size());
-        for (auto mIt = instance.worldMatrices.Begin(); mIt != instance.worldMatrices.End(); ++mIt)
+        for (auto mIt = instance.worldMatrices.Begin(), mEnd = instance.worldMatrices.End(); mIt != mEnd; ++mIt)
             instanceTransforms[idx++] = **mIt;
     }
 
