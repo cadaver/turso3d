@@ -155,7 +155,7 @@ void Light::OnWorldBoundingBoxUpdate() const
     {
     case LIGHT_DIRECTIONAL:
         // Directional light always sets humongous bounding box not affected by transform
-        worldBoundingBox.Define(-M_INFINITY, M_INFINITY);
+        worldBoundingBox.Define(-1000000000.0f, 1000000000.0f);
         break;
         
     case LIGHT_POINT:
