@@ -100,11 +100,18 @@ public:
         CollectNodes(result, &root, volume, nodeFlags, layerMask);
     }
 
-    /// Query for nodes of two kinds (geometries and lights for example) using a volume such as frustum or sphere.
-    template <class T> void FindNodes(Vector<OctreeNode*>& result1, unsigned short nodeFlags1, Vector<OctreeNode*>& result2, unsigned short nodeFlags2, const T& volume, unsigned layerMask = LAYERMASK_ALL) const
+    /// Query for nodes using a volume such as frustum or sphere. Invoke a function for each octant.
+    template <class T> void FindNodes(const T& volume, void(*callback)(Vector<OctreeNode*>::ConstIterator, Vector<OctreeNode*>::ConstIterator, bool)) const
     {
         PROFILE(QueryOctree);
-        CollectNodes(result1, nodeFlags1, result2, nodeFlags2, &root, volume, layerMask);
+        CollectNodesCallback(&root, volume, callback);
+    }
+
+    /// Query for nodes using a volume such as frustum or sphere. Invoke a member function for each octant.
+    template <class T, class U> void FindNodes(const T& volume, U* object, void (U::*callback)(Vector<OctreeNode*>::ConstIterator, Vector<OctreeNode*>::ConstIterator, bool)) const
+    {
+        PROFILE(QueryOctree);
+        CollectNodesMemberCallback(&root, volume, object, callback);
     }
 
 private:
@@ -130,8 +137,6 @@ private:
     void CollectNodes(Vector<OctreeNode*>& result, const Octant* octant) const;
     /// Get all visible nodes matching flags from an octant recursively.
     void CollectNodes(Vector<OctreeNode*>& result, const Octant* octant, unsigned short nodeFlags, unsigned layerMask) const;
-    /// Get visible nodes of two kinds from an octant recursively.
-    void CollectNodes(Vector<OctreeNode*>& result1, unsigned short nodeFlags1, Vector<OctreeNode*>& result2, unsigned short nodeFlags2, const Octant* octant, unsigned layerMask) const;
     /// Get all visible nodes matching flags along a ray.
     void CollectNodes(Vector<RaycastResult>& result, const Octant* octant, const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask) const;
     /// Get all visible nodes matching flags that could be potential raycast hits.
@@ -165,9 +170,22 @@ private:
             }
         }
     }
+    
+    /// Collect nodes from octant and child octants. Invoke a function for each octant.
+    template <class T, class U> void CollectNodesCallback(const Octant* octant, void(*callback)(Vector<OctreeNode*>::ConstIterator, Vector<OctreeNode*>::ConstIterator, bool)) const
+    {
+        const Vector<OctreeNode*>& octantNodes = octant->nodes;
+        callback(octantNodes.Begin(), octantNodes.End(), true);
 
-    /// Collect nodes of two kinds using a volume such as frustum or sphere.
-    template <class T> void CollectNodes(Vector<OctreeNode*>& result1, unsigned short nodeFlags1, Vector<OctreeNode*>& result2, unsigned short nodeFlags2, const Octant* octant, const T& volume, unsigned layerMask) const
+        for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        {
+            if (octant->children[i])
+                CollectNodesCallback(octant->children[i], callback);
+        }
+    }
+
+    /// Collect nodes using a volume such as frustum or sphere. Invoke a function for each octant.
+    template <class T> void CollectNodesCallback(const Octant* octant, const T& volume, void(*callback)(Vector<OctreeNode*>::ConstIterator, Vector<OctreeNode*>::ConstIterator, bool)) const
     {
         Intersection res = volume.IsInside(octant->cullingBox);
         if (res == OUTSIDE)
@@ -175,33 +193,56 @@ private:
 
         // If this octant is completely inside the volume, can include all contained octants and their nodes without further tests
         if (res == INSIDE)
-            CollectNodes(result1, nodeFlags1, result2, nodeFlags2, octant, layerMask);
+            CollectNodesCallback(octant, callback);
         else
         {
             const Vector<OctreeNode*>& octantNodes = octant->nodes;
-
-            for (auto it = octantNodes.Begin(); it != octantNodes.End(); ++it)
-            {
-                OctreeNode* node = *it;
-                unsigned short flags = node->Flags();
-                if (((flags & nodeFlags1) == nodeFlags1 || (flags & nodeFlags2) == nodeFlags2) && (node->LayerMask() & layerMask) &&
-                    volume.IsInsideFast(node->WorldBoundingBox()) != OUTSIDE)
-                {
-                    if ((flags & nodeFlags1) == nodeFlags1)
-                        result1.Push(node);
-                    else
-                        result2.Push(node);
-                }
-            }
+            callback(octantNodes.Begin(), octantNodes.End(), false);
 
             for (size_t i = 0; i < NUM_OCTANTS; ++i)
             {
                 if (octant->children[i])
-                    CollectNodes(result1, nodeFlags1, result2, nodeFlags2, octant->children[i], volume, layerMask);
+                    CollectNodesCallback(octant->children[i], volume, callback);
             }
         }
     }
-    
+
+    /// Collect nodes from octant and child octants. Invoke a member function for each octant.
+    template <class T, class U> void CollectNodesMemberCallback(const Octant* octant, U* object, void (U::*callback)(Vector<OctreeNode*>::ConstIterator, Vector<OctreeNode*>::ConstIterator, bool)) const
+    {
+        const Vector<OctreeNode*>& octantNodes = octant->nodes;
+        (object->*callback)(octantNodes.Begin(), octantNodes.End(), true);
+
+        for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        {
+            if (octant->children[i])
+                CollectNodesMemberCallback<T, U>(octant->children[i], object, callback);
+        }
+    }
+
+    /// Collect nodes using a volume such as frustum or sphere. Invoke a member function for each octant.
+    template <class T, class U> void CollectNodesMemberCallback(const Octant* octant, const T& volume, U* object, void (U::*callback)(Vector<OctreeNode*>::ConstIterator, Vector<OctreeNode*>::ConstIterator, bool)) const
+    {
+        Intersection res = volume.IsInside(octant->cullingBox);
+        if (res == OUTSIDE)
+            return;
+
+        // If this octant is completely inside the volume, can include all contained octants and their nodes without further tests
+        if (res == INSIDE)
+            CollectNodesMemberCallback<T, U>(octant, object, callback);
+        else
+        {
+            const Vector<OctreeNode*>& octantNodes = octant->nodes;
+            (object->*callback)(octantNodes.Begin(), octantNodes.End(), false);
+
+            for (size_t i = 0; i < NUM_OCTANTS; ++i)
+            {
+                if (octant->children[i])
+                    CollectNodesMemberCallback<T, U>(octant->children[i], volume, object, callback);
+            }
+        }
+    }
+
     /// Queue of nodes to be reinserted.
     Vector<OctreeNode*> updateQueue;
     /// RaycastSingle initial coarse result.

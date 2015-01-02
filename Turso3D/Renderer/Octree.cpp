@@ -362,31 +362,6 @@ void Octree::CollectNodes(Vector<OctreeNode*>& result, const Octant* octant, uns
     }
 }
 
-void Octree::CollectNodes(Vector<OctreeNode*>& result1, unsigned short nodeFlags1, Vector<OctreeNode*>& result2,
-    unsigned short nodeFlags2, const Octant* octant, unsigned layerMask) const
-{
-    const Vector<OctreeNode*>& octantNodes = octant->nodes;
-    
-    for (auto it = octantNodes.Begin(); it != octantNodes.End(); ++it)
-    {
-        OctreeNode* node = *it;
-        unsigned short flags = node->Flags();
-        if (((flags & nodeFlags1) == nodeFlags1 || (flags & nodeFlags2) == nodeFlags2) && (node->LayerMask() & layerMask))
-        {
-            if ((flags & nodeFlags1) == nodeFlags1)
-                result1.Push(node);
-            else
-                result2.Push(node);
-        }
-    }
-
-    for (size_t i = 0; i < NUM_OCTANTS; ++i)
-    {
-        if (octant->children[i])
-            CollectNodes(result1, nodeFlags1, result2, nodeFlags2, octant->children[i], layerMask);
-    }
-}
-
 void Octree::CollectNodes(Vector<RaycastResult>& result, const Octant* octant, const Ray& ray, unsigned short nodeFlags, 
     float maxDistance, unsigned layerMask) const
 {

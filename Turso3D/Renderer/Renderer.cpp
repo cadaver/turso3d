@@ -160,6 +160,7 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     for (auto it = shadowViews.Begin(); it != shadowViews.End(); ++it)
         it->shadowQueue.Clear();
     usedShadowViews = 0;
+    perFrameConstantsSet = false;
 
     scene = scene_;
     camera = camera_;
@@ -178,20 +179,18 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
         camera->SetAspectRatioInternal((float)viewport.Width() / (float)viewport.Height());
     }
 
-    // Make sure octree is up to date.
+    // Reinsert moved objects to the octree
     octree->Update();
 
     frustum = camera->WorldFrustum();
     viewMatrix = camera->ViewMatrix();
     projectionMatrix = camera->ProjectionMatrix();
     viewProjMatrix = projectionMatrix * viewMatrix;
+    viewMask = camera->ViewMask();
 
-    octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(geometries), NF_ENABLED | NF_GEOMETRY, reinterpret_cast<Vector<OctreeNode*>&>(lights),
-        NF_ENABLED | NF_LIGHT, frustum, camera->ViewMask());
+    octree->FindNodes(frustum, this, &Renderer::CollectGeometriesAndLights);
     
     CollectLightInteractions();
-
-    perFrameConstantsSet = false;
 }
 
 void Renderer::CollectLightInteractions()
@@ -199,73 +198,12 @@ void Renderer::CollectLightInteractions()
     {
         PROFILE(CollectLightInteractions);
 
-        bool geometriesPrepared = false;
-
-        // Prepare geometries for rendering and add any directional lights to them
         for (auto it = lights.Begin(); it != lights.End(); ++it)
         {
             Light* light = *it;
-            light->hasReceivers = false;
-
-            if (light->GetLightType() != LIGHT_DIRECTIONAL)
-                continue;
-            
             unsigned lightMask = light->LightMask();
 
-            // Create a light list that contains only this light. It will be used for nodes that have no light interactions so far
-            unsigned long long key = (unsigned long long)light;
-            LightList* lightList = &lightLists[key];
-            lightList->lights.Push(light);
-            lightList->key = key;
-
-            for (auto it = geometries.Begin(); it != geometries.End(); ++it)
-            {
-                GeometryNode* node = *it;
-                if (!geometriesPrepared)
-                {
-                    /// \todo Collect combined scene bounding box here if needed for shadow mapping
-                    node->OnPrepareRender(camera);
-                    node->lightList = nullptr;
-                    node->lastFrameNumber = frameNumber;
-                }
-                if (node->LayerMask() & lightMask)
-                    AddLightToNode(node, light, lightList);
-            }
-
-            geometriesPrepared = true;
-        }
-
-        // If no directional lights, update geometries separately
-        if (!geometriesPrepared)
-        {
-            for (auto it = geometries.Begin(); it != geometries.End(); ++it)
-            {
-                GeometryNode* node = *it;
-                node->OnPrepareRender(camera);
-                node->lightList = nullptr;
-                node->lastFrameNumber = frameNumber;
-            }
-        }
-
-        // Finally add point and spot lights
-        /// \todo The frustum queries can be threaded
-        for (auto it = lights.Begin(); it != lights.End(); ++it)
-        {
-            Light* light = *it;
-            if (light->GetLightType() == LIGHT_DIRECTIONAL)
-                continue;
-
             litGeometries.Clear();
-            if (light->GetLightType() == LIGHT_POINT)
-            {
-                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldSphere(), NF_ENABLED | NF_GEOMETRY,
-                    light->LightMask());
-            }
-            else
-            {
-                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldFrustum(), NF_ENABLED | NF_GEOMETRY,
-                    light->LightMask());
-            }
 
             // Create a light list that contains only this light. It will be used for nodes that have no light interactions so far
             unsigned long long key = (unsigned long long)light;
@@ -273,12 +211,39 @@ void Renderer::CollectLightInteractions()
             lightList->lights.Push(light);
             lightList->key = key;
             
-            for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
+            switch (light->GetLightType())
             {
-                GeometryNode* node = *gIt;
-                // Add light only to nodes which are actually inside the frustum this frame
-                if (node->lastFrameNumber == frameNumber)
-                    AddLightToNode(node, light, lightList);
+            case LIGHT_DIRECTIONAL:
+                for (auto it = geometries.Begin(); it != geometries.End(); ++it)
+                {
+                    GeometryNode* node = *it;
+                    if (node->LayerMask() & lightMask)
+                        AddLightToNode(node, light, lightList);
+                }
+                break;
+
+            case LIGHT_POINT:
+                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldSphere(), NF_ENABLED |
+                    NF_GEOMETRY, lightMask);
+                for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
+                {
+                    GeometryNode* node = *gIt;
+                    // Add light only to nodes which are actually inside the frustum this frame
+                    if (node->lastFrameNumber == frameNumber)
+                        AddLightToNode(node, light, lightList);
+                }
+                break;
+
+            case LIGHT_SPOT:
+                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldFrustum(), NF_ENABLED |
+                    NF_GEOMETRY, lightMask);
+                for (auto gIt = litGeometries.Begin(); gIt != litGeometries.End(); ++gIt)
+                {
+                    GeometryNode* node = *gIt;
+                    if (node->lastFrameNumber == frameNumber)
+                        AddLightToNode(node, light, lightList);
+                }
+                break;
             }
         }
     }
@@ -611,6 +576,62 @@ void Renderer::Initialize()
 
     // Setup ambient light only -pass
     ambientLightPass.psIdx = LIGHTBIT_AMBIENT;
+}
+
+void Renderer::CollectGeometriesAndLights(Vector<OctreeNode*>::ConstIterator begin, Vector<OctreeNode*>::ConstIterator end,
+    bool inside)
+{
+    if (inside)
+    {
+        for (auto it = begin; it != end; ++it)
+        {
+            OctreeNode* node = *it;
+            unsigned short flags = node->Flags();
+            if ((node->LayerMask() & viewMask) && ((flags & (NF_ENABLED | NF_GEOMETRY | NF_LIGHT)) > NF_ENABLED))
+            {
+                if (flags & NF_GEOMETRY)
+                {
+                    GeometryNode* geometry = static_cast<GeometryNode*>(node);
+                    geometry->OnPrepareRender(camera);
+                    geometry->lightList = nullptr;
+                    geometry->lastFrameNumber = frameNumber;
+                    geometries.Push(geometry);
+                }
+                else
+                {
+                    Light* light = static_cast<Light*>(node);
+                    light->hasReceivers = false;
+                    lights.Push(light);
+                }
+            }
+        }
+    }
+    else
+    {
+        for (auto it = begin; it != end; ++it)
+        {
+            OctreeNode* node = *it;
+            unsigned short flags = node->Flags();
+            if ((node->LayerMask() & viewMask) && ((flags & (NF_ENABLED | NF_GEOMETRY | NF_LIGHT)) > NF_ENABLED) &&
+                frustum.IsInsideFast(node->WorldBoundingBox()))
+            {
+                if (flags & NF_GEOMETRY)
+                {
+                    GeometryNode* geometry = static_cast<GeometryNode*>(node);
+                    geometry->OnPrepareRender(camera);
+                    geometry->lightList = nullptr;
+                    geometry->lastFrameNumber = frameNumber;
+                    geometries.Push(geometry);
+                }
+                else
+                {
+                    Light* light = static_cast<Light*>(node);
+                    light->hasReceivers = false;
+                    lights.Push(light);
+                }
+            }
+        }
+    }
 }
 
 void Renderer::AddLightToNode(GeometryNode* node, Light* light, LightList* lightList)
