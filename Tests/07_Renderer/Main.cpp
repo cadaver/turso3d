@@ -21,6 +21,7 @@ class RendererTest : public Object
 public:
     void Run()
     {
+        printf("Size of SpatialNode: %d\n", sizeof(SpatialNode));
         printf("Size of OctreeNode: %d\n", sizeof(OctreeNode));
         printf("Size of GeometryNode: %d\n", sizeof(GeometryNode));
         printf("Size of StaticModel: %d\n", sizeof(StaticModel));

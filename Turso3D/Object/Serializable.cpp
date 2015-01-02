@@ -155,7 +155,9 @@ void Serializable::RegisterAttribute(StringHash type, Attribute* attr)
 
 void Serializable::CopyBaseAttributes(StringHash type, StringHash baseType)
 {
-    classAttributes[type].Push(classAttributes[baseType]);
+    // Make sure the types are different, which may not be true if the OBJECT macro has been omitted
+    if (type != baseType)
+        classAttributes[type].Push(classAttributes[baseType]);
 }
 
 void Serializable::Skip(Stream& source)

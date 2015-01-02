@@ -18,6 +18,8 @@ class TURSO3D_API OctreeNode : public SpatialNode
 {
     friend class Octree;
 
+    OBJECT(OctreeNode);
+
 public:
     /// Construct.
     OctreeNode();
@@ -33,14 +35,14 @@ public:
     /// Set whether to cast shadows. Default false on both lights and geometries.
     void SetCastShadows(bool enable);
 
+    /// Return world space bounding box. Update if necessary.
+    const BoundingBox& WorldBoundingBox() const { if (TestFlag(NF_BOUNDING_BOX_DIRTY)) OnWorldBoundingBoxUpdate(); return worldBoundingBox; }
     /// Return whether casts shadows.
     bool CastShadows() const { return TestFlag(NF_CASTSHADOWS); }
     /// Return current octree this node resides in.
-    Octree* CurrentOctree() const { return octree; }
+    Octree* GetOctree() const { return octree; }
     /// Return current octree octant this node resides in.
-    Octant* CurrentOctant() const { return octant; }
-    /// Return world space bounding box. Update if necessary.
-    const BoundingBox& WorldBoundingBox() const { if (TestFlag(NF_BOUNDING_BOX_DIRTY)) OnWorldBoundingBoxUpdate(); return worldBoundingBox; }
+    Octant* GetOctant() const { return octant; }
 
 protected:
     /// Search for an octree from the scene root and add self to it.
