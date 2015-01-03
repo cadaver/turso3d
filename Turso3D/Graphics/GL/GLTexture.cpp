@@ -326,7 +326,7 @@ bool Texture::DefineSampler(TextureFilterMode filter_, TextureAddressMode u, Tex
         
         if (filter >= COMPARE_POINT)
         {
-            glTexParameteri(glTargets[type], GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE);
+            glTexParameteri(glTargets[type], GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
             glTexParameteri(glTargets[type], GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
         }
         else

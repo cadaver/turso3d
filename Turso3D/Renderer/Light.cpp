@@ -303,13 +303,19 @@ Matrix4 Light::ShadowMapAdjustMatrix(ShadowView* view) const
         0.5f * (float)view->viewport.Height() / height
     );
 
-    /// \todo OpenGL adjustment
     offset.x += scale.x;
     offset.y += scale.y;
-    scale.y = -scale.y;
 
+    #ifdef TURSO3D_OPENGL
+    offset.y = 1.0f - offset.y;
+    ret.SetTranslation(Vector3(offset, 0.5f));
+    ret.SetScale(Vector3(scale, 0.5f));
+    #else
+    scale.y = -scale.y;
     ret.SetTranslation(Vector3(offset, 0.0f));
     ret.SetScale(Vector3(scale, 1.0f));
+    #endif
+
     return ret;
 }
 

@@ -9,3 +9,8 @@ layout(std140) uniform PerObjectVS1
 {
     mat3x4 worldMatrix;
 };
+
+layout(std140) uniform LightsVS3
+{
+    mat4 shadowMatrices[4];
+};

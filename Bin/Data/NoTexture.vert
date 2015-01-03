@@ -11,6 +11,9 @@ in vec4 texCoord6;
 #endif
 out vec3 vWorldPos;
 out vec3 vNormal;
+#ifdef SHADOW
+out vec4 vShadowPos[4];
+#endif
 
 void main()
 {
@@ -26,4 +29,8 @@ void main()
     #endif
 
     gl_Position = vec4(vWorldPos, 1.0) * viewProjMatrix;
+    #ifdef SHADOW
+    for (int i = 0; i < 4; ++i)
+        vShadowPos[i] = vec4(vWorldPos, 1.0) * shadowMatrices[i];
+    #endif
 }

@@ -4,9 +4,18 @@
 
 in vec3 vWorldPos;
 in vec3 vNormal;
+#ifdef SHADOW
+in vec4 vShadowPos[4];
+#endif
 out vec4 fragColor;
 
 void main()
 {
-    return CalculateLighting(vWorldPos, normalize(vNormal));
+    #ifdef SHADOW
+    vec4 totalLight = CalculateLighting(vWorldPos, normalize(vNormal), vShadowPos);
+    #else
+    vec4 totalLight = CalculateLighting(vWorldPos, normalize(vNormal));
+    #endif
+    
+    fragColor = totalLight;
 }
