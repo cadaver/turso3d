@@ -829,7 +829,10 @@ void Graphics::CleanupFramebuffers()
         if (it->second->framesSinceUse > MAX_FRAMEBUFFER_AGE)
             it = framebuffers.Erase(it);
         else
-            it->second->framesSinceUse++;
+        {
+            ++it->second->framesSinceUse;
+            ++it;
+        }
     }
 }
 
