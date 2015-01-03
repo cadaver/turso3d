@@ -144,8 +144,8 @@ bool ShaderVariation::Compile()
     endMacro.Definition = nullptr;
     macros.Push(endMacro);
 
-    /// \todo Optimization level
-    DWORD flags = 0;
+    /// \todo Level 3 could be used, but can lead to longer shader compile times, considering there is no binary caching yet
+    DWORD flags = D3DCOMPILE_OPTIMIZATION_LEVEL2 | D3DCOMPILE_PREFER_FLOW_CONTROL;
     ID3DBlob* errorBlob = nullptr;
     if (FAILED(D3DCompile(parent->SourceCode().CString(), parent->SourceCode().Length(), "", &macros[0], 0, "main", 
         stage == SHADER_VS ? "vs_4_0" : "ps_4_0", flags, 0, (ID3DBlob**)&blob, &errorBlob)))

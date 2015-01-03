@@ -55,6 +55,9 @@ static const size_t PS_LIGHT_COLORS = 3;
 /// Texture coordinate index for the instance world matrix.
 static const size_t INSTANCE_TEXCOORD = 4;
 
+/// Texture unit index for the first shadow map.
+static const size_t TU_SHADOWMAP = 8;
+
 /// Maximum number of lights per pass.
 static const size_t MAX_LIGHTS_PER_PASS = 4;
 
@@ -93,8 +96,16 @@ struct TURSO3D_API LightPass
     Vector4 lightAttenuations[MAX_LIGHTS_PER_PASS];
     /// %Light colors.
     Color lightColors[MAX_LIGHTS_PER_PASS];
-    /// Pixel shader variation index.
-    unsigned psIdx;
+    /// Shadow map sampling parameters.
+    Vector4 shadowParameters[MAX_LIGHTS_PER_PASS];
+    /// Shadow mapping matrices.
+    Matrix4 shadowMatrices[MAX_LIGHTS_PER_PASS];
+    /// Shadow maps.
+    Texture* shadowMaps[MAX_LIGHTS_PER_PASS];
+    /// Vertex shader variation bits.
+    unsigned short vsBits;
+    /// Pixel shader variation bits.
+    unsigned short psBits;
 };
 
 /// %List of lights for a geometry node.
@@ -106,6 +117,8 @@ struct TURSO3D_API LightList
     Vector<Light*> lights;
     /// Associated light passes.
     Vector<LightPass*> lightPasses;
+    /// Use count
+    size_t useCount;
 };
 
 /// Description of a draw call.
@@ -184,38 +197,6 @@ struct TURSO3D_API BatchQueue
     unsigned char additiveIndex;
 };
 
-/// Shadow map data structure.
-struct TURSO3D_API ShadowMap
-{
-    /// Default-construct.
-    ShadowMap();
-    /// Destruct.
-    ~ShadowMap();
-
-    /// Clear allocator and use flag.
-    void Clear();
-
-    /// Rectangle allocator.
-    AreaAllocator allocator;
-    /// Shadow map texture.
-    SharedPtr<Texture> texture;
-    /// Shadow view indices that use this shadow map.
-    Vector<size_t> shadowViews;
-    /// Use flag. When false, clearing and rendering the shadow map can be skipped.
-    bool used;
-};
-
-/// Shadowed light structure.
-struct TURSO3D_API ShadowLight
-{
-    /// Shadow-casting light.
-    Light* light;
-    /// Shadow map rect, which includes space for all the individal shadow views.
-    IntRect shadowRect;
-    /// Shadow view indices used by this light.
-    Vector<size_t> shadowViews;
-};
-
 /// Shadow rendering view.
 struct TURSO3D_API ShadowView
 {
@@ -231,10 +212,33 @@ struct TURSO3D_API ShadowView
     SharedPtr<Camera> shadowCamera;
     /// Viewport within the shadow map.
     IntRect viewport;
+    /// Light that is using this view.
+    Light* light;
     /// Shadow caster geometries.
     Vector<GeometryNode*> shadowCasters;
     /// Shadow batch queue.
     BatchQueue shadowQueue;
+};
+
+/// Shadow map data structure.
+struct TURSO3D_API ShadowMap
+{
+    /// Default-construct.
+    ShadowMap();
+    /// Destruct.
+    ~ShadowMap();
+
+    /// Clear allocator and use flag.
+    void Clear();
+
+    /// Rectangle allocator.
+    AreaAllocator allocator;
+    /// Shadow map texture.
+    SharedPtr<Texture> texture;
+    /// Shadow views that use this shadow map.
+    Vector<ShadowView*> shadowViews;
+    /// Use flag. When false, clearing and rendering the shadow map can be skipped.
+    bool used;
 };
 
 /// High-level rendering subsystem. Performs rendering of 3D scenes.
@@ -271,7 +275,7 @@ private:
     /// Octree callback for collecting lights and geometries.
     void CollectGeometriesAndLights(Vector<OctreeNode*>::ConstIterator begin, Vector<OctreeNode*>::ConstIterator end, bool inside);
     /// Collect shadow caster batches.
-    void CollectShadowBatches(ShadowView& view);
+    void CollectShadowBatches(ShadowView* view);
     /// Assign a light list to a node. Creates new light lists as necessary to handle multiple lights.
     void AddLightToNode(GeometryNode* node, Light* light, LightList* lightList);
     /// Sort batch queue. For distance sorted queues, build instances after sorting.
@@ -279,11 +283,11 @@ private:
     /// Copy instance transforms from batch queue to the global vector.
     void CopyInstanceTransforms(BatchQueue& batchQueue);
     /// Render batches from a specific queue and camera.
-    void RenderBatches(BatchQueue& batchQueue, Camera* camera);
+    void RenderBatches(BatchQueue& batchQueue, Camera* camera, bool overrideDepthBias = false, int depthBias = 0, float slopeScaledDepthBias = 0.0f);
     /// Load shaders for a pass.
     void LoadPassShaders(Pass* pass);
     /// Return or create a shader variation for a pass. Vertex shader variations handle different geometry types and pixel shader variations handle different light combinations.
-    ShaderVariation* FindShaderVariation(ShaderStage stage, Pass* pass, size_t idx);
+    ShaderVariation* FindShaderVariation(ShaderStage stage, Pass* pass, unsigned short bits);
     
     /// Graphics subsystem pointer.
     WeakPtr<Graphics> graphics;
@@ -325,17 +329,17 @@ private:
     bool instanceTransformsDirty;
     /// Shadow maps.
     Vector<ShadowMap> shadowMaps;
-    /// Shadow casting lights.
-    Vector<ShadowLight> shadowLights;
     /// Shadow camera views.
-    Vector<ShadowView> shadowViews;
+    Vector<AutoPtr<ShadowView> > shadowViews;
     /// Per-frame vertex shader constant buffer.
     AutoPtr<ConstantBuffer> vsFrameConstantBuffer;
     /// Per-frame pixel shader constant buffer.
     AutoPtr<ConstantBuffer> psFrameConstantBuffer;
     /// Per-object vertex shader constant buffer.
     AutoPtr<ConstantBuffer> vsObjectConstantBuffer;
-    /// Light queue pixel shader constant buffer.
+    /// Lights vertex shader constant buffer.
+    AutoPtr<ConstantBuffer> vsLightConstantBuffer;
+    /// Lights pixel shader constant buffer.
     AutoPtr<ConstantBuffer> psLightConstantBuffer;
     /// Instance transform vertex buffer.
     AutoPtr<VertexBuffer> instanceVertexBuffer;

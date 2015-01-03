@@ -257,11 +257,12 @@ void Graphics::SetRenderTargets(const Vector<Texture*>& renderTargets_, Texture*
     if (renderTargets_.IsEmpty())
         return;
 
+    // If depth stencil is specified but no rendertarget, use null instead of backbuffer
     for (size_t i = 0; i < MAX_RENDERTARGETS && i < renderTargets_.Size(); ++i)
     {
         renderTargets[i] = (renderTargets_[i] && renderTargets_[i]->IsRenderTarget()) ? renderTargets_[i] : nullptr;
         impl->renderTargetViews[i] = renderTargets[i] ? (ID3D11RenderTargetView*)renderTargets_[i]->D3DRenderTargetView() :
-            impl->defaultRenderTargetView;
+            (i > 0 || depthStencil_) ? nullptr : impl->defaultRenderTargetView;
     }
 
     for (size_t i = renderTargets_.Size(); i < MAX_RENDERTARGETS; ++i)
@@ -281,7 +282,7 @@ void Graphics::SetRenderTargets(const Vector<Texture*>& renderTargets_, Texture*
     else
         renderTargetSize = backbufferSize;
 
-    impl->deviceContext->OMSetRenderTargets(Min((int)renderTargets_.Size(), (int)MAX_RENDERTARGETS), impl->renderTargetViews, impl->depthStencilView);
+    impl->deviceContext->OMSetRenderTargets(MAX_RENDERTARGETS, impl->renderTargetViews, impl->depthStencilView);
 }
 
 void Graphics::SetViewport(const IntRect& viewport_)
@@ -292,7 +293,7 @@ void Graphics::SetViewport(const IntRect& viewport_)
     viewport.right = Clamp(viewport_.right, viewport.left + 1, renderTargetSize.x);
     viewport.bottom = Clamp(viewport_.bottom, viewport.top + 1, renderTargetSize.y);
 
-    D3D11_VIEWPORT d3dViewport;
+    static D3D11_VIEWPORT d3dViewport;
     d3dViewport.TopLeftX = (float)viewport.left;
     d3dViewport.TopLeftY = (float)viewport.top;
     d3dViewport.Width = (float)(viewport.right - viewport.left);
@@ -738,6 +739,7 @@ bool Graphics::UpdateSwapChain(int width, int height)
 
     // Create default depth-stencil texture and view
     D3D11_TEXTURE2D_DESC depthDesc;
+    memset(&depthDesc, 0, sizeof depthDesc);
     depthDesc.Width = width;
     depthDesc.Height = height;
     depthDesc.MipLevels = 1;

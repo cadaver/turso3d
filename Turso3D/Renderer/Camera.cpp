@@ -12,6 +12,7 @@ static const float DEFAULT_NEARCLIP = 0.1f;
 static const float DEFAULT_FARCLIP = 1000.0f;
 static const float DEFAULT_FOV = 45.0f;
 static const float DEFAULT_ORTHOSIZE = 20.0f;
+static const Color DEFAULT_AMBIENT_COLOR(0.25f, 0.25f, 0.25f, 1.0f);
 
 static const Matrix4 flipMatrix(
     1.0f, 0.0f, 0.0f, 0.0f,
@@ -34,6 +35,7 @@ Camera::Camera() :
     zoom(1.0f),
     lodBias(1.0f),
     viewMask(M_MAX_UNSIGNED),
+    ambientColor(DEFAULT_AMBIENT_COLOR),
     projectionOffset(Vector2::ZERO),
     reflectionPlane(Plane::UP),
     clipPlane(Plane::UP),
@@ -58,6 +60,7 @@ void Camera::RegisterObject()
     RegisterAttribute("zoom", &Camera::Zoom, &Camera::SetZoom, 1.0f);
     RegisterAttribute("lodBias", &Camera::LodBias, &Camera::SetLodBias, 1.0f);
     RegisterAttribute("viewMask", &Camera::ViewMask, &Camera::SetViewMask, M_MAX_UNSIGNED);
+    RegisterRefAttribute("ambientColor", &Camera::AmbientColor, &Camera::SetAmbientColor, DEFAULT_AMBIENT_COLOR);
     RegisterRefAttribute("projectionOffset", &Camera::ProjectionOffset, &Camera::SetProjectionOffset, Vector2::ZERO);
     RegisterMixedRefAttribute("reflectionPlane", &Camera::ReflectionPlaneAttr, &Camera::SetReflectionPlaneAttr, Vector4(0.0f, 1.0f, 0.0f, 0.0f));
     RegisterMixedRefAttribute("clipPlane", &Camera::ClipPlaneAttr, &Camera::SetClipPlaneAttr, Vector4(0.0f, 1.0f, 0.0f, 0.0f));
@@ -122,6 +125,11 @@ void Camera::SetOrthographic(bool enable)
 void Camera::SetAutoAspectRatio(bool enable)
 {
     autoAspectRatio = enable;
+}
+
+void Camera::SetAmbientColor(const Color& color)
+{
+    ambientColor = color;
 }
 
 void Camera::SetProjectionOffset(const Vector2& offset)

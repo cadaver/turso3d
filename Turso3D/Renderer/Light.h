@@ -58,6 +58,10 @@ public:
     void SetNumCascadeSplits(int num);
     /// Set cascade split lambda (directional lights only.)
     void SetCascadeLambda(float lambda);
+    /// Set constant depth bias for shadows.
+    void SetDepthBias(int bias);
+    /// Set slope-scaled depth bias for shadows.
+    void SetSlopeScaledDepthBias(float bias);
 
     /// Return light type.
     LightType GetLightType() const { return lightType; }
@@ -75,6 +79,10 @@ public:
     int NumCascadesplits() const { return numCascadeSplits; }
     /// Return cascade split lambda.
     float CascadeLambda() const { return cascadeLambda; }
+    /// Return constant depth bias.
+    int DepthBias() const { return depthBias; }
+    /// Return slope-scaled depth bias.
+    float SlopeScaledDepthBias() const { return slopeScaledDepthBias; }
     /// Return required total shadow map size, which depends on light type and cascade splits.
     IntVector2 TotalShadowMapSize() const;
     /// Return number of required shadow views / cameras.
@@ -84,8 +92,10 @@ public:
     /// Return point light world space sphere.
     Sphere WorldSphere() const;
 
-    /// Setup the provided shadow view. Called by Renderer.
-    void SetupShadowView(size_t index, ShadowView& view, const IntRect& shadowRect);
+    /// Setup the shadow cameras and viewports. Called by Renderer after it has assigned the views to the light.
+    void SetupShadowViews();
+    /// Setup the shadow matrix constants. Called by Renderer.
+    void SetupShadowMatrices(Matrix4* dest, size_t& destIndex);
 
 protected:
     /// Recalculate the world space bounding box.
@@ -96,6 +106,8 @@ private:
     void SetLightTypeAttr(int lightType);
     /// Return light type as int. Used in serialization.
     int LightTypeAttr() const;
+    /// Calculate shadow map sampling adjustment matrix from shadow map and viewport.
+    Matrix4 ShadowMapAdjustMatrix(ShadowView* view) const;
 
     /// Light type.
     LightType lightType;
@@ -113,8 +125,16 @@ private:
     int numCascadeSplits;
     /// Cascade lambda.
     float cascadeLambda;
+    /// Constant depth bias.
+    int depthBias;
+    /// Slope-scaled depth bias.
+    float slopeScaledDepthBias;
     /// Current shadow map texture. Assigned by Renderer.
     Texture* shadowMap;
+    /// Rectangle within the shdow map. Assigned by Renderer.
+    IntRect shadowRect;
+    /// Shadow views used by the light. Assigned by Renderer.
+    Vector<ShadowView*> shadowViews;
     /// Whether has light receiver geometries. Assigned by Renderer.
     bool hasReceivers;
 };

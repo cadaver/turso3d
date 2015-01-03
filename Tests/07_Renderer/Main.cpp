@@ -44,22 +44,34 @@ public:
         graphics->RenderWindow()->SetTitle("Renderer test");
         graphics->SetMode(IntVector2(640, 480), false, true);
 
-        renderer->SetupShadowMaps(1, 1024, FMT_D32);
+        renderer->SetupShadowMaps(1, 1024, FMT_D16);
 
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &RendererTest::HandleCloseRequest);
 
         SharedPtr<Scene> scene = new Scene();
         scene->CreateChild<Octree>();
         Camera* camera = scene->CreateChild<Camera>();
-        camera->SetPosition(Vector3(0.0f, 3.0f, -50.0f));
+        camera->SetPosition(Vector3(0.0f, 3.0f, -20.0f));
+        camera->SetAmbientColor(Color::BLACK);
 
-        Light* light = scene->CreateChild<Light>();
-        light->SetPosition(Vector3(0.0f, 50.0f, 0.0f));
-        light->SetLightType(LIGHT_SPOT);
-        light->SetRange(100.0f);
-        light->SetFov(45.0f);
-        light->SetDirection(Vector3::DOWN);
-        light->SetCastShadows(true);
+        {
+            Light* light = scene->CreateChild<Light>();
+            light->SetPosition(Vector3(0.0f, 20.0f, 0.0f));
+            light->SetLightType(LIGHT_SPOT);
+            light->SetRange(30.0f);
+            light->SetFov(90.0f);
+            light->SetDirection(Vector3::DOWN);
+            light->SetCastShadows(true);
+            light->SetShadowMapSize(1024);
+        }
+
+        {
+            Light* light = scene->CreateChild<Light>();
+            light->SetPosition(Vector3(0.0f, 20.0f, 0.0f));
+            light->SetLightType(LIGHT_DIRECTIONAL);
+            light->SetColor(Color(0.2f, 0.2f, 0.4f));
+            light->SetDirection(Vector3(-1.0f, -1.0f, -1.0f));
+        }
 
         Vector<GeometryNode*> nodes;
 
@@ -68,7 +80,7 @@ public:
             for (int z = -10; z < 10; ++z)
             {
                 StaticModel* modelNode = scene->CreateChild<StaticModel>();
-                modelNode->SetPosition(Vector3(2.0f * x, 1.0f, 2.0f * z));
+                modelNode->SetPosition(Vector3(2.0f * x, 2.0f, 2.0f * z));
                 modelNode->SetModel(cache->LoadResource<Model>("Box.mdl"));
                 modelNode->SetCastShadows(true);
                 //for (size_t i = 0; i < modelNode->NumGeometries(); ++i)
@@ -80,7 +92,7 @@ public:
         {
             StaticModel* modelNode = scene->CreateChild<StaticModel>();
             modelNode->SetModel(cache->LoadResource<Model>("Box.mdl"));
-            modelNode->SetScale(Vector3(50.0f, 0.1f, 50.0f));
+            modelNode->SetScale(Vector3(50.0f, 0.01f, 50.0f));
             //for (size_t i = 0; i < modelNode->NumGeometries(); ++i)
             //    modelNode->SetMaterial(i, cache->LoadResource<Material>("Test.json"));
         }
@@ -144,12 +156,12 @@ public:
             if (!graphics->IsInitialized())
                 break;
 
-            renderer->CollectObjects(scene, camera);
-            renderer->CollectLightInteractions();
-
             Vector<PassDesc> passes;
             passes.Push(PassDesc("opaque", SORT_STATE, true));
             passes.Push(PassDesc("alpha", SORT_BACK_TO_FRONT, true));
+
+            renderer->CollectObjects(scene, camera);
+            renderer->CollectLightInteractions();
             renderer->CollectBatches(passes);
 
             renderer->RenderShadowMaps();

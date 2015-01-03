@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "../Math/Color.h"
 #include "../Math/Frustum.h"
 #include "../Math/Plane.h"
 #include "../Math/Ray.h"
@@ -53,6 +54,8 @@ class TURSO3D_API Camera : public SpatialNode
     void SetOrthographic(bool enable);
     /// Set automatic aspect ratio based on viewport dimensions. Enabled by default.
     void SetAutoAspectRatio(bool enable);
+    /// Set ambient light color to use when rendering with this camera.
+    void SetAmbientColor(const Color& color);
     /// Set projection offset. It needs to be calculated as (offset in pixels) / (viewport dimensions.)
     void SetProjectionOffset(const Vector2& offset);
     /// Set reflection mode.
@@ -86,6 +89,22 @@ class TURSO3D_API Camera : public SpatialNode
     bool IsOrthographic() const { return orthographic; }
     /// Return auto aspect ratio flag.
     bool AutoAspectRatio() const { return autoAspectRatio; }
+    /// Return ambient light color.
+    const Color& AmbientColor() const { return ambientColor; }
+    /// Return projection offset.
+    const Vector2& ProjectionOffset() const { return projectionOffset; }
+    /// Return whether is using reflection.
+    bool UseReflection() const { return useReflection; }
+    /// Return the reflection plane.
+    const Plane& ReflectionPlane() const { return reflectionPlane; }
+    /// Return whether is using a custom clipping plane.
+    bool UseClipping() const { return useClipping; }
+    /// Return the custom clipping plane.
+    const Plane& ClipPlane() const { return clipPlane; }
+    /// Return vertical flipping mode.
+    bool FlipVertical() const { return flipVertical; }
+    /// Return whether to reverse culling; affected by vertical flipping and reflection.
+    bool UseReverseCulling() const { return flipVertical ^ useReflection; }
     /// Return frustum in world space.
     Frustum WorldFrustum() const;
     /// Return world space frustum split by custom near and far clip distances.
@@ -108,20 +127,6 @@ class TURSO3D_API Camera : public SpatialNode
     Vector2 WorldToScreenPoint(const Vector3& worldPos) const;
     // Convert normalized screen coordinates (0.0 - 1.0) and depth to a world space point.
     Vector3 ScreenToWorldPoint(const Vector3& screenPos) const;
-    /// Return projection offset.
-    const Vector2& ProjectionOffset() const { return projectionOffset; }
-    /// Return whether is using reflection.
-    bool UseReflection() const { return useReflection; }
-    /// Return the reflection plane.
-    const Plane& ReflectionPlane() const { return reflectionPlane; }
-    /// Return whether is using a custom clipping plane.
-    bool UseClipping() const { return useClipping; }
-    /// Return the custom clipping plane.
-    const Plane& ClipPlane() const { return clipPlane; }
-    /// Return vertical flipping mode.
-    bool FlipVertical() const { return flipVertical; }
-    /// Return whether to reverse culling; affected by vertical flipping and reflection.
-    bool UseReverseCulling() const { return flipVertical ^ useReflection; }
     /// Return distance to position. In orthographic mode uses only Z coordinate.
     float Distance(const Vector3& worldPos) const;
     /// Return squared distance to position. In orthographic mode uses only Z coordinate.
@@ -178,6 +183,8 @@ private:
     float lodBias;
     /// View layer mask.
     unsigned viewMask;
+    /// Ambient light color.
+    Color ambientColor;
     /// Projection offset.
     Vector2 projectionOffset;
     /// Reflection plane.

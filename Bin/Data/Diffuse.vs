@@ -16,6 +16,9 @@ struct VSOutput
     float3 normal : NORMAL;
     float2 texCoord : TEXCOORD0;
     float3 worldPos : TEXCOORD1;
+    #ifdef SHADOW
+    float4 shadowPos[4] : TEXCOORD4;
+    #endif
 };
 
 VSOutput main(VSInput input)
@@ -32,5 +35,10 @@ VSOutput main(VSInput input)
 
     output.position = mul(float4(output.worldPos, 1.0), viewProjMatrix);
     output.texCoord = input.texCoord;
+    #ifdef SHADOW
+    for (int i = 0; i < 4; ++i)
+        output.shadowPos[i] = mul(float4(output.worldPos, 1.0), shadowMatrices[i]);
+    #endif
+
     return output;
 }

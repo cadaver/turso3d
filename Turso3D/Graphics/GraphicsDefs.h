@@ -202,6 +202,10 @@ enum TextureFilterMode
     FILTER_BILINEAR,
     FILTER_TRILINEAR,
     FILTER_ANISOTROPIC,
+    COMPARE_POINT,
+    COMPARE_BILINEAR,
+    COMPARE_TRILINEAR,
+    COMPARE_ANISOTROPIC
 };
 
 /// Texture addressing modes.

@@ -1,12 +1,13 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
-#include "Light.h"
-
-#include "../Debug/DebugNew.h"
+#include "../Debug/Log.h"
 #include "../Math/Ray.h"
 #include "Camera.h"
+#include "Light.h"
 #include "Octree.h"
 #include "Renderer.h"
+
+#include "../Debug/DebugNew.h"
 
 namespace Turso3D
 {
@@ -18,6 +19,8 @@ static const float DEFAULT_SPOT_FOV = 30.0f;
 static const int DEFAULT_SHADOWMAP_SIZE = 512;
 static const int DEFAULT_CASCADE_SPLITS = 3;
 static const float DEFAULT_CASCADE_LAMBDA = 0.8f;
+static const int DEFAULT_DEPTH_BIAS = 2;
+static const float DEFAULT_SLOPE_SCALED_DEPTH_BIAS = 0.5f;
 
 static const char* lightTypeNames[] =
 {
@@ -36,6 +39,8 @@ Light::Light() :
     shadowMapSize(DEFAULT_SHADOWMAP_SIZE),
     numCascadeSplits(DEFAULT_CASCADE_SPLITS),
     cascadeLambda(DEFAULT_CASCADE_LAMBDA),
+    depthBias(DEFAULT_DEPTH_BIAS),
+    slopeScaledDepthBias(DEFAULT_SLOPE_SCALED_DEPTH_BIAS),
     shadowMap(nullptr),
     hasReceivers(false)
 {
@@ -59,6 +64,8 @@ void Light::RegisterObject()
     RegisterAttribute("shadowMapSize", &Light::ShadowMapSize, &Light::SetShadowMapSize, DEFAULT_SHADOWMAP_SIZE);
     RegisterAttribute("numCascadeSplits", &Light::NumCascadesplits, &Light::SetNumCascadeSplits, DEFAULT_CASCADE_SPLITS);
     RegisterAttribute("cascadeLambda", &Light::CascadeLambda, &Light::SetCascadeLambda, DEFAULT_CASCADE_LAMBDA);
+    RegisterAttribute("depthBias", &Light::DepthBias, &Light::SetDepthBias, DEFAULT_DEPTH_BIAS);
+    RegisterAttribute("slopeScaledDepthBias", &Light::SlopeScaledDepthBias, &Light::SetSlopeScaledDepthBias, DEFAULT_SLOPE_SCALED_DEPTH_BIAS);
 }
 
 void Light::OnRaycast(Vector<RaycastResult>& dest, const Ray& ray, float maxDistance)
@@ -153,6 +160,16 @@ void Light::SetCascadeLambda(float lambda)
     cascadeLambda = Clamp(lambda, 0.1f, 1.0f);
 }
 
+void Light::SetDepthBias(int bias)
+{
+    depthBias = Max(bias, 0);
+}
+
+void Light::SetSlopeScaledDepthBias(float bias)
+{
+    slopeScaledDepthBias = Max(bias, 0.0f);
+}
+
 IntVector2 Light::TotalShadowMapSize() const
 {
     if (lightType == LIGHT_DIRECTIONAL)
@@ -194,20 +211,41 @@ Sphere Light::WorldSphere() const
     return Sphere(WorldPosition(), range);
 }
 
-void Light::SetupShadowView(size_t index, ShadowView& view, const IntRect& shadowRect)
+void Light::SetupShadowViews()
 {
-    Camera* camera = view.shadowCamera;
+    for (auto it = shadowViews.Begin(); it != shadowViews.End(); ++it)
+    {
+        ShadowView* view = *it;
+        view->light = this;
+        Camera* camera = view->shadowCamera;
 
+        /// \todo Handle all light types
+        switch (lightType)
+        {
+        case LIGHT_SPOT:
+            camera->SetPosition(WorldPosition());
+            camera->SetRotation(WorldRotation());
+            camera->SetFov(fov);
+            camera->SetFarClip(Range());
+            camera->SetNearClip(Range() * 0.01f);
+            camera->SetOrthographic(false);
+            camera->SetAspectRatio(1.0f);
+            view->viewport = shadowRect;
+            break;
+        }
+    }
+}
+
+void Light::SetupShadowMatrices(Matrix4* dest, size_t& destIndex)
+{
     switch (lightType)
     {
     case LIGHT_SPOT:
-        camera->SetPosition(WorldPosition());
-        camera->SetRotation(WorldRotation());
-        camera->SetFarClip(Range());
-        camera->SetNearClip(Range() * 0.001f);
-        camera->SetOrthographic(false);
-        camera->SetAspectRatio(1.0f);
-        view.viewport = shadowRect;
+        {
+            ShadowView* view = shadowViews.Front();
+            Camera* camera = view->shadowCamera;
+            dest[destIndex++] = ShadowMapAdjustMatrix(view) * camera->ProjectionMatrix() * camera->ViewMatrix();
+        }
         break;
     }
 }
@@ -218,7 +256,7 @@ void Light::OnWorldBoundingBoxUpdate() const
     {
     case LIGHT_DIRECTIONAL:
         // Directional light always sets humongous bounding box not affected by transform
-        worldBoundingBox.Define(-1000000000.0f, 1000000000.0f);
+        worldBoundingBox.Define(-M_MAX_FLOAT, M_MAX_FLOAT);
         break;
         
     case LIGHT_POINT:
@@ -248,5 +286,31 @@ int Light::LightTypeAttr() const
     return (int)lightType;
 }
 
+Matrix4 Light::ShadowMapAdjustMatrix(ShadowView* view) const
+{
+    Matrix4 ret(Matrix4::IDENTITY);
+
+    float width = (float)shadowMap->Width();
+    float height = (float)shadowMap->Height();
+
+    Vector2 offset(
+        (float)view->viewport.left / width,
+        (float)view->viewport.top / height
+    );
+
+    Vector2 scale(
+        0.5f * (float)view->viewport.Width() / width,
+        0.5f * (float)view->viewport.Height() / height
+    );
+
+    /// \todo OpenGL adjustment
+    offset.x += scale.x;
+    offset.y += scale.y;
+    scale.y = -scale.y;
+
+    ret.SetTranslation(Vector3(offset, 0.0f));
+    ret.SetScale(Vector3(scale, 1.0f));
+    return ret;
 }
 
+}

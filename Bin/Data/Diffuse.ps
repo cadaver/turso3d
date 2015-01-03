@@ -9,10 +9,18 @@ struct PSInput
     float3 normal : NORMAL;
     float2 texCoord : TEXCOORD0;
     float3 worldPos : TEXCOORD1;
+    #ifdef SHADOW
+    float4 shadowPos[4] : TEXCOORD4;
+    #endif
 };
 
 float4 main(PSInput input) : SV_TARGET
 {
+    #ifdef SHADOW
+    float4 totalLight = CalculateLighting(input.worldPos, normalize(input.normal), input.shadowPos);
+    #else
     float4 totalLight = CalculateLighting(input.worldPos, normalize(input.normal));
+    #endif
+
     return totalLight * diffuseTex.Sample(diffuseSampler, input.texCoord);
 }

@@ -17,7 +17,11 @@ static const D3D11_FILTER filterMode[] =
     D3D11_FILTER_MIN_MAG_MIP_POINT,
     D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT,
     D3D11_FILTER_MIN_MAG_MIP_LINEAR,
-    D3D11_FILTER_ANISOTROPIC
+    D3D11_FILTER_ANISOTROPIC,
+    D3D11_FILTER_COMPARISON_MIN_MAG_MIP_POINT,
+    D3D11_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT,
+    D3D11_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR,
+    D3D11_FILTER_COMPARISON_ANISOTROPIC
 };
 
 static const DXGI_FORMAT textureFormat[] = 
@@ -298,7 +302,7 @@ bool Texture::DefineSampler(TextureFilterMode filter_, TextureAddressMode u, Tex
         samplerDesc.AddressV = (D3D11_TEXTURE_ADDRESS_MODE)v;
         samplerDesc.AddressW = (D3D11_TEXTURE_ADDRESS_MODE)w;
         samplerDesc.MaxAnisotropy = maxAnisotropy;
-        samplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+        samplerDesc.ComparisonFunc = D3D11_COMPARISON_LESS_EQUAL;
         samplerDesc.MinLOD = minLod;
         samplerDesc.MaxLOD = maxLod;
         memcpy(&samplerDesc.BorderColor, borderColor.Data(), 4 * sizeof(float));

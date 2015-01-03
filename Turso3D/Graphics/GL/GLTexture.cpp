@@ -283,11 +283,13 @@ bool Texture::DefineSampler(TextureFilterMode filter_, TextureAddressMode u, Tex
         switch (filter)
         {
         case FILTER_POINT:
+        case COMPARE_POINT:
             glTexParameteri(glTargets[type], GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(glTargets[type], GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             break;
 
         case FILTER_BILINEAR:
+        case COMPARE_BILINEAR:
             if (numLevels < 2)
                 glTexParameteri(glTargets[type], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             else
@@ -297,6 +299,8 @@ bool Texture::DefineSampler(TextureFilterMode filter_, TextureAddressMode u, Tex
 
         case FILTER_ANISOTROPIC:
         case FILTER_TRILINEAR:
+        case COMPARE_ANISOTROPIC:
+        case COMPARE_TRILINEAR:
             if (numLevels < 2)
                 glTexParameteri(glTargets[type], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             else
@@ -319,6 +323,14 @@ bool Texture::DefineSampler(TextureFilterMode filter_, TextureAddressMode u, Tex
         glTexParameterf(glTargets[type], GL_TEXTURE_MAX_LOD, maxLod);
 
         glTexParameterfv(glTargets[type], GL_TEXTURE_BORDER_COLOR, borderColor.Data());
+        
+        if (filter >= COMPARE_POINT)
+        {
+            glTexParameteri(glTargets[type], GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE);
+            glTexParameteri(glTargets[type], GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+        }
+        else
+            glTexParameteri(glTargets[type], GL_TEXTURE_COMPARE_MODE, GL_NONE);
     }
 
     return true;
