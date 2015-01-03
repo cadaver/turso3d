@@ -17,8 +17,8 @@ static const Color DEFAULT_COLOR = Color(1.0f, 1.0f, 1.0f, 0.5f);
 static const float DEFAULT_RANGE = 10.0f;
 static const float DEFAULT_SPOT_FOV = 30.0f;
 static const int DEFAULT_SHADOWMAP_SIZE = 512;
-static const int DEFAULT_CASCADE_SPLITS = 3;
-static const float DEFAULT_CASCADE_LAMBDA = 0.8f;
+static const Vector4 DEFAULT_SHADOW_SPLITS = Vector4(10.0f, 50.0f, 150.0f, 0.0f);
+static const float DEFAULT_FADE_START = 0.9f;
 static const int DEFAULT_DEPTH_BIAS = 2;
 static const float DEFAULT_SLOPE_SCALED_DEPTH_BIAS = 0.5f;
 
@@ -37,8 +37,8 @@ Light::Light() :
     fov(DEFAULT_SPOT_FOV),
     lightMask(M_MAX_UNSIGNED),
     shadowMapSize(DEFAULT_SHADOWMAP_SIZE),
-    numCascadeSplits(DEFAULT_CASCADE_SPLITS),
-    cascadeLambda(DEFAULT_CASCADE_LAMBDA),
+    shadowSplits(DEFAULT_SHADOW_SPLITS),
+    shadowFadeStart(DEFAULT_FADE_START),
     depthBias(DEFAULT_DEPTH_BIAS),
     slopeScaledDepthBias(DEFAULT_SLOPE_SCALED_DEPTH_BIAS),
     shadowMap(nullptr),
@@ -62,8 +62,8 @@ void Light::RegisterObject()
     RegisterAttribute("fov", &Light::Fov, &Light::SetFov, DEFAULT_SPOT_FOV);
     RegisterAttribute("lightMask", &Light::LightMask, &Light::SetLightMask, M_MAX_UNSIGNED);
     RegisterAttribute("shadowMapSize", &Light::ShadowMapSize, &Light::SetShadowMapSize, DEFAULT_SHADOWMAP_SIZE);
-    RegisterAttribute("numCascadeSplits", &Light::NumCascadesplits, &Light::SetNumCascadeSplits, DEFAULT_CASCADE_SPLITS);
-    RegisterAttribute("cascadeLambda", &Light::CascadeLambda, &Light::SetCascadeLambda, DEFAULT_CASCADE_LAMBDA);
+    RegisterRefAttribute("shadowSplits", &Light::ShadowSplits, &Light::SetShadowSplits, DEFAULT_SHADOW_SPLITS);
+    RegisterAttribute("shadowFadeStart", &Light::ShadowFadeStart, &Light::SetShadowFadeStart, DEFAULT_FADE_START);
     RegisterAttribute("depthBias", &Light::DepthBias, &Light::SetDepthBias, DEFAULT_DEPTH_BIAS);
     RegisterAttribute("slopeScaledDepthBias", &Light::SlopeScaledDepthBias, &Light::SetSlopeScaledDepthBias, DEFAULT_SLOPE_SCALED_DEPTH_BIAS);
 }
@@ -150,14 +150,14 @@ void Light::SetShadowMapSize(int size)
     shadowMapSize = NextPowerOfTwo(size);
 }
 
-void Light::SetNumCascadeSplits(int num)
+void Light::SetShadowSplits(const Vector4& splits)
 {
-    numCascadeSplits = Clamp(num, 1, 4);
+    shadowSplits = splits;
 }
 
-void Light::SetCascadeLambda(float lambda)
+void Light::SetShadowFadeStart(float start)
 {
-    cascadeLambda = Clamp(lambda, 0.1f, 1.0f);
+    shadowFadeStart = Clamp(start, 0.0f, 1.0f);
 }
 
 void Light::SetDepthBias(int bias)
@@ -172,11 +172,13 @@ void Light::SetSlopeScaledDepthBias(float bias)
 
 IntVector2 Light::TotalShadowMapSize() const
 {
+    int splits = NumShadowSplits();
+
     if (lightType == LIGHT_DIRECTIONAL)
     {
-        if (numCascadeSplits == 1)
+        if (splits == 1)
             return IntVector2(shadowMapSize, shadowMapSize);
-        else if (numCascadeSplits == 2)
+        else if (splits == 2)
             return IntVector2(shadowMapSize * 2, shadowMapSize);
         else
             return IntVector2(shadowMapSize * 2, shadowMapSize * 2);
@@ -187,12 +189,66 @@ IntVector2 Light::TotalShadowMapSize() const
         return IntVector2(shadowMapSize, shadowMapSize);
 }
 
+int Light::NumShadowSplits() const
+{
+    if (shadowSplits.y <= 0.0f)
+        return 1;
+    else if (shadowSplits.z <= 0.0f)
+        return 2;
+    else if (shadowSplits.w <= 0.0f)
+        return 3;
+    else
+        return 4;
+}
+
+float Light::ShadowSplit(size_t index) const
+{
+    if (index == 0)
+        return shadowSplits.x;
+    else if (index == 1)
+        return shadowSplits.y;
+    else if (index == 2)
+        return shadowSplits.z;
+    else
+        return shadowSplits.w;
+}
+
+float Light::MaxShadowDistance() const
+{
+    if (lightType != LIGHT_DIRECTIONAL)
+        return range;
+    else
+    {
+        if (shadowSplits.y <= 0.0f)
+            return shadowSplits.x;
+        else if (shadowSplits.z <= 0.0f)
+            return shadowSplits.y;
+        else if (shadowSplits.w <= 0.0f)
+            return shadowSplits.z;
+        else
+            return shadowSplits.w;
+    }
+}
+
 size_t Light::NumShadowViews() const
 {
-    if (lightType == LIGHT_DIRECTIONAL)
-        return numCascadeSplits;
+    if (!CastShadows())
+        return 0;
+    else if (lightType == LIGHT_DIRECTIONAL)
+        return NumShadowSplits();
     else if (lightType == LIGHT_POINT)
         return 6;
+    else
+        return 1;
+}
+
+size_t Light::NumShadowCoords() const
+{
+    if (!CastShadows() || lightType == LIGHT_POINT)
+        return 0;
+    // Directional light always uses up all the light coordinates and can not share the pass with shadowed spot lights
+    else if (lightType == LIGHT_DIRECTIONAL)
+        return MAX_LIGHTS_PER_PASS;
     else
         return 1;
 }
@@ -211,26 +267,84 @@ Sphere Light::WorldSphere() const
     return Sphere(WorldPosition(), range);
 }
 
-void Light::SetupShadowViews()
+void Light::SetupShadowViews(Camera* mainCamera)
 {
-    for (auto it = shadowViews.Begin(); it != shadowViews.End(); ++it)
+    for (size_t i = 0; i < shadowViews.Size(); ++i)
     {
-        ShadowView* view = *it;
+        ShadowView* view = shadowViews[i];
         view->light = this;
-        Camera* camera = view->shadowCamera;
+        Camera* shadowCamera = view->shadowCamera;
 
         /// \todo Handle all light types
         switch (lightType)
         {
+        case LIGHT_DIRECTIONAL:
+            {
+                IntVector2 topLeft(shadowRect.left, shadowRect.top);
+                if (i & 1)
+                    topLeft.x += shadowMapSize;
+                if (i & 2)
+                    topLeft.y += shadowMapSize;
+                view->viewport = IntRect(topLeft.x, topLeft.y, topLeft.x + shadowMapSize, topLeft.y + shadowMapSize);
+
+                float splitStart = Max(mainCamera->NearClip(), (i == 0) ? 0.0f : ShadowSplit(i - 1));
+                float splitEnd = Min(mainCamera->FarClip(), ShadowSplit(i));
+                float extrusionDistance = mainCamera->FarClip();
+                
+                // Calculate initial position & rotation
+                shadowCamera->SetTransform(mainCamera->WorldPosition() - extrusionDistance * WorldDirection(), WorldRotation());
+
+                // Calculate main camera shadowed frustum in light's view space
+                Frustum splitFrustum = mainCamera->WorldSplitFrustum(splitStart, splitEnd);
+                const Matrix3x4& lightView = shadowCamera->ViewMatrix();
+                Frustum lightViewFrustum = splitFrustum.Transformed(lightView);
+
+                // Fit the frustum inside a bounding box
+                BoundingBox shadowBox;
+                shadowBox.Define(lightViewFrustum);
+
+                // Bring the shadow camera closer to the split frustum for better depth precision
+                /// \todo As a result of this the directional light may require a large constant depth bias
+                if (shadowBox.min.z > 0.0f)
+                {
+                    float distance = shadowBox.min.z * 0.99f; // Leave some slack to avoid possible near clipping
+                    shadowCamera->Translate(Vector3(0.0f, 0.0f, distance));
+                    shadowBox.max.z -= distance;
+                }
+
+                shadowCamera->SetOrthographic(true);
+                shadowCamera->SetFarClip(shadowBox.max.z);
+
+                Vector3 center = shadowBox.Center();
+                Vector3 size = shadowBox.Size();
+                shadowCamera->SetOrthoSize(Vector2(size.x, size.y));
+
+                // Center shadow camera to the view space bounding box
+                Vector3 pos(shadowCamera->WorldPosition());
+                Quaternion rot(shadowCamera->WorldRotation());
+                Vector3 adjust(center.x, center.y, 0.0f);
+                shadowCamera->Translate(rot * adjust, TS_WORLD);
+
+                // Snap to whole texels
+                {
+                    Vector3 viewPos(rot.Inverse() * shadowCamera->WorldPosition());
+                    // Take into account that shadow map border will not be used
+                    float invSize = 1.0f / shadowMapSize;
+                    Vector2 texelSize(size.x * invSize, size.y * invSize);
+                    Vector3 snap(-fmodf(viewPos.x, texelSize.x), -fmodf(viewPos.y, texelSize.y), 0.0f);
+                    shadowCamera->Translate(rot * snap, TS_WORLD);
+                }
+            }
+            break;
+
         case LIGHT_SPOT:
-            camera->SetPosition(WorldPosition());
-            camera->SetRotation(WorldRotation());
-            camera->SetFov(fov);
-            camera->SetFarClip(Range());
-            camera->SetNearClip(Range() * 0.01f);
-            camera->SetOrthographic(false);
-            camera->SetAspectRatio(1.0f);
             view->viewport = shadowRect;
+            shadowCamera->SetTransform(WorldPosition(), WorldRotation());
+            shadowCamera->SetFov(fov);
+            shadowCamera->SetFarClip(Range());
+            shadowCamera->SetNearClip(Range() * 0.01f);
+            shadowCamera->SetOrthographic(false);
+            shadowCamera->SetAspectRatio(1.0f);
             break;
         }
     }
@@ -238,15 +352,14 @@ void Light::SetupShadowViews()
 
 void Light::SetupShadowMatrices(Matrix4* dest, size_t& destIndex)
 {
-    switch (lightType)
+    if (lightType != LIGHT_POINT)
     {
-    case LIGHT_SPOT:
+        for (auto it = shadowViews.Begin(); it != shadowViews.End(); ++it)
         {
-            ShadowView* view = shadowViews.Front();
+            ShadowView* view = *it;
             Camera* camera = view->shadowCamera;
             dest[destIndex++] = ShadowMapAdjustMatrix(view) * camera->ProjectionMatrix() * camera->ViewMatrix();
         }
-        break;
     }
 }
 

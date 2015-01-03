@@ -13,9 +13,9 @@ struct VSOutput
 {
     float4 position : SV_POSITION;
     float3 normal : NORMAL;
-    float3 worldPos : TEXCOORD1;
-    #ifdef SHADOW
-    float4 shadowPos[4] : TEXCOORD4;
+    float4 worldPos : TEXCOORD1;
+    #ifdef NUMSHADOWCOORDS
+    float4 shadowPos[NUMSHADOWCOORDS] : TEXCOORD4;
     #endif
 };
 
@@ -24,17 +24,18 @@ VSOutput main(VSInput input)
     VSOutput output;
 
     #ifdef INSTANCED
-    output.worldPos = mul(input.position, input.instanceWorldMatrix);
+    output.worldPos.xyz = mul(input.position, input.instanceWorldMatrix);
     output.normal = normalize(mul(input.normal, (float3x3)input.instanceWorldMatrix));
     #else
-    output.worldPos = mul(input.position, worldMatrix);
+    output.worldPos.xyz = mul(input.position, worldMatrix);
     output.normal = normalize(mul(input.normal, (float3x3)worldMatrix));
     #endif
 
-    output.position = mul(float4(output.worldPos, 1.0), viewProjMatrix);
-    #ifdef SHADOW
-    for (int i = 0; i < 4; ++i)
-        output.shadowPos[i] = mul(float4(output.worldPos, 1.0), shadowMatrices[i]);
+    output.position = mul(float4(output.worldPos.xyz, 1.0), viewProjMatrix);
+    output.worldPos.w = CalculateDepth(output.position);
+    #ifdef NUMSHADOWCOORDS
+    for (int i = 0; i < NUMSHADOWCOORDS; ++i)
+        output.shadowPos[i] = mul(float4(output.worldPos.xyz, 1.0), shadowMatrices[i]);
     #endif
     return output;
 }

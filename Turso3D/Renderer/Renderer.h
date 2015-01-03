@@ -45,18 +45,20 @@ enum BatchSortMode
 static const size_t VS_FRAME_VIEW_MATRIX = 0;
 static const size_t VS_FRAME_PROJECTION_MATRIX = 1;
 static const size_t VS_FRAME_VIEWPROJ_MATRIX = 2;
-static const size_t PS_FRAME_AMBIENT_COLOR = 0;
+static const size_t VS_FRAME_DEPTH_PARAMETERS = 3;
 static const size_t VS_OBJECT_WORLD_MATRIX = 0;
+static const size_t VS_LIGHT_SHADOW_MATRICES = 0;
+static const size_t PS_FRAME_AMBIENT_COLOR = 0;
 static const size_t PS_LIGHT_POSITIONS = 0;
 static const size_t PS_LIGHT_DIRECTIONS = 1;
 static const size_t PS_LIGHT_ATTENUATIONS = 2;
 static const size_t PS_LIGHT_COLORS = 3;
+static const size_t PS_LIGHT_SHADOW_PARAMETERS = 4;
+static const size_t PS_LIGHT_DIR_SHADOW_SPLITS = 5;
+static const size_t PS_LIGHT_DIR_SHADOW_FADE = 6;
 
 /// Texture coordinate index for the instance world matrix.
 static const size_t INSTANCE_TEXCOORD = 4;
-
-/// Texture unit index for the first shadow map.
-static const size_t TU_SHADOWMAP = 8;
 
 /// Maximum number of lights per pass.
 static const size_t MAX_LIGHTS_PER_PASS = 4;
@@ -85,7 +87,7 @@ struct TURSO3D_API PassDesc
     bool lit;
 };
 
-/// %Light information for a rendering pass.
+/// %Light information for a rendering pass, including properly formatted constant data.
 struct TURSO3D_API LightPass
 {
     /// %Light positions.
@@ -98,6 +100,10 @@ struct TURSO3D_API LightPass
     Color lightColors[MAX_LIGHTS_PER_PASS];
     /// Shadow map sampling parameters.
     Vector4 shadowParameters[MAX_LIGHTS_PER_PASS];
+    /// Directional light shadow split depths.
+    Vector4 dirShadowSplits;
+    /// Directional light shadow fade parameters.
+    Vector4 dirShadowFade;
     /// Shadow mapping matrices.
     Matrix4 shadowMatrices[MAX_LIGHTS_PER_PASS];
     /// Shadow maps.
@@ -309,8 +315,6 @@ private:
     Vector<Light*> lights;
     /// Batch queues per pass.
     HashMap<unsigned char, BatchQueue> batchQueues;
-    /// Current batch queues being filled.
-    Vector<BatchQueue*> currentQueues;
     /// Instance transforms for uploading to the instance vertex buffer.
     Vector<Matrix3x4> instanceTransforms;
     /// Lit geometries query result.

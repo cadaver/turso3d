@@ -44,7 +44,7 @@ public:
         graphics->RenderWindow()->SetTitle("Renderer test");
         graphics->SetMode(IntVector2(640, 480), false, true);
 
-        renderer->SetupShadowMaps(1, 1024, FMT_D16);
+        renderer->SetupShadowMaps(1, 2048, FMT_D16);
 
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &RendererTest::HandleCloseRequest);
 
@@ -57,20 +57,11 @@ public:
         {
             Light* light = scene->CreateChild<Light>();
             light->SetPosition(Vector3(0.0f, 20.0f, 0.0f));
-            light->SetLightType(LIGHT_SPOT);
-            light->SetRange(30.0f);
-            light->SetFov(90.0f);
-            light->SetDirection(Vector3::DOWN);
-            light->SetCastShadows(true);
-            light->SetShadowMapSize(1024);
-        }
-
-        {
-            Light* light = scene->CreateChild<Light>();
-            light->SetPosition(Vector3(0.0f, 20.0f, 0.0f));
             light->SetLightType(LIGHT_DIRECTIONAL);
-            light->SetColor(Color(0.2f, 0.2f, 0.4f));
-            light->SetDirection(Vector3(-1.0f, -1.0f, -1.0f));
+            light->SetDirection(Vector3(-0.5f, -1.0f, -0.75f));
+            light->SetCastShadows(true);
+            light->SetDepthBias(50);
+            light->SetShadowMapSize(1024);
         }
 
         Vector<GeometryNode*> nodes;
@@ -130,7 +121,7 @@ public:
                 pitch = Clamp(pitch, -90.0f, 90.0f);
             }
 
-            float moveSpeed = input->IsKeyDown(VK_SHIFT) ? 200.0f : 50.0f;
+            float moveSpeed = input->IsKeyDown(VK_SHIFT) ? 20.0f : 1.0f;
 
             camera->SetRotation(Quaternion(pitch, yaw, 0.0f));
             if (input->IsKeyDown('W'))

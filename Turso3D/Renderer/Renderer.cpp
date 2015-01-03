@@ -23,14 +23,15 @@
 namespace Turso3D
 {
 
-static const unsigned LVS_GEOMETRY = 0x3;
-static const unsigned LVS_SHADOW = 0x4;
+static const unsigned LVS_GEOMETRY = (0x1 | 0x2);
+static const unsigned LVS_NUMSHADOWCOORDS = (0x4 | 0x8 | 0x10);
 
 static const unsigned LPS_AMBIENT = 0x1;
-static const unsigned LPS_LIGHT0 = 0xe;
-static const unsigned LPS_LIGHT1 = 0x70;
-static const unsigned LPS_LIGHT2 = 0x380;
-static const unsigned LPS_LIGHT3 = 0x1c00;
+static const unsigned LPS_NUMSHADOWCOORDS = (0x2 | 0x4 | 0x8);
+static const unsigned LPS_LIGHT0 = (0x10 | 0x20 | 0x40);
+static const unsigned LPS_LIGHT1 = (0x80 | 0x100 | 0x200);
+static const unsigned LPS_LIGHT2 = (0x400 | 0x800 | 0x1000);
+static const unsigned LPS_LIGHT3 = (0x2000 | 0x4000 | 0x8000);
 
 static const CullMode cullModeFlip[] =
 {
@@ -49,6 +50,7 @@ const String geometryDefines[] =
 const String lightDefines[] = 
 {
     "AMBIENT",
+    "NUMSHADOWCOORDS",
     "DIRLIGHT",
     "POINTLIGHT",
     "SPOTLIGHT",
@@ -369,19 +371,32 @@ void Renderer::CollectLightInteractions()
                 light->shadowViews.Push(shadowViews[i]);
             }
             
-            light->SetupShadowViews();
+            light->SetupShadowViews(camera);
 
+            size_t totalShadowCasters = 0;
             for (size_t i = 0; i < numShadowViews; ++i)
             {
                 ShadowView* view = light->shadowViews[i];
                 /// \todo Spotlights should reuse the lit geometries frustum query
                 octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(view->shadowCasters),
                     view->shadowCamera->WorldFrustum(), NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS, light->LightMask());
-                // Record shadow view also to the shadow map so that all shadows can be rendered with minimal rendertarget switches
-                shadowMaps[idx].shadowViews.Push(view);
+                if (view->shadowCasters.Size())
+                {
+                    // Record shadow view also to the shadow map so that all shadows can be rendered with minimal rendertarget switches
+                    shadowMaps[idx].shadowViews.Push(view);
+                    totalShadowCasters += view->shadowCasters.Size();
+                }
             }
 
-            usedShadowViews += numShadowViews;
+            if (totalShadowCasters)
+                usedShadowViews += numShadowViews;
+            else
+            {
+                // Light did not have any shadow casters: convert to unshadowed. At this point we have allocated the shadow map
+                // unnecessarily, but not sampling it will still be faster
+                light->shadowMap = nullptr;
+                light->shadowViews.Clear();
+            }
         }
 
         // Finally collect batches from all shadow cameras
@@ -392,19 +407,51 @@ void Renderer::CollectLightInteractions()
     {
         PROFILE(BuildLightPasses);
 
-        /// \todo Shadowed dir light uses up all light matrices, so it can not be combined with other shadowed dir or spot lights
         for (auto it = lightLists.Begin(), end = lightLists.End(); it != end; ++it)
         {
             LightList& list = it->second;
             if (!list.useCount)
                 continue;
 
-            for (size_t i = 0; i < list.lights.Size(); i += MAX_LIGHTS_PER_PASS)
+            size_t lightsLeft = list.lights.Size();
+            static Vector<bool> lightDone;
+            static Vector<Light*> currentPass;
+            lightDone.Resize(lightsLeft);
+            for (size_t i = 0; i < lightsLeft; ++i)
+                lightDone[i] = false;
+            
+            size_t idx = 0;
+            while (lightsLeft)
             {
+                // Find lights to the current pass, while obeying rules for shadow coord allocations (shadowed directional & spot
+                // lights can not share a pass)
+                currentPass.Clear();
+                size_t startIdx = idx;
+                size_t shadowCoordsLeft = MAX_LIGHTS_PER_PASS;
+                while (lightsLeft && currentPass.Size() < MAX_LIGHTS_PER_PASS)
+                {
+                    if (!lightDone[idx])
+                    {
+                        Light* light = list.lights[idx];
+                        size_t shadowCoords = light->NumShadowCoords();
+                        if (shadowCoords <= shadowCoordsLeft)
+                        {
+                            lightDone[idx] = true;
+                            currentPass.Push(light);
+                            shadowCoordsLeft -= shadowCoords;
+                            --lightsLeft;
+                        }
+                    }
+
+                    idx = (idx + 1) % list.lights.Size();
+                    if (idx == startIdx)
+                        break;
+                }
+
                 unsigned long long passKey = 0;
-                for (size_t j = i; j < list.lights.Size() && j < i + MAX_LIGHTS_PER_PASS; ++j)
-                    passKey += (unsigned long long)list.lights[j] << ((j & 3) * 16);
-                if (i == 0)
+                for (size_t i = 0; i < currentPass.Size(); ++i)
+                    passKey += (unsigned long long)currentPass[i] << (i * 16);
+                if (list.lightPasses.IsEmpty())
                     ++passKey; // First pass includes ambient light
 
                 HashMap<unsigned long long, LightPass>::Iterator lpIt = lightPasses.Find(passKey);
@@ -414,38 +461,42 @@ void Renderer::CollectLightInteractions()
                 {
                     LightPass* newLightPass = &lightPasses[passKey];
                     newLightPass->vsBits = 0;
-                    newLightPass->psBits = (i == 0) ? LPS_AMBIENT : 0;
-                    for (size_t j = 0; j < MAX_LIGHTS_PER_PASS; ++j)
-                        newLightPass->shadowMaps[j] = nullptr;
+                    newLightPass->psBits = list.lightPasses.IsEmpty() ? LPS_AMBIENT : 0;
+                    for (size_t i = 0; i < MAX_LIGHTS_PER_PASS; ++i)
+                        newLightPass->shadowMaps[i] = nullptr;
 
-                    size_t numShadowMatrices = 0;
-                    size_t k = 0;
-
-                    for (size_t j = i; j < list.lights.Size() && j < i + MAX_LIGHTS_PER_PASS; ++j, ++k)
+                    size_t numShadowCoords = 0;
+                    for (size_t i = 0; i < currentPass.Size(); ++i)
                     {
-                        Light* light = list.lights[j];
+                        Light* light = currentPass[i];
+                        newLightPass->psBits |= (light->GetLightType() + 1) << (i * 3 + 4);
 
-                        newLightPass->psBits |= (light->GetLightType() + 1) << (k * 3 + 1);
                         float cutoff = cosf(light->Fov() * 0.5f * M_DEGTORAD);
-                        newLightPass->lightPositions[k] = Vector4(light->WorldPosition(), 1.0f);
-                        newLightPass->lightDirections[k] = Vector4(-light->WorldDirection(), 0.0f);
-                        newLightPass->lightAttenuations[k] = Vector4(1.0f / Max(light->Range(), M_EPSILON), cutoff, 1.0f /
+                        newLightPass->lightPositions[i] = Vector4(light->WorldPosition(), 1.0f);
+                        newLightPass->lightDirections[i] = Vector4(-light->WorldDirection(), 0.0f);
+                        newLightPass->lightAttenuations[i] = Vector4(1.0f / Max(light->Range(), M_EPSILON), cutoff, 1.0f /
                             (1.0f - cutoff), 0.0f);
-                        newLightPass->lightColors[k] = light->GetColor();
+                        newLightPass->lightColors[i] = light->GetColor();
 
                         if (light->shadowMap)
                         {
-                            newLightPass->shadowMaps[k] = light->shadowMap;
-                            newLightPass->shadowParameters[k] = Vector4(
-                                0.5f / (float)light->shadowMap->Width(),
-                                0.5f / (float)light->shadowMap->Height(),
-                                0.0f, 
-                                0.0f
-                            );
-                            light->SetupShadowMatrices(newLightPass->shadowMatrices, numShadowMatrices);
-                            newLightPass->vsBits |= LVS_SHADOW;
-                            newLightPass->psBits |= 4 << (k * 3 + 1);
+                            newLightPass->shadowMaps[i] = light->shadowMap;
+                            newLightPass->shadowParameters[i] = Vector4(0.5f / (float)light->shadowMap->Width(),
+                                0.5f / (float)light->shadowMap->Height(), 0.0f, 0.0f);
+                            light->SetupShadowMatrices(newLightPass->shadowMatrices, numShadowCoords);
+                            newLightPass->psBits |= 4 << (i * 3 + 4);
+
+                            if (light->GetLightType() == LIGHT_DIRECTIONAL)
+                            {
+                                float fadeStart = light->ShadowFadeStart() * light->MaxShadowDistance() / camera->FarClip();
+                                float fadeRange = light->MaxShadowDistance() / camera->FarClip() - fadeStart;
+                                newLightPass->dirShadowSplits = light->ShadowSplits() / camera->FarClip();
+                                newLightPass->dirShadowFade = Vector4(fadeStart / fadeRange, 1.0f / fadeRange, 0.0f, 0.0f);
+                            }
                         }
+
+                        newLightPass->vsBits |= numShadowCoords << 2;
+                        newLightPass->psBits |= numShadowCoords << 1;
                     }
 
                     list.lightPasses.Push(newLightPass);
@@ -472,6 +523,7 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
     PROFILE(CollectBatches);
 
     // Setup batch queues for each requested pass
+    static Vector<BatchQueue*> currentQueues;
     currentQueues.Resize(numPasses);
     for (size_t i = 0; i < numPasses; ++i)
     {
@@ -556,7 +608,7 @@ void Renderer::RenderShadowMaps()
 
         if (it == shadowMaps.Begin())
         {
-            for (size_t i = TU_SHADOWMAP; i < TU_SHADOWMAP + MAX_LIGHTS_PER_PASS; ++i)
+            for (size_t i = MAX_MATERIAL_TEXTURE_UNITS; i < MAX_MATERIAL_TEXTURE_UNITS + MAX_LIGHTS_PER_PASS; ++i)
                 graphics->SetTexture(i, nullptr);
         }
 
@@ -591,6 +643,7 @@ void Renderer::Initialize()
     constants.Push(Constant(ELEM_MATRIX3X4, "viewMatrix"));
     constants.Push(Constant(ELEM_MATRIX4, "projectionMatrix"));
     constants.Push(Constant(ELEM_MATRIX4, "viewProjMatrix"));
+    constants.Push(Constant(ELEM_VECTOR4, "depthParameters"));
     vsFrameConstantBuffer->Define(USAGE_DEFAULT, constants);
 
     psFrameConstantBuffer = new ConstantBuffer();
@@ -615,6 +668,8 @@ void Renderer::Initialize()
     constants.Push(Constant(ELEM_VECTOR4, "lightColors", MAX_LIGHTS_PER_PASS));
     constants.Push(Constant(ELEM_VECTOR4, "lightAttenuations", MAX_LIGHTS_PER_PASS));
     constants.Push(Constant(ELEM_VECTOR4, "shadowParameters", MAX_LIGHTS_PER_PASS));
+    constants.Push(Constant(ELEM_VECTOR4, "dirShadowSplits"));
+    constants.Push(Constant(ELEM_VECTOR4, "dirShadowFade"));
     psLightConstantBuffer->Define(USAGE_DEFAULT, constants);
 
     // Instance vertex buffer contains texcoords 4-6 which define the instances' world matrices
@@ -792,10 +847,25 @@ void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera_, bool overr
         Matrix3x4 viewMatrix = camera_->ViewMatrix();
         Matrix4 projectionMatrix = camera_->ProjectionMatrix();
         Matrix4 viewProjMatrix = projectionMatrix * viewMatrix;
+        Vector4 depthParameters(Vector4::ZERO);
+        depthParameters.x = camera_->NearClip();
+        depthParameters.y = camera_->FarClip();
+        if (camera_->IsOrthographic())
+        {
+            #ifdef USE_OPENGL
+            depthParameters.z = 0.5f;
+            depthParameters.w = 0.5f;
+            #else
+            depthParameters.z = 1.0f;
+            #endif
+        }
+        else
+            depthParameters.w = 1.0f / camera->FarClip();
 
         vsFrameConstantBuffer->SetConstant(VS_FRAME_VIEW_MATRIX, viewMatrix);
         vsFrameConstantBuffer->SetConstant(VS_FRAME_PROJECTION_MATRIX, projectionMatrix);
         vsFrameConstantBuffer->SetConstant(VS_FRAME_VIEWPROJ_MATRIX, viewProjMatrix);
+        vsFrameConstantBuffer->SetConstant(VS_FRAME_DEPTH_PARAMETERS, depthParameters);
         vsFrameConstantBuffer->Apply();
 
         /// \todo Add also fog settings
@@ -905,7 +975,7 @@ void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera_, bool overr
                     // If light queue is ambient only, no need to update the constants
                     if (lights->psBits > LPS_AMBIENT)
                     {
-                        if (lights->vsBits & LVS_SHADOW)
+                        if (lights->vsBits & LVS_NUMSHADOWCOORDS)
                         {
                             vsLightConstantBuffer->SetData(lights->shadowMatrices);
                             vsLightConstantBuffer->Apply();
@@ -917,7 +987,7 @@ void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera_, bool overr
                         graphics->SetConstantBuffer(SHADER_PS, CB_LIGHTS, psLightConstantBuffer.Get());
 
                         for (size_t i = 0; i < MAX_LIGHTS_PER_PASS; ++i)
-                            graphics->SetTexture(TU_SHADOWMAP + i, lights->shadowMaps[i]);
+                            graphics->SetTexture(MAX_MATERIAL_TEXTURE_UNITS + i, lights->shadowMaps[i]);
                     }
 
                     lastLights = lights;
@@ -984,46 +1054,41 @@ void Renderer::LoadPassShaders(Pass* pass)
 
 ShaderVariation* Renderer::FindShaderVariation(ShaderStage stage, Pass* pass, unsigned short bits)
 {
-    // Note: includes slow string manipulation, but only when the shader variation is not cached yet
-    Vector<WeakPtr<ShaderVariation> >& variations = pass->shaderVariations[stage];
-    if (bits < variations.Size() && variations[bits].Get())
-        return variations[bits].Get();
+    /// \todo Evaluate whether the hash lookup is worth the memory save vs using just straightforward vectors
+    HashMap<unsigned short, WeakPtr<ShaderVariation> >& variations = pass->shaderVariations[stage];
+    HashMap<unsigned short, WeakPtr<ShaderVariation> >::Iterator it = variations.Find(bits);
+
+    if (it != variations.End())
+        return it->second.Get();
     else
     {
-        if (variations.Size() <= bits)
-            variations.Resize(bits + 1);
-
         if (stage == SHADER_VS)
         {
             String vsString = pass->combinedShaderDefines[stage] + " " + geometryDefines[bits & LVS_GEOMETRY];
-            if (bits & LVS_SHADOW)
-                vsString += " " + lightDefines[4];
+            if (bits & LVS_NUMSHADOWCOORDS)
+                vsString += " " + lightDefines[1] + "=" + String((bits & LVS_NUMSHADOWCOORDS) >> 2);
 
-            variations[bits] = pass->shaders[stage]->CreateVariation(vsString.Trimmed());
-            return variations[bits].Get();
+            it = variations.Insert(MakePair(bits, WeakPtr<ShaderVariation>(pass->shaders[stage]->CreateVariation(vsString.Trimmed()))));
+            return it->second.Get();
         }
         else
         {
             String psString = pass->combinedShaderDefines[SHADER_PS];
             if (bits & LPS_AMBIENT)
                 psString += " " + lightDefines[0];
-            bool hasShadows = false;
+            if (bits & LPS_NUMSHADOWCOORDS)
+                psString += " " + lightDefines[1] + "=" + String((bits & LPS_NUMSHADOWCOORDS) >> 1);
             for (size_t i = 0; i < MAX_LIGHTS_PER_PASS; ++i)
             {
-                unsigned short lightBits = (bits >> (i * 3 + 1)) & 7;
+                unsigned short lightBits = (bits >> (i * 3 + 4)) & 7;
                 if (lightBits)
-                    psString += " " + lightDefines[lightBits & 3] + String((int)i);
+                    psString += " " + lightDefines[(lightBits & 3) + 1] + String((int)i);
                 if (lightBits & 4)
-                {
-                    psString += " " + lightDefines[4] + String((int)i);
-                    hasShadows = true;
-                }
+                    psString += " " + lightDefines[5] + String((int)i);
             }
-            if (hasShadows)
-                psString += " " + lightDefines[4];
 
-            variations[bits] = pass->shaders[stage]->CreateVariation(psString.Trimmed());
-            return variations[bits].Get();
+            it = variations.Insert(MakePair(bits, WeakPtr<ShaderVariation>(pass->shaders[stage]->CreateVariation(psString.Trimmed()))));
+            return it->second.Get();
         }
     }
 }

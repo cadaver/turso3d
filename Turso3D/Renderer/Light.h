@@ -54,10 +54,10 @@ public:
     void SetLightMask(unsigned mask);
     /// Set shadow map resolution in pixels.
     void SetShadowMapSize(int size);
-    /// Set number of cascaded shadow splits (directional lights only.)
-    void SetNumCascadeSplits(int num);
-    /// Set cascade split lambda (directional lights only.)
-    void SetCascadeLambda(float lambda);
+    /// Set directional light shadow split distances. Fill unused splits with zero.
+    void SetShadowSplits(const Vector4& splits);
+    /// Set directional light shadow fade start depth, where 1 represents shadow max distance.
+    void SetShadowFadeStart(float start);
     /// Set constant depth bias for shadows.
     void SetDepthBias(int bias);
     /// Set slope-scaled depth bias for shadows.
@@ -75,10 +75,16 @@ public:
     unsigned LightMask() const { return lightMask; }
     /// Return shadow map resolution in pixels.
     int ShadowMapSize() const { return shadowMapSize; }
-    /// Return number of cascaded shadow splits.
-    int NumCascadesplits() const { return numCascadeSplits; }
-    /// Return cascade split lambda.
-    float CascadeLambda() const { return cascadeLambda; }
+    /// Return directional light shadow split distances.
+    const Vector4& ShadowSplits() const { return shadowSplits; }
+    /// Return directional light shadow fade start depth.
+    float ShadowFadeStart() const { return shadowFadeStart; }
+    /// Return number of directional light shadow splits.
+    int NumShadowSplits() const;
+    /// Return shadow split distance by index.
+    float ShadowSplit(size_t index) const;
+    /// Return shadow maximum distance.
+    float MaxShadowDistance() const;
     /// Return constant depth bias.
     int DepthBias() const { return depthBias; }
     /// Return slope-scaled depth bias.
@@ -87,13 +93,15 @@ public:
     IntVector2 TotalShadowMapSize() const;
     /// Return number of required shadow views / cameras.
     size_t NumShadowViews() const;
+    /// Return number of required shadow coordinates in the vertex shader.
+    size_t NumShadowCoords() const;
     /// Return spotlight world space frustum.
     Frustum WorldFrustum() const;
     /// Return point light world space sphere.
     Sphere WorldSphere() const;
 
     /// Setup the shadow cameras and viewports. Called by Renderer after it has assigned the views to the light.
-    void SetupShadowViews();
+    void SetupShadowViews(Camera* mainCamera);
     /// Setup the shadow matrix constants. Called by Renderer.
     void SetupShadowMatrices(Matrix4* dest, size_t& destIndex);
 
@@ -121,10 +129,10 @@ private:
     unsigned lightMask;
     /// Shadow map resolution in pixels.
     int shadowMapSize;
-    /// Cascade splits.
-    int numCascadeSplits;
-    /// Cascade lambda.
-    float cascadeLambda;
+    /// Directional shadow splits.
+    Vector4 shadowSplits;
+    /// Directional shadow fade start.
+    float shadowFadeStart;
     /// Constant depth bias.
     int depthBias;
     /// Slope-scaled depth bias.

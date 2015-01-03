@@ -10,6 +10,8 @@ layout(std140) uniform LightsPS3
     vec4 lightAttenuations[4];
     vec4 lightColors[4];
     vec4 shadowParameters[4];
+    vec4 dirShadowSplits;
+    vec4 dirShadowFade;
 };
 
 uniform sampler2DShadow shadowMap8[4];
@@ -25,18 +27,18 @@ float SampleShadowMap(int index, vec4 shadowPos)
         textureProj(shadowMap8[index], shadowPos - offsets2)) * 0.25;
 }
 
-float CalculatePointAtten(int index, vec3 worldPos, vec3 normal)
+float CalculatePointAtten(int index, vec4 worldPos, vec3 normal)
 {
-    vec3 lightVec = (lightPositions[index].xyz - worldPos) * lightAttenuations[index].x;
+    vec3 lightVec = (lightPositions[index].xyz - worldPos.xyz) * lightAttenuations[index].x;
     float lightDist = length(lightVec);
     vec3 localDir = lightVec / lightDist;
     float NdotL = clamp(dot(normal, localDir), 0.0, 1.0);
     return NdotL * clamp(1.0 - lightDist * lightDist, 0.0, 1.0);
 }
 
-float CalculateSpotAtten(int index, vec3 worldPos, vec3 normal)
+float CalculateSpotAtten(int index, vec4 worldPos, vec3 normal)
 {
-    vec3 lightVec = (lightPositions[index].xyz - worldPos) * lightAttenuations[index].x;
+    vec3 lightVec = (lightPositions[index].xyz - worldPos.xyz) * lightAttenuations[index].x;
     float lightDist = length(lightVec);
     vec3 localDir = lightVec / lightDist;
     float NdotL = clamp(dot(normal, localDir), 0.0, 1.0);
@@ -45,59 +47,114 @@ float CalculateSpotAtten(int index, vec3 worldPos, vec3 normal)
     return NdotL * spotAtten * clamp(1.0 - lightDist * lightDist, 0.0, 1.0);
 }
 
-vec3 CalculateDirLight(int index, vec3 worldPos, vec3 normal)
+vec3 CalculateDirLight(int index, vec4 worldPos, vec3 normal)
 {
     float NdotL = clamp(dot(normal, lightDirections[index].xyz), 0.0, 1.0);
     return NdotL * lightColors[index].rgb;
 }
 
-vec3 CalculatePointLight(int index, vec3 worldPos, vec3 normal)
+vec3 CalculatePointLight(int index, vec4 worldPos, vec3 normal)
 {
     return CalculatePointAtten(index, worldPos, normal) * lightColors[index].rgb;
 }
 
-vec3 CalculateSpotLight(int index, vec3 worldPos, vec3 normal)
+vec3 CalculateSpotLight(int index, vec4 worldPos, vec3 normal)
 {
     return CalculateSpotAtten(index, worldPos, normal) * lightColors[index].rgb;
 }
 
-vec3 CalculateShadowSpotLight(int index, vec3 worldPos, vec3 normal, vec4 shadowPos)
+#ifdef NUMSHADOWCOORDS
+vec4 GetDirShadowPos(float depth, vec4 shadowPos[NUMSHADOWCOORDS])
+{
+    #if NUMSHADOWCOORDS == 1
+    return shadowPos[0];
+    #elif NUMSHADOWCOORDS == 2
+    if (depth < dirShadowSplits.x)
+        return shadowPos[0];
+    else
+        return shadowPos[1];
+    #elif NUMSHADOWCOORDS == 3
+    if (depth < dirShadowSplits.x)
+        return shadowPos[0];
+    else if (depth < dirShadowSplits.y)
+        return shadowPos[1];
+    else
+        return shadowPos[2];
+    #elif NUMSHADOWCOORDS == 4
+    if (depth < dirShadowSplits.x)
+        return shadowPos[0];
+    else if (depth < dirShadowSplits.y)
+        return shadowPos[1];
+    else if (depth < dirShadowSplits.z)
+        return shadowPos[2];
+    else
+        return shadowPos[3];
+    #endif
+}
+
+vec3 CalculateShadowDirLight(int index, vec4 worldPos, vec3 normal, vec4 shadowPos[NUMSHADOWCOORDS])
+{
+    float atten = clamp(dot(normal, lightDirections[index].xyz), 0, 1);
+    float fade = clamp(worldPos.w * dirShadowFade.y - dirShadowFade.x, 0, 1);
+    if (atten > 0 && fade < 1)
+        atten *= clamp(fade + SampleShadowMap(index, GetDirShadowPos(worldPos.w, shadowPos)), 0, 1);
+    return atten * lightColors[index].rgb;
+}
+
+vec3 CalculateShadowSpotLight(int index, vec4 worldPos, vec3 normal, vec4 shadowPos)
 {
     float atten = CalculateSpotAtten(index, worldPos, normal);
     if (atten > 0)
         atten *= SampleShadowMap(index, shadowPos);
     return atten * lightColors[index].rgb;
 }
+#endif
 
-#ifdef SHADOW
-vec4 CalculateLighting(vec3 worldPos, vec3 normal, vec4 shadowPos[4])
+#ifdef NUMSHADOWCOORDS
+vec4 CalculateLighting(vec4 worldPos, vec3 normal, vec4 shadowPos[NUMSHADOWCOORDS])
 #else
-vec4 CalculateLighting(vec3 worldPos, vec3 normal)
+vec4 CalculateLighting(vec4 worldPos, vec3 normal)
 #endif
 {
-    #ifdef SHADOW
+    #ifdef NUMSHADOWCOORDS
     int shadowIndex = 0;
     #endif
 
     vec4 totalLight = vec4(0, 0, 0, 1);
-
+    
     #ifdef AMBIENT
     totalLight.rgb += ambientColor;
     #endif
 
     #ifdef DIRLIGHT0
+    #ifdef SHADOW0
+    totalLight.rgb += CalculateShadowDirLight(0, worldPos, normal, shadowPos);
+    #else
     totalLight.rgb += CalculateDirLight(0, worldPos, normal);
     #endif
+    #endif
     #ifdef DIRLIGHT1
+    #ifdef SHADOW1
+    totalLight.rgb += CalculateShadowDirLight(1, worldPos, normal, shadowPos);
+    #else
     totalLight.rgb += CalculateDirLight(1, worldPos, normal);
     #endif
+    #endif
     #ifdef DIRLIGHT2
+    #ifdef SHADOW2
+    totalLight.rgb += CalculateShadowDirLight(2, worldPos, normal, shadowPos);
+    #else
     totalLight.rgb += CalculateDirLight(2, worldPos, normal);
     #endif
+    #endif
     #ifdef DIRLIGHT3
+    #ifdef SHADOW3
+    totalLight.rgb += CalculateShadowDirLight(3, worldPos, normal, shadowPos);
+    #else
     totalLight.rgb += CalculateDirLight(3, worldPos, normal);
     #endif
-    
+    #endif
+
     #ifdef POINTLIGHT0
     totalLight.rgb += CalculatePointLight(0, worldPos, normal);
     #endif
@@ -142,4 +199,3 @@ vec4 CalculateLighting(vec3 worldPos, vec3 normal)
 
     return totalLight;
 }
-

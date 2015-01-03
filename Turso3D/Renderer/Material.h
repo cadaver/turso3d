@@ -68,8 +68,8 @@ public:
     String combinedShaderDefines[MAX_SHADER_STAGES];
     /// Shader resources. Filled by Renderer.
     SharedPtr<Shader> shaders[MAX_SHADER_STAGES];
-    /// Cached shader variations by geometry type. Filled by Renderer.
-    Vector<WeakPtr<ShaderVariation> > shaderVariations[MAX_SHADER_STAGES];
+    /// Cached shader variations. Filled by Renderer.
+    HashMap<unsigned short, WeakPtr<ShaderVariation> > shaderVariations[MAX_SHADER_STAGES];
     /// Shader load attempted flag.
     bool shadersLoaded;
 
