@@ -80,7 +80,7 @@ public:
             for (int z = -10; z < 10; ++z)
             {
                 StaticModel* modelNode = scene->CreateChild<StaticModel>();
-                modelNode->SetPosition(Vector3(2.0f * x, 2.0f, 2.0f * z));
+                modelNode->SetPosition(Vector3(2.0f * x, 0.5f, 2.0f * z));
                 modelNode->SetModel(cache->LoadResource<Model>("Box.mdl"));
                 modelNode->SetCastShadows(true);
                 //for (size_t i = 0; i < modelNode->NumGeometries(); ++i)
@@ -159,10 +159,7 @@ public:
             Vector<PassDesc> passes;
             passes.Push(PassDesc("opaque", SORT_STATE, true));
             passes.Push(PassDesc("alpha", SORT_BACK_TO_FRONT, true));
-
-            renderer->CollectObjects(scene, camera);
-            renderer->CollectLightInteractions();
-            renderer->CollectBatches(passes);
+            renderer->PrepareView(scene, camera, passes);
 
             renderer->RenderShadowMaps();
             graphics->ResetRenderTargets();

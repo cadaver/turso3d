@@ -213,7 +213,17 @@ void Renderer::SetupShadowMaps(size_t num, int size, ImageFormat format)
     }
 }
 
-void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
+bool Renderer::PrepareView(Scene* scene_, Camera* camera_, const Vector<PassDesc>& passes)
+{
+    if (!CollectObjects(scene_, camera_))
+        return false;
+    
+    CollectLightInteractions();
+    CollectBatches(passes);
+    return true;
+}
+
+bool Renderer::CollectObjects(Scene* scene_, Camera* camera_)
 {
     PROFILE(CollectObjects);
 
@@ -239,7 +249,7 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     camera = camera_;
     octree = scene ? scene->FindChild<Octree>() : nullptr;
     if (!scene || !camera || !octree)
-        return;
+        return false;
 
     // Increment frame number. Never use 0, as that is the default for objects that have never been rendered
     ++frameNumber;
@@ -257,8 +267,9 @@ void Renderer::CollectObjects(Scene* scene_, Camera* camera_)
 
     frustum = camera->WorldFrustum();
     viewMask = camera->ViewMask();
-
     octree->FindNodes(frustum, this, &Renderer::CollectGeometriesAndLights);
+
+    return true;
 }
 
 void Renderer::CollectLightInteractions()
@@ -775,17 +786,17 @@ void Renderer::CopyInstanceTransforms(BatchQueue& batchQueue)
         instanceTransformsDirty = true;
 }
 
-void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera, bool overrideDepthBias, int depthBias, float slopeScaledDepthBias)
+void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera_, bool overrideDepthBias, int depthBias, float slopeScaledDepthBias)
 {
     PROFILE(RenderBatches);
 
-    if (camera != lastCamera)
+    if (camera_ != lastCamera)
     {
         PROFILE(SetPerFrameConstants);
 
         // Set per-frame values to the frame constant buffers
-        Matrix3x4 viewMatrix = camera->ViewMatrix();
-        Matrix4 projectionMatrix = camera->ProjectionMatrix();
+        Matrix3x4 viewMatrix = camera_->ViewMatrix();
+        Matrix4 projectionMatrix = camera_->ProjectionMatrix();
         Matrix4 viewProjMatrix = projectionMatrix * viewMatrix;
 
         vsFrameConstantBuffer->SetConstant(VS_FRAME_VIEW_MATRIX, viewMatrix);
@@ -794,13 +805,13 @@ void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera, bool overri
         vsFrameConstantBuffer->Apply();
 
         /// \todo Add also fog settings
-        psFrameConstantBuffer->SetConstant(PS_FRAME_AMBIENT_COLOR, camera->AmbientColor());
+        psFrameConstantBuffer->SetConstant(PS_FRAME_AMBIENT_COLOR, camera_->AmbientColor());
         psFrameConstantBuffer->Apply();
 
         graphics->SetConstantBuffer(SHADER_VS, CB_FRAME, vsFrameConstantBuffer);
         graphics->SetConstantBuffer(SHADER_PS, CB_FRAME, psFrameConstantBuffer);
 
-        lastCamera = camera;
+        lastCamera = camera_;
     }
 
     if (instanceTransformsDirty && instanceTransforms.Size())
@@ -860,7 +871,7 @@ void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera, bool overri
                     else
                         graphics->SetDepthState(pass->depthFunc, pass->depthWrite, pass->depthClip, depthBias, M_INFINITY, slopeScaledDepthBias);
                     
-                    if (!camera->UseReverseCulling())
+                    if (!camera_->UseReverseCulling())
                         graphics->SetRasterizerState(pass->cullMode, pass->fillMode);
                     else
                         graphics->SetRasterizerState(cullModeFlip[pass->cullMode], pass->fillMode);
