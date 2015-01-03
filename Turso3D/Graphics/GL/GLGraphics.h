@@ -86,7 +86,7 @@ public:
     /// Set color write and blending related state using a predefined blend mode.
     void SetColorState(BlendMode blendMode, bool alphaToCoverage = false, unsigned char colorWriteMask = COLORMASK_ALL);
     /// Set depth buffer related state.
-    void SetDepthState(CompareFunc depthFunc, bool depthWrite, bool depthClip = true, int depthBias = 0, float depthBiasClamp = M_INFINITY, float slopeScaledDepthBias = 0.0f);
+    void SetDepthState(CompareFunc depthFunc, bool depthWrite, bool depthClip = true, int depthBias = 0, float slopeScaledDepthBias = 0.0f);
     /// Set rasterizer related state.
     void SetRasterizerState(CullMode cullMode, FillMode fillMode);
     /// Set scissor test.

@@ -406,7 +406,6 @@ struct RenderState
         depthWrite = true;
         depthClip = true;
         depthBias = 0;
-        depthBiasClamp = M_INFINITY;
         slopeScaledDepthBias = 0.0f;
         colorWriteMask = COLORMASK_ALL;
         alphaToCoverage = false;
@@ -428,8 +427,6 @@ struct RenderState
     bool depthClip;
     /// Constant depth bias.
     int depthBias;
-    /// Maximum allowed depth bias.
-    float depthBiasClamp;
     /// Slope-scaled depth bias.
     float slopeScaledDepthBias;
     /// Rendertarget color channel write mask.

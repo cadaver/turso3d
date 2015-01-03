@@ -254,8 +254,7 @@ void Graphics::SetRenderTarget(Texture* renderTarget_, Texture* depthStencil_)
 
 void Graphics::SetRenderTargets(const Vector<Texture*>& renderTargets_, Texture* depthStencil_)
 {
-    if (renderTargets_.IsEmpty())
-        return;
+    PrepareTextures();
 
     // If depth stencil is specified but no rendertarget, use null instead of backbuffer
     for (size_t i = 0; i < MAX_RENDERTARGETS && i < renderTargets_.Size(); ++i)
@@ -345,21 +344,20 @@ void Graphics::SetTexture(size_t index, Texture* texture)
     if (index < MAX_TEXTURE_UNITS)
     {
         textures[index] = texture;
+
         ID3D11ShaderResourceView* d3dResourceView = texture ? (ID3D11ShaderResourceView*)texture->D3DResourceView() :
             nullptr;
         ID3D11SamplerState* d3dSampler = texture ? (ID3D11SamplerState*)texture->D3DSampler() : nullptr;
-        // Note: now both VS & PS resource views are set at the same time, to mimic OpenGL conventions
+
         if (d3dResourceView != impl->resourceViews[index])
         {
             impl->resourceViews[index] = d3dResourceView;
-            impl->deviceContext->VSSetShaderResources((unsigned)index, 1, &d3dResourceView);
-            impl->deviceContext->PSSetShaderResources((unsigned)index, 1, &d3dResourceView);
+            texturesDirty = true;
         }
         if (d3dSampler != impl->samplers[index])
         {
             impl->samplers[index] = d3dSampler;
-            impl->deviceContext->VSSetSamplers((unsigned)index, 1, &d3dSampler);
-            impl->deviceContext->PSSetSamplers((unsigned)index, 1, &d3dSampler);
+            texturesDirty = true;
         }
     }
 }
@@ -427,14 +425,12 @@ void Graphics::SetColorState(BlendMode blendMode, bool alphaToCoverage, unsigned
     blendStateDirty = true;
 }
 
-void Graphics::SetDepthState(CompareFunc depthFunc, bool depthWrite, bool depthClip, int depthBias, float depthBiasClamp,
-    float slopeScaledDepthBias)
+void Graphics::SetDepthState(CompareFunc depthFunc, bool depthWrite, bool depthClip, int depthBias, float slopeScaledDepthBias)
 {
     renderState.depthFunc = depthFunc;
     renderState.depthWrite = depthWrite;
     renderState.depthClip = depthClip;
     renderState.depthBias = depthBias;
-    renderState.depthBiasClamp = depthBiasClamp;
     renderState.slopeScaledDepthBias = slopeScaledDepthBias;
 
     depthStateDirty = true;
@@ -515,6 +511,8 @@ void Graphics::ResetTextures()
 
 void Graphics::Clear(unsigned clearFlags, const Color& clearColor, float clearDepth, unsigned char clearStencil)
 {
+    PrepareTextures();
+
     if ((clearFlags & CLEAR_COLOR) && impl->renderTargetViews[0])
         impl->deviceContext->ClearRenderTargetView(impl->renderTargetViews[0], clearColor.Data());
     
@@ -776,8 +774,23 @@ void Graphics::HandleResize(WindowResizeEvent& /*event*/)
         UpdateSwapChain(window->Width(), window->Height());
 }
 
+void Graphics::PrepareTextures()
+{
+    if (texturesDirty)
+    {
+        // Set both VS & PS textures to mimic OpenGL behavior
+        impl->deviceContext->VSSetShaderResources(0, MAX_TEXTURE_UNITS, impl->resourceViews);
+        impl->deviceContext->VSSetSamplers(0, MAX_TEXTURE_UNITS, impl->samplers);
+        impl->deviceContext->PSSetShaderResources(0, MAX_TEXTURE_UNITS, impl->resourceViews);
+        impl->deviceContext->PSSetSamplers(0, MAX_TEXTURE_UNITS, impl->samplers);
+        texturesDirty = false;
+    }
+}
+
 bool Graphics::PrepareDraw(PrimitiveType type)
 {
+    PrepareTextures();
+
     if (!vertexShader || !pixelShader || !vertexShader->ShaderObject() || !pixelShader->ShaderObject())
         return false;
 
@@ -987,8 +1000,7 @@ bool Graphics::PrepareDraw(PrimitiveType type)
             (renderState.fillMode << 2) |
             (renderState.cullMode << 4) |
             ((renderState.depthBias & 0xff) << 6) |
-            ((unsigned long long)(*((unsigned*)&renderState.depthBiasClamp) >> 8) << 14) |
-            ((unsigned long long)(*((unsigned*)&renderState.slopeScaledDepthBias) >> 8) << 38);
+            ((unsigned long long)*((unsigned*)&renderState.slopeScaledDepthBias) << 14);
 
         if (rasterizerStateHash != impl->rasterizerStateHash)
         {
@@ -1011,7 +1023,7 @@ bool Graphics::PrepareDraw(PrimitiveType type)
                 stateDesc.CullMode = (D3D11_CULL_MODE)renderState.cullMode;
                 stateDesc.FrontCounterClockwise = FALSE;
                 stateDesc.DepthBias = renderState.depthBias;
-                stateDesc.DepthBiasClamp = renderState.depthBiasClamp;
+                stateDesc.DepthBiasClamp = M_INFINITY;
                 stateDesc.SlopeScaledDepthBias = renderState.slopeScaledDepthBias;
                 stateDesc.DepthClipEnable = renderState.depthClip;
                 stateDesc.ScissorEnable = renderState.scissorEnable;
@@ -1074,6 +1086,7 @@ void Graphics::ResetState()
     impl->stencilRef = 0;
     inputLayout.first = 0;
     inputLayout.second = 0;
+    texturesDirty = false;
     inputLayoutDirty = false;
     blendStateDirty = false;
     depthStateDirty = false;

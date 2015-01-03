@@ -286,9 +286,6 @@ void Graphics::SetRenderTarget(Texture* renderTarget_, Texture* depthStencil_)
 
 void Graphics::SetRenderTargets(const Vector<Texture*>& renderTargets_, Texture* depthStencil_)
 {
-    if (renderTargets_.IsEmpty())
-        return;
-
     for (size_t i = 0; i < MAX_RENDERTARGETS && i < renderTargets_.Size(); ++i)
         renderTargets[i] = (renderTargets_[i] && renderTargets_[i]->IsRenderTarget()) ? renderTargets_[i] : nullptr;
 
@@ -468,14 +465,12 @@ void Graphics::SetColorState(BlendMode blendMode, bool alphaToCoverage, unsigned
     blendStateDirty = true;
 }
 
-void Graphics::SetDepthState(CompareFunc depthFunc, bool depthWrite, bool depthClip, int depthBias, float depthBiasClamp,
-    float slopeScaledDepthBias)
+void Graphics::SetDepthState(CompareFunc depthFunc, bool depthWrite, bool depthClip, int depthBias, float slopeScaledDepthBias)
 {
     renderState.depthFunc = depthFunc;
     renderState.depthWrite = depthWrite;
     renderState.depthClip = depthClip;
     renderState.depthBias = depthBias;
-    renderState.depthBiasClamp = depthBiasClamp;
     renderState.slopeScaledDepthBias = slopeScaledDepthBias;
 
     depthStateDirty = true;
@@ -1238,7 +1233,7 @@ bool Graphics::PrepareDraw(bool instanced, size_t instanceStart)
             glRenderState.slopeScaledDepthBias)
         {
             /// \todo Check if this matches Direct3D
-            glPolygonOffset(renderState.slopeScaledDepthBias + 1.0f, (float)renderState.depthBias);
+            glPolygonOffset(renderState.slopeScaledDepthBias, (float)renderState.depthBias);
             glRenderState.depthBias = renderState.depthBias;
             glRenderState.slopeScaledDepthBias = renderState.slopeScaledDepthBias;
         }

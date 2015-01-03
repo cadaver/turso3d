@@ -84,7 +84,7 @@ public:
     /// Set color write and blending related state using a predefined blend mode.
     void SetColorState(BlendMode blendMode, bool alphaToCoverage = false, unsigned char colorWriteMask = COLORMASK_ALL);
     /// Set depth buffer related state.
-    void SetDepthState(CompareFunc depthFunc, bool depthWrite, bool depthClip = true, int depthBias = 0, float depthBiasClamp = M_INFINITY, float slopeScaledDepthBias = 0.0f);
+    void SetDepthState(CompareFunc depthFunc, bool depthWrite, bool depthClip = true, int depthBias = 0, float slopeScaledDepthBias = 0.0f);
     /// Set rasterizer related state.
     void SetRasterizerState(CullMode cullMode, FillMode fillMode);
     /// Set scissor test.
@@ -178,6 +178,8 @@ private:
     bool UpdateSwapChain(int width, int height);
     /// Handle window resize event.
     void HandleResize(WindowResizeEvent& event);
+    /// Set texture state for the next draw call. PrepareDraw() calls this.
+    void PrepareTextures();
     /// Set state for the next draw call. Return false if the draw call should not be attempted.
     bool PrepareDraw(PrimitiveType type);
     /// Reset internally tracked state.
@@ -209,6 +211,8 @@ private:
     ShaderVariation* pixelShader;
     /// Current renderstate.
     RenderState renderState;
+    /// Textures dirty flag.
+    bool texturesDirty;
     /// Input layout dirty flag.
     bool inputLayoutDirty;
     /// Blend state dirty flag.

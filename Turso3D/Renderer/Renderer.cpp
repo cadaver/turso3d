@@ -863,7 +863,7 @@ void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera_, bool overr
                     if (!overrideDepthBias)
                         graphics->SetDepthState(pass->depthFunc, pass->depthWrite, pass->depthClip);
                     else
-                        graphics->SetDepthState(pass->depthFunc, pass->depthWrite, pass->depthClip, depthBias, M_INFINITY, slopeScaledDepthBias);
+                        graphics->SetDepthState(pass->depthFunc, pass->depthWrite, pass->depthClip, depthBias, slopeScaledDepthBias);
                     
                     if (!camera_->UseReverseCulling())
                         graphics->SetRasterizerState(pass->cullMode, pass->fillMode);
