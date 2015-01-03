@@ -25,7 +25,6 @@ Camera::Camera() :
     viewMatrix(Matrix3x4::IDENTITY),
     viewMatrixDirty(false),
     orthographic(false),
-    autoAspectRatio(true),
     flipVertical(false),
     nearClip(DEFAULT_NEARCLIP),
     farClip(DEFAULT_FARCLIP),
@@ -53,8 +52,7 @@ void Camera::RegisterObject()
     RegisterAttribute("nearClip", &Camera::NearClip, &Camera::SetNearClip, DEFAULT_NEARCLIP);
     RegisterAttribute("farClip", &Camera::FarClip, &Camera::SetFarClip, DEFAULT_FARCLIP);
     RegisterAttribute("fov", &Camera::Fov, &Camera::SetFov, DEFAULT_FOV);
-    RegisterAttribute("aspectRatio", &Camera::AspectRatio, &Camera::SetAspectRatioInternal, 1.0f);
-    RegisterAttribute("autoAspectRatio", &Camera::AutoAspectRatio, &Camera::SetAutoAspectRatio, true);
+    RegisterAttribute("aspectRatio", &Camera::AspectRatio, &Camera::SetAspectRatio, 1.0f);
     RegisterAttribute("orthographic", &Camera::IsOrthographic, &Camera::SetOrthographic, false);
     RegisterAttribute("orthoSize", &Camera::OrthoSize, &Camera::SetOrthoSize, DEFAULT_ORTHOSIZE);
     RegisterAttribute("zoom", &Camera::Zoom, &Camera::SetZoom, 1.0f);
@@ -91,15 +89,13 @@ void Camera::SetOrthoSize(float orthoSize_)
 
 void Camera::SetOrthoSize(const Vector2& orthoSize_)
 {
-    autoAspectRatio = false;
     orthoSize = orthoSize_.y;
     aspectRatio = orthoSize_.x / orthoSize_.y;
 }
 
 void Camera::SetAspectRatio(float aspectRatio_)
 {
-    autoAspectRatio = false;
-    SetAspectRatioInternal(aspectRatio_);
+    aspectRatio = Max(aspectRatio_, M_EPSILON);
 }
 
 void Camera::SetZoom(float zoom_)
@@ -120,11 +116,6 @@ void Camera::SetViewMask(unsigned mask)
 void Camera::SetOrthographic(bool enable)
 {
     orthographic = enable;
-}
-
-void Camera::SetAutoAspectRatio(bool enable)
-{
-    autoAspectRatio = enable;
 }
 
 void Camera::SetAmbientColor(const Color& color)
@@ -486,11 +477,6 @@ void Camera::OnTransformChanged()
     SpatialNode::OnTransformChanged();
 
     viewMatrixDirty = true;
-}
-
-void Camera::SetAspectRatioInternal(float aspectRatio_)
-{
-    aspectRatio = aspectRatio_;
 }
 
 void Camera::SetReflectionPlaneAttr(const Vector4& value)

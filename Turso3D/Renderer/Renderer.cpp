@@ -256,12 +256,6 @@ bool Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     if (!frameNumber)
         ++frameNumber;
 
-    if (camera->AutoAspectRatio())
-    {
-        const IntRect& viewport = graphics->Viewport();
-        camera->SetAspectRatioInternal((float)viewport.Width() / (float)viewport.Height());
-    }
-
     // Reinsert moved objects to the octree
     octree->Update();
 

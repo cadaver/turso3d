@@ -156,6 +156,9 @@ public:
             if (!graphics->IsInitialized())
                 break;
 
+            // Update camera aspect ratio based on window size
+            camera->SetAspectRatio((float)graphics->Width() / (float)graphics->Height());
+
             Vector<PassDesc> passes;
             passes.Push(PassDesc("opaque", SORT_STATE, true));
             passes.Push(PassDesc("alpha", SORT_BACK_TO_FRONT, true));

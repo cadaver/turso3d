@@ -40,9 +40,9 @@ class TURSO3D_API Camera : public SpatialNode
     void SetFov(float fov);
     /// Set orthographic mode view uniform size.
     void SetOrthoSize(float orthoSize);
-    /// Set orthographic mode view non-uniform size. Disables the auto aspect ratio -mode.
+    /// Set orthographic mode view non-uniform size.
     void SetOrthoSize(const Vector2& orthoSize);
-    /// Set aspect ratio manually. Disables the auto aspect ratio -mode.
+    /// Set aspect ratio.
     void SetAspectRatio(float aspectRatio);
     /// Set zoom.
     void SetZoom(float zoom);
@@ -52,8 +52,6 @@ class TURSO3D_API Camera : public SpatialNode
     void SetViewMask(unsigned mask);
     /// Set orthographic projection mode.
     void SetOrthographic(bool enable);
-    /// Set automatic aspect ratio based on viewport dimensions. Enabled by default.
-    void SetAutoAspectRatio(bool enable);
     /// Set ambient light color to use when rendering with this camera.
     void SetAmbientColor(const Color& color);
     /// Set projection offset. It needs to be calculated as (offset in pixels) / (viewport dimensions.)
@@ -87,8 +85,6 @@ class TURSO3D_API Camera : public SpatialNode
     unsigned ViewMask() const { return viewMask; }
     /// Return whether is orthographic.
     bool IsOrthographic() const { return orthographic; }
-    /// Return auto aspect ratio flag.
-    bool AutoAspectRatio() const { return autoAspectRatio; }
     /// Return ambient light color.
     const Color& AmbientColor() const { return ambientColor; }
     /// Return projection offset.
@@ -140,9 +136,6 @@ class TURSO3D_API Camera : public SpatialNode
     /// Return if projection parameters are valid for rendering and raycasting.
     bool IsProjectionValid() const;
 
-    /// Set aspect ratio without disabling the auto mode. Used internally for attribute access and by Renderer.
-    void SetAspectRatioInternal(float aspectRatio);
-
 protected:
     /// Handle the transform matrix changing.
     void OnTransformChanged() override;
@@ -163,8 +156,6 @@ private:
     mutable bool viewMatrixDirty;
     /// Orthographic mode flag.
     bool orthographic;
-    /// Auto aspect ratio flag.
-    bool autoAspectRatio;
     /// Flip vertical flag.
     bool flipVertical;
     /// Near clip distance.
