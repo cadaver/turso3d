@@ -52,7 +52,7 @@ public:
     void SetFov(float fov);
     /// Set light layer mask. Will be checked against scene objects' layers to see what objects to illuminate.
     void SetLightMask(unsigned mask);
-    /// Set shadow map resolution in pixels.
+    /// Set shadow map face resolution in pixels.
     void SetShadowMapSize(int size);
     /// Set directional light shadow split distances. Fill unused splits with zero.
     void SetShadowSplits(const Vector4& splits);
@@ -73,7 +73,7 @@ public:
     float Fov() const { return fov; }
     /// Return light layer mask.
     unsigned LightMask() const { return lightMask; }
-    /// Return shadow map resolution in pixels.
+    /// Return shadow map face resolution in pixels.
     int ShadowMapSize() const { return shadowMapSize; }
     /// Return directional light shadow split distances.
     const Vector4& ShadowSplits() const { return shadowSplits; }
@@ -89,8 +89,8 @@ public:
     int DepthBias() const { return depthBias; }
     /// Return slope-scaled depth bias.
     float SlopeScaledDepthBias() const { return slopeScaledDepthBias; }
-    /// Return required shadow rect size, which depends on light type and cascade splits.
-    IntVector2 ShadowRectSize() const;
+    /// Return total requested shadow map size, accounting for multiple faces / splits for directional and point lights.
+    IntVector2 TotalShadowMapSize() const;
     /// Return number of required shadow views / cameras.
     size_t NumShadowViews() const;
     /// Return number of required shadow coordinates in the vertex shader.
@@ -101,7 +101,7 @@ public:
     Sphere WorldSphere() const;
 
     /// Set shadow map and viewport within it. Called by Renderer.
-    void SetShadowMap(Texture* shadowMap, const IntRect& shadowRect);
+    void SetShadowMap(Texture* shadowMap, const IntRect& shadowRect = IntRect::ZERO);
     /// Setup the shadow cameras and viewports. Called by Renderer.
     void SetupShadowViews(Camera* mainCamera);
     /// Setup the shadow matrix constants. Called by Renderer.
@@ -110,7 +110,7 @@ public:
     void ResetShadowViews();
     /// Return shadow map.
     Texture* ShadowMap() const { return shadowMap; }
-    /// Return shadow map rectangle.
+    /// Return actual shadow map rectangle. May be smaller than the requested total shadow map size.
     const IntRect& ShadowRect() const { return shadowRect; }
     /// Return shadow views.
     const Vector<AutoPtr<ShadowView> >& ShadowViews() const { return shadowViews; }

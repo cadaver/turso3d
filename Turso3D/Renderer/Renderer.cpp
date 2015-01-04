@@ -333,33 +333,46 @@ void Renderer::CollectLightInteractions()
                 break;
             }
 
-            // If light is not shadowed or has no light receivers, release shadow view structures
+            // If light is not shadowed or has no light receivers, release shadow view structures if any
             if (!light->CastShadows() || !hasReceivers)
             {
                 light->ResetShadowViews();
                 continue;
             }
 
-            // Try to allocate shadow map rectangle
-            /// \todo Fall back to smaller size on failure
-            IntVector2 shadowSize = light->ShadowRectSize();
+            // Try to allocate shadow map rectangle. Retry with smaller size two times if fails
+            IntVector2 request = light->TotalShadowMapSize();
             IntRect shadowRect;
+            size_t retries = 3;
             size_t index;
-            for (index = 0; index < shadowMaps.Size(); ++index)
+
+            while (retries--)
             {
-                ShadowMap& shadowMap = shadowMaps[index];
-                int x, y;
-                if (shadowMap.allocator.Allocate(shadowSize.x, shadowSize.y, x, y))
+                for (index = 0; index < shadowMaps.Size(); ++index)
                 {
-                    light->SetShadowMap(shadowMaps[index].texture, IntRect(x, y, x + shadowSize.x, y + shadowSize.y));
+                    ShadowMap& shadowMap = shadowMaps[index];
+                    int x, y;
+                    if (shadowMap.allocator.Allocate(request.x, request.y, x, y))
+                    {
+                        light->SetShadowMap(shadowMaps[index].texture, IntRect(x, y, x + request.x, y + request.y));
+                        break;
+                    }
+                }
+
+                if (index < shadowMaps.Size())
                     break;
+                else
+                {
+                    request.x /= 2;
+                    request.y /= 2;
                 }
             }
 
             // If no room in any shadow map, render unshadowed
             if (index >= shadowMaps.Size())
             {
-                light->SetShadowMap(nullptr, IntRect::ZERO);
+                LOGINFO("Ran out of shadow map space");
+                light->ResetShadowViews();
                 continue;
             }
 
@@ -421,7 +434,7 @@ void Renderer::CollectLightInteractions()
             {
                 // Light did not have any shadow batches: convert to unshadowed. At this point we have allocated the shadow map
                 // unnecessarily, but not sampling it will still be faster
-                light->SetShadowMap(nullptr, IntRect::ZERO);
+                light->SetShadowMap(nullptr);
             }
         }
     }
@@ -530,11 +543,11 @@ void Renderer::CollectLightInteractions()
                             }
                             else if (light->GetLightType() == LIGHT_POINT)
                             {
-                                float shadowMapSize = (float)light->ShadowMapSize();
                                 const IntRect& shadowRect = light->ShadowRect();
+                                float actualShadowMapSize = (float)shadowRect.Height() / 2; // Point light has 2 vertical splits
                                 newLightPass->pointShadowParameters[i] = Vector4(
-                                    shadowMapSize / (float)shadowMap->Width(),
-                                    shadowMapSize / (float)shadowMap->Height(),
+                                    actualShadowMapSize / (float)shadowMap->Width(),
+                                    actualShadowMapSize / (float)shadowMap->Height(),
                                     (float)shadowRect.left / (float)shadowMap->Width(),
                                     (float)shadowRect.top / (float)shadowMap->Height());
                             }

@@ -44,7 +44,7 @@ public:
         graphics->RenderWindow()->SetTitle("Renderer test");
         graphics->SetMode(IntVector2(640, 480), false, true);
 
-        renderer->SetupShadowMaps(8, 1024, FMT_D16);
+        renderer->SetupShadowMaps(1, 2048, FMT_D16);
 
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &RendererTest::HandleCloseRequest);
 

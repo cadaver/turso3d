@@ -198,7 +198,7 @@ void Light::SetSlopeScaledDepthBias(float bias)
     slopeScaledDepthBias = Max(bias, 0.0f);
 }
 
-IntVector2 Light::ShadowRectSize() const
+IntVector2 Light::TotalShadowMapSize() const
 {
     if (lightType == LIGHT_DIRECTIONAL)
     {
@@ -294,7 +294,7 @@ Sphere Light::WorldSphere() const
     return Sphere(WorldPosition(), range);
 }
 
-void Light::SetShadowMap(Texture* shadowMap_, const IntRect& shadowRect_ = IntRect::ZERO)
+void Light::SetShadowMap(Texture* shadowMap_, const IntRect& shadowRect_)
 {
     shadowMap = shadowMap_;
     shadowRect = shadowRect_;
@@ -303,6 +303,9 @@ void Light::SetShadowMap(Texture* shadowMap_, const IntRect& shadowRect_ = IntRe
 void Light::SetupShadowViews(Camera* mainCamera)
 {
     shadowViews.Resize(NumShadowViews());
+
+    int numVerticalSplits = (lightType == LIGHT_POINT || (lightType == LIGHT_DIRECTIONAL && NumShadowSplits() > 2)) ? 2 : 1;
+    int actualShadowMapSize = shadowRect.Height() / numVerticalSplits;
 
     for (size_t i = 0; i < shadowViews.Size(); ++i)
     {
@@ -320,10 +323,10 @@ void Light::SetupShadowViews(Camera* mainCamera)
             {
                 IntVector2 topLeft(shadowRect.left, shadowRect.top);
                 if (i & 1)
-                    topLeft.x += shadowMapSize;
+                    topLeft.x += actualShadowMapSize;
                 if (i & 2)
-                    topLeft.y += shadowMapSize;
-                view->viewport = IntRect(topLeft.x, topLeft.y, topLeft.x + shadowMapSize, topLeft.y + shadowMapSize);
+                    topLeft.y += actualShadowMapSize;
+                view->viewport = IntRect(topLeft.x, topLeft.y, topLeft.x + actualShadowMapSize, topLeft.y + actualShadowMapSize);
 
                 float splitStart = Max(mainCamera->NearClip(), (i == 0) ? 0.0f : ShadowSplit(i - 1));
                 float splitEnd = Min(mainCamera->FarClip(), ShadowSplit(i));
@@ -369,8 +372,7 @@ void Light::SetupShadowViews(Camera* mainCamera)
                 // Snap to whole texels
                 {
                     Vector3 viewPos(rot.Inverse() * shadowCamera.WorldPosition());
-                    // Take into account that shadow map border will not be used
-                    float invSize = 1.0f / shadowMapSize;
+                    float invSize = 1.0f / actualShadowMapSize;
                     Vector2 texelSize(size.x * invSize, size.y * invSize);
                     Vector3 snap(-fmodf(viewPos.x, texelSize.x), -fmodf(viewPos.y, texelSize.y), 0.0f);
                     shadowCamera.Translate(rot * snap, TS_WORLD);
@@ -382,9 +384,9 @@ void Light::SetupShadowViews(Camera* mainCamera)
             {
                 IntVector2 topLeft(shadowRect.left, shadowRect.top);
                 if (i & 1)
-                    topLeft.y += shadowMapSize;
-                topLeft.x += (i >> 1) * shadowMapSize;
-                view->viewport = IntRect(topLeft.x, topLeft.y, topLeft.x + shadowMapSize, topLeft.y + shadowMapSize);
+                    topLeft.y += actualShadowMapSize;
+                topLeft.x += (i >> 1) * actualShadowMapSize;
+                view->viewport = IntRect(topLeft.x, topLeft.y, topLeft.x + actualShadowMapSize, topLeft.y + actualShadowMapSize);
 
                 shadowCamera.SetTransform(WorldPosition(), pointLightFaceRotations[i]);
                 shadowCamera.SetFov(90.0f);
