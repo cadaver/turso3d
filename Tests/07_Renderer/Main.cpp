@@ -74,6 +74,7 @@ public:
             object->SetModel(cache->LoadResource<Model>("Mushroom.mdl"));
             object->SetMaterial(cache->LoadResource<Material>("Mushroom.json"));
             object->SetCastShadows(true);
+            object->SetLodBias(2.0f);
         }
 
         for (unsigned i = 0; i < 10; ++i)
@@ -120,7 +121,7 @@ public:
                 pitch = Clamp(pitch, -90.0f, 90.0f);
             }
 
-            float moveSpeed = input->IsKeyDown(VK_SHIFT) ? 20.0f : 1.0f;
+            float moveSpeed = input->IsKeyDown(VK_SHIFT) ? 50.0f : 10.0f;
 
             camera->SetRotation(Quaternion(pitch, yaw, 0.0f));
             if (input->IsKeyDown('W'))
