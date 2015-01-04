@@ -314,8 +314,11 @@ void Graphics::SetViewport(const IntRect& viewport_)
     viewport.right = Clamp(viewport_.right, viewport.left + 1, renderTargetSize.x);
     viewport.bottom = Clamp(viewport_.bottom, viewport.top + 1, renderTargetSize.y);
 
-    // Use Direct3D convention with the vertical coordinates ie. 0 is top
-    glViewport(viewport.left, renderTargetSize.y - viewport.bottom, viewport.Width(), viewport.Height());
+    // When rendering to the backbuffer, use Direct3D convention with the vertical coordinates ie. 0 is top
+    if (!framebuffer)
+        glViewport(viewport.left, renderTargetSize.y - viewport.bottom, viewport.Width(), viewport.Height());
+    else
+        glViewport(viewport.left, viewport.top, viewport.Width(), viewport.Height());
 }
 
 void Graphics::SetVertexBuffer(size_t index, VertexBuffer* buffer)
@@ -367,6 +370,9 @@ void Graphics::SetTexture(size_t index, Texture* texture)
         if (texture)
         {
             unsigned target = texture->GLTarget();
+            // Make sure we do not have multiple targets bound in the same unit
+            if (textureTargets[target] && textureTargets[target] != target)
+                glBindTexture(textureTargets[index], 0);
             glBindTexture(target, texture->GLTexture());
             textureTargets[index] = target;
         }

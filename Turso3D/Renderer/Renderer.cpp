@@ -244,7 +244,6 @@ bool Renderer::CollectObjects(Scene* scene_, Camera* camera_)
         (*it)->Clear();
     for (auto it = shadowMaps.Begin(); it != shadowMaps.End(); ++it)
         it->Clear();
-    lastCamera = nullptr;
     usedShadowViews = 0;
 
     scene = scene_;
@@ -372,36 +371,34 @@ void Renderer::CollectLightInteractions()
             }
             
             light->SetupShadowViews(camera);
+            bool hasShadowBatches = false;
 
-            size_t totalShadowCasters = 0;
             for (size_t i = 0; i < numShadowViews; ++i)
             {
                 ShadowView* view = light->shadowViews[i];
                 /// \todo Spotlights should reuse the lit geometries frustum query
                 octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(view->shadowCasters),
                     view->shadowCamera->WorldFrustum(), NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS, light->LightMask());
-                if (view->shadowCasters.Size())
+
+                CollectShadowBatches(view);
+                // Store only views that actually have shadows in the shadow map structure for rendering
+                if (view->shadowQueue.batches.Size())
                 {
-                    // Record shadow view also to the shadow map so that all shadows can be rendered with minimal rendertarget switches
+                    hasShadowBatches = true;
                     shadowMaps[idx].shadowViews.Push(view);
-                    totalShadowCasters += view->shadowCasters.Size();
                 }
             }
 
-            if (totalShadowCasters)
+            if (hasShadowBatches)
                 usedShadowViews += numShadowViews;
             else
             {
-                // Light did not have any shadow casters: convert to unshadowed. At this point we have allocated the shadow map
+                // Light did not have any shadow batches: convert to unshadowed. At this point we have allocated the shadow map
                 // unnecessarily, but not sampling it will still be faster
                 light->shadowMap = nullptr;
                 light->shadowViews.Clear();
             }
         }
-
-        // Finally collect batches from all shadow cameras
-        for (size_t i = 0; i < usedShadowViews; ++i)
-            CollectShadowBatches(shadowViews[i]);
     }
 
     {
@@ -480,18 +477,36 @@ void Renderer::CollectLightInteractions()
 
                         if (light->shadowMap)
                         {
+                            // Enable shadowed shader variation, setup shadow matrices if needed
                             newLightPass->shadowMaps[i] = light->shadowMap;
-                            newLightPass->shadowParameters[i] = Vector4(0.5f / (float)light->shadowMap->Width(),
-                                0.5f / (float)light->shadowMap->Height(), 0.0f, 0.0f);
-                            light->SetupShadowMatrices(newLightPass->shadowMatrices, numShadowCoords);
                             newLightPass->psBits |= 4 << (i * 3 + 4);
+                            light->SetupShadowMatrices(newLightPass->shadowMatrices, numShadowCoords);
 
+                            // Depth reconstruction parameters
+                            float nearClip = light->shadowViews.Front()->shadowCamera->NearClip();
+                            float farClip = light->shadowViews.Front()->shadowCamera->FarClip();
+                            float q = farClip / (farClip - nearClip);
+                            float r = -q * nearClip;
+
+                            // Shadow map offsets
+                            newLightPass->shadowParameters[i] = Vector4(0.5f / (float)light->shadowMap->Width(),
+                                0.5f / (float)light->shadowMap->Height(), q, r);
+
+                            // Additional parameters for directional and point lights
                             if (light->GetLightType() == LIGHT_DIRECTIONAL)
                             {
                                 float fadeStart = light->ShadowFadeStart() * light->MaxShadowDistance() / camera->FarClip();
                                 float fadeRange = light->MaxShadowDistance() / camera->FarClip() - fadeStart;
                                 newLightPass->dirShadowSplits = light->ShadowSplits() / camera->FarClip();
                                 newLightPass->dirShadowFade = Vector4(fadeStart / fadeRange, 1.0f / fadeRange, 0.0f, 0.0f);
+                            }
+                            else if (light->GetLightType() == LIGHT_POINT)
+                            {
+                                newLightPass->pointShadowParameters[i] = Vector4(
+                                    (float)light->shadowMapSize / (float)light->shadowMap->Width(),
+                                    (float)light->shadowMapSize / (float)light->shadowMap->Height(),
+                                    (float)light->shadowRect.left / (float)light->shadowMap->Width(),
+                                    (float)light->shadowRect.top / (float)light->shadowMap->Height());
                             }
                         }
 
@@ -601,19 +616,16 @@ void Renderer::RenderShadowMaps()
 {
     PROFILE(RenderShadowMaps);
 
+    // Make sure the shadow maps are not bound on any unit
+    graphics->ResetTextures();
+
     for (auto it = shadowMaps.Begin(); it != shadowMaps.End(); ++it)
     {
         if (!it->used)
             continue;
 
-        if (it == shadowMaps.Begin())
-        {
-            for (size_t i = MAX_MATERIAL_TEXTURE_UNITS; i < MAX_MATERIAL_TEXTURE_UNITS + MAX_LIGHTS_PER_PASS; ++i)
-                graphics->SetTexture(i, nullptr);
-        }
-
         graphics->SetRenderTarget(nullptr, it->texture);
-        graphics->Clear(CLEAR_DEPTH);
+        graphics->Clear(CLEAR_DEPTH, Color::BLACK, 1.0f);
 
         for (auto vIt = it->shadowViews.Begin(); vIt < it->shadowViews.End(); ++vIt)
         {
@@ -668,6 +680,7 @@ void Renderer::Initialize()
     constants.Push(Constant(ELEM_VECTOR4, "lightColors", MAX_LIGHTS_PER_PASS));
     constants.Push(Constant(ELEM_VECTOR4, "lightAttenuations", MAX_LIGHTS_PER_PASS));
     constants.Push(Constant(ELEM_VECTOR4, "shadowParameters", MAX_LIGHTS_PER_PASS));
+    constants.Push(Constant(ELEM_VECTOR4, "pointShadowParameters", MAX_LIGHTS_PER_PASS));
     constants.Push(Constant(ELEM_VECTOR4, "dirShadowSplits"));
     constants.Push(Constant(ELEM_VECTOR4, "dirShadowFade"));
     psLightConstantBuffer->Define(USAGE_DEFAULT, constants);
@@ -681,6 +694,52 @@ void Renderer::Initialize()
     // Setup ambient light only -pass
     ambientLightPass.vsBits = 0;
     ambientLightPass.psBits = LPS_AMBIENT;
+
+    // Setup point light face selection textures
+    faceSelectionTexture1 = new Texture();
+    faceSelectionTexture2 = new Texture();
+    DefineFaceSelectionTextures();
+}
+
+void Renderer::DefineFaceSelectionTextures()
+{
+    const float faceSelectionData1[] = { 
+        1.0f, 0.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f
+    };
+
+    const float faceSelectionData2[] = {
+        -0.5f, 0.5f, 0.5f, 1.5f,
+        0.5f, 0.5f, 0.5f, 0.5f,
+        -0.5f, 0.5f, 1.5f, 1.5f,
+        -0.5f, -0.5f, 1.5f, 0.5f,
+        0.5f, 0.5f, 2.5f, 1.5f,
+        -0.5f, 0.5f, 2.5f, 0.5f
+    };
+
+    Vector<ImageLevel> faces1;
+    Vector<ImageLevel> faces2;
+    for (size_t i = 0; i < MAX_CUBE_FACES; ++i)
+    {
+        ImageLevel level;
+        level.rowSize = 4 * sizeof(float);
+        level.data = (unsigned char*)&faceSelectionData1[4 * i];
+        faces1.Push(level);
+        level.data = (unsigned char*)&faceSelectionData2[4 * i];
+        faces2.Push(level);
+    }
+
+    faceSelectionTexture1->Define(TEX_CUBE, USAGE_DEFAULT, IntVector2(1, 1), FMT_RGBA32F, 1, &faces1[0]);
+    faceSelectionTexture1->DefineSampler(FILTER_POINT, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
+    faceSelectionTexture1->SetDataLost(false);
+
+    faceSelectionTexture2->Define(TEX_CUBE, USAGE_DEFAULT, IntVector2(1, 1), FMT_RGBA32F, 1, &faces2[0]);
+    faceSelectionTexture2->DefineSampler(FILTER_POINT, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
+    faceSelectionTexture2->SetDataLost(false);
 }
 
 void Renderer::CollectGeometriesAndLights(Vector<OctreeNode*>::ConstIterator begin, Vector<OctreeNode*>::ConstIterator end,
@@ -837,10 +896,25 @@ void Renderer::CopyInstanceTransforms(BatchQueue& batchQueue)
 
 void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera_, bool overrideDepthBias, int depthBias, float slopeScaledDepthBias)
 {
+    if (batchQueue.batches.IsEmpty())
+        return;
+
     PROFILE(RenderBatches);
 
-    if (camera_ != lastCamera)
+    if (faceSelectionTexture1->IsDataLost() || faceSelectionTexture2->IsDataLost())
+        DefineFaceSelectionTextures();
+
+    // Bind point light shadow face selection textures
+    graphics->SetTexture(MAX_MATERIAL_TEXTURE_UNITS + MAX_LIGHTS_PER_PASS, faceSelectionTexture1);
+    graphics->SetTexture(MAX_MATERIAL_TEXTURE_UNITS + MAX_LIGHTS_PER_PASS + 1, faceSelectionTexture2);
+
+    // If rendering to a texture on OpenGL, flip the camera vertically to ensure similar texture coordinate addressing
+    #ifdef TURSO3D_OPENGL
+    camera_->SetFlipVertical(graphics->RenderTarget(0) || graphics->DepthStencil());
+    #endif
+
     {
+        /// \todo This is unnecessary when multiple batch queues are rendered to the same rendertarget
         PROFILE(SetPerFrameConstants);
 
         // Set per-frame values to the frame constant buffers
@@ -874,8 +948,6 @@ void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera_, bool overr
 
         graphics->SetConstantBuffer(SHADER_VS, CB_FRAME, vsFrameConstantBuffer);
         graphics->SetConstantBuffer(SHADER_PS, CB_FRAME, psFrameConstantBuffer);
-
-        lastCamera = camera_;
     }
 
     if (instanceTransformsDirty && instanceTransforms.Size())

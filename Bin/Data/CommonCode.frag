@@ -10,11 +10,14 @@ layout(std140) uniform LightsPS3
     vec4 lightAttenuations[4];
     vec4 lightColors[4];
     vec4 shadowParameters[4];
+    vec4 pointShadowParameters[4];
     vec4 dirShadowSplits;
     vec4 dirShadowFade;
 };
 
 uniform sampler2DShadow shadowMap8[4];
+uniform samplerCube faceSelectionTex12;
+uniform samplerCube faceSelectionTex13;
 
 float SampleShadowMap(int index, vec4 shadowPos)
 {
@@ -25,6 +28,19 @@ float SampleShadowMap(int index, vec4 shadowPos)
         textureProj(shadowMap8[index], shadowPos - offsets1) +
         textureProj(shadowMap8[index], shadowPos + offsets2) +
         textureProj(shadowMap8[index], shadowPos - offsets2)) * 0.25;
+}
+
+vec4 GetPointShadowPos(int index, vec4 worldPos)
+{
+    vec3 lightVec = lightPositions[index].xyz - worldPos.xyz;
+    vec3 axis = texture(faceSelectionTex12, lightVec).xyz;
+    vec4 adjust = texture(faceSelectionTex13, lightVec);
+    float depth = abs(dot(lightVec, axis));
+    // Scale back to avoid cube edge artifacts
+    /// \todo Should use shadow map texel size instead of a constant
+    vec3 normLightVec = (lightVec / depth) * 0.99;
+    vec2 coords = vec2(dot(normLightVec.zxx, axis), dot(normLightVec.yzy, axis)) * adjust.xy + adjust.zw;
+    return vec4(coords * pointShadowParameters[index].xy + pointShadowParameters[index].zw, shadowParameters[index].z + shadowParameters[index].w / depth, 1);
 }
 
 float CalculatePointAtten(int index, vec4 worldPos, vec3 normal)
@@ -110,6 +126,14 @@ vec3 CalculateShadowSpotLight(int index, vec4 worldPos, vec3 normal, vec4 shadow
 }
 #endif
 
+vec3 CalculateShadowPointLight(int index, vec4 worldPos, vec3 normal)
+{
+    float atten = CalculatePointAtten(index, worldPos, normal);
+    if (atten > 0)
+        atten *= SampleShadowMap(index, GetPointShadowPos(index, worldPos));
+    return atten * lightColors[index].rgb;
+}
+
 #ifdef NUMSHADOWCOORDS
 vec4 CalculateLighting(vec4 worldPos, vec3 normal, vec4 shadowPos[NUMSHADOWCOORDS])
 #else
@@ -156,18 +180,34 @@ vec4 CalculateLighting(vec4 worldPos, vec3 normal)
     #endif
 
     #ifdef POINTLIGHT0
+    #ifdef SHADOW0
+    totalLight.rgb += CalculateShadowPointLight(0, worldPos, normal);
+    #else
     totalLight.rgb += CalculatePointLight(0, worldPos, normal);
     #endif
+    #endif
     #ifdef POINTLIGHT1
+    #ifdef SHADOW1
+    totalLight.rgb += CalculateShadowPointLight(1, worldPos, normal);
+    #else
     totalLight.rgb += CalculatePointLight(1, worldPos, normal);
     #endif
+    #endif
     #ifdef POINTLIGHT2
+    #ifdef SHADOW2
+    totalLight.rgb += CalculateShadowPointLight(2, worldPos, normal);
+    #else
     totalLight.rgb += CalculatePointLight(2, worldPos, normal);
     #endif
+    #endif
     #ifdef POINTLIGHT3
+    #ifdef SHADOW3
+    totalLight.rgb += CalculateShadowPointLight(3, worldPos, normal);
+    #else
     totalLight.rgb += CalculatePointLight(3, worldPos, normal);
     #endif
-    
+    #endif
+
     #ifdef SPOTLIGHT0
     #ifdef SHADOW0
     totalLight.rgb += CalculateShadowSpotLight(0, worldPos, normal, shadowPos[shadowIndex++]);

@@ -28,6 +28,8 @@ static const size_t MAX_TEXTURE_UNITS = 16;
 static const size_t MAX_MATERIAL_TEXTURE_UNITS = 8;
 /// Maximum number of color rendertargets in use at once.
 static const size_t MAX_RENDERTARGETS = 4;
+/// Number of cube map faces.
+static const size_t MAX_CUBE_FACES = 6;
 
 /// Disable color write.
 static const unsigned char COLORMASK_NONE = 0x0;

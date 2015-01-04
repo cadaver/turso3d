@@ -36,12 +36,12 @@ public:
     /// Recreate the GPU resource after data loss.
     void Recreate() override;
 
-    /// Define texture type and dimensions and set initial data. %ImageLevel structures only need the data pointer and row pitch filled. Return true on success.
+    /// Define texture type and dimensions and set initial data. %ImageLevel structures only need the data pointer and row byte size filled. Return true on success.
     bool Define(TextureType type, ResourceUsage usage, const IntVector2& size, ImageFormat format, size_t numLevels, const ImageLevel* initialData = 0);
     /// Define sampling parameters. Return true on success.
     bool DefineSampler(TextureFilterMode filter = FILTER_TRILINEAR, TextureAddressMode u = ADDRESS_WRAP, TextureAddressMode v = ADDRESS_WRAP, TextureAddressMode w = ADDRESS_WRAP, unsigned maxAnisotropy = 16, float minLod = -M_MAX_FLOAT, float maxLod = M_MAX_FLOAT, const Color& borderColor = Color::BLACK);
     /// Set data for a mipmap level. Not supported for immutable textures. Return true on success.
-    bool SetData(size_t level, IntRect rect, const ImageLevel& data);
+    bool SetData(size_t face, size_t level, IntRect rect, const ImageLevel& data);
 
     /// Return texture type.
     TextureType TexType() const { return type; }
@@ -57,6 +57,8 @@ public:
     bool IsCompressed() const { return format >= FMT_DXT1; }
     /// Return number of mipmap levels.
     size_t NumLevels() const { return numLevels; }
+    /// Return number of faces or Z-slices.
+    size_t NumFaces() const;
     /// Return resource usage type.
     ResourceUsage Usage() const { return usage; }
     /// Return whether is dynamic.

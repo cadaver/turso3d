@@ -10,12 +10,17 @@ cbuffer LightsPS : register(b3)
     float4 lightAttenuations[4];
     float4 lightColors[4];
     float4 shadowParameters[4];
+    float4 pointShadowParameters[4];
     float4 dirShadowSplits;
     float4 dirShadowFade;
 }
 
 Texture2D shadowTex[4] : register(t8);
 SamplerComparisonState shadowSampler[4] : register(s8);
+TextureCube faceSelectionTex1 : register(t12);
+TextureCube faceSelectionTex2 : register(t13);
+SamplerState faceSelectionSampler1 : register(s12);
+SamplerState faceSelectionSampler2 : register(s13);
 
 float SampleShadowMap(int index, float4 shadowPos)
 {
@@ -27,6 +32,19 @@ float SampleShadowMap(int index, float4 shadowPos)
         shadowTex[index].SampleCmpLevelZero(shadowSampler[index], shadowPos.xy - offsets1, shadowPos.z) +
         shadowTex[index].SampleCmpLevelZero(shadowSampler[index], shadowPos.xy + offsets2, shadowPos.z) +
         shadowTex[index].SampleCmpLevelZero(shadowSampler[index], shadowPos.xy - offsets2, shadowPos.z)) * 0.25;
+}
+
+float4 GetPointShadowPos(int index, float4 worldPos)
+{
+    float3 lightVec = lightPositions[index].xyz - worldPos.xyz;
+    float3 axis = faceSelectionTex1.Sample(faceSelectionSampler1, lightVec).xyz;
+    float4 adjust = faceSelectionTex2.Sample(faceSelectionSampler2, lightVec);
+    float depth = abs(dot(lightVec, axis));
+    // Scale back to avoid cube edge artifacts
+    /// \todo Should use shadow map texel size instead of a constant
+    float3 normLightVec = (lightVec / depth) * 0.99;
+    float2 coords = float2(dot(normLightVec.zxx, axis), dot(normLightVec.yzy, axis)) * adjust.xy + adjust.zw;
+    return float4(coords * pointShadowParameters[index].xy + pointShadowParameters[index].zw, shadowParameters[index].z + shadowParameters[index].w / depth, 1);
 }
 
 float CalculatePointAtten(int index, float4 worldPos, float3 normal)
@@ -112,6 +130,14 @@ float3 CalculateShadowSpotLight(int index, float4 worldPos, float3 normal, float
 }
 #endif
 
+float3 CalculateShadowPointLight(int index, float4 worldPos, float3 normal)
+{
+    float atten = CalculatePointAtten(index, worldPos, normal);
+    if (atten > 0)
+        atten *= SampleShadowMap(index, GetPointShadowPos(index, worldPos));
+    return atten * lightColors[index].rgb;
+}
+
 #ifdef NUMSHADOWCOORDS
 float4 CalculateLighting(float4 worldPos, float3 normal, float4 shadowPos[NUMSHADOWCOORDS])
 #else
@@ -158,16 +184,32 @@ float4 CalculateLighting(float4 worldPos, float3 normal)
     #endif
 
     #ifdef POINTLIGHT0
+    #ifdef SHADOW0
+    totalLight.rgb += CalculateShadowPointLight(0, worldPos, normal);
+    #else
     totalLight.rgb += CalculatePointLight(0, worldPos, normal);
     #endif
+    #endif
     #ifdef POINTLIGHT1
+    #ifdef SHADOW1
+    totalLight.rgb += CalculateShadowPointLight(1, worldPos, normal);
+    #else
     totalLight.rgb += CalculatePointLight(1, worldPos, normal);
     #endif
+    #endif
     #ifdef POINTLIGHT2
+    #ifdef SHADOW2
+    totalLight.rgb += CalculateShadowPointLight(2, worldPos, normal);
+    #else
     totalLight.rgb += CalculatePointLight(2, worldPos, normal);
     #endif
+    #endif
     #ifdef POINTLIGHT3
+    #ifdef SHADOW3
+    totalLight.rgb += CalculateShadowPointLight(3, worldPos, normal);
+    #else
     totalLight.rgb += CalculatePointLight(3, worldPos, normal);
+    #endif
     #endif
     
     #ifdef SPOTLIGHT0

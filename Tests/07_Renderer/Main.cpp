@@ -60,7 +60,6 @@ public:
             light->SetLightType(LIGHT_DIRECTIONAL);
             light->SetDirection(Vector3(-0.5f, -1.0f, -0.75f));
             light->SetCastShadows(true);
-            light->SetDepthBias(50);
             light->SetShadowMapSize(1024);
         }
 

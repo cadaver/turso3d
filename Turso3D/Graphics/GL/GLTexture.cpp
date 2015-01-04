@@ -197,14 +197,19 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, const IntVector2& 
 
     Release();
 
-    if (type_ != TEX_2D)
+    if (type_ != TEX_2D && type_ != TEX_CUBE)
     {
-        LOGERROR("Only 2D textures supported for now");
+        LOGERROR("Only 2D textures and cube maps supported for now");
         return false;
     }
     if (format_ > FMT_DXT5)
     {
         LOGERROR("ETC1 and PVRTC formats are unsupported");
+        return false;
+    }
+    if (type_ == TEX_CUBE && size_.x != size_.y)
+    {
+        LOGERROR("Cube map must have square dimensions");
         return false;
     }
 
@@ -236,20 +241,31 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, const IntVector2& 
 
         // If not compressed and no initial data, create the initial level 0 texture with null data
         if (!IsCompressed() && !initialData)
-            glTexImage2D(glTargets[type], 0, glInternalFormats[format], size.x, size.y, 0, glFormats[format], glDataTypes[format], 0);
+        {
+            if (type == TEX_2D)
+                glTexImage2D(glTargets[type], 0, glInternalFormats[format], size.x, size.y, 0, glFormats[format], glDataTypes[format], 0);
+            else if (type == TEX_CUBE)
+            {
+                for (size_t i = 0; i < MAX_CUBE_FACES; ++i)
+                    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, glInternalFormats[format], size.x, size.y, 0, glFormats[format], glDataTypes[format], 0);
+            }
+        }
 
         if (initialData)
         {
             // Hack for allowing immutable texture to set initial data
             usage = USAGE_DEFAULT;
-            for (size_t i = 0; i < numLevels; ++i)
-                SetData(i, IntRect(0, 0, Max(size.x >> i, 1), Max(size.y >> i, 1)), initialData[i]);
+            size_t idx = 0;
+            for (size_t i = 0; i < NumFaces(); ++i)
+            {
+                for (size_t j = 0; j < numLevels; ++j)
+                    SetData(i, j, IntRect(0, 0, Max(size.x >> j, 1), Max(size.y >> j, 1)), initialData[idx++]);
+            }
             usage = usage_;
         }
 
         glTexParameteri(glTargets[type], GL_TEXTURE_BASE_LEVEL, 0);
         glTexParameteri(glTargets[type], GL_TEXTURE_MAX_LEVEL, (unsigned)numLevels - 1);
-
         LOGDEBUGF("Created texture width %d height %d format %d numLevels %d", size.x, size.y, (int)format, numLevels);
     }
 
@@ -336,7 +352,7 @@ bool Texture::DefineSampler(TextureFilterMode filter_, TextureAddressMode u, Tex
     return true;
 }
 
-bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
+bool Texture::SetData(size_t face, size_t level, const IntRect rect, const ImageLevel& data)
 {
     PROFILE(UpdateTextureLevel);
 
@@ -347,12 +363,17 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
             LOGERROR("Can not update immutable texture");
             return false;
         }
+        if (face >= NumFaces())
+        {
+            LOGERROR("Face to update out of bounds");
+            return false;
+        }
         if (level >= numLevels)
         {
             LOGERROR("Mipmap level to update out of bounds");
             return false;
         }
-        
+
         IntRect levelRect(0, 0, Max(size.x >> level, 1), Max(size.y >> level, 1));
         if (levelRect.IsInside(rect) != INSIDE)
         {
@@ -364,16 +385,18 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
         graphics->SetTexture(0, this);
 
         bool wholeLevel = rect == levelRect;
+        unsigned target = (type == TEX_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + face: glTargets[type];
+        
         if (!IsCompressed())
         {
             if (wholeLevel)
             {
-                glTexImage2D(glTargets[type], (unsigned)level, glInternalFormats[format], rect.Width(), rect.Height(), 0,
+                glTexImage2D(target, (unsigned)level, glInternalFormats[format], rect.Width(), rect.Height(), 0,
                     glFormats[format], glDataTypes[format], data.data);
             }
             else
             {
-                glTexSubImage2D(glTargets[type], (unsigned)level, rect.left, rect.top, rect.Width(), rect.Height(), 
+                glTexSubImage2D(target, (unsigned)level, rect.left, rect.top, rect.Width(), rect.Height(), 
                     glFormats[format], glDataTypes[format], data.data);
             }
         }
@@ -381,12 +404,12 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
         {
             if (wholeLevel)
             {
-                glCompressedTexImage2D(glTargets[type], (unsigned)level, glInternalFormats[format], rect.Width(), rect.Height(),
+                glCompressedTexImage2D(target, (unsigned)level, glInternalFormats[format], rect.Width(), rect.Height(),
                     0, (unsigned)Image::CalculateDataSize(IntVector2(rect.Width(), rect.Height()), format), data.data);
             }
             else
             {
-                glCompressedTexSubImage2D(glTargets[type], (unsigned)level, rect.left, rect.top, rect.Width(), rect.Height(),
+                glCompressedTexSubImage2D(target, (unsigned)level, rect.left, rect.top, rect.Width(), rect.Height(),
                     glFormats[format], (unsigned)Image::CalculateDataSize(IntVector2(rect.Width(), rect.Height()), format),
                     data.data);
             }

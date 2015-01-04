@@ -56,6 +56,7 @@ static const size_t PS_LIGHT_COLORS = 3;
 static const size_t PS_LIGHT_SHADOW_PARAMETERS = 4;
 static const size_t PS_LIGHT_DIR_SHADOW_SPLITS = 5;
 static const size_t PS_LIGHT_DIR_SHADOW_FADE = 6;
+static const size_t PS_LIGHT_POINT_SHADOW_PARAMETERS = 7;
 
 /// Texture coordinate index for the instance world matrix.
 static const size_t INSTANCE_TEXCOORD = 4;
@@ -100,6 +101,8 @@ struct TURSO3D_API LightPass
     Color lightColors[MAX_LIGHTS_PER_PASS];
     /// Shadow map sampling parameters.
     Vector4 shadowParameters[MAX_LIGHTS_PER_PASS];
+    /// Point light shadow viewport parameters.
+    Vector4 pointShadowParameters[MAX_LIGHTS_PER_PASS];
     /// Directional light shadow split depths.
     Vector4 dirShadowSplits;
     /// Directional light shadow fade parameters.
@@ -280,6 +283,8 @@ public:
 private:
     /// Initialize. Needs the Graphics subsystem and rendering context to exist.
     void Initialize();
+    /// (Re)define face selection textures.
+    void DefineFaceSelectionTextures();
     /// Octree callback for collecting lights and geometries.
     void CollectGeometriesAndLights(Vector<OctreeNode*>::ConstIterator begin, Vector<OctreeNode*>::ConstIterator end, bool inside);
     /// Collect shadow caster batches.
@@ -325,8 +330,6 @@ private:
     HashMap<unsigned long long, LightPass> lightPasses;
     /// Ambient only light pass.
     LightPass ambientLightPass;
-    /// Last camera rendered from during this frame.
-    Camera* lastCamera;
     /// Current frame number.
     unsigned frameNumber;
     /// Used shadow views so far.
@@ -351,6 +354,10 @@ private:
     AutoPtr<VertexBuffer> instanceVertexBuffer;
     /// Vertex elements for the instance vertex buffer.
     Vector<VertexElement> instanceVertexElements;
+    /// First point light face selection cube map.
+    AutoPtr<Texture> faceSelectionTexture1;
+    /// Second point light face selection cube map.
+    AutoPtr<Texture> faceSelectionTexture2;
 };
 
 /// Register Renderer related object factories and attributes.

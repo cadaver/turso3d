@@ -56,7 +56,7 @@ struct TURSO3D_API ImageLevel
 
     /// Pointer to pixel data.
     unsigned char* data;
-    /// Level size.
+    /// Level size in pixels.
     IntVector2 size;
     /// Row size in bytes.
     size_t rowSize;

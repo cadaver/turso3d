@@ -63,6 +63,30 @@ static const DXGI_FORMAT depthStencilResourceViewFormat[] =
     DXGI_FORMAT_R24_UNORM_X8_TYPELESS
 };
 
+static const D3D11_SRV_DIMENSION srvDimension[] = 
+{
+    D3D11_SRV_DIMENSION_TEXTURE1D,
+    D3D11_SRV_DIMENSION_TEXTURE2D,
+    D3D11_SRV_DIMENSION_TEXTURE3D,
+    D3D11_SRV_DIMENSION_TEXTURECUBE
+};
+
+static const D3D11_RTV_DIMENSION rtvDimension[] = 
+{
+    D3D11_RTV_DIMENSION_TEXTURE1D,
+    D3D11_RTV_DIMENSION_TEXTURE2D,
+    D3D11_RTV_DIMENSION_TEXTURE3D,
+    D3D11_RTV_DIMENSION_TEXTURE2D, /// \todo Implement views per face
+};
+
+static const D3D11_DSV_DIMENSION dsvDimension[] =
+{
+    D3D11_DSV_DIMENSION_TEXTURE1D,
+    D3D11_DSV_DIMENSION_TEXTURE2D,
+    D3D11_DSV_DIMENSION_TEXTURE2D,
+    D3D11_DSV_DIMENSION_TEXTURE2D,
+};
+
 Texture::Texture() :
     texture(nullptr),
     resourceView(nullptr),
@@ -150,14 +174,19 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, const IntVector2& 
 
     Release();
 
-    if (type_ != TEX_2D)
+    if (type_ != TEX_2D && type_ != TEX_CUBE)
     {
-        LOGERROR("Only 2D textures supported for now");
+        LOGERROR("Only 2D textures and cube maps supported for now");
         return false;
     }
     if (format_ > FMT_DXT5)
     {
         LOGERROR("ETC1 and PVRTC formats are unsupported");
+        return false;
+    }
+    if (type_ == TEX_CUBE && size_.x != size_.y)
+    {
+        LOGERROR("Cube map must have square dimensions");
         return false;
     }
 
@@ -176,7 +205,7 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, const IntVector2& 
         textureDesc.Width = size_.x;
         textureDesc.Height = size_.y;
         textureDesc.MipLevels = (unsigned)numLevels_;
-        textureDesc.ArraySize = 1;
+        textureDesc.ArraySize = NumFaces();
         textureDesc.Format = textureFormat[format_];
         /// \todo Support defining multisampled textures
         textureDesc.SampleDesc.Count = 1;
@@ -191,12 +220,14 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, const IntVector2& 
                 textureDesc.BindFlags |= D3D11_BIND_DEPTH_STENCIL;
         }
         textureDesc.CPUAccessFlags = usage == USAGE_DYNAMIC ? D3D11_CPU_ACCESS_WRITE : 0;
+        if (type == TEX_CUBE)
+            textureDesc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
 
         Vector<D3D11_SUBRESOURCE_DATA> subResourceData;
         if (initialData)
         {
-            subResourceData.Resize(numLevels_);
-            for (size_t i = 0; i < numLevels_; ++i)
+            subResourceData.Resize(NumFaces() * numLevels_);
+            for (size_t i = 0; i < NumFaces() * numLevels_; ++i)
             {
                 subResourceData[i].pSysMem = initialData[i].data;
                 subResourceData[i].SysMemPitch = (unsigned)initialData[i].rowSize;
@@ -225,9 +256,19 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, const IntVector2& 
 
         D3D11_SHADER_RESOURCE_VIEW_DESC resourceViewDesc;
         memset(&resourceViewDesc, 0, sizeof resourceViewDesc);
-        resourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-        resourceViewDesc.Texture2D.MipLevels = (unsigned)numLevels;
-        resourceViewDesc.Texture2D.MostDetailedMip = 0;
+        resourceViewDesc.ViewDimension = srvDimension[type];
+        switch (type)
+        {
+        case TEX_2D:
+            resourceViewDesc.Texture2D.MipLevels = (unsigned)numLevels;
+            resourceViewDesc.Texture2D.MostDetailedMip = 0;
+            break;
+
+        case TEX_CUBE:
+            resourceViewDesc.TextureCube.MipLevels = (unsigned)numLevels;
+            resourceViewDesc.TextureCube.MostDetailedMip = 0;
+            break;
+        }
         resourceViewDesc.Format = textureDesc.Format;
 
         if (IsRenderTarget())
@@ -235,7 +276,7 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, const IntVector2& 
             D3D11_RENDER_TARGET_VIEW_DESC renderTargetViewDesc;
             memset(&renderTargetViewDesc, 0, sizeof renderTargetViewDesc);
             renderTargetViewDesc.Format = textureDesc.Format;
-            renderTargetViewDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+            renderTargetViewDesc.ViewDimension = rtvDimension[type];
             renderTargetViewDesc.Texture2D.MipSlice = 0;
 
             d3dDevice->CreateRenderTargetView((ID3D11Resource*)texture, &renderTargetViewDesc, (ID3D11RenderTargetView**)&renderTargetView);
@@ -252,7 +293,7 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, const IntVector2& 
             // and shader resource views
             resourceViewDesc.Format = depthStencilResourceViewFormat[format - FMT_D16];
             depthStencilViewDesc.Format = depthStencilViewFormat[format - FMT_D16];
-            depthStencilViewDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+            depthStencilViewDesc.ViewDimension = dsvDimension[type];
             depthStencilViewDesc.Flags = 0;
 
             d3dDevice->CreateDepthStencilView((ID3D11Resource*)texture, &depthStencilViewDesc, (ID3D11DepthStencilView**)&renderTargetView);
@@ -322,7 +363,7 @@ bool Texture::DefineSampler(TextureFilterMode filter_, TextureAddressMode u, Tex
     return true;
 }
 
-bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
+bool Texture::SetData(size_t face, size_t level, const IntRect rect, const ImageLevel& data)
 {
     PROFILE(UpdateTextureLevel);
 
@@ -331,6 +372,11 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
         if (usage == USAGE_IMMUTABLE)
         {
             LOGERROR("Can not update immutable texture");
+            return false;
+        }
+        if (face >= NumFaces())
+        {
+            LOGERROR("Face to update out of bounds");
             return false;
         }
         if (level >= numLevels)
@@ -347,6 +393,7 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
         }
 
         ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->D3DDeviceContext();
+        unsigned subResource = D3D11CalcSubresource(level, face, numLevels);
 
         if (usage == USAGE_DYNAMIC)
         {
@@ -360,7 +407,7 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
             D3D11_MAPPED_SUBRESOURCE mappedData;
             mappedData.pData = nullptr;
 
-            d3dDeviceContext->Map((ID3D11Resource*)texture, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedData);
+            d3dDeviceContext->Map((ID3D11Resource*)texture, subResource, D3D11_MAP_WRITE_DISCARD, 0, &mappedData);
             if (mappedData.pData)
             {
                 for (int y = rect.top; y < rect.bottom; ++y)
@@ -385,7 +432,8 @@ bool Texture::SetData(size_t level, const IntRect rect, const ImageLevel& data)
             destBox.front = 0;
             destBox.back = 1;
 
-            d3dDeviceContext->UpdateSubresource((ID3D11Resource*)texture, (unsigned)level, &destBox, data.data, (unsigned)data.rowSize, 0);
+            d3dDeviceContext->UpdateSubresource((ID3D11Resource*)texture, subResource, &destBox, data.data,
+                (unsigned)data.rowSize, 0);
         }
     }
 

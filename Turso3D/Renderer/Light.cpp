@@ -19,8 +19,17 @@ static const float DEFAULT_SPOT_FOV = 30.0f;
 static const int DEFAULT_SHADOWMAP_SIZE = 512;
 static const Vector4 DEFAULT_SHADOW_SPLITS = Vector4(10.0f, 50.0f, 150.0f, 0.0f);
 static const float DEFAULT_FADE_START = 0.9f;
-static const int DEFAULT_DEPTH_BIAS = 2;
+static const int DEFAULT_DEPTH_BIAS = 5;
 static const float DEFAULT_SLOPE_SCALED_DEPTH_BIAS = 0.5f;
+
+static const Quaternion pointLightFaceRotations[] = {
+    Quaternion(0.0f, 90.0f, 0.0f),
+    Quaternion(0.0f, -90.0f, 0.0f),
+    Quaternion(-90.0f, 0.0f, 0.0f),
+    Quaternion(90.0f, 0.0f, 0.0f),
+    Quaternion(0.0f, 0.0f, 0.0f),
+    Quaternion(0.0f, 180.0f, 0.0f)
+};
 
 static const char* lightTypeNames[] =
 {
@@ -275,7 +284,6 @@ void Light::SetupShadowViews(Camera* mainCamera)
         view->light = this;
         Camera* shadowCamera = view->shadowCamera;
 
-        /// \todo Handle all light types
         switch (lightType)
         {
         case LIGHT_DIRECTIONAL:
@@ -303,13 +311,15 @@ void Light::SetupShadowViews(Camera* mainCamera)
                 BoundingBox shadowBox;
                 shadowBox.Define(lightViewFrustum);
 
-                // Bring the shadow camera closer to the split frustum for better depth precision
-                /// \todo As a result of this the directional light may require a large constant depth bias
-                if (shadowBox.min.z > 0.0f)
+                // If shadow camera is far away from the frustum, can bring it closer for better depth precision
+                /// \todo The minimum distance is somewhat arbitrary
+                float minDistance = mainCamera->FarClip() * 0.25f;
+                if (shadowBox.min.z > minDistance)
                 {
-                    float distance = shadowBox.min.z * 0.99f; // Leave some slack to avoid possible near clipping
-                    shadowCamera->Translate(Vector3(0.0f, 0.0f, distance));
-                    shadowBox.max.z -= distance;
+                    float move = shadowBox.min.z - minDistance;
+                    shadowCamera->Translate(Vector3(0.0f, 0.f, move));
+                    shadowBox.min.z -= move,
+                    shadowBox.max.z -= move;
                 }
 
                 shadowCamera->SetOrthographic(true);
@@ -318,6 +328,7 @@ void Light::SetupShadowViews(Camera* mainCamera)
                 Vector3 center = shadowBox.Center();
                 Vector3 size = shadowBox.Size();
                 shadowCamera->SetOrthoSize(Vector2(size.x, size.y));
+                shadowCamera->SetZoom(1.0f);
 
                 // Center shadow camera to the view space bounding box
                 Vector3 pos(shadowCamera->WorldPosition());
@@ -337,10 +348,30 @@ void Light::SetupShadowViews(Camera* mainCamera)
             }
             break;
 
+        case LIGHT_POINT:
+            {
+                IntVector2 topLeft(shadowRect.left, shadowRect.top);
+                if (i & 1)
+                    topLeft.y += shadowMapSize;
+                topLeft.x += (i >> 1) * shadowMapSize;
+                view->viewport = IntRect(topLeft.x, topLeft.y, topLeft.x + shadowMapSize, topLeft.y + shadowMapSize);
+
+                shadowCamera->SetTransform(WorldPosition(), pointLightFaceRotations[i]);
+                shadowCamera->SetFov(90.0f);
+                // Adjust zoom to avoid edge sampling artifacts (there is a matching adjustment in the shadow sampling)
+                shadowCamera->SetZoom(0.99f);
+                shadowCamera->SetFarClip(Range());
+                shadowCamera->SetNearClip(Range() * 0.01f);
+                shadowCamera->SetOrthographic(false);
+                shadowCamera->SetAspectRatio(1.0f);
+            }
+            break;
+
         case LIGHT_SPOT:
             view->viewport = shadowRect;
             shadowCamera->SetTransform(WorldPosition(), WorldRotation());
             shadowCamera->SetFov(fov);
+            shadowCamera->SetZoom(1.0f);
             shadowCamera->SetFarClip(Range());
             shadowCamera->SetNearClip(Range() * 0.01f);
             shadowCamera->SetOrthographic(false);
@@ -358,6 +389,8 @@ void Light::SetupShadowMatrices(Matrix4* dest, size_t& destIndex)
         {
             ShadowView* view = *it;
             Camera* camera = view->shadowCamera;
+            // The camera will use flipped rendering on OpenGL. However the projection matrix needs to be calculated un-flipped
+            camera->SetFlipVertical(false);
             dest[destIndex++] = ShadowMapAdjustMatrix(view) * camera->ProjectionMatrix() * camera->ViewMatrix();
         }
     }
@@ -406,29 +439,30 @@ Matrix4 Light::ShadowMapAdjustMatrix(ShadowView* view) const
     float width = (float)shadowMap->Width();
     float height = (float)shadowMap->Height();
 
-    Vector2 offset(
+    Vector3 offset(
         (float)view->viewport.left / width,
-        (float)view->viewport.top / height
+        (float)view->viewport.top / height,
+        0.0f
     );
 
-    Vector2 scale(
+    Vector3 scale(
         0.5f * (float)view->viewport.Width() / width,
-        0.5f * (float)view->viewport.Height() / height
+        0.5f * (float)view->viewport.Height() / height,
+        1.0f
     );
 
     offset.x += scale.x;
     offset.y += scale.y;
-
-    #ifdef TURSO3D_OPENGL
-    offset.y = 1.0f - offset.y;
-    ret.SetTranslation(Vector3(offset, 0.5f));
-    ret.SetScale(Vector3(scale, 0.5f));
-    #else
     scale.y = -scale.y;
-    ret.SetTranslation(Vector3(offset, 0.0f));
-    ret.SetScale(Vector3(scale, 1.0f));
+
+    // OpenGL has different depth range
+    #ifdef TURSO3D_OPENGL
+    offset.z = 0.5f;
+    scale.z = 0.5f;
     #endif
 
+    ret.SetTranslation(offset);
+    ret.SetScale(scale);
     return ret;
 }
 
