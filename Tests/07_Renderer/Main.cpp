@@ -158,8 +158,7 @@ public:
             graphics->ResetRenderTargets();
             graphics->ResetViewport();
             graphics->Clear(CLEAR_COLOR | CLEAR_DEPTH, Color(0.0f, 0.0f, 0.5f));
-            renderer->RenderBatches("opaque");
-            renderer->RenderBatches("alpha");
+            renderer->RenderBatches(passes);
             graphics->Present();
 
             profiler->EndFrame();

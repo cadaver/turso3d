@@ -206,13 +206,13 @@ struct TURSO3D_API BatchQueue
     unsigned char additiveIndex;
 };
 
-/// Shadow rendering view.
+/// Shadow rendering view data structure.
 struct TURSO3D_API ShadowView
 {
     /// Clear existing shadow casters and batch queue.
     void Clear();
 
-    /// Light that is using this view.
+    /// %Light that is using this view.
     Light* light;
     /// Viewport within the shadow map.
     IntRect viewport;
@@ -224,7 +224,7 @@ struct TURSO3D_API ShadowView
     Camera shadowCamera;
 };
 
-/// Shadow map data structure.
+/// Shadow map data structure. May be shared by several lights.
 struct TURSO3D_API ShadowMap
 {
     /// Default-construct.
@@ -241,7 +241,7 @@ struct TURSO3D_API ShadowMap
     SharedPtr<Texture> texture;
     /// Shadow views that use this shadow map.
     Vector<ShadowView*> shadowViews;
-    /// Use flag. When false, clearing and rendering the shadow map can be skipped.
+    /// Use flag. When false, clearing the shadow map and rendering the views can be skipped.
     bool used;
 };
 
@@ -272,8 +272,12 @@ public:
     void CollectBatches(size_t numPasses, const PassDesc* passes);
     /// Render shadow maps. Should be called after all CollectBatches() calls but before RenderBatches(). Note that you must reassign your rendertarget and viewport after calling this.
     void RenderShadowMaps();
-    /// Render a specific pass to the currently set rendertarget and viewport.
+    /// Render several passes to the currently set rendertarget and viewport. Avoids setting the per-frame constants multiple times.
+    void RenderBatches(const Vector<PassDesc>& passes);
+    /// Render a pass to the currently set rendertarget and viewport. Convenience function for one pass only.
     void RenderBatches(const String& pass);
+    /// Render several passes to the currently set rendertarget and viewport.
+    void RenderBatches(size_t numPasses, const PassDesc* passes);
 
 private:
     /// Initialize. Needs the Graphics subsystem and rendering context to exist.
@@ -291,7 +295,7 @@ private:
     /// Copy instance transforms from batch queue to the global vector.
     void CopyInstanceTransforms(BatchQueue& batchQueue);
     /// Render batches from a specific queue and camera.
-    void RenderBatches(BatchQueue& batchQueue, Camera* camera, bool overrideDepthBias = false, int depthBias = 0, float slopeScaledDepthBias = 0.0f);
+    void RenderBatches(BatchQueue& batchQueue, Camera* camera, bool setPerFrameContants = true, bool overrideDepthBias = false, int depthBias = 0, float slopeScaledDepthBias = 0.0f);
     /// Load shaders for a pass.
     void LoadPassShaders(Pass* pass);
     /// Return or create a shader variation for a pass. Vertex shader variations handle different geometry types and pixel shader variations handle different light combinations.

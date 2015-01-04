@@ -645,9 +645,15 @@ void Renderer::RenderShadowMaps()
             ShadowView* view = *vIt;
             Light* light = view->light;
             graphics->SetViewport(view->viewport);
-            RenderBatches(view->shadowQueue, &view->shadowCamera, true, light->DepthBias(), light->SlopeScaledDepthBias());
+            RenderBatches(view->shadowQueue, &view->shadowCamera, true, true, light->DepthBias(), light->SlopeScaledDepthBias());
         }
     }
+}
+
+void Renderer::RenderBatches(const Vector<PassDesc>& passes)
+{
+    if (passes.Size())
+        RenderBatches(passes.Size(), &passes.Front());
 }
 
 void Renderer::RenderBatches(const String& pass)
@@ -655,6 +661,20 @@ void Renderer::RenderBatches(const String& pass)
     unsigned char passIndex = Material::PassIndex(pass);
     BatchQueue& batchQueue = batchQueues[passIndex];
     RenderBatches(batchQueue, camera);
+}
+
+void Renderer::RenderBatches(size_t numPasses, const PassDesc* passes)
+{
+    bool first = true;
+
+    while (numPasses--)
+    {
+        unsigned char passIndex = Material::PassIndex(passes->name);
+        BatchQueue& batchQueue = batchQueues[passIndex];
+        RenderBatches(batchQueue, camera, first);
+        first = false;
+        ++passes;
+    }
 }
 
 void Renderer::Initialize()
@@ -716,6 +736,8 @@ void Renderer::Initialize()
 
 void Renderer::DefineFaceSelectionTextures()
 {
+    PROFILE(DefineFaceSelectionTextures);
+
     const float faceSelectionData1[] = { 
         1.0f, 0.0f, 0.0f, 0.0f,
         1.0f, 0.0f, 0.0f, 0.0f,
@@ -905,11 +927,8 @@ void Renderer::CopyInstanceTransforms(BatchQueue& batchQueue)
         instanceTransformsDirty = true;
 }
 
-void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera_, bool overrideDepthBias, int depthBias, float slopeScaledDepthBias)
+void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera_, bool setPerFrameConstants, bool overrideDepthBias, int depthBias, float slopeScaledDepthBias)
 {
-    if (batchQueue.batches.IsEmpty())
-        return;
-
     PROFILE(RenderBatches);
 
     if (faceSelectionTexture1->IsDataLost() || faceSelectionTexture2->IsDataLost())
@@ -924,8 +943,8 @@ void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera_, bool overr
     camera_->SetFlipVertical(graphics->RenderTarget(0) || graphics->DepthStencil());
     #endif
 
+    if (setPerFrameConstants)
     {
-        /// \todo This is unnecessary when multiple batch queues are rendered to the same rendertarget
         PROFILE(SetPerFrameConstants);
 
         // Set per-frame values to the frame constant buffers
@@ -960,6 +979,9 @@ void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera_, bool overr
         graphics->SetConstantBuffer(SHADER_VS, CB_FRAME, vsFrameConstantBuffer);
         graphics->SetConstantBuffer(SHADER_PS, CB_FRAME, psFrameConstantBuffer);
     }
+
+    if (batchQueue.batches.IsEmpty())
+        return;
 
     if (instanceTransformsDirty && instanceTransforms.Size())
     {
