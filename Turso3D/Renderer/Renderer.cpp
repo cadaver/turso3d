@@ -10,7 +10,6 @@
 #include "../Graphics/VertexBuffer.h"
 #include "../Resource/ResourceCache.h"
 #include "../Scene/Scene.h"
-#include "Camera.h"
 #include "Light.h"
 #include "Material.h"
 #include "Model.h"
@@ -177,15 +176,6 @@ void ShadowMap::Clear()
     allocator.Reset(texture->Width(), texture->Height(), 0, 0, false);
     shadowViews.Clear();
     used = false;
-}
-
-ShadowView::ShadowView() :
-    shadowCamera(new Camera())
-{
-}
-
-ShadowView::~ShadowView()
-{
 }
 
 void ShadowView::Clear()
@@ -397,7 +387,7 @@ void Renderer::CollectLightInteractions()
                 ShadowView* view = shadowViews[i].Get();
                 /// \todo Spotlights should reuse the lit geometries frustum query
                 octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(view->shadowCasters),
-                    view->shadowCamera->WorldFrustum(), NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS, light->LightMask());
+                    view->shadowCamera.WorldFrustum(), NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS, light->LightMask());
 
                 CollectShadowBatches(view);
 
@@ -655,7 +645,7 @@ void Renderer::RenderShadowMaps()
             ShadowView* view = *vIt;
             Light* light = view->light;
             graphics->SetViewport(view->viewport);
-            RenderBatches(view->shadowQueue, view->shadowCamera, true, light->DepthBias(), light->SlopeScaledDepthBias());
+            RenderBatches(view->shadowQueue, &view->shadowCamera, true, light->DepthBias(), light->SlopeScaledDepthBias());
         }
     }
 }

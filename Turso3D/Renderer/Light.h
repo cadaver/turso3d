@@ -126,9 +126,7 @@ private:
     void SetLightTypeAttr(int lightType);
     /// Return light type as int. Used in serialization.
     int LightTypeAttr() const;
-    /// Calculate shadow map sampling adjustment matrix from shadow map and viewport.
-    Matrix4 ShadowMapAdjustMatrix(ShadowView* view) const;
-
+    
     /// Light type.
     LightType lightType;
     /// Light color.

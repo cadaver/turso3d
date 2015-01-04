@@ -9,13 +9,13 @@
 #include "../Math/Color.h"
 #include "../Math/Frustum.h"
 #include "../Resource/Image.h"
+#include "Camera.h"
 #include "GeometryNode.h"
 #include "Material.h"
 
 namespace Turso3D
 {
 
-class Camera;
 class ConstantBuffer;
 class GeometryNode;
 class Light;
@@ -209,24 +209,19 @@ struct TURSO3D_API BatchQueue
 /// Shadow rendering view.
 struct TURSO3D_API ShadowView
 {
-    /// Default-construct. Create the shadow camera.
-    ShadowView();
-    /// Destruct.
-    ~ShadowView();
-
     /// Clear existing shadow casters and batch queue.
     void Clear();
 
-    /// Shadow camera.
-    SharedPtr<Camera> shadowCamera;
-    /// Viewport within the shadow map.
-    IntRect viewport;
     /// Light that is using this view.
     Light* light;
+    /// Viewport within the shadow map.
+    IntRect viewport;
     /// Shadow caster geometries.
     Vector<GeometryNode*> shadowCasters;
     /// Shadow batch queue.
     BatchQueue shadowQueue;
+    /// Shadow camera.
+    Camera shadowCamera;
 };
 
 /// Shadow map data structure.
