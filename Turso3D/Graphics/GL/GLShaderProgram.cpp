@@ -160,8 +160,18 @@ bool ShaderProgram::Link()
             if (unit < 0)
                 unit = numTextures;
             
-            glUniform1iv(location, 1, &unit);
-            ++numTextures;
+            // Array samplers may have multiple elements, assign each sequentially
+            if (numElements > 1)
+            {
+                Vector<int> units;
+                for (int j = 0; j < numElements; ++j)
+                    units.Push(unit++);
+                glUniform1iv(location, numElements, &units[0]);
+            }
+            else
+                glUniform1iv(location, 1, &unit);
+
+            numTextures += numElements;
         }
     }
 

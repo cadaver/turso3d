@@ -402,7 +402,7 @@ Material* Material::DefaultMaterial()
         pass->depthWrite = false;
 
         pass = defaultMaterial->CreatePass("shadow");
-        pass->SetShaders("NoTexture", "NoTexture");
+        pass->SetShaders("Shadow", "Shadow");
         pass->colorWriteMask = COLORMASK_NONE;
     }
 

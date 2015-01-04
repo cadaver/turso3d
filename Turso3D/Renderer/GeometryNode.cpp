@@ -91,6 +91,15 @@ void GeometryNode::SetGeometry(size_t index, Geometry* geometry)
         LOGERRORF("Out of bounds batch index %d for setting geometry", (int)index);
 }
 
+void GeometryNode::SetMaterial(Material* material)
+{
+    if (!material)
+        material = Material::DefaultMaterial();
+
+    for (size_t i = 0; i < batches.Size(); ++i)
+        batches[i].material = material;
+}
+
 void GeometryNode::SetMaterial(size_t index, Material* material)
 {
     if (index < batches.Size())

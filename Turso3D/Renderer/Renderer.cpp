@@ -331,25 +331,8 @@ void Renderer::CollectLightInteractions()
                 break;
             }
 
-            // Remove lights that do not have receivers from further processing
-            if (!hasReceivers)
-                *it = nullptr;
-        }
-    }
-
-    {
-        /// \todo Thread this
-        PROFILE(ProcessShadowLights);
-
-        for (auto it = lights.Begin(), end = lights.End(); it != end; ++it)
-        {
-            Light* light = *it;
-            // Previous loop may have left null pointer holes
-            if (!light)
-                continue;
-
-            // If light is not shadowed, release shadow view structures
-            if (!light->CastShadows())
+            // If light is not shadowed or has no light receivers, release shadow view structures
+            if (!light->CastShadows() || !hasReceivers)
             {
                 light->ResetShadowViews();
                 continue;
@@ -385,9 +368,35 @@ void Renderer::CollectLightInteractions()
             for (size_t i = 0; i < shadowViews.Size(); ++i)
             {
                 ShadowView* view = shadowViews[i].Get();
-                /// \todo Spotlights should reuse the lit geometries frustum query
-                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(view->shadowCasters),
-                    view->shadowCamera.WorldFrustum(), NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS, light->LightMask());
+                Frustum shadowFrustum = view->shadowCamera.WorldFrustum();
+
+                switch (light->GetLightType())
+                {
+                case LIGHT_DIRECTIONAL:
+                    // Directional light needs a new frustum query for each split, as the shadow cameras are typically far outside the main view
+                    octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(view->shadowCasters),
+                        shadowFrustum, NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS, light->LightMask());
+                    break;
+
+                case LIGHT_POINT:
+                    // Check which lit geometries are shadow casters and inside each shadow frustum
+                    for (auto gIt = litGeometries.Begin(), gEnd = litGeometries.End(); gIt != gEnd; ++gIt)
+                    {
+                        GeometryNode* node = *gIt;
+                        if ((node->Flags() & NF_CASTSHADOWS) && shadowFrustum.IsInsideFast(node->WorldBoundingBox()))
+                            view->shadowCasters.Push(node);
+                    }
+                    break;
+
+                case LIGHT_SPOT:
+                    // For spot light only need to check which lit geometries are shadow casters
+                    for (auto gIt = litGeometries.Begin(), gEnd = litGeometries.End(); gIt != gEnd; ++gIt)
+                    {
+                        GeometryNode* node = *gIt;
+                        if (node->Flags() & NF_CASTSHADOWS)
+                            view->shadowCasters.Push(node);
+                    }
+                }
 
                 CollectShadowBatches(view);
 

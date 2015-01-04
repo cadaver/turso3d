@@ -1,8 +1,8 @@
 {
   "passes": {
     "opaque": {
-      "vs": "Diffuse",
-      "ps": "Diffuse",
+      "vs": "DiffuseNormal",
+      "ps": "DiffuseNormal",
       "depthFunc": "lessEqual",
       "depthWrite": true,
       "depthClip": true,
@@ -12,8 +12,8 @@
       "cullMode": "back"
     },
     "opaqueadd": {
-      "vs": "Diffuse",
-      "ps": "Diffuse",
+      "vs": "DiffuseNormal",
+      "ps": "DiffuseNormal",
       "depthFunc": "lessEqual",
       "depthWrite": false,
       "depthClip": true,
@@ -36,6 +36,7 @@
     }
   },
   "textures": {
-    "0": "Test.png"
+    "0": "StoneDiffuse.dds",
+    "1": "StoneNormal.dds"
   }
 }

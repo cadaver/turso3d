@@ -29,7 +29,7 @@ static const float M_RADTODEG = 1.0f / M_DEGTORAD;
 /// Intersection test result.
 enum Intersection
 {
-    OUTSIDE,
+    OUTSIDE = 0,
     INTERSECTS,
     INSIDE
 };

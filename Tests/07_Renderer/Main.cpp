@@ -44,54 +44,56 @@ public:
         graphics->RenderWindow()->SetTitle("Renderer test");
         graphics->SetMode(IntVector2(640, 480), false, true);
 
-        renderer->SetupShadowMaps(1, 2048, FMT_D16);
+        renderer->SetupShadowMaps(8, 1024, FMT_D16);
 
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &RendererTest::HandleCloseRequest);
 
         SharedPtr<Scene> scene = new Scene();
         scene->CreateChild<Octree>();
         Camera* camera = scene->CreateChild<Camera>();
-        camera->SetPosition(Vector3(0.0f, 3.0f, -20.0f));
-        camera->SetAmbientColor(Color::BLACK);
+        camera->SetPosition(Vector3(0.0f, 20.0f, -75.0f));
+        camera->SetAmbientColor(Color(0.1f, 0.1f, 0.1f));
 
+        for (int y = -5; y <= 5; ++y)
         {
-            Light* light = scene->CreateChild<Light>();
-            light->SetPosition(Vector3(0.0f, 20.0f, 0.0f));
-            light->SetLightType(LIGHT_DIRECTIONAL);
-            light->SetDirection(Vector3(-0.5f, -1.0f, -0.75f));
-            light->SetCastShadows(true);
-            light->SetShadowMapSize(1024);
-        }
-
-        Vector<GeometryNode*> nodes;
-
-        for (int x = -10; x < 10; ++x)
-        {
-            for (int z = -10; z < 10; ++z)
+            for (int x = -5; x <= 5; ++x)
             {
-                StaticModel* modelNode = scene->CreateChild<StaticModel>();
-                modelNode->SetPosition(Vector3(2.0f * x, 0.5f, 2.0f * z));
-                modelNode->SetModel(cache->LoadResource<Model>("Box.mdl"));
-                modelNode->SetCastShadows(true);
-                //for (size_t i = 0; i < modelNode->NumGeometries(); ++i)
-                //    modelNode->SetMaterial(i, cache->LoadResource<Material>("Test.json"));
-                nodes.Push(modelNode);
+                StaticModel* object = scene->CreateChild<StaticModel>();
+                object->SetPosition(Vector3(10.5f * x, -0.1f, 10.5f * y));
+                object->SetScale(Vector3(10.0f, 0.1f, 10.0f));
+                object->SetModel(cache->LoadResource<Model>("Box.mdl"));
+                object->SetMaterial(cache->LoadResource<Material>("Stone.json"));
             }
         }
 
+        for (unsigned i = 0; i < 435; ++i)
         {
-            StaticModel* modelNode = scene->CreateChild<StaticModel>();
-            modelNode->SetModel(cache->LoadResource<Model>("Box.mdl"));
-            modelNode->SetScale(Vector3(50.0f, 0.01f, 50.0f));
-            //for (size_t i = 0; i < modelNode->NumGeometries(); ++i)
-            //    modelNode->SetMaterial(i, cache->LoadResource<Material>("Test.json"));
+            StaticModel* object = scene->CreateChild<StaticModel>();
+            object->SetPosition(Vector3(Random() * 100.0f - 50.0f, 1.0f, Random() * 100.0f - 50.0f));
+            object->SetScale(1.5f);
+            object->SetModel(cache->LoadResource<Model>("Mushroom.mdl"));
+            object->SetMaterial(cache->LoadResource<Material>("Mushroom.json"));
+            object->SetCastShadows(true);
         }
 
-        float yaw = 0.0f, pitch = 0.0f;
+        for (unsigned i = 0; i < 10; ++i)
+        {
+            Light* light = scene->CreateChild<Light>();
+            light->SetLightType(LIGHT_POINT);
+            light->SetCastShadows(true);
+            Vector3 colorVec = 2.0f * Vector3(Random(), Random(), Random()).Normalized();
+            light->SetColor(Color(colorVec.x, colorVec.y, colorVec.z));
+            light->SetFov(90.0f);
+            light->SetRange(20.0f);
+            light->SetPosition(Vector3(Random() * 120.0f - 60.0f, 7.0f, Random() * 120.0f - 60.0f));
+            light->SetDirection(Vector3(0.0f, -1.0f, 0.0f));
+            light->SetShadowMapSize(256);
+        }
+
+        float yaw = 0.0f, pitch = 20.0f;
         HiresTimer frameTimer;
         Timer profilerTimer;
         float dt = 0.0f;
-        bool animate = false;
         Quaternion nodeRot = Quaternion::IDENTITY;
         String profilerOutput;
 
@@ -110,9 +112,7 @@ public:
             input->Update();
             if (input->IsKeyPress(27))
                 graphics->Close();
-            if (input->IsKeyPress(32))
-                animate = !animate;
-            
+
             if (input->IsMouseButtonDown(MOUSEB_RIGHT))
             {
                 pitch += input->MouseMove().y * 0.25f;
@@ -132,16 +132,6 @@ public:
             if (input->IsKeyDown('D'))
                 camera->Translate(Vector3::RIGHT * dt * moveSpeed);
 
-            if (animate)
-            {
-                PROFILE(AnimateNodes);
-                nodeRot = Quaternion(-100.0f * dt, 0.0f, 0.0f) * nodeRot;
-                nodeRot.Normalize();
-
-                for (auto it = nodes.Begin(), end = nodes.End(); it != end; ++it)
-                    (*it)->SetRotation(nodeRot);
-            }
-
             // Drawing and state setting functions will not check Graphics initialization state, check now
             if (!graphics->IsInitialized())
                 break;
@@ -157,7 +147,7 @@ public:
             renderer->RenderShadowMaps();
             graphics->ResetRenderTargets();
             graphics->ResetViewport();
-            graphics->Clear(CLEAR_COLOR | CLEAR_DEPTH, Color(0.0f, 0.0f, 0.5f));
+            graphics->Clear(CLEAR_COLOR | CLEAR_DEPTH, Color::BLACK);
             renderer->RenderBatches(passes);
             graphics->Present();
 

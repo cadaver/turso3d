@@ -21,13 +21,11 @@ void main()
 {
     #ifdef INSTANCED
     mat3x4 instanceWorldMatrix = mat3x4(texCoord4, texCoord5, texCoord6);
-    mat3 normalMatrix = mat3(instanceWorldMatrix[0].xyz, instanceWorldMatrix[1].xyz, instanceWorldMatrix[2].xyz);
     vWorldPos.xyz = vec4(position, 1.0) * instanceWorldMatrix;
-    vNormal = normal * normalMatrix;
+    vNormal = normalize(vec4(normal, 0.0) * instanceWorldMatrix);
     #else
-    mat3 normalMatrix = mat3(worldMatrix[0].xyz, worldMatrix[1].xyz, worldMatrix[2].xyz);
     vWorldPos.xyz = vec4(position, 1.0) * worldMatrix;
-    vNormal = normal * normalMatrix;
+    vNormal = normalize(vec4(normal, 0.0) * worldMatrix);
     #endif
 
     gl_Position = vec4(vWorldPos.xyz, 1.0) * viewProjMatrix;
