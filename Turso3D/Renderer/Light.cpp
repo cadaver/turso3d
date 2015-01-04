@@ -199,12 +199,11 @@ void Light::SetSlopeScaledDepthBias(float bias)
     slopeScaledDepthBias = Max(bias, 0.0f);
 }
 
-IntVector2 Light::TotalShadowMapSize() const
+IntVector2 Light::ShadowRectSize() const
 {
-    int splits = NumShadowSplits();
-
     if (lightType == LIGHT_DIRECTIONAL)
     {
+        int splits = NumShadowSplits();
         if (splits == 1)
             return IntVector2(shadowMapSize, shadowMapSize);
         else if (splits == 2)

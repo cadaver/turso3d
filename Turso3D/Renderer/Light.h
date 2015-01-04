@@ -89,8 +89,8 @@ public:
     int DepthBias() const { return depthBias; }
     /// Return slope-scaled depth bias.
     float SlopeScaledDepthBias() const { return slopeScaledDepthBias; }
-    /// Return required total shadow map size, which depends on light type and cascade splits.
-    IntVector2 TotalShadowMapSize() const;
+    /// Return required shadow rect size, which depends on light type and cascade splits.
+    IntVector2 ShadowRectSize() const;
     /// Return number of required shadow views / cameras.
     size_t NumShadowViews() const;
     /// Return number of required shadow coordinates in the vertex shader.

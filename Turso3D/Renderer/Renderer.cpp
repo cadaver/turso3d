@@ -67,6 +67,11 @@ inline bool CompareBatchDistance(Batch& lhs, Batch& rhs)
     return lhs.distance > rhs.distance;
 }
 
+inline bool CompareLights(Light* lhs, Light* rhs)
+{
+    return lhs->Distance() < rhs->Distance();
+}
+
 void BatchQueue::Clear()
 {
     batches.Clear();
@@ -268,6 +273,13 @@ void Renderer::CollectLightInteractions()
     PROFILE(CollectLightInteractions);
 
     {
+        // Sort lights by increasing distance. Directional lights will have distance 0 which ensure they have the first
+        // opportunity to allocate shadow maps
+        PROFILE(SortLights);
+        Sort(lights.Begin(), lights.End(), CompareLights);
+    }
+
+    {
         PROFILE(CollectLitObjects);
 
         for (auto it = lights.Begin(), end = lights.End(); it != end; ++it)
@@ -353,9 +365,9 @@ void Renderer::CollectLightInteractions()
                 continue;
             }
 
-            // Try to allocate shadow map rect
-            /// \todo Sort lights in importance order and/or fall back to smaller size on failure
-            IntVector2 shadowSize = light->TotalShadowMapSize();
+            // Try to allocate shadow map rectangle
+            /// \todo Fall back to smaller size on failure
+            IntVector2 shadowSize = light->ShadowRectSize();
             IntRect shadowRect;
             size_t index;
             for (index = 0; index < shadowMaps.Size(); ++index)
