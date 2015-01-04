@@ -371,7 +371,7 @@ void Graphics::SetTexture(size_t index, Texture* texture)
         {
             unsigned target = texture->GLTarget();
             // Make sure we do not have multiple targets bound in the same unit
-            if (textureTargets[target] && textureTargets[target] != target)
+            if (textureTargets[index] && textureTargets[index] != target)
                 glBindTexture(textureTargets[index], 0);
             glBindTexture(target, texture->GLTexture());
             textureTargets[index] = target;
@@ -964,6 +964,8 @@ void Graphics::PrepareFramebuffer()
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
             }
+
+            framebuffer->depthStencil = depthStencil;
         }
     }
 }
