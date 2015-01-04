@@ -38,14 +38,16 @@ void StaticModel::RegisterObject()
     RegisterAttribute("lodBias", &StaticModel::LodBias, &StaticModel::SetLodBias, 1.0f);
 }
 
-void StaticModel::OnPrepareRender(Camera* camera)
+void StaticModel::OnPrepareRender(unsigned frameNumber, Camera* camera)
 {
-    squaredDistance = camera->SquaredDistance(WorldPosition());
+    lastFrameNumber = frameNumber;
+    lightList = nullptr;
+    distance = camera->Distance(WorldPosition());
 
     // Find out the new LOD level if model has LODs
     if (hasLodLevels)
     {
-        float lodDistance = camera->LodDistance(sqrtf(squaredDistance), WorldScale().DotProduct(DOT_SCALE), lodBias);
+        float lodDistance = camera->LodDistance(distance, WorldScale().DotProduct(DOT_SCALE), lodBias);
 
         for (size_t i = 0; i < batches.Size(); ++i)
         {

@@ -400,17 +400,6 @@ float Camera::Distance(const Vector3& worldPos) const
         return Abs((ViewMatrix() * worldPos).z);
 }
 
-float Camera::SquaredDistance(const Vector3& worldPos) const
-{
-    if (!orthographic)
-        return (worldPos - WorldPosition()).LengthSquared();
-    else
-    {
-        float distance = (ViewMatrix() * worldPos).z;
-        return distance * distance;
-    }
-}
-
 float Camera::LodDistance(float distance, float scale, float bias) const
 {
     float d = Max(lodBias * bias * scale * zoom, M_EPSILON);

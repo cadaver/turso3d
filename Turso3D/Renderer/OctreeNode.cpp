@@ -2,6 +2,7 @@
 
 #include "../Math/Ray.h"
 #include "../Scene/Scene.h"
+#include "Camera.h"
 #include "Octree.h"
 
 namespace Turso3D
@@ -9,7 +10,9 @@ namespace Turso3D
 
 OctreeNode::OctreeNode() :
     octree(nullptr),
-    octant(nullptr)
+    octant(nullptr),
+    lastFrameNumber(0),
+    distance(0.0f)
 {
     SetFlag(NF_BOUNDING_BOX_DIRTY, true);
 }
@@ -28,6 +31,12 @@ void OctreeNode::RegisterObject()
 void OctreeNode::SetCastShadows(bool enable)
 {
     SetFlag(NF_CASTSHADOWS, enable);
+}
+
+void OctreeNode::OnPrepareRender(unsigned frameNumber, Camera* camera)
+{
+    lastFrameNumber = frameNumber;
+    distance = camera->Distance(WorldPosition());
 }
 
 void OctreeNode::OnRaycast(Vector<RaycastResult>& dest, const Ray& ray, float maxDistance)

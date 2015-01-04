@@ -9,7 +9,6 @@
 namespace Turso3D
 {
 
-class Camera;
 class ConstantBuffer;
 class IndexBuffer;
 class Material;
@@ -64,8 +63,6 @@ struct TURSO3D_API SourceBatch
 /// Base class for scene nodes that contain geometry to be rendered.
 class TURSO3D_API GeometryNode : public OctreeNode
 {
-    friend class Renderer;
-
     OBJECT(GeometryNode);
 
 public:
@@ -77,8 +74,8 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
 
-    /// Prepare object for rendering. Called by Renderer.
-    virtual void OnPrepareRender(Camera* camera);
+    /// Prepare object for rendering. Reset framenumber and light list and calculate distance from camera. Called by Renderer.
+    void OnPrepareRender(unsigned frameNumber, Camera* camera) override;
 
     /// Set geometry type, which is shared by all geometries.
     void SetGeometryType(GeometryType type);
@@ -103,8 +100,11 @@ public:
     const Vector<SourceBatch>& Batches() const { return batches; }
     /// Return local space bounding box.
     const BoundingBox& LocalBoundingBox() const { return boundingBox; }
-    /// Return squared distance from camera in the current view.
-    float SquaredDistance() const { return squaredDistance; }
+
+    /// Set new light list. Called by Renderer.
+    void SetLightList(LightList* list) { lightList = list; }
+    /// Return current light list.
+    LightList* GetLightList() const { return lightList; }
 
 protected:
     /// Recalculate the world space bounding box.
@@ -114,17 +114,12 @@ protected:
     /// Return materials list. Used in serialization.
     ResourceRefList MaterialsAttr() const;
 
-    /// %Light list for rendering. Assigned by Renderer.
+    /// %Light list for rendering.
     LightList* lightList;
-    /// Last frame number of being visible. Assigned by Renderer.
-    unsigned lastFrameNumber;
     /// Geometry type.
     GeometryType geometryType;
     /// Draw call source datas.
     Vector<SourceBatch> batches;
-    /// Squared distance from camera in the current view.
-    /// \todo Should be per-batch to allow correct distance sorting of alpha-blended submeshes
-    float squaredDistance;
     /// Local space bounding box.
     BoundingBox boundingBox;
 };

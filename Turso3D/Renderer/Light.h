@@ -26,8 +26,6 @@ enum LightType
 /// Dynamic light scene node.
 class TURSO3D_API Light : public OctreeNode
 {
-    friend class Renderer;
-
     OBJECT(Light);
     
 public:
@@ -39,6 +37,8 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
 
+    /// Prepare object for rendering. Reset framenumber and calculate distance from camera. Called by Renderer.
+    void OnPrepareRender(unsigned frameNumber, Camera* camera) override;
     /// Perform ray test on self and add possible hit to the result vector.
     void OnRaycast(Vector<RaycastResult>& dest, const Ray& ray, float maxDistance) override;
 
@@ -100,10 +100,22 @@ public:
     /// Return point light world space sphere.
     Sphere WorldSphere() const;
 
-    /// Setup the shadow cameras and viewports. Called by Renderer after it has assigned the views to the light.
+    /// Set shadow map and viewport within it. Called by Renderer.
+    void SetShadowMap(Texture* shadowMap, const IntRect& shadowRect);
+    /// Setup the shadow cameras and viewports. Called by Renderer.
     void SetupShadowViews(Camera* mainCamera);
     /// Setup the shadow matrix constants. Called by Renderer.
     void SetupShadowMatrices(Matrix4* dest, size_t& destIndex);
+    /// Reset shadow views and shadow map in case light will be rendered unshadowed. Called by Renderer.
+    void ResetShadowViews();
+    /// Return shadow map.
+    Texture* ShadowMap() const { return shadowMap; }
+    /// Return shadow map rectangle.
+    const IntRect& ShadowRect() const { return shadowRect; }
+    /// Return shadow views.
+    const Vector<AutoPtr<ShadowView> >& ShadowViews() const { return shadowViews; }
+    /// Return shadow camera by index.
+    Camera* ShadowCamera(size_t index) const;
 
 protected:
     /// Recalculate the world space bounding box.
@@ -137,14 +149,12 @@ private:
     int depthBias;
     /// Slope-scaled depth bias.
     float slopeScaledDepthBias;
-    /// Current shadow map texture. Assigned by Renderer.
+    /// Current shadow map texture.
     Texture* shadowMap;
-    /// Rectangle within the shdow map. Assigned by Renderer.
+    /// Rectangle within the shadow map.
     IntRect shadowRect;
-    /// Shadow views used by the light. Assigned by Renderer.
-    Vector<ShadowView*> shadowViews;
-    /// Whether has light receiver geometries. Assigned by Renderer.
-    bool hasReceivers;
+    /// Shadow views used by the light. Created on demand.
+    Vector<AutoPtr<ShadowView> > shadowViews;
 };
 
 }

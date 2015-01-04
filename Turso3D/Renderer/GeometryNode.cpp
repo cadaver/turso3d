@@ -36,9 +36,7 @@ SourceBatch::~SourceBatch()
 
 GeometryNode::GeometryNode() :
     lightList(nullptr),
-    lastFrameNumber(0),
-    geometryType(GEOM_STATIC),
-    squaredDistance(0.0f)
+    geometryType(GEOM_STATIC)
 {
     SetFlag(NF_GEOMETRY, true);
 }
@@ -55,9 +53,11 @@ void GeometryNode::RegisterObject()
         ResourceRefList(Material::TypeStatic()));
 }
 
-void GeometryNode::OnPrepareRender(Camera* camera)
+void GeometryNode::OnPrepareRender(unsigned frameNumber, Camera* camera)
 {
-    squaredDistance = camera->SquaredDistance(WorldPosition());
+    lastFrameNumber = frameNumber;
+    lightList = nullptr;
+    distance = camera->Distance(WorldPosition());
 }
 
 void GeometryNode::SetGeometryType(GeometryType type)

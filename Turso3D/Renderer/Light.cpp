@@ -50,8 +50,7 @@ Light::Light() :
     shadowFadeStart(DEFAULT_FADE_START),
     depthBias(DEFAULT_DEPTH_BIAS),
     slopeScaledDepthBias(DEFAULT_SLOPE_SCALED_DEPTH_BIAS),
-    shadowMap(nullptr),
-    hasReceivers(false)
+    shadowMap(nullptr)
 {
     SetFlag(NF_LIGHT, true);
 }
@@ -75,6 +74,27 @@ void Light::RegisterObject()
     RegisterAttribute("shadowFadeStart", &Light::ShadowFadeStart, &Light::SetShadowFadeStart, DEFAULT_FADE_START);
     RegisterAttribute("depthBias", &Light::DepthBias, &Light::SetDepthBias, DEFAULT_DEPTH_BIAS);
     RegisterAttribute("slopeScaledDepthBias", &Light::SlopeScaledDepthBias, &Light::SetSlopeScaledDepthBias, DEFAULT_SLOPE_SCALED_DEPTH_BIAS);
+}
+
+
+void Light::OnPrepareRender(unsigned frameNumber, Camera* camera)
+{
+    lastFrameNumber = frameNumber;
+    
+    switch (lightType)
+    {
+    case LIGHT_DIRECTIONAL:
+        distance = 0.0f;
+        break;
+
+    case LIGHT_POINT:
+        distance = WorldFrustum().Distance(camera->WorldPosition());
+        break;
+
+    case LIGHT_SPOT:
+        distance = WorldSphere().Distance(camera->WorldPosition());
+        break;
+    }
 }
 
 void Light::OnRaycast(Vector<RaycastResult>& dest, const Ray& ray, float maxDistance)
@@ -276,11 +296,23 @@ Sphere Light::WorldSphere() const
     return Sphere(WorldPosition(), range);
 }
 
+void Light::SetShadowMap(Texture* shadowMap_, const IntRect& shadowRect_ = IntRect::ZERO)
+{
+    shadowMap = shadowMap_;
+    shadowRect = shadowRect_;
+}
+
 void Light::SetupShadowViews(Camera* mainCamera)
 {
+    shadowViews.Resize(NumShadowViews());
+
     for (size_t i = 0; i < shadowViews.Size(); ++i)
     {
-        ShadowView* view = shadowViews[i];
+        if (!shadowViews[i])
+            shadowViews[i] = new ShadowView();
+
+        ShadowView* view = shadowViews[i].Get();
+        view->Clear();
         view->light = this;
         Camera* shadowCamera = view->shadowCamera;
 
@@ -387,13 +419,24 @@ void Light::SetupShadowMatrices(Matrix4* dest, size_t& destIndex)
     {
         for (auto it = shadowViews.Begin(); it != shadowViews.End(); ++it)
         {
-            ShadowView* view = *it;
+            ShadowView* view = it->Get();
             Camera* camera = view->shadowCamera;
             // The camera will use flipped rendering on OpenGL. However the projection matrix needs to be calculated un-flipped
             camera->SetFlipVertical(false);
             dest[destIndex++] = ShadowMapAdjustMatrix(view) * camera->ProjectionMatrix() * camera->ViewMatrix();
         }
     }
+}
+
+void Light::ResetShadowViews()
+{
+    shadowViews.Clear();
+    shadowMap = nullptr;
+}
+
+Camera* Light::ShadowCamera(size_t index) const
+{
+    return index < shadowViews.Size() ? shadowViews[index]->shadowCamera : nullptr;
 }
 
 void Light::OnWorldBoundingBoxUpdate() const

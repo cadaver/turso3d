@@ -332,14 +332,10 @@ private:
     LightPass ambientLightPass;
     /// Current frame number.
     unsigned frameNumber;
-    /// Used shadow views so far.
-    size_t usedShadowViews;
     /// Instance vertex buffer dirty flag.
     bool instanceTransformsDirty;
     /// Shadow maps.
     Vector<ShadowMap> shadowMaps;
-    /// Shadow camera views.
-    Vector<AutoPtr<ShadowView> > shadowViews;
     /// Per-frame vertex shader constant buffer.
     AutoPtr<ConstantBuffer> vsFrameConstantBuffer;
     /// Per-frame pixel shader constant buffer.

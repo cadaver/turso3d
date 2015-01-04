@@ -110,7 +110,7 @@ void BatchQueue::AddBatch(Batch& batch, GeometryNode* node, bool isAdditive)
     else
     {
         batch.worldMatrix = &node->WorldTransform();
-        batch.distance = node->SquaredDistance();
+        batch.distance = node->Distance();
         // Push additive passes slightly to front to make them render after base passes
         if (isAdditive)
             batch.distance *= 0.999999f;
@@ -191,7 +191,6 @@ void ShadowView::Clear()
 
 Renderer::Renderer() :
     frameNumber(0),
-    usedShadowViews(0),
     instanceTransformsDirty(false)
 {
 }
@@ -240,11 +239,8 @@ bool Renderer::CollectObjects(Scene* scene_, Camera* camera_)
     lightPasses.Clear();
     for (auto it = batchQueues.Begin(); it != batchQueues.End(); ++it)
         it->second.Clear();
-    for (auto it = shadowViews.Begin(); it != shadowViews.End(); ++it)
-        (*it)->Clear();
     for (auto it = shadowMaps.Begin(); it != shadowMaps.End(); ++it)
         it->Clear();
-    usedShadowViews = 0;
 
     scene = scene_;
     camera = camera_;
@@ -280,6 +276,7 @@ void Renderer::CollectLightInteractions()
             unsigned lightMask = light->LightMask();
 
             litGeometries.Clear();
+            bool hasReceivers = false;
 
             // Create a light list that contains only this light. It will be used for nodes that have no light interactions so far
             unsigned long long key = (unsigned long long)light;
@@ -295,7 +292,10 @@ void Renderer::CollectLightInteractions()
                 {
                     GeometryNode* node = *gIt;
                     if (node->LayerMask() & lightMask)
+                    {
                         AddLightToNode(node, light, lightList);
+                        hasReceivers = true;
+                    }
                 }
                 break;
 
@@ -306,8 +306,11 @@ void Renderer::CollectLightInteractions()
                 {
                     GeometryNode* node = *gIt;
                     // Add light only to nodes which are actually inside the frustum this frame
-                    if (node->lastFrameNumber == frameNumber)
+                    if (node->LastFrameNumber() == frameNumber)
+                    {
                         AddLightToNode(node, light, lightList);
+                        hasReceivers = true;
+                    }
                 }
                 break;
 
@@ -317,11 +320,18 @@ void Renderer::CollectLightInteractions()
                 for (auto gIt = litGeometries.Begin(), gEnd = litGeometries.End(); gIt != gEnd; ++gIt)
                 {
                     GeometryNode* node = *gIt;
-                    if (node->lastFrameNumber == frameNumber)
+                    if (node->LastFrameNumber() == frameNumber)
+                    {
                         AddLightToNode(node, light, lightList);
+                        hasReceivers = true;
+                    }
                 }
                 break;
             }
+
+            // Remove lights that do not have receivers from further processing
+            if (!hasReceivers)
+                *it = nullptr;
         }
     }
 
@@ -332,71 +342,67 @@ void Renderer::CollectLightInteractions()
         for (auto it = lights.Begin(), end = lights.End(); it != end; ++it)
         {
             Light* light = *it;
-            light->shadowMap = nullptr;
-            light->shadowViews.Clear();
-            if (!light->CastShadows() || !light->hasReceivers)
+            // Previous loop may have left null pointer holes
+            if (!light)
                 continue;
+
+            // If light is not shadowed, release shadow view structures
+            if (!light->CastShadows())
+            {
+                light->ResetShadowViews();
+                continue;
+            }
 
             // Try to allocate shadow map rect
             /// \todo Sort lights in importance order and/or fall back to smaller size on failure
             IntVector2 shadowSize = light->TotalShadowMapSize();
             IntRect shadowRect;
-            size_t idx;
-            for (idx = 0; idx < shadowMaps.Size(); ++idx)
+            size_t index;
+            for (index = 0; index < shadowMaps.Size(); ++index)
             {
-                ShadowMap& shadowMap = shadowMaps[idx];
+                ShadowMap& shadowMap = shadowMaps[index];
                 int x, y;
                 if (shadowMap.allocator.Allocate(shadowSize.x, shadowSize.y, x, y))
                 {
-                    light->shadowMap = shadowMaps[idx].texture;
-                    light->shadowRect = IntRect(x, y, x + shadowSize.x, y + shadowSize.y);
-                    shadowMap.used = true;
+                    light->SetShadowMap(shadowMaps[index].texture, IntRect(x, y, x + shadowSize.x, y + shadowSize.y));
                     break;
                 }
             }
 
-            // No room in any shadow map
-            if (idx >= shadowMaps.Size())
-                continue;
-            
-            // Create new shadow views as necessary. These are persistent to avoid constant allocation
-            size_t numShadowViews = light->NumShadowViews();
-            if (shadowViews.Size() < usedShadowViews + numShadowViews)
-                shadowViews.Resize(usedShadowViews + numShadowViews);
-            for (size_t i = usedShadowViews; i < usedShadowViews + numShadowViews; ++i)
+            // If no room in any shadow map, render unshadowed
+            if (index >= shadowMaps.Size())
             {
-                if (!shadowViews[i])
-                    shadowViews[i] = new ShadowView();
-                light->shadowViews.Push(shadowViews[i]);
+                light->SetShadowMap(nullptr, IntRect::ZERO);
+                continue;
             }
-            
+
             light->SetupShadowViews(camera);
+            const Vector<AutoPtr<ShadowView> >& shadowViews = light->ShadowViews();
             bool hasShadowBatches = false;
 
-            for (size_t i = 0; i < numShadowViews; ++i)
+            for (size_t i = 0; i < shadowViews.Size(); ++i)
             {
-                ShadowView* view = light->shadowViews[i];
+                ShadowView* view = shadowViews[i].Get();
                 /// \todo Spotlights should reuse the lit geometries frustum query
                 octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(view->shadowCasters),
                     view->shadowCamera->WorldFrustum(), NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS, light->LightMask());
 
                 CollectShadowBatches(view);
-                // Store only views that actually have shadows in the shadow map structure for rendering
+
+                // Mark shadow map for rendering only if it has a view with some batches
                 if (view->shadowQueue.batches.Size())
                 {
                     hasShadowBatches = true;
-                    shadowMaps[idx].shadowViews.Push(view);
+                    shadowMaps[index].shadowViews.Push(view);
+                    shadowMaps[index].used = true;
                 }
             }
 
-            if (hasShadowBatches)
-                usedShadowViews += numShadowViews;
-            else
+            if (!hasShadowBatches)
             {
                 // Light did not have any shadow batches: convert to unshadowed. At this point we have allocated the shadow map
                 // unnecessarily, but not sampling it will still be faster
-                light->shadowMap = nullptr;
-                light->shadowViews.Clear();
+                light->SetShadowMap(nullptr, IntRect::ZERO);
             }
         }
     }
@@ -417,31 +423,31 @@ void Renderer::CollectLightInteractions()
             for (size_t i = 0; i < lightsLeft; ++i)
                 lightDone[i] = false;
             
-            size_t idx = 0;
+            size_t index = 0;
             while (lightsLeft)
             {
                 // Find lights to the current pass, while obeying rules for shadow coord allocations (shadowed directional & spot
                 // lights can not share a pass)
                 currentPass.Clear();
-                size_t startIdx = idx;
+                size_t startIndex = index;
                 size_t shadowCoordsLeft = MAX_LIGHTS_PER_PASS;
                 while (lightsLeft && currentPass.Size() < MAX_LIGHTS_PER_PASS)
                 {
-                    if (!lightDone[idx])
+                    if (!lightDone[index])
                     {
-                        Light* light = list.lights[idx];
+                        Light* light = list.lights[index];
                         size_t shadowCoords = light->NumShadowCoords();
                         if (shadowCoords <= shadowCoordsLeft)
                         {
-                            lightDone[idx] = true;
+                            lightDone[index] = true;
                             currentPass.Push(light);
                             shadowCoordsLeft -= shadowCoords;
                             --lightsLeft;
                         }
                     }
 
-                    idx = (idx + 1) % list.lights.Size();
-                    if (idx == startIdx)
+                    index = (index + 1) % list.lights.Size();
+                    if (index == startIndex)
                         break;
                 }
 
@@ -475,22 +481,25 @@ void Renderer::CollectLightInteractions()
                             (1.0f - cutoff), 0.0f);
                         newLightPass->lightColors[i] = light->GetColor();
 
-                        if (light->shadowMap)
+                        if (light->ShadowMap())
                         {
+                            Texture* shadowMap = light->ShadowMap();
+
                             // Enable shadowed shader variation, setup shadow matrices if needed
-                            newLightPass->shadowMaps[i] = light->shadowMap;
+                            newLightPass->shadowMaps[i] = shadowMap;
                             newLightPass->psBits |= 4 << (i * 3 + 4);
                             light->SetupShadowMatrices(newLightPass->shadowMatrices, numShadowCoords);
 
                             // Depth reconstruction parameters
-                            float nearClip = light->shadowViews.Front()->shadowCamera->NearClip();
-                            float farClip = light->shadowViews.Front()->shadowCamera->FarClip();
+                            Camera* shadowCamera = light->ShadowCamera(0);
+                            float nearClip = shadowCamera->NearClip();
+                            float farClip = shadowCamera->FarClip();
                             float q = farClip / (farClip - nearClip);
                             float r = -q * nearClip;
 
                             // Shadow map offsets
-                            newLightPass->shadowParameters[i] = Vector4(0.5f / (float)light->shadowMap->Width(),
-                                0.5f / (float)light->shadowMap->Height(), q, r);
+                            newLightPass->shadowParameters[i] = Vector4(0.5f / (float)shadowMap->Width(), 0.5f /
+                                (float)shadowMap->Height(), q, r);
 
                             // Additional parameters for directional and point lights
                             if (light->GetLightType() == LIGHT_DIRECTIONAL)
@@ -502,11 +511,13 @@ void Renderer::CollectLightInteractions()
                             }
                             else if (light->GetLightType() == LIGHT_POINT)
                             {
+                                float shadowMapSize = (float)light->ShadowMapSize();
+                                const IntRect& shadowRect = light->ShadowRect();
                                 newLightPass->pointShadowParameters[i] = Vector4(
-                                    (float)light->shadowMapSize / (float)light->shadowMap->Width(),
-                                    (float)light->shadowMapSize / (float)light->shadowMap->Height(),
-                                    (float)light->shadowRect.left / (float)light->shadowMap->Width(),
-                                    (float)light->shadowRect.top / (float)light->shadowMap->Height());
+                                    shadowMapSize / (float)shadowMap->Width(),
+                                    shadowMapSize / (float)shadowMap->Height(),
+                                    (float)shadowRect.left / (float)shadowMap->Width(),
+                                    (float)shadowRect.top / (float)shadowMap->Height());
                             }
                         }
 
@@ -562,7 +573,7 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
         for (auto gIt = geometries.Begin(), gEnd = geometries.End(); gIt != gEnd; ++gIt)
         {
             GeometryNode* node = *gIt;
-            LightList* lightList = node->lightList;
+            LightList* lightList = node->GetLightList();
 
             // Loop through node's geometries
             for (auto bIt = node->Batches().Begin(), bEnd = node->Batches().End(); bIt != bEnd; ++bIt)
@@ -756,15 +767,13 @@ void Renderer::CollectGeometriesAndLights(Vector<OctreeNode*>::ConstIterator beg
                 if (flags & NF_GEOMETRY)
                 {
                     GeometryNode* geometry = static_cast<GeometryNode*>(node);
-                    geometry->OnPrepareRender(camera);
-                    geometry->lightList = nullptr;
-                    geometry->lastFrameNumber = frameNumber;
+                    geometry->OnPrepareRender(frameNumber, camera);
                     geometries.Push(geometry);
                 }
                 else
                 {
                     Light* light = static_cast<Light*>(node);
-                    light->hasReceivers = false;
+                    light->OnPrepareRender(frameNumber, camera);
                     lights.Push(light);
                 }
             }
@@ -782,15 +791,13 @@ void Renderer::CollectGeometriesAndLights(Vector<OctreeNode*>::ConstIterator beg
                 if (flags & NF_GEOMETRY)
                 {
                     GeometryNode* geometry = static_cast<GeometryNode*>(node);
-                    geometry->OnPrepareRender(camera);
-                    geometry->lightList = nullptr;
-                    geometry->lastFrameNumber = frameNumber;
+                    geometry->OnPrepareRender(frameNumber, camera);
                     geometries.Push(geometry);
                 }
                 else
                 {
                     Light* light = static_cast<Light*>(node);
-                    light->hasReceivers = false;
+                    light->OnPrepareRender(frameNumber, camera);
                     lights.Push(light);
                 }
             }
@@ -800,18 +807,17 @@ void Renderer::CollectGeometriesAndLights(Vector<OctreeNode*>::ConstIterator beg
 
 void Renderer::AddLightToNode(GeometryNode* node, Light* light, LightList* lightList)
 {
-    light->hasReceivers = true;
+    LightList* oldList = node->GetLightList();
 
-    if (!node->lightList)
+    if (!oldList)
     {
         // First light assigned on this frame
-        node->lightList = lightList;
+        node->SetLightList(lightList);
         ++lightList->useCount;
     }
     else
     {
         // Create new light list based on the node's existing one
-        LightList* oldList = node->lightList;
         --oldList->useCount;
         unsigned long long newListKey = oldList->key;
         newListKey += (unsigned long long)light << ((oldList->lights.Size() & 3) * 16);
@@ -819,7 +825,7 @@ void Renderer::AddLightToNode(GeometryNode* node, Light* light, LightList* light
         if (it != lightLists.End())
         {
             LightList* newList = &it->second;
-            node->lightList = newList;
+            node->SetLightList(newList);
             ++newList->useCount;
         }
         else
@@ -829,7 +835,7 @@ void Renderer::AddLightToNode(GeometryNode* node, Light* light, LightList* light
             newList->lights = oldList->lights;
             newList->lights.Push(light);
             newList->useCount = 1;
-            node->lightList = newList;
+            node->SetLightList(newList);
         }
     }
 }
@@ -849,6 +855,9 @@ void Renderer::CollectShadowBatches(ShadowView* view)
         for (auto gIt = view->shadowCasters.Begin(), gEnd = view->shadowCasters.End(); gIt != gEnd; ++gIt)
         {
             GeometryNode* node = *gIt;
+            // Node may not be in main view. In that case update it now
+            if (node->LastFrameNumber() != frameNumber)
+                node->OnPrepareRender(frameNumber, camera);
             
             // Loop through node's geometries
             for (auto bIt = node->Batches().Begin(), bEnd = node->Batches().End(); bIt != bEnd; ++bIt)
@@ -882,12 +891,12 @@ void Renderer::CopyInstanceTransforms(BatchQueue& batchQueue)
     size_t oldSize = instanceTransforms.Size();
     for (auto it = batchQueue.instanceDatas.Begin(), end = batchQueue.instanceDatas.End(); it != end; ++it)
     {
-        size_t idx = instanceTransforms.Size();
+        size_t index = instanceTransforms.Size();
         InstanceData& instance = *it;
-        instance.startIndex = idx;
-        instanceTransforms.Resize(idx + instance.worldMatrices.Size());
+        instance.startIndex = index;
+        instanceTransforms.Resize(index + instance.worldMatrices.Size());
         for (auto mIt = instance.worldMatrices.Begin(), mEnd = instance.worldMatrices.End(); mIt != mEnd; ++mIt)
-            instanceTransforms[idx++] = **mIt;
+            instanceTransforms[index++] = **mIt;
     }
 
     if (instanceTransforms.Size() != oldSize)

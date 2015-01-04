@@ -21,8 +21,8 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
 
-    /// Prepare object for rendering. Called by Renderer.
-    void OnPrepareRender(Camera* camera) override;
+    /// Prepare object for rendering. Reset framenumber and light list and calculate distance from camera, and check for LOD level changes. Called by Renderer.
+    void OnPrepareRender(unsigned frameNumber, Camera* camera) override;
 
     /// Set the model resource.
     void SetModel(Model* model);
