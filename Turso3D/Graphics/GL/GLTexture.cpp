@@ -240,6 +240,8 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, const IntVector2& 
         numLevels = numLevels_;
 
         // If not compressed and no initial data, create the initial level 0 texture with null data
+        // Clear previous error first to be able to check whether the data was successfully set
+        glGetError();
         if (!IsCompressed() && !initialData)
         {
             if (type == TEX_2D)
@@ -262,6 +264,18 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, const IntVector2& 
                     SetData(i, j, IntRect(0, 0, Max(size.x >> j, 1), Max(size.y >> j, 1)), initialData[idx++]);
             }
             usage = usage_;
+        }
+
+        // If we have an error now, the texture was not created correctly
+        if (glGetError() != GL_NO_ERROR)
+        {
+            Release();
+            size = IntVector2::ZERO;
+            format = FMT_NONE;
+            numLevels = 0;
+
+            LOGERROR("Failed to create texture");
+            return false;
         }
 
         glTexParameteri(glTargets[type], GL_TEXTURE_BASE_LEVEL, 0);

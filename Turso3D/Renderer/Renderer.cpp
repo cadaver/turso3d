@@ -203,9 +203,11 @@ void Renderer::SetupShadowMaps(size_t num, int size, ImageFormat format)
     shadowMaps.Resize(num);
     for (auto it = shadowMaps.Begin(); it != shadowMaps.End(); ++it)
     {
-        it->texture->Define(TEX_2D, USAGE_RENDERTARGET, IntVector2(size, size), format, 1);
-        // Setup shadow map sampling with hardware depth compare
-        it->texture->DefineSampler(COMPARE_BILINEAR, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP, 1);
+        if (it->texture->Define(TEX_2D, USAGE_RENDERTARGET, IntVector2(size, size), format, 1))
+        {
+            // Setup shadow map sampling with hardware depth compare
+            it->texture->DefineSampler(COMPARE_BILINEAR, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP, 1);
+        }
     }
 }
 
@@ -373,18 +375,24 @@ void Renderer::CollectLightInteractions()
                 switch (light->GetLightType())
                 {
                 case LIGHT_DIRECTIONAL:
-                    // Directional light needs a new frustum query for each split, as the shadow cameras are typically far outside the main view
+                    // Directional light needs a new frustum query for each split, as the shadow cameras are typically far outside
+                    // the main view
                     octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(view->shadowCasters),
                         shadowFrustum, NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS, light->LightMask());
                     break;
 
                 case LIGHT_POINT:
-                    // Check which lit geometries are shadow casters and inside each shadow frustum
-                    for (auto gIt = litGeometries.Begin(), gEnd = litGeometries.End(); gIt != gEnd; ++gIt)
+                    // Check which lit geometries are shadow casters and inside each shadow frustum. First check whether the
+                    // shadow frustum is inside the view at all
+                    /// \todo Could use a frustum-frustum test for more accuracy
+                    if (frustum.IsInsideFast(BoundingBox(shadowFrustum)))
                     {
-                        GeometryNode* node = *gIt;
-                        if ((node->Flags() & NF_CASTSHADOWS) && shadowFrustum.IsInsideFast(node->WorldBoundingBox()))
-                            view->shadowCasters.Push(node);
+                        for (auto gIt = litGeometries.Begin(), gEnd = litGeometries.End(); gIt != gEnd; ++gIt)
+                        {
+                            GeometryNode* node = *gIt;
+                            if ((node->Flags() & NF_CASTSHADOWS) && shadowFrustum.IsInsideFast(node->WorldBoundingBox()))
+                                view->shadowCasters.Push(node);
+                        }
                     }
                     break;
 
