@@ -421,8 +421,6 @@ void Light::SetupShadowMatrices(Matrix4* dest, size_t& destIndex)
         {
             ShadowView* view = it->Get();
             Camera& shadowCamera = view->shadowCamera;
-            // The camera will use flipped rendering on OpenGL. However the projection matrix needs to be calculated un-flipped
-            shadowCamera.SetFlipVertical(false);
 
             float width = (float)shadowMap->Width();
             float height = (float)shadowMap->Height();

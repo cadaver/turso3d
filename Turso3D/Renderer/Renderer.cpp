@@ -970,7 +970,9 @@ void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera_, bool setPe
 
     // If rendering to a texture on OpenGL, flip the camera vertically to ensure similar texture coordinate addressing
     #ifdef TURSO3D_OPENGL
-    camera_->SetFlipVertical(graphics->RenderTarget(0) || graphics->DepthStencil());
+    bool flipVertical = camera_->FlipVertical();
+    if (graphics->RenderTarget(0) || graphics->DepthStencil())
+        camera_->SetFlipVertical(!flipVertical);
     #endif
 
     if (setPerFrameConstants)
@@ -1009,9 +1011,6 @@ void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera_, bool setPe
         graphics->SetConstantBuffer(SHADER_VS, CB_FRAME, vsFrameConstantBuffer);
         graphics->SetConstantBuffer(SHADER_PS, CB_FRAME, psFrameConstantBuffer);
     }
-
-    if (batchQueue.batches.IsEmpty())
-        return;
 
     if (instanceTransformsDirty && instanceTransforms.Size())
     {
@@ -1154,6 +1153,11 @@ void Renderer::RenderBatches(BatchQueue& batchQueue, Camera* camera_, bool setPe
             it += instance ? instance->skipBatches ? instance->worldMatrices.Size() : 1 : 1;
         }
     }
+
+    // Restore original camera vertical flipping state now
+    #ifdef TURSO3D_OPENGL
+    camera_->SetFlipVertical(flipVertical);
+    #endif
 }
 
 void Renderer::LoadPassShaders(Pass* pass)
