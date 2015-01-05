@@ -200,18 +200,9 @@ bool ConstantBuffer::SetConstant(const char* name, const void* data, size_t numE
     return false;
 }
 
-bool ConstantBuffer::SetData(const void* data, size_t startByteIndex, size_t numBytes)
+bool ConstantBuffer::Apply()
 {
-    if (!shadowData)
-        return false;
-    if (!numBytes)
-        numBytes = byteSize - startByteIndex;
-    if (numBytes + startByteIndex > byteSize)
-        return false;
-
-    memcpy(shadowData.Get() + startByteIndex, data, numBytes);
-    dirty = true;
-    return true;
+    return dirty ? SetData(shadowData.Get()) : true;
 }
 
 size_t ConstantBuffer::FindConstantIndex(const String& name) const

@@ -51,9 +51,9 @@ public:
     
     /// Construct from a char array and length.
     String(const char* str, size_t numChars);
-    /// Construct from a null-terminated wide character array.
+    /// Construct from a wide character C string.
     String(const wchar_t* str);
-    /// Construct from a null-terminated wide character array.
+    /// Construct from a wide character C string.
     String(wchar_t* str);
     /// Construct from a wide character string.
     String(const WString& str);
@@ -378,6 +378,15 @@ inline String operator + (const char* lhs, const String& rhs)
     ret += rhs;
     return ret;
 }
+
+/// Add a string to a wide character C string.
+inline String operator + (const wchar_t* lhs, const String& rhs)
+{
+    String ret(lhs);
+    ret += rhs;
+    return ret;
+}
+
 
 /// Convert a char to uppercase.
 inline char ToUpper(char c) { return (c >= 'a' && c <= 'z') ? c - 0x20 : c; }

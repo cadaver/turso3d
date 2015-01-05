@@ -63,12 +63,15 @@ void ConstantBuffer::Recreate()
     }
 }
 
-bool ConstantBuffer::Apply()
+bool ConstantBuffer::SetData(const void* data, bool copyToShadow)
 {
+    if (copyToShadow)
+        memcpy(shadowData.Get(), data, byteSize);
+
     if (usage == USAGE_IMMUTABLE)
     {
         if (!buffer)
-            return Create(shadowData.Get());
+            return Create(data);
         else
         {
             LOGERROR("Apply can only be called once on an immutable constant buffer");
@@ -76,13 +79,10 @@ bool ConstantBuffer::Apply()
         }
     }
 
-    if (!dirty)
-        return true;
-
     if (buffer)
     {
         graphics->BindUBO(buffer);
-        glBufferData(GL_UNIFORM_BUFFER, byteSize, shadowData.Get(), usage != USAGE_IMMUTABLE ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+        glBufferData(GL_UNIFORM_BUFFER, byteSize, data, usage != USAGE_IMMUTABLE ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
     }
 
     dirty = false;

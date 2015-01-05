@@ -330,6 +330,15 @@ void Graphics::SetVertexBuffer(size_t index, VertexBuffer* buffer)
     }
 }
 
+void Graphics::SetIndexBuffer(IndexBuffer* buffer)
+{
+    if (indexBuffer != buffer)
+    {
+        indexBuffer = buffer;
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer ? buffer->GLBuffer() : 0);
+    }
+}
+
 void Graphics::SetConstantBuffer(ShaderStage stage, size_t index, ConstantBuffer* buffer)
 {
     if (stage < MAX_SHADER_STAGES && index < MAX_CONSTANT_BUFFERS && buffer != constantBuffers[stage][index])
@@ -381,15 +390,6 @@ void Graphics::SetTexture(size_t index, Texture* texture)
             glBindTexture(textureTargets[index], 0);
             textureTargets[index] = 0;
         }
-    }
-}
-
-void Graphics::SetIndexBuffer(IndexBuffer* buffer)
-{
-    if (indexBuffer != buffer)
-    {
-        indexBuffer = buffer;
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer ? buffer->GLBuffer() : 0);
     }
 }
 

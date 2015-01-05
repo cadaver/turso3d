@@ -10,6 +10,7 @@ namespace Turso3D
 {
 
 class ConstantBuffer;
+class Graphics;
 class IndexBuffer;
 class Material;
 class VertexBuffer;
@@ -29,6 +30,11 @@ struct TURSO3D_API Geometry : public RefCounted
     Geometry();
     /// Destruct.
     ~Geometry();
+
+    /// Draw using the Graphics subsystem. The constant buffers are not applied automatically, rather they must have been applied beforehand.
+    void Draw(Graphics* graphics);
+    /// Draw an instance range. A separate instance data vertex buffer must be bound.
+    void DrawInstanced(Graphics* graphics, size_t start, size_t count);
 
     /// %Geometry vertex buffer.
     SharedPtr<VertexBuffer> vertexBuffer;

@@ -50,12 +50,15 @@ void ConstantBuffer::Release()
     }
 }
 
-bool ConstantBuffer::Apply()
+bool ConstantBuffer::SetData(const void* data, bool copyToShadow)
 {
+    if (copyToShadow)
+        memcpy(shadowData.Get(), data, byteSize);
+
     if (usage == USAGE_IMMUTABLE)
     {
         if (!buffer)
-            return Create(shadowData.Get());
+            return Create(data);
         else
         {
             LOGERROR("Apply can only be called once on an immutable constant buffer");
@@ -63,29 +66,29 @@ bool ConstantBuffer::Apply()
         }
     }
 
-    if (!dirty || !buffer)
-        return true;
-    
-    ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->D3DDeviceContext();
-    if (usage == USAGE_DYNAMIC)
+    if (buffer)
     {
-        D3D11_MAPPED_SUBRESOURCE mappedData;
-        mappedData.pData = nullptr;
-
-        d3dDeviceContext->Map((ID3D11Buffer*)buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedData);
-        if (mappedData.pData)
+        ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->D3DDeviceContext();
+        if (usage == USAGE_DYNAMIC)
         {
-            memcpy((unsigned char*)mappedData.pData, shadowData.Get(), byteSize);
-            d3dDeviceContext->Unmap((ID3D11Buffer*)buffer, 0);
+            D3D11_MAPPED_SUBRESOURCE mappedData;
+            mappedData.pData = nullptr;
+
+            d3dDeviceContext->Map((ID3D11Buffer*)buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedData);
+            if (mappedData.pData)
+            {
+                memcpy((unsigned char*)mappedData.pData, data, byteSize);
+                d3dDeviceContext->Unmap((ID3D11Buffer*)buffer, 0);
+            }
+            else
+            {
+                LOGERROR("Failed to map constant buffer for update");
+                return false;
+            }
         }
         else
-        {
-            LOGERROR("Failed to map constant buffer for update");
-            return false;
-        }
+            d3dDeviceContext->UpdateSubresource((ID3D11Buffer*)buffer, 0, nullptr, data, 0, 0);
     }
-    else
-        d3dDeviceContext->UpdateSubresource((ID3D11Buffer*)buffer, 0, nullptr, shadowData.Get(), 0, 0);
 
     dirty = false;
     return true;

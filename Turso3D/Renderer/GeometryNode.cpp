@@ -2,6 +2,7 @@
 
 #include "../Debug/Log.h"
 #include "../Graphics/ConstantBuffer.h"
+#include "../Graphics/Graphics.h"
 #include "../Graphics/IndexBuffer.h"
 #include "../Graphics/VertexBuffer.h"
 #include "../Resource/ResourceCache.h"
@@ -24,6 +25,30 @@ Geometry::Geometry() :
 
 Geometry::~Geometry()
 {
+}
+
+void Geometry::Draw(Graphics* graphics)
+{
+    graphics->SetVertexBuffer(0, vertexBuffer.Get());
+    if (indexBuffer.Get())
+    {
+        graphics->SetIndexBuffer(indexBuffer.Get());
+        graphics->DrawIndexed(primitiveType, drawStart,drawCount, 0);
+    }
+    else
+        graphics->Draw(primitiveType, drawStart, drawCount);
+}
+
+void Geometry::DrawInstanced(Graphics* graphics, size_t start, size_t count)
+{
+    graphics->SetVertexBuffer(0, vertexBuffer.Get());
+    if (indexBuffer.Get())
+    {
+        graphics->SetIndexBuffer(indexBuffer.Get());
+        graphics->DrawIndexedInstanced(primitiveType, drawStart, drawCount, 0, start, count);
+    }
+    else
+        graphics->DrawInstanced(primitiveType, drawStart, drawCount, start, count);
 }
 
 SourceBatch::SourceBatch()
