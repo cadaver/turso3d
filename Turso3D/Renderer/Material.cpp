@@ -22,6 +22,7 @@ unsigned char Material::nextPassIndex = 0;
 Pass::Pass(Material* parent_, const String& name_) :
     parent(parent_),
     name(name_),
+    shaderHash(0),
     shadersLoaded(false)
 {
     Reset();
@@ -77,6 +78,7 @@ bool Pass::LoadJSON(const JSONValue& source)
     if (source.Contains("cullMode"))
         cullMode = (CullMode)String::ListIndex(source["cullMode"].GetString(), cullModeNames, CULL_BACK);
 
+    OnShadersChanged();
     return true;
 }
 
@@ -139,7 +141,7 @@ void Pass::SetShaders(const String& vsName, const String& psName, const String& 
     shaderNames[SHADER_PS] = psName;
     shaderDefines[SHADER_VS] = vsDefines;
     shaderDefines[SHADER_PS] = psDefines;
-    ClearCachedShaders();
+    OnShadersChanged();
 }
 
 void Pass::Reset()
@@ -154,8 +156,14 @@ void Pass::Reset()
     fillMode = FILL_SOLID;
 }
 
-void Pass::ClearCachedShaders()
+Material* Pass::Parent() const
 {
+    return parent;
+}
+
+void Pass::OnShadersChanged()
+{
+    // Reset existing variations
     for (size_t i = 0; i < MAX_SHADER_STAGES; ++i)
     {
         shaders[i].Reset();
@@ -163,11 +171,19 @@ void Pass::ClearCachedShaders()
     }
 
     shadersLoaded = false;
-}
 
-Material* Pass::Parent() const
-{
-    return parent;
+    // Combine and trim the shader defines
+    for (size_t i = 0; i < MAX_SHADER_STAGES; ++i)
+    {
+        const String& materialDefines = parent->ShaderDefines((ShaderStage)i);
+        if (materialDefines.Length())
+            combinedShaderDefines[i] = (materialDefines.Trimmed() + " " + shaderDefines[i]).Trimmed();
+        else
+            combinedShaderDefines[i] = shaderDefines[i].Trimmed();
+    }
+
+    shaderHash = StringHash(shaderNames[SHADER_VS] + shaderNames[SHADER_PS] + combinedShaderDefines[SHADER_VS] +
+        combinedShaderDefines[SHADER_PS]).Value();
 }
 
 Material::Material()
@@ -324,17 +340,16 @@ void Material::SetConstantBuffer(ShaderStage stage, ConstantBuffer* buffer)
         constantBuffers[stage] = buffer;
 }
 
-void Material::SetShaderDefines(ShaderStage stage, const String& defines)
+void Material::SetShaderDefines(const String& vsDefines, const String& psDefines)
 {
-    if (stage < MAX_SHADER_STAGES)
+    shaderDefines[SHADER_VS] = vsDefines;
+    shaderDefines[SHADER_PS] = psDefines;
+    
+    for (auto it = passes.Begin(); it != passes.End(); ++it)
     {
-        shaderDefines[stage] = defines;
-        for (auto it = passes.Begin(); it != passes.End(); ++it)
-        {
-            Pass* pass = *it;
-            if (pass)
-                pass->ClearCachedShaders();
-        }
+        Pass* pass = *it;
+        if (pass)
+            pass->OnShadersChanged();
     }
 }
 

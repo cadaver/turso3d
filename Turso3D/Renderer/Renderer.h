@@ -161,6 +161,10 @@ private:
     bool instanceTransformsDirty;
     /// Shadow maps.
     Vector<ShadowMap> shadowMaps;
+    /// Shadow views.
+    Vector<AutoPtr<ShadowView> > shadowViews;
+    /// Used shadow views so far.
+    size_t usedShadowViews;
     /// Per-frame vertex shader constant buffer.
     AutoPtr<ConstantBuffer> vsFrameConstantBuffer;
     /// Per-frame pixel shader constant buffer.

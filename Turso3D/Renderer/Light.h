@@ -102,20 +102,18 @@ public:
 
     /// Set shadow map and viewport within it. Called by Renderer.
     void SetShadowMap(Texture* shadowMap, const IntRect& shadowRect = IntRect::ZERO);
-    /// Setup the shadow cameras and viewports. Called by Renderer.
-    void SetupShadowViews(Camera* mainCamera);
-    /// Setup the shadow matrix constants. Called by Renderer.
-    void SetupShadowMatrices(Matrix4* dest, size_t& destIndex);
-    /// Reset shadow views and shadow map in case light will be rendered unshadowed. Called by Renderer.
-    void ResetShadowViews();
+    /// Setup shadow cameras and viewports. Called by Renderer.
+    void SetupShadowViews(Camera* mainCamera, Vector<AutoPtr<ShadowView> >& shadowViews, size_t& useIndex);
     /// Return shadow map.
     Texture* ShadowMap() const { return shadowMap; }
     /// Return actual shadow map rectangle. May be smaller than the requested total shadow map size.
     const IntRect& ShadowRect() const { return shadowRect; }
-    /// Return shadow views.
-    const Vector<AutoPtr<ShadowView> >& ShadowViews() const { return shadowViews; }
-    /// Return shadow camera by index.
-    Camera* ShadowCamera(size_t index) const;
+    /// Return shadow mapping matrices.
+    const Vector<Matrix4>& ShadowMatrices() const { return shadowMatrices; }
+    /// Return shadow map offset and depth parameters.
+    const Vector4& ShadowParameters() const { return shadowParameters; }
+    /// Return point light shadow extra parameters.
+    const Vector4& PointShadowParameters() const { return pointShadowParameters; }
 
 protected:
     /// Recalculate the world space bounding box.
@@ -151,8 +149,12 @@ private:
     Texture* shadowMap;
     /// Rectangle within the shadow map.
     IntRect shadowRect;
-    /// Shadow views used by the light. Created on demand.
-    Vector<AutoPtr<ShadowView> > shadowViews;
+    /// Shadow mapping matrices.
+    Vector<Matrix4> shadowMatrices;
+    /// Shadow mapping parameters.
+    Vector4 shadowParameters;
+    /// Shadow mapping extra parameters for point lights.
+    Vector4 pointShadowParameters;
 };
 
 }

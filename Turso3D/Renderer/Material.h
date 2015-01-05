@@ -36,13 +36,22 @@ public:
     void SetShaders(const String& vsName, const String& psName, const String& vsDefines = String::EMPTY, const String& psDefines = String::EMPTY);
     /// Reset render state to defaults.
     void Reset();
-    /// Reset cached shader variations. Called by Material. Needs to be called manually if changing shader names / defines manually.
-    void ClearCachedShaders();
 
     /// Return parent material resource.
     Material* Parent() const;
     /// Return pass name.
     const String& Name() const { return name; }
+    /// Return shader name by stage.
+    const String& ShaderName(ShaderStage stage) const { return shaderNames[stage]; }
+    /// Return shader defines by stage.
+    const String& ShaderDefines(ShaderStage stage) const { return shaderDefines[stage]; }
+    /// Return combined shader defines from the material and pass by stage.
+    const String& CombinedShaderDefines(ShaderStage stage) const { return combinedShaderDefines[stage]; }
+    /// Return shader hash value for state sorting.
+    unsigned ShaderHash() const { return shaderHash; }
+
+    /// Refresh the combined shader defines and shader hash and clear any cached shader variations. Called internally.
+    void OnShadersChanged();
 
     /// Depth compare function.
     CompareFunc depthFunc;
@@ -60,17 +69,11 @@ public:
     CullMode cullMode;
     /// Polygon fill mode.
     FillMode fillMode;
-    /// Shader names.
-    String shaderNames[MAX_SHADER_STAGES];
-    /// Shader defines.
-    String shaderDefines[MAX_SHADER_STAGES];
-    /// Combined shader defines from both the pass and material. Filled by Renderer.
-    String combinedShaderDefines[MAX_SHADER_STAGES];
     /// Shader resources. Filled by Renderer.
     SharedPtr<Shader> shaders[MAX_SHADER_STAGES];
     /// Cached shader variations. Filled by Renderer.
     HashMap<unsigned short, WeakPtr<ShaderVariation> > shaderVariations[MAX_SHADER_STAGES];
-    /// Shader load attempted flag.
+    /// Shader load attempted flag. Filled by Renderer.
     bool shadersLoaded;
 
 private:
@@ -78,6 +81,14 @@ private:
     WeakPtr<Material> parent;
     /// Pass name.
     String name;
+    /// Shader names.
+    String shaderNames[MAX_SHADER_STAGES];
+    /// Shader defines.
+    String shaderDefines[MAX_SHADER_STAGES];
+    /// Combined shader defines from both the pass and material. Filled by Renderer.
+    String combinedShaderDefines[MAX_SHADER_STAGES];
+    /// Shader hash calculated from names and defines.
+    unsigned shaderHash;
 };
 
 /// %Material resource, which describes how to render 3D geometry and refers to textures. A material can contain several passes (for example normal rendering, and depth only.)
@@ -112,7 +123,7 @@ public:
     /// Set a constant buffer.
     void SetConstantBuffer(ShaderStage stage, ConstantBuffer* buffer);
     /// Set global shader defines. Clears existing shader cached variations from all passes.
-    void SetShaderDefines(ShaderStage stage, const String& defines);
+    void SetShaderDefines(const String& vsDefines = String::EMPTY, const String& psDefines = String::EMPTY);
 
     /// Return pass by name or null if not found. Should not be called in performance-sensitive rendering loops.
     Pass* FindPass(const String& name) const;
@@ -136,12 +147,12 @@ public:
     SharedPtr<Texture> textures[MAX_MATERIAL_TEXTURE_UNITS];
     /// Constant buffers.
     SharedPtr<ConstantBuffer> constantBuffers[MAX_SHADER_STAGES];
-    /// Global shader defines.
-    String shaderDefines[MAX_SHADER_STAGES];
 
 private:
     /// Passes by index.
     Vector<SharedPtr<Pass> > passes;
+    /// Global shader defines.
+    String shaderDefines[MAX_SHADER_STAGES];
     /// JSON data used for loading.
     AutoPtr<JSONFile> loadJSON;
 

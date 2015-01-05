@@ -115,6 +115,7 @@ bool Renderer::CollectObjects(Scene* scene_, Camera* camera_)
         it->second.Clear();
     for (auto it = shadowMaps.Begin(); it != shadowMaps.End(); ++it)
         it->Clear();
+    usedShadowViews = 0;
 
     scene = scene_;
     camera = camera_;
@@ -210,10 +211,9 @@ void Renderer::CollectLightInteractions()
                 break;
             }
 
-            // If light is not shadowed or has no light receivers, release shadow view structures if any
             if (!light->CastShadows() || !hasReceivers)
             {
-                light->ResetShadowViews();
+                light->SetShadowMap(nullptr);
                 continue;
             }
 
@@ -249,15 +249,16 @@ void Renderer::CollectLightInteractions()
             if (index >= shadowMaps.Size())
             {
                 LOGINFO("Ran out of shadow map space");
-                light->ResetShadowViews();
+                light->SetShadowMap(nullptr);
                 continue;
             }
 
-            light->SetupShadowViews(camera);
-            const Vector<AutoPtr<ShadowView> >& shadowViews = light->ShadowViews();
+            // Setup shadow cameras & find shadow casters
+            size_t startIndex = usedShadowViews;
+            light->SetupShadowViews(camera, shadowViews, usedShadowViews);
             bool hasShadowBatches = false;
 
-            for (size_t i = 0; i < shadowViews.Size(); ++i)
+            for (size_t i = startIndex; i < usedShadowViews; ++i)
             {
                 ShadowView* view = shadowViews[i].Get();
                 Frustum shadowFrustum = view->shadowCamera.WorldFrustum();
@@ -309,9 +310,9 @@ void Renderer::CollectLightInteractions()
 
             if (!hasShadowBatches)
             {
-                // Light did not have any shadow batches: convert to unshadowed. At this point we have allocated the shadow map
-                // unnecessarily, but not sampling it will still be faster
+                // Light did not have any shadow batches: convert to unshadowed and reuse the views
                 light->SetShadowMap(nullptr);
+                usedShadowViews = startIndex;
             }
         }
     }
@@ -392,25 +393,16 @@ void Renderer::CollectLightInteractions()
 
                         if (light->ShadowMap())
                         {
-                            Texture* shadowMap = light->ShadowMap();
-
-                            // Enable shadowed shader variation, setup shadow matrices if needed
-                            newLightPass->shadowMaps[i] = shadowMap;
+                            // Enable shadowed shader variation, setup shadow parameters
                             newLightPass->psBits |= 4 << (i * 3 + 4);
-                            light->SetupShadowMatrices(newLightPass->shadowMatrices, numShadowCoords);
+                            newLightPass->shadowMaps[i] = light->ShadowMap();
 
-                            // Depth reconstruction parameters
-                            Camera* shadowCamera = light->ShadowCamera(0);
-                            float nearClip = shadowCamera->NearClip();
-                            float farClip = shadowCamera->FarClip();
-                            float q = farClip / (farClip - nearClip);
-                            float r = -q * nearClip;
+                            const Vector<Matrix4>& shadowMatrices = light->ShadowMatrices();
+                            for (size_t j = 0; j < shadowMatrices.Size() && numShadowCoords < MAX_LIGHTS_PER_PASS; ++j)
+                                newLightPass->shadowMatrices[numShadowCoords++] = shadowMatrices[j];
 
-                            // Shadow map offsets
-                            newLightPass->shadowParameters[i] = Vector4(0.5f / (float)shadowMap->Width(), 0.5f /
-                                (float)shadowMap->Height(), q, r);
+                            newLightPass->shadowParameters[i] = light->ShadowParameters();
 
-                            // Additional parameters for directional and point lights
                             if (light->GetLightType() == LIGHT_DIRECTIONAL)
                             {
                                 float fadeStart = light->ShadowFadeStart() * light->MaxShadowDistance() / camera->FarClip();
@@ -419,15 +411,7 @@ void Renderer::CollectLightInteractions()
                                 newLightPass->dirShadowFade = Vector4(fadeStart / fadeRange, 1.0f / fadeRange, 0.0f, 0.0f);
                             }
                             else if (light->GetLightType() == LIGHT_POINT)
-                            {
-                                const IntRect& shadowRect = light->ShadowRect();
-                                float actualShadowMapSize = (float)shadowRect.Height() / 2; // Point light has 2 vertical splits
-                                newLightPass->pointShadowParameters[i] = Vector4(
-                                    actualShadowMapSize / (float)shadowMap->Width(),
-                                    actualShadowMapSize / (float)shadowMap->Height(),
-                                    (float)shadowRect.left / (float)shadowMap->Width(),
-                                    (float)shadowRect.top / (float)shadowMap->Height());
-                            }
+                                newLightPass->pointShadowParameters[i] = light->PointShadowParameters();
                         }
 
                         newLightPass->vsBits |= numShadowCoords << 2;
@@ -439,7 +423,6 @@ void Renderer::CollectLightInteractions()
             }
         }
     }
-
 }
 
 void Renderer::CollectBatches(const Vector<PassDesc>& passes)
@@ -1018,31 +1001,17 @@ void Renderer::LoadPassShaders(Pass* pass)
 {
     PROFILE(LoadPassShaders);
 
-    pass->shadersLoaded = true;
-
-    Material* material = pass->Parent();
-    if (!material)
-        return;
-
-    // Combine and trim the shader defines from material & pass
-    for (size_t i = 0; i < MAX_SHADER_STAGES; ++i)
-    {
-        const String& materialDefines = material->shaderDefines[i];
-        if (materialDefines.Length())
-            pass->combinedShaderDefines[i] = (materialDefines.Trimmed() + " " + pass->shaderDefines[i]).Trimmed();
-        else
-            pass->combinedShaderDefines[i] = pass->shaderDefines[i].Trimmed();
-    }
-
     ResourceCache* cache = Subsystem<ResourceCache>();
     // Use different extensions for GLSL & HLSL shaders
     #ifdef TURSO3D_OPENGL
-    pass->shaders[SHADER_VS] = cache->LoadResource<Shader>(pass->shaderNames[SHADER_VS] + ".vert");
-    pass->shaders[SHADER_PS] = cache->LoadResource<Shader>(pass->shaderNames[SHADER_PS] + ".frag");
+    pass->shaders[SHADER_VS] = cache->LoadResource<Shader>(pass->ShaderName(SHADER_VS) + ".vert");
+    pass->shaders[SHADER_PS] = cache->LoadResource<Shader>(pass->ShaderName(SHADER_PS) + ".frag");
     #else
-    pass->shaders[SHADER_VS] = cache->LoadResource<Shader>(pass->shaderNames[SHADER_VS] + ".vs");
-    pass->shaders[SHADER_PS] = cache->LoadResource<Shader>(pass->shaderNames[SHADER_PS] + ".ps");
+    pass->shaders[SHADER_VS] = cache->LoadResource<Shader>(pass->ShaderName(SHADER_VS) + ".vs");
+    pass->shaders[SHADER_PS] = cache->LoadResource<Shader>(pass->ShaderName(SHADER_PS) + ".ps");
     #endif
+
+    pass->shadersLoaded = true;
 }
 
 ShaderVariation* Renderer::FindShaderVariation(ShaderStage stage, Pass* pass, unsigned short bits)
@@ -1057,7 +1026,7 @@ ShaderVariation* Renderer::FindShaderVariation(ShaderStage stage, Pass* pass, un
     {
         if (stage == SHADER_VS)
         {
-            String vsString = pass->combinedShaderDefines[stage] + " " + geometryDefines[bits & LVS_GEOMETRY];
+            String vsString = pass->CombinedShaderDefines(stage) + " " + geometryDefines[bits & LVS_GEOMETRY];
             if (bits & LVS_NUMSHADOWCOORDS)
                 vsString += " " + lightDefines[1] + "=" + String((bits & LVS_NUMSHADOWCOORDS) >> 2);
 
@@ -1066,7 +1035,7 @@ ShaderVariation* Renderer::FindShaderVariation(ShaderStage stage, Pass* pass, un
         }
         else
         {
-            String psString = pass->combinedShaderDefines[SHADER_PS];
+            String psString = pass->CombinedShaderDefines(stage);
             if (bits & LPS_AMBIENT)
                 psString += " " + lightDefines[0];
             if (bits & LPS_NUMSHADOWCOORDS)

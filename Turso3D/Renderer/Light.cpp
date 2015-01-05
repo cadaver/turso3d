@@ -300,19 +300,24 @@ void Light::SetShadowMap(Texture* shadowMap_, const IntRect& shadowRect_)
     shadowRect = shadowRect_;
 }
 
-void Light::SetupShadowViews(Camera* mainCamera)
+void Light::SetupShadowViews(Camera* mainCamera, Vector<AutoPtr<ShadowView> >& shadowViews, size_t& useIndex)
 {
-    shadowViews.Resize(NumShadowViews());
+    size_t numViews = NumShadowViews();
+    if (!numViews)
+        return;
+
+    if (shadowViews.Size() < useIndex + numViews)
+        shadowViews.Resize(useIndex + numViews);
 
     int numVerticalSplits = (lightType == LIGHT_POINT || (lightType == LIGHT_DIRECTIONAL && NumShadowSplits() > 2)) ? 2 : 1;
     int actualShadowMapSize = shadowRect.Height() / numVerticalSplits;
 
-    for (size_t i = 0; i < shadowViews.Size(); ++i)
+    for (size_t i = 0; i < numViews; ++i)
     {
-        if (!shadowViews[i])
-            shadowViews[i] = new ShadowView();
+        if (!shadowViews[useIndex + i])
+            shadowViews[useIndex + i] = new ShadowView();
 
-        ShadowView* view = shadowViews[i].Get();
+        ShadowView* view = shadowViews[useIndex + i].Get();
         view->Clear();
         view->light = this;
         Camera& shadowCamera = view->shadowCamera;
@@ -411,20 +416,20 @@ void Light::SetupShadowViews(Camera* mainCamera)
             break;
         }
     }
-}
 
-void Light::SetupShadowMatrices(Matrix4* dest, size_t& destIndex)
-{
+    // Setup shadow matrices now as camera positions have been finalized
     if (lightType != LIGHT_POINT)
     {
-        for (auto it = shadowViews.Begin(); it != shadowViews.End(); ++it)
+        shadowMatrices.Resize(numViews);
+        
+        for (size_t i = 0; i < numViews; ++i)
         {
-            ShadowView* view = it->Get();
-            Camera& shadowCamera = view->shadowCamera;
+            ShadowView* view = shadowViews[useIndex + i].Get();
 
+            Camera& shadowCamera = view->shadowCamera;
             float width = (float)shadowMap->Width();
             float height = (float)shadowMap->Height();
-            Vector3 offset((float)view->viewport.left / width,(float)view->viewport.top / height, 0.0f);
+            Vector3 offset((float)view->viewport.left / width, (float)view->viewport.top / height, 0.0f);
             Vector3 scale(0.5f * (float)view->viewport.Width() / width, 0.5f * (float)view->viewport.Height() / height, 1.0f);
 
             offset.x += scale.x;
@@ -432,28 +437,37 @@ void Light::SetupShadowMatrices(Matrix4* dest, size_t& destIndex)
             scale.y = -scale.y;
 
             // OpenGL has different depth range
-#ifdef TURSO3D_OPENGL
+            #ifdef TURSO3D_OPENGL
             offset.z = 0.5f;
             scale.z = 0.5f;
-#endif
+            #endif
+            
             Matrix4 texAdjust(Matrix4::IDENTITY);
             texAdjust.SetTranslation(offset);
             texAdjust.SetScale(scale);
 
-            dest[destIndex++] = texAdjust * shadowCamera.ProjectionMatrix() * shadowCamera.ViewMatrix();
+            shadowMatrices[i] = texAdjust * shadowCamera.ProjectionMatrix() * shadowCamera.ViewMatrix();
         }
     }
-}
+    else
+    {
+        // Point lights use an extra constant instead
+        shadowMatrices.Clear();
 
-void Light::ResetShadowViews()
-{
-    shadowViews.Clear();
-    shadowMap = nullptr;
-}
+        Vector2 textureSize((float)shadowMap->Width(), (float)shadowMap->Height());
+        pointShadowParameters = Vector4(actualShadowMapSize / textureSize.x, actualShadowMapSize / textureSize.y,
+            (float)shadowRect.left / textureSize.x, (float)shadowRect.top / textureSize.y);
+    }
 
-Camera* Light::ShadowCamera(size_t index) const
-{
-    return index < shadowViews.Size() ? &shadowViews[index]->shadowCamera : nullptr;
+    // Calculate shadow mapping constants
+    Camera& shadowCamera = shadowViews[useIndex]->shadowCamera;
+    float nearClip = shadowCamera.NearClip();
+    float farClip = shadowCamera.FarClip();
+    float q = farClip / (farClip - nearClip);
+    float r = -q * nearClip;
+    shadowParameters = Vector4(0.5f / (float)shadowMap->Width(), 0.5f / (float)shadowMap->Height(), q, r);
+    
+    useIndex += numViews;
 }
 
 void Light::OnWorldBoundingBoxUpdate() const

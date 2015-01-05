@@ -11,6 +11,7 @@ namespace Turso3D
 {
 
 class Light;
+struct LightPass;
 
 /// Maximum number of lights per pass.
 static const size_t MAX_LIGHTS_PER_PASS = 4;
@@ -22,56 +23,17 @@ enum BatchSortMode
     SORT_BACK_TO_FRONT
 };
 
-/// %Light information for a rendering pass, including properly formatted constant data.
-struct TURSO3D_API LightPass
-{
-    /// %Light positions.
-    Vector4 lightPositions[MAX_LIGHTS_PER_PASS];
-    /// %Light directions.
-    Vector4 lightDirections[MAX_LIGHTS_PER_PASS];
-    /// %Light attenuation parameters.
-    Vector4 lightAttenuations[MAX_LIGHTS_PER_PASS];
-    /// %Light colors.
-    Color lightColors[MAX_LIGHTS_PER_PASS];
-    /// Shadow map sampling parameters.
-    Vector4 shadowParameters[MAX_LIGHTS_PER_PASS];
-    /// Point light shadow viewport parameters.
-    Vector4 pointShadowParameters[MAX_LIGHTS_PER_PASS];
-    /// Directional light shadow split depths.
-    Vector4 dirShadowSplits;
-    /// Directional light shadow fade parameters.
-    Vector4 dirShadowFade;
-    /// Shadow mapping matrices.
-    Matrix4 shadowMatrices[MAX_LIGHTS_PER_PASS];
-    /// Shadow maps.
-    Texture* shadowMaps[MAX_LIGHTS_PER_PASS];
-    /// Vertex shader variation bits.
-    unsigned short vsBits;
-    /// Pixel shader variation bits.
-    unsigned short psBits;
-};
-
-/// %List of lights for a geometry node.
-struct TURSO3D_API LightList
-{
-    /// %List key.
-    unsigned long long key;
-    /// Lights.
-    Vector<Light*> lights;
-    /// Associated light passes.
-    Vector<LightPass*> lightPasses;
-    /// Use count
-    size_t useCount;
-};
-
 /// Description of a draw call.
 struct TURSO3D_API Batch
 {
     /// Calculate sort key for state sorting.
     void CalculateSortKey(bool isAdditive)
     {
-        sortKey = ((((unsigned long long)pass->Parent() * (unsigned long long)lights * type) & 0x7fffffff) << 32) |
-            (((unsigned long long)geometry) & 0xffffffff);
+        /// \todo May have too few bits per item, as instancing relies on this being correct and unique
+        sortKey = ((((unsigned long long)pass->ShaderHash() * type) & 0x7fff) << 48) |
+            ((((unsigned long long)lights) & 0xffff) << 32) |
+            ((((unsigned long long)pass->Parent()) & 0xffff) << 16) |
+            (((unsigned long long)geometry) & 0xffff);
         // Ensure that additive passes are drawn after base passes
         if (isAdditive)
             sortKey |= 0x8000000000000000;
@@ -138,6 +100,48 @@ struct TURSO3D_API BatchQueue
     unsigned char baseIndex;
     /// Additive pass index (if needed.)
     unsigned char additiveIndex;
+};
+
+/// %List of lights for a geometry node.
+struct TURSO3D_API LightList
+{
+    /// %List key.
+    unsigned long long key;
+    /// Lights.
+    Vector<Light*> lights;
+    /// Associated light passes.
+    Vector<LightPass*> lightPasses;
+    /// Use count
+    size_t useCount;
+};
+
+/// %Light information for a rendering pass, including properly formatted constant data.
+struct TURSO3D_API LightPass
+{
+    /// %Light positions.
+    Vector4 lightPositions[MAX_LIGHTS_PER_PASS];
+    /// %Light directions.
+    Vector4 lightDirections[MAX_LIGHTS_PER_PASS];
+    /// %Light attenuation parameters.
+    Vector4 lightAttenuations[MAX_LIGHTS_PER_PASS];
+    /// %Light colors.
+    Color lightColors[MAX_LIGHTS_PER_PASS];
+    /// Shadow map sampling parameters.
+    Vector4 shadowParameters[MAX_LIGHTS_PER_PASS];
+    /// Point light shadow viewport parameters.
+    Vector4 pointShadowParameters[MAX_LIGHTS_PER_PASS];
+    /// Directional light shadow split depths.
+    Vector4 dirShadowSplits;
+    /// Directional light shadow fade parameters.
+    Vector4 dirShadowFade;
+    /// Shadow mapping matrices.
+    Matrix4 shadowMatrices[MAX_LIGHTS_PER_PASS];
+    /// Shadow maps.
+    Texture* shadowMaps[MAX_LIGHTS_PER_PASS];
+    /// Vertex shader variation bits.
+    unsigned short vsBits;
+    /// Pixel shader variation bits.
+    unsigned short psBits;
 };
 
 /// Shadow rendering view data structure.
