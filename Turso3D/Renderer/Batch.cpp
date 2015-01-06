@@ -37,53 +37,62 @@ void BatchQueue::Clear()
 
 void BatchQueue::Sort(Vector<Matrix3x4>& instanceTransforms)
 {
-    PROFILE(SortBatches);
-
     // Remove unused batches before sort
     if (batches.Size() > usedBatches)
         batches.Resize(usedBatches);
 
-    switch (sort)
     {
-    case SORT_STATE:
-        Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchState);
-        break;
+        PROFILE(SortBatches);
 
-    case SORT_FRONT_TO_BACK:
-        Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchDistanceFrontToBack);
-        break;
+        switch (sort)
+        {
+        case SORT_STATE:
+            Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchState);
+            break;
 
-    case SORT_BACK_TO_FRONT:
-        Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchDistanceBackToFront);
-        break;
+        case SORT_FRONT_TO_BACK:
+            Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchDistanceFrontToBack);
+            break;
+
+        case SORT_BACK_TO_FRONT:
+            Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchDistanceBackToFront);
+            break;
+
+        default:
+            break;
+        }
     }
 
-    // Finally build instances where adjacent batches have same state
-    Batch* start = nullptr;
-    for (auto it = batches.Begin(), end = batches.End(); it != end; ++it)
     {
-        Batch* current = &*it;
-        if (start && current->type == GEOM_STATIC && current->pass == start->pass && current->geometry == start->geometry &&
-            current->lights == start->lights)
+        PROFILE(BuildInstance);
+
+        // Build instances where adjacent batches have same state
+        Batch* start = nullptr;
+        for (auto it = batches.Begin(), end = batches.End(); it != end; ++it)
         {
-            if (start->type == GEOM_INSTANCED)
+            Batch* current = &*it;
+            if (start && current->type == GEOM_STATIC && current->pass == start->pass && current->geometry == start->geometry &&
+                current->lights == start->lights)
             {
-                instanceTransforms.Push(*current->worldMatrix);
-                ++start->instanceCount;
+                if (start->type == GEOM_INSTANCED)
+                {
+                    instanceTransforms.Push(*current->worldMatrix);
+                    ++start->instanceCount;
+                }
+                else
+                {
+                    // Begin new instanced batch
+                    start->type = GEOM_INSTANCED;
+                    size_t instanceStart = instanceTransforms.Size();
+                    instanceTransforms.Push(*start->worldMatrix);
+                    instanceTransforms.Push(*current->worldMatrix);
+                    start->instanceStart = instanceStart; // Overwrites non-instance world matrix
+                    start->instanceCount = 2; // Overwrites sort key / distance
+                }
             }
             else
-            {
-                // Begin new instanced batch
-                start->type = GEOM_INSTANCED;
-                size_t instanceStart = instanceTransforms.Size();
-                instanceTransforms.Push(*start->worldMatrix);
-                instanceTransforms.Push(*current->worldMatrix);
-                start->instanceStart = instanceStart; // Overwrites non-instance world matrix
-                start->instanceCount = 2; // Overwrites sort key / distance
-            }
+                start = (current->type == GEOM_STATIC) ? current : nullptr;
         }
-        else
-            start = (current->type == GEOM_STATIC) ? current : nullptr;
     }
 }
 

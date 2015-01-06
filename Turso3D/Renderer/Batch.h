@@ -16,12 +16,16 @@ struct LightPass;
 /// Maximum number of lights per pass.
 static const size_t MAX_LIGHTS_PER_PASS = 4;
 
+// Needs to be a power of two.
+static const size_t BATCH_QUEUE_INCREMENT = 256;
+
 /// Batch sorting modes.
 enum BatchSortMode
 {
-    SORT_STATE = 0,
+    SORT_NONE = 0,
+    SORT_STATE,
+    SORT_BACK_TO_FRONT,
     SORT_FRONT_TO_BACK,
-    SORT_BACK_TO_FRONT
 };
 
 /// Description of a draw call.

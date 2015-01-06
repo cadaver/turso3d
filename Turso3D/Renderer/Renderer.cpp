@@ -32,9 +32,6 @@ static const unsigned LPS_LIGHT1 = (0x80 | 0x100 | 0x200);
 static const unsigned LPS_LIGHT2 = (0x400 | 0x800 | 0x1000);
 static const unsigned LPS_LIGHT3 = (0x2000 | 0x4000 | 0x8000);
 
-// Needs to be a power of two
-static const size_t BATCH_QUEUE_INCREMENT = 256;
-
 static const CullMode cullModeFlip[] =
 {
     CULL_NONE,
@@ -507,7 +504,7 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
                     newBatch.worldMatrix = &node->WorldTransform();
                     if (batchQueue.sort == SORT_STATE)
                         newBatch.CalculateSortKey(false);
-                    else
+                    else if (batchQueue.sort >= SORT_BACK_TO_FRONT)
                         newBatch.distance = node->Distance();
 
                     ++batchQueue.usedBatches;
@@ -535,7 +532,7 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
                             // Manipulate distance to ensure additive batches are rendered after base passes
                             else if (batchQueue.sort == SORT_BACK_TO_FRONT)
                                 additiveBatch.distance = node->Distance() * 0.99999f;
-                            else
+                            else if (batchQueue.sort == SORT_FRONT_TO_BACK)
                                 additiveBatch.distance = node->Distance() + 100000.0f; /// \todo This value is arbitrary
 
                             ++batchQueue.usedBatches;
