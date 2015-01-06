@@ -112,14 +112,10 @@ private:
     void DefineFaceSelectionTextures();
     /// Octree callback for collecting lights and geometries.
     void CollectGeometriesAndLights(Vector<OctreeNode*>::ConstIterator begin, Vector<OctreeNode*>::ConstIterator end, bool inside);
-    /// Collect shadow caster batches.
-    void CollectShadowBatches(ShadowView* view);
     /// Assign a light list to a node. Creates new light lists as necessary to handle multiple lights.
     void AddLightToNode(GeometryNode* node, Light* light, LightList* lightList);
-    /// Sort batch queue. For distance sorted queues, build instances after sorting.
-    void SortBatches(BatchQueue& batchQueue, BatchSortMode sort);
-    /// Copy instance transforms from batch queue to the global vector.
-    void CopyInstanceTransforms(BatchQueue& batchQueue);
+    /// Collect shadow caster's batches to the shadow batch queue.
+    void CollectShadowBatches(GeometryNode* node, BatchQueue& batchQueue);
     /// Render batches from a specific queue and camera.
     void RenderBatches(BatchQueue& batchQueue, Camera* camera, bool setPerFrameContants = true, bool overrideDepthBias = false, int depthBias = 0, float slopeScaledDepthBias = 0.0f);
     /// Load shaders for a pass.

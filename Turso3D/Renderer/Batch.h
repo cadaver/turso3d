@@ -20,6 +20,7 @@ static const size_t MAX_LIGHTS_PER_PASS = 4;
 enum BatchSortMode
 {
     SORT_STATE = 0,
+    SORT_FRONT_TO_BACK,
     SORT_BACK_TO_FRONT
 };
 
@@ -29,7 +30,6 @@ struct TURSO3D_API Batch
     /// Calculate sort key for state sorting.
     void CalculateSortKey(bool isAdditive)
     {
-        /// \todo May have too few bits per item, as instancing relies on this being correct and unique
         sortKey = ((((unsigned long long)pass->ShaderHash() * type) & 0x7fff) << 48) |
             ((((unsigned long long)lights) & 0xffff) << 32) |
             ((((unsigned long long)pass->Parent()) & 0xffff) << 16) |
@@ -52,8 +52,8 @@ struct TURSO3D_API Batch
     {
         /// Non-instanced use world matrix.
         const Matrix3x4* worldMatrix;
-        /// Index to instance data structures.
-        size_t instanceDataIndex;
+        /// Instanced mode start index.
+        size_t instanceStart;
     };
 
     union
@@ -62,6 +62,8 @@ struct TURSO3D_API Batch
         unsigned long long sortKey;
         /// Distance for sorting.
         float distance;
+        /// Instanced mode instance count.
+        size_t instanceCount;
     };
 };
 
@@ -79,21 +81,20 @@ struct TURSO3D_API InstanceData
 /// Per-pass batch queue structure.
 struct TURSO3D_API BatchQueue
 {
+    /// Default-construct.
+    BatchQueue();
+
     /// Clear structures.
     void Clear();
-    /// Sort batches and build instances in distance sorted mode.
-    void Sort();
-    /// Add a batch.
-    void AddBatch(Batch& batch, GeometryNode* node, bool isAdditive);
+    /// Sort batches and build instances.
+    void Sort(Vector<Matrix3x4>& instanceTransforms);
 
     /// Batches, which may be instanced or non-instanced.
     Vector<Batch> batches;
-    /// Extra data for instanced batches.
-    Vector<InstanceData> instanceDatas;
-    /// Indices for instance datas by state sort key. Used only in state-sorted mode.
-    HashMap<unsigned long long, size_t> instanceLookup;
     /// Sorting mode.
     BatchSortMode sort;
+    /// Number of batches so far.
+    size_t usedBatches;
     /// Lighting flag.
     bool lit;
     /// Base pass index.
@@ -154,8 +155,6 @@ struct TURSO3D_API ShadowView
     Light* light;
     /// Viewport within the shadow map.
     IntRect viewport;
-    /// Shadow caster geometries.
-    Vector<GeometryNode*> shadowCasters;
     /// Shadow batch queue.
     BatchQueue shadowQueue;
     /// Shadow camera.
