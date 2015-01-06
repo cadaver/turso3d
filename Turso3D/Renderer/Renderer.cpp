@@ -248,7 +248,6 @@ void Renderer::CollectLightInteractions()
             // If no room in any shadow map, render unshadowed
             if (index >= shadowMaps.Size())
             {
-                LOGINFO("Ran out of shadow map space");
                 light->SetShadowMap(nullptr);
                 continue;
             }

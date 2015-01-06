@@ -54,7 +54,7 @@ void BatchQueue::Sort(Vector<Matrix3x4>& instanceTransforms)
     }
 
     {
-        PROFILE(BuildInstance);
+        PROFILE(BuildInstances);
 
         // Build instances where adjacent batches have same state
         Batch* start = nullptr;
