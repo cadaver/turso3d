@@ -16,9 +16,6 @@ struct LightPass;
 /// Maximum number of lights per pass.
 static const size_t MAX_LIGHTS_PER_PASS = 4;
 
-// Needs to be a power of two.
-static const size_t BATCH_QUEUE_INCREMENT = 256;
-
 /// Batch sorting modes.
 enum BatchSortMode
 {
@@ -85,9 +82,6 @@ struct TURSO3D_API InstanceData
 /// Per-pass batch queue structure.
 struct TURSO3D_API BatchQueue
 {
-    /// Default-construct.
-    BatchQueue();
-
     /// Clear structures.
     void Clear();
     /// Sort batches and build instances.
@@ -97,8 +91,6 @@ struct TURSO3D_API BatchQueue
     Vector<Batch> batches;
     /// Sorting mode.
     BatchSortMode sort;
-    /// Number of batches so far.
-    size_t usedBatches;
     /// Lighting flag.
     bool lit;
     /// Base pass index.

@@ -315,7 +315,7 @@ void Renderer::CollectLightInteractions()
                 shadowQueue.Sort(instanceTransforms);
 
                 // Mark shadow map for rendering only if it has a view with some batches
-                if (shadowQueue.usedBatches)
+                if (shadowQueue.batches.Size())
                 {
                     shadowMaps[index].shadowViews.Push(view);
                     shadowMaps[index].used = true;
@@ -477,9 +477,14 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
             GeometryNode* node = *gIt;
             LightList* lightList = node->GetLightList();
 
+            Batch newBatch;
+            newBatch.type = node->GetGeometryType();
+            newBatch.worldMatrix = &node->WorldTransform();
+
             // Loop through node's geometries
             for (auto bIt = node->Batches().Begin(), bEnd = node->Batches().End(); bIt != bEnd; ++bIt)
             {
+                newBatch.geometry = bIt->geometry.Get();
                 Material* material = bIt->material.Get();
                 assert(material);
 
@@ -487,55 +492,38 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
                 for (auto qIt = currentQueues.Begin(); qIt != currentQueues.End(); ++qIt)
                 {
                     BatchQueue& batchQueue = **qIt;
-                    Pass* pass = material->GetPass(batchQueue.baseIndex);
+                    newBatch.pass = material->GetPass(batchQueue.baseIndex);
                     // Material may not have the requested pass at all, skip further processing as fast as possible in that case
-                    if (!pass)
+                    if (!newBatch.pass)
                         continue;
 
-                    // Grow batch queue if necessary
-                    if (!(batchQueue.usedBatches & (BATCH_QUEUE_INCREMENT - 1)))
-                        batchQueue.batches.Resize(batchQueue.usedBatches + BATCH_QUEUE_INCREMENT);
-
-                    Batch& newBatch = batchQueue.batches[batchQueue.usedBatches];
-                    newBatch.geometry = bIt->geometry.Get();
-                    newBatch.pass = pass;
                     newBatch.lights = batchQueue.lit ? lightList ? lightList->lightPasses[0] : &ambientLightPass : nullptr;
-                    newBatch.type = node->GetGeometryType();
-                    newBatch.worldMatrix = &node->WorldTransform();
                     if (batchQueue.sort == SORT_STATE)
                         newBatch.CalculateSortKey(false);
                     else if (batchQueue.sort >= SORT_BACK_TO_FRONT)
                         newBatch.distance = node->Distance();
 
-                    ++batchQueue.usedBatches;
+                    batchQueue.batches.Push(newBatch);
 
                     // Create additive light batches if necessary
                     if (batchQueue.lit && lightList && lightList->lightPasses.Size() > 1)
                     {
-                        pass = material->GetPass(batchQueue.additiveIndex);
-                        if (!pass)
+                        newBatch.pass = material->GetPass(batchQueue.additiveIndex);
+                        if (!newBatch.pass)
                             continue;
 
                         for (size_t i = 1; i < lightList->lightPasses.Size(); ++i)
                         {
-                            if (!(batchQueue.usedBatches & (BATCH_QUEUE_INCREMENT - 1)))
-                                batchQueue.batches.Resize(batchQueue.usedBatches + BATCH_QUEUE_INCREMENT);
-
-                            Batch& additiveBatch = batchQueue.batches[batchQueue.usedBatches];
-                            additiveBatch.geometry = bIt->geometry.Get();
-                            additiveBatch.pass = pass;
-                            additiveBatch.lights = lightList->lightPasses[i];
-                            additiveBatch.type = node->GetGeometryType();
-                            additiveBatch.worldMatrix = &node->WorldTransform();
+                            newBatch.lights = lightList->lightPasses[i];
                             if (batchQueue.sort == SORT_STATE)
-                                additiveBatch.CalculateSortKey(true);
+                                newBatch.CalculateSortKey(true);
                             // Manipulate distance to ensure additive batches are rendered after base passes
                             else if (batchQueue.sort == SORT_BACK_TO_FRONT)
-                                additiveBatch.distance = node->Distance() * 0.99999f;
+                                newBatch.distance = node->Distance() * 0.99999f;
                             else if (batchQueue.sort == SORT_FRONT_TO_BACK)
-                                additiveBatch.distance = node->Distance() + 100000.0f; /// \todo This value is arbitrary
+                                newBatch.distance = node->Distance() + 100000.0f; /// \todo This value is arbitrary
 
-                            ++batchQueue.usedBatches;
+                            batchQueue.batches.Push(newBatch);
                         }
                     }
                 }
@@ -801,30 +789,25 @@ void Renderer::CollectShadowBatches(GeometryNode* node, BatchQueue& batchQueue)
     if (node->LastFrameNumber() != frameNumber)
         node->OnPrepareRender(frameNumber, camera);
 
+    Batch newBatch;
+    newBatch.type = node->GetGeometryType();
+    newBatch.worldMatrix = &node->WorldTransform();
+    newBatch.lights = nullptr;
+
     // Loop through node's geometries
     for (auto bIt = node->Batches().Begin(), bEnd = node->Batches().End(); bIt != bEnd; ++bIt)
     {
+        newBatch.geometry = bIt->geometry.Get();
         Material* material = bIt->material.Get();
         assert(material);
 
-        Pass* pass = material->GetPass(batchQueue.baseIndex);
+        newBatch.pass = material->GetPass(batchQueue.baseIndex);
         // Material may not have the requested pass at all, skip further processing as fast as possible in that case
-        if (!pass)
+        if (!newBatch.pass)
             continue;
 
-        // Grow batch queue if necessary
-        if (!(batchQueue.usedBatches & (BATCH_QUEUE_INCREMENT - 1)))
-            batchQueue.batches.Resize(batchQueue.usedBatches + BATCH_QUEUE_INCREMENT);
-
-        Batch& newBatch = batchQueue.batches[batchQueue.usedBatches];
-        newBatch.geometry = bIt->geometry.Get();
-        newBatch.pass = pass;
-        newBatch.lights = nullptr;
-        newBatch.type = node->GetGeometryType();
-        newBatch.worldMatrix = &node->WorldTransform();
         newBatch.CalculateSortKey(false);
-
-        ++batchQueue.usedBatches;
+        batchQueue.batches.Push(newBatch);
     }
 }
 

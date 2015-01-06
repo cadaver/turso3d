@@ -24,23 +24,13 @@ inline bool CompareBatchDistanceBackToFront(Batch& lhs, Batch& rhs)
     return lhs.distance > rhs.distance;
 }
 
-BatchQueue::BatchQueue() :
-    usedBatches(0)
-{
-}
-
 void BatchQueue::Clear()
 {
     batches.Clear();
-    usedBatches = 0;
 }
 
 void BatchQueue::Sort(Vector<Matrix3x4>& instanceTransforms)
 {
-    // Remove unused batches before sort
-    if (batches.Size() > usedBatches)
-        batches.Resize(usedBatches);
-
     {
         PROFILE(SortBatches);
 
