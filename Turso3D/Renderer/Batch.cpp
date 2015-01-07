@@ -31,39 +31,31 @@ void BatchQueue::Clear()
 
 void BatchQueue::Sort(Vector<Matrix3x4>& instanceTransforms)
 {
+    switch (sort)
     {
-        PROFILE(SortBatches);
+    case SORT_STATE:
+        Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchState);
+        Turso3D::Sort(additiveBatches.Begin(), additiveBatches.End(), CompareBatchState);
+        break;
 
-        switch (sort)
-        {
-        case SORT_STATE:
-            Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchState);
-            Turso3D::Sort(additiveBatches.Begin(), additiveBatches.End(), CompareBatchState);
-            break;
+    case SORT_FRONT_TO_BACK:
+        Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchDistanceFrontToBack);
+        // After drawing the base batches, the Z buffer has been prepared. Additive batches can be sorted per state now
+        Turso3D::Sort(additiveBatches.Begin(), additiveBatches.End(), CompareBatchState);
+        break;
 
-        case SORT_FRONT_TO_BACK:
-            Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchDistanceFrontToBack);
-            // After drawing the base batches, the Z buffer has been prepared. Additive batches can be sorted per state now
-            Turso3D::Sort(additiveBatches.Begin(), additiveBatches.End(), CompareBatchState);
-            break;
+    case SORT_BACK_TO_FRONT:
+        Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchDistanceBackToFront);
+        Turso3D::Sort(additiveBatches.Begin(), additiveBatches.End(), CompareBatchDistanceBackToFront);
+        break;
 
-        case SORT_BACK_TO_FRONT:
-            Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchDistanceBackToFront);
-            Turso3D::Sort(additiveBatches.Begin(), additiveBatches.End(), CompareBatchDistanceBackToFront);
-            break;
-
-        default:
-            break;
-        }
+    default:
+        break;
     }
 
-    {
-        PROFILE(BuildInstances);
-
-        // Build instances where adjacent batches have same state
-        BuildInstances(batches, instanceTransforms);
-        BuildInstances(additiveBatches, instanceTransforms);
-    }
+    // Build instances where adjacent batches have same state
+    BuildInstances(batches, instanceTransforms);
+    BuildInstances(additiveBatches, instanceTransforms);
 }
 
 void BatchQueue::BuildInstances(Vector<Batch>& batches, Vector<Matrix3x4>& instanceTransforms)

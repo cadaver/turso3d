@@ -149,166 +149,162 @@ void Renderer::CollectLightInteractions()
         Sort(lights.Begin(), lights.End(), CompareLights);
     }
 
+    for (auto it = lights.Begin(), end = lights.End(); it != end; ++it)
     {
-        PROFILE(CollectLitObjects);
+        Light* light = *it;
+        unsigned lightMask = light->LightMask();
 
-        for (auto it = lights.Begin(), end = lights.End(); it != end; ++it)
+        litGeometries.Clear();
+        bool hasReceivers = false;
+
+        // Create a light list that contains only this light. It will be used for nodes that have no light interactions so far
+        unsigned long long key = (unsigned long long)light;
+        LightList* lightList = &lightLists[key];
+        lightList->lights.Push(light);
+        lightList->key = key;
+        lightList->useCount = 0;
+        
+        switch (light->GetLightType())
         {
-            Light* light = *it;
-            unsigned lightMask = light->LightMask();
+        case LIGHT_DIRECTIONAL:
+            for (auto gIt = geometries.Begin(), gEnd = geometries.End(); gIt != gEnd; ++gIt)
+            {
+                GeometryNode* node = *gIt;
+                if (node->LayerMask() & lightMask)
+                {
+                    AddLightToNode(node, light, lightList);
+                    hasReceivers = true;
+                }
+            }
+            break;
 
-            litGeometries.Clear();
-            bool hasReceivers = false;
+        case LIGHT_POINT:
+            octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldSphere(), NF_ENABLED |
+                NF_GEOMETRY, lightMask);
+            for (auto gIt = litGeometries.Begin(), gEnd = litGeometries.End(); gIt != gEnd; ++gIt)
+            {
+                GeometryNode* node = *gIt;
+                // Add light only to nodes which are actually inside the frustum this frame
+                if (node->LastFrameNumber() == frameNumber)
+                {
+                    AddLightToNode(node, light, lightList);
+                    hasReceivers = true;
+                }
+            }
+            break;
 
-            // Create a light list that contains only this light. It will be used for nodes that have no light interactions so far
-            unsigned long long key = (unsigned long long)light;
-            LightList* lightList = &lightLists[key];
-            lightList->lights.Push(light);
-            lightList->key = key;
-            lightList->useCount = 0;
-            
+        case LIGHT_SPOT:
+            octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldFrustum(), NF_ENABLED |
+                NF_GEOMETRY, lightMask);
+            for (auto gIt = litGeometries.Begin(), gEnd = litGeometries.End(); gIt != gEnd; ++gIt)
+            {
+                GeometryNode* node = *gIt;
+                if (node->LastFrameNumber() == frameNumber)
+                {
+                    AddLightToNode(node, light, lightList);
+                    hasReceivers = true;
+                }
+            }
+            break;
+        }
+
+        if (!light->CastShadows() || !hasReceivers)
+        {
+            light->SetShadowMap(nullptr);
+            continue;
+        }
+
+        // Try to allocate shadow map rectangle. Retry with smaller size two times if fails
+        IntVector2 request = light->TotalShadowMapSize();
+        IntRect shadowRect;
+        size_t retries = 3;
+        size_t index = 0;
+
+        while (retries--)
+        {
+            for (index = 0; index < shadowMaps.Size(); ++index)
+            {
+                ShadowMap& shadowMap = shadowMaps[index];
+                int x, y;
+                if (shadowMap.allocator.Allocate(request.x, request.y, x, y))
+                {
+                    light->SetShadowMap(shadowMaps[index].texture, IntRect(x, y, x + request.x, y + request.y));
+                    break;
+                }
+            }
+
+            if (index < shadowMaps.Size())
+                break;
+            else
+            {
+                request.x /= 2;
+                request.y /= 2;
+            }
+        }
+
+        // If no room in any shadow map, render unshadowed
+        if (index >= shadowMaps.Size())
+        {
+            light->SetShadowMap(nullptr);
+            continue;
+        }
+
+        // Setup shadow cameras & find shadow casters
+        size_t startIndex = usedShadowViews;
+        light->SetupShadowViews(camera, shadowViews, usedShadowViews);
+        bool hasShadowBatches = false;
+
+        for (size_t i = startIndex; i < usedShadowViews; ++i)
+        {
+            ShadowView* view = shadowViews[i].Get();
+            Frustum shadowFrustum = view->shadowCamera.WorldFrustum();
+            BatchQueue& shadowQueue = view->shadowQueue;
+            shadowQueue.sort = SORT_STATE;
+            shadowQueue.lit = false;
+            shadowQueue.baseIndex = Material::PassIndex("shadow");
+            shadowQueue.additiveIndex = 0;
+
             switch (light->GetLightType())
             {
             case LIGHT_DIRECTIONAL:
-                for (auto gIt = geometries.Begin(), gEnd = geometries.End(); gIt != gEnd; ++gIt)
-                {
-                    GeometryNode* node = *gIt;
-                    if (node->LayerMask() & lightMask)
-                    {
-                        AddLightToNode(node, light, lightList);
-                        hasReceivers = true;
-                    }
-                }
+                // Directional light needs a new frustum query for each split, as the shadow cameras are typically far outside
+                // the main view
+                litGeometries.Clear();
+                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries),
+                    shadowFrustum, NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS, light->LightMask());
+                CollectShadowBatches(litGeometries, shadowQueue, shadowFrustum, false, false);
                 break;
 
             case LIGHT_POINT:
-                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldSphere(), NF_ENABLED |
-                    NF_GEOMETRY, lightMask);
-                for (auto gIt = litGeometries.Begin(), gEnd = litGeometries.End(); gIt != gEnd; ++gIt)
-                {
-                    GeometryNode* node = *gIt;
-                    // Add light only to nodes which are actually inside the frustum this frame
-                    if (node->LastFrameNumber() == frameNumber)
-                    {
-                        AddLightToNode(node, light, lightList);
-                        hasReceivers = true;
-                    }
-                }
+                // Check which lit geometries are shadow casters and inside each shadow frustum. First check whether the
+                // shadow frustum is inside the view at all
+                /// \todo Could use a frustum-frustum test for more accuracy
+                if (frustum.IsInsideFast(BoundingBox(shadowFrustum)))
+                    CollectShadowBatches(litGeometries, shadowQueue, shadowFrustum, true, true);
                 break;
 
             case LIGHT_SPOT:
-                octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries), light->WorldFrustum(), NF_ENABLED |
-                    NF_GEOMETRY, lightMask);
-                for (auto gIt = litGeometries.Begin(), gEnd = litGeometries.End(); gIt != gEnd; ++gIt)
-                {
-                    GeometryNode* node = *gIt;
-                    if (node->LastFrameNumber() == frameNumber)
-                    {
-                        AddLightToNode(node, light, lightList);
-                        hasReceivers = true;
-                    }
-                }
+                // For spot light only need to check which lit geometries are shadow casters
+                CollectShadowBatches(litGeometries, shadowQueue, shadowFrustum, true, false);
                 break;
             }
 
-            if (!light->CastShadows() || !hasReceivers)
+            shadowQueue.Sort(instanceTransforms);
+
+            // Mark shadow map for rendering only if it has a view with some batches
+            if (shadowQueue.batches.Size())
             {
-                light->SetShadowMap(nullptr);
-                continue;
+                shadowMaps[index].shadowViews.Push(view);
+                shadowMaps[index].used = true;
+                hasShadowBatches = true;
             }
+        }
 
-            // Try to allocate shadow map rectangle. Retry with smaller size two times if fails
-            IntVector2 request = light->TotalShadowMapSize();
-            IntRect shadowRect;
-            size_t retries = 3;
-            size_t index = 0;
-
-            while (retries--)
-            {
-                for (index = 0; index < shadowMaps.Size(); ++index)
-                {
-                    ShadowMap& shadowMap = shadowMaps[index];
-                    int x, y;
-                    if (shadowMap.allocator.Allocate(request.x, request.y, x, y))
-                    {
-                        light->SetShadowMap(shadowMaps[index].texture, IntRect(x, y, x + request.x, y + request.y));
-                        break;
-                    }
-                }
-
-                if (index < shadowMaps.Size())
-                    break;
-                else
-                {
-                    request.x /= 2;
-                    request.y /= 2;
-                }
-            }
-
-            // If no room in any shadow map, render unshadowed
-            if (index >= shadowMaps.Size())
-            {
-                light->SetShadowMap(nullptr);
-                continue;
-            }
-
-            // Setup shadow cameras & find shadow casters
-            size_t startIndex = usedShadowViews;
-            light->SetupShadowViews(camera, shadowViews, usedShadowViews);
-            bool hasShadowBatches = false;
-
-            for (size_t i = startIndex; i < usedShadowViews; ++i)
-            {
-                ShadowView* view = shadowViews[i].Get();
-                Frustum shadowFrustum = view->shadowCamera.WorldFrustum();
-                BatchQueue& shadowQueue = view->shadowQueue;
-                shadowQueue.sort = SORT_STATE;
-                shadowQueue.lit = false;
-                shadowQueue.baseIndex = Material::PassIndex("shadow");
-                shadowQueue.additiveIndex = 0;
-
-                switch (light->GetLightType())
-                {
-                case LIGHT_DIRECTIONAL:
-                    // Directional light needs a new frustum query for each split, as the shadow cameras are typically far outside
-                    // the main view
-                    litGeometries.Clear();
-                    octree->FindNodes(reinterpret_cast<Vector<OctreeNode*>&>(litGeometries),
-                        shadowFrustum, NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS, light->LightMask());
-                    CollectShadowBatches(litGeometries, shadowQueue, shadowFrustum, false, false);
-                    break;
-
-                case LIGHT_POINT:
-                    // Check which lit geometries are shadow casters and inside each shadow frustum. First check whether the
-                    // shadow frustum is inside the view at all
-                    /// \todo Could use a frustum-frustum test for more accuracy
-                    if (frustum.IsInsideFast(BoundingBox(shadowFrustum)))
-                        CollectShadowBatches(litGeometries, shadowQueue, shadowFrustum, true, true);
-                    break;
-
-                case LIGHT_SPOT:
-                    // For spot light only need to check which lit geometries are shadow casters
-                    CollectShadowBatches(litGeometries, shadowQueue, shadowFrustum, true, false);
-                    break;
-                }
-
-                shadowQueue.Sort(instanceTransforms);
-
-                // Mark shadow map for rendering only if it has a view with some batches
-                if (shadowQueue.batches.Size())
-                {
-                    shadowMaps[index].shadowViews.Push(view);
-                    shadowMaps[index].used = true;
-                    hasShadowBatches = true;
-                }
-            }
-
-            if (!hasShadowBatches)
-            {
-                // Light did not have any shadow batches: convert to unshadowed and reuse the views
-                light->SetShadowMap(nullptr);
-                usedShadowViews = startIndex;
-            }
+        if (!hasShadowBatches)
+        {
+            // Light did not have any shadow batches: convert to unshadowed and reuse the views
+            light->SetShadowMap(nullptr);
+            usedShadowViews = startIndex;
         }
     }
 
@@ -433,6 +429,8 @@ void Renderer::CollectBatches(const PassDesc& pass)
 
 void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
 {
+    PROFILE(CollectBatches);
+
     // Setup batch queues for each requested pass
     static Vector<BatchQueue*> currentQueues;
     currentQueues.Resize(numPasses);
@@ -448,65 +446,61 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
         batchQueue->additiveIndex = srcPass.lit ? Material::PassIndex(srcPass.name + "add") : 0;
     }
 
+    // Loop through geometry nodes
+    for (auto gIt = geometries.Begin(), gEnd = geometries.End(); gIt != gEnd; ++gIt)
     {
-        PROFILE(CollectBatches);
+        GeometryNode* node = *gIt;
+        LightList* lightList = node->GetLightList();
 
-        // Loop through geometry nodes
-        for (auto gIt = geometries.Begin(), gEnd = geometries.End(); gIt != gEnd; ++gIt)
+        Batch newBatch;
+        newBatch.type = node->GetGeometryType();
+        newBatch.worldMatrix = &node->WorldTransform();
+
+        // Loop through node's geometries
+        for (auto bIt = node->Batches().Begin(), bEnd = node->Batches().End(); bIt != bEnd; ++bIt)
         {
-            GeometryNode* node = *gIt;
-            LightList* lightList = node->GetLightList();
+            newBatch.geometry = bIt->geometry.Get();
+            Material* material = bIt->material.Get();
+            assert(material);
 
-            Batch newBatch;
-            newBatch.type = node->GetGeometryType();
-            newBatch.worldMatrix = &node->WorldTransform();
-
-            // Loop through node's geometries
-            for (auto bIt = node->Batches().Begin(), bEnd = node->Batches().End(); bIt != bEnd; ++bIt)
+            // Loop through requested queues
+            for (auto qIt = currentQueues.Begin(); qIt != currentQueues.End(); ++qIt)
             {
-                newBatch.geometry = bIt->geometry.Get();
-                Material* material = bIt->material.Get();
-                assert(material);
+                BatchQueue& batchQueue = **qIt;
+                newBatch.pass = material->GetPass(batchQueue.baseIndex);
+                // Material may not have the requested pass at all, skip further processing as fast as possible in that case
+                if (!newBatch.pass)
+                    continue;
 
-                // Loop through requested queues
-                for (auto qIt = currentQueues.Begin(); qIt != currentQueues.End(); ++qIt)
+                newBatch.lights = batchQueue.lit ? lightList ? lightList->lightPasses[0] : &ambientLightPass : nullptr;
+                if (batchQueue.sort < SORT_BACK_TO_FRONT)
+                    newBatch.CalculateSortKey();
+                else
+                    newBatch.distance = node->Distance();
+
+                batchQueue.batches.Push(newBatch);
+
+                // Create additive light batches if necessary
+                if (batchQueue.lit && lightList && lightList->lightPasses.Size() > 1)
                 {
-                    BatchQueue& batchQueue = **qIt;
-                    newBatch.pass = material->GetPass(batchQueue.baseIndex);
-                    // Material may not have the requested pass at all, skip further processing as fast as possible in that case
+                    newBatch.pass = material->GetPass(batchQueue.additiveIndex);
                     if (!newBatch.pass)
                         continue;
 
-                    newBatch.lights = batchQueue.lit ? lightList ? lightList->lightPasses[0] : &ambientLightPass : nullptr;
-                    if (batchQueue.sort < SORT_BACK_TO_FRONT)
-                        newBatch.CalculateSortKey();
-                    else
-                        newBatch.distance = node->Distance();
-
-                    batchQueue.batches.Push(newBatch);
-
-                    // Create additive light batches if necessary
-                    if (batchQueue.lit && lightList && lightList->lightPasses.Size() > 1)
+                    for (size_t i = 1; i < lightList->lightPasses.Size(); ++i)
                     {
-                        newBatch.pass = material->GetPass(batchQueue.additiveIndex);
-                        if (!newBatch.pass)
-                            continue;
-
-                        for (size_t i = 1; i < lightList->lightPasses.Size(); ++i)
+                        newBatch.lights = lightList->lightPasses[i];
+                        if (batchQueue.sort != SORT_BACK_TO_FRONT)
                         {
-                            newBatch.lights = lightList->lightPasses[i];
-                            if (batchQueue.sort != SORT_BACK_TO_FRONT)
-                            {
-                                newBatch.CalculateSortKey();
-                                batchQueue.additiveBatches.Push(newBatch);
-                            }
-                            else
-                            {
-                                // In back-to-front mode base and additive batches must be mixed. Manipulate distance to make
-                                // the additive batches render later
-                                newBatch.distance = node->Distance() * 0.99999f;
-                                batchQueue.batches.Push(newBatch);
-                            }
+                            newBatch.CalculateSortKey();
+                            batchQueue.additiveBatches.Push(newBatch);
+                        }
+                        else
+                        {
+                            // In back-to-front mode base and additive batches must be mixed. Manipulate distance to make
+                            // the additive batches render later
+                            newBatch.distance = node->Distance() * 0.99999f;
+                            batchQueue.batches.Push(newBatch);
                         }
                     }
                 }
@@ -560,6 +554,8 @@ void Renderer::RenderBatches(const Vector<PassDesc>& passes)
 
 void Renderer::RenderBatches(const String& pass)
 {
+    PROFILE(RenderBatches);
+
     unsigned char passIndex = Material::PassIndex(pass);
     BatchQueue& batchQueue = batchQueues[passIndex];
     RenderBatches(batchQueue.batches, camera);
@@ -567,6 +563,8 @@ void Renderer::RenderBatches(const String& pass)
 
 void Renderer::RenderBatches(size_t numPasses, const PassDesc* passes)
 {
+    PROFILE(RenderBatches);
+
     bool first = true;
 
     while (numPasses--)
@@ -770,8 +768,6 @@ void Renderer::AddLightToNode(GeometryNode* node, Light* light, LightList* light
 void Renderer::CollectShadowBatches(const Vector<GeometryNode*>& nodes, BatchQueue& batchQueue, const Frustum& frustum,
     bool checkShadowCaster, bool checkFrustum)
 {
-    PROFILE(CollectShadowBatches);
-
     for (auto gIt = nodes.Begin(), gEnd = nodes.End(); gIt != gEnd; ++gIt)
     {
         GeometryNode* node = *gIt;
@@ -810,8 +806,6 @@ void Renderer::CollectShadowBatches(const Vector<GeometryNode*>& nodes, BatchQue
 void Renderer::RenderBatches(const Vector<Batch>& batches, Camera* camera_, bool setPerFrameConstants, bool overrideDepthBias,
     int depthBias, float slopeScaledDepthBias)
 {
-    PROFILE(RenderBatches);
-
     if (faceSelectionTexture1->IsDataLost() || faceSelectionTexture2->IsDataLost())
         DefineFaceSelectionTextures();
 
@@ -828,8 +822,6 @@ void Renderer::RenderBatches(const Vector<Batch>& batches, Camera* camera_, bool
 
     if (setPerFrameConstants)
     {
-        PROFILE(SetPerFrameConstants);
-
         // Set per-frame values to the frame constant buffers
         Matrix3x4 viewMatrix = camera_->ViewMatrix();
         Matrix4 projectionMatrix = camera_->ProjectionMatrix();
@@ -865,8 +857,6 @@ void Renderer::RenderBatches(const Vector<Batch>& batches, Camera* camera_, bool
 
     if (instanceTransformsDirty && instanceTransforms.Size())
     {
-        PROFILE(SetInstanceTransforms);
-
         if (instanceVertexBuffer->NumVertices() < instanceTransforms.Size())
             instanceVertexBuffer->Define(USAGE_DYNAMIC, instanceTransforms.Size(), instanceVertexElements, false, &instanceTransforms[0]);
         else
@@ -876,8 +866,6 @@ void Renderer::RenderBatches(const Vector<Batch>& batches, Camera* camera_, bool
     }
     
     {
-        PROFILE(SubmitDrawCalls);
-
         Pass* lastPass = nullptr;
         Material* lastMaterial = nullptr;
         LightPass* lastLights = nullptr;
