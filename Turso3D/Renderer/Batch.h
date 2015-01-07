@@ -29,15 +29,12 @@ enum BatchSortMode
 struct TURSO3D_API Batch
 {
     /// Calculate sort key for state sorting.
-    void CalculateSortKey(bool isAdditive)
+    void CalculateSortKey()
     {
-        sortKey = ((((unsigned long long)pass->ShaderHash() * type) & 0x7fff) << 48) |
+        sortKey = ((((unsigned long long)pass->ShaderHash() * type) & 0xffff) << 48) |
             ((((unsigned long long)lights) & 0xffff) << 32) |
             ((((unsigned long long)pass->Parent()) & 0xffff) << 16) |
             (((unsigned long long)geometry) & 0xffff);
-        // Ensure that additive passes are drawn after base passes
-        if (isAdditive)
-            sortKey |= 0x8000000000000000;
     }
 
     /// Geometry.
@@ -68,17 +65,6 @@ struct TURSO3D_API Batch
     };
 };
 
-/// Extra data for instanced batch.
-struct TURSO3D_API InstanceData
-{
-    /// World matrices.
-    Vector<const Matrix3x4*> worldMatrices;
-    /// Start index in the global instance transforms buffer.
-    size_t startIndex;
-    /// Skip flag. If set, has been converted from non-instanced batches and (size - 1) batches should be skipped after drawing this.
-    bool skipBatches;
-};
-
 /// Per-pass batch queue structure.
 struct TURSO3D_API BatchQueue
 {
@@ -87,8 +73,13 @@ struct TURSO3D_API BatchQueue
     /// Sort batches and build instances.
     void Sort(Vector<Matrix3x4>& instanceTransforms);
 
+    /// Build instances from adjacent batches with same state.
+    static void BuildInstances(Vector<Batch>& batches, Vector<Matrix3x4>& instanceTransforms);
+
     /// Batches, which may be instanced or non-instanced.
     Vector<Batch> batches;
+    /// Additive lighting batches.
+    Vector<Batch> additiveBatches;
     /// Sorting mode.
     BatchSortMode sort;
     /// Lighting flag.

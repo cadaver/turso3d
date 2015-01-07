@@ -114,10 +114,10 @@ private:
     void CollectGeometriesAndLights(Vector<OctreeNode*>::ConstIterator begin, Vector<OctreeNode*>::ConstIterator end, bool inside);
     /// Assign a light list to a node. Creates new light lists as necessary to handle multiple lights.
     void AddLightToNode(GeometryNode* node, Light* light, LightList* lightList);
-    /// Collect shadow caster's batches to the shadow batch queue.
-    void CollectShadowBatches(GeometryNode* node, BatchQueue& batchQueue);
+    /// Collect shadow caster batches.
+    void CollectShadowBatches(const Vector<GeometryNode*>& nodes, BatchQueue& batchQueue, const Frustum& frustum, bool checkShadowCaster, bool checkFrustum);
     /// Render batches from a specific queue and camera.
-    void RenderBatches(BatchQueue& batchQueue, Camera* camera, bool setPerFrameContants = true, bool overrideDepthBias = false, int depthBias = 0, float slopeScaledDepthBias = 0.0f);
+    void RenderBatches(const Vector<Batch>& batches, Camera* camera, bool setPerFrameContants = true, bool overrideDepthBias = false, int depthBias = 0, float slopeScaledDepthBias = 0.0f);
     /// Load shaders for a pass.
     void LoadPassShaders(Pass* pass);
     /// Return or create a shader variation for a pass. Vertex shader variations handle different geometry types and pixel shader variations handle different light combinations.

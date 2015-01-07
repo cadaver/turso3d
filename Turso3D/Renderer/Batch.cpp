@@ -38,14 +38,18 @@ void BatchQueue::Sort(Vector<Matrix3x4>& instanceTransforms)
         {
         case SORT_STATE:
             Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchState);
+            Turso3D::Sort(additiveBatches.Begin(), additiveBatches.End(), CompareBatchState);
             break;
 
         case SORT_FRONT_TO_BACK:
             Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchDistanceFrontToBack);
+            // After drawing the base batches, the Z buffer has been prepared. Additive batches can be sorted per state now
+            Turso3D::Sort(additiveBatches.Begin(), additiveBatches.End(), CompareBatchState);
             break;
 
         case SORT_BACK_TO_FRONT:
             Turso3D::Sort(batches.Begin(), batches.End(), CompareBatchDistanceBackToFront);
+            Turso3D::Sort(additiveBatches.Begin(), additiveBatches.End(), CompareBatchDistanceBackToFront);
             break;
 
         default:
@@ -57,32 +61,38 @@ void BatchQueue::Sort(Vector<Matrix3x4>& instanceTransforms)
         PROFILE(BuildInstances);
 
         // Build instances where adjacent batches have same state
-        Batch* start = nullptr;
-        for (auto it = batches.Begin(), end = batches.End(); it != end; ++it)
+        BuildInstances(batches, instanceTransforms);
+        BuildInstances(additiveBatches, instanceTransforms);
+    }
+}
+
+void BatchQueue::BuildInstances(Vector<Batch>& batches, Vector<Matrix3x4>& instanceTransforms)
+{
+    Batch* start = nullptr;
+    for (auto it = batches.Begin(), end = batches.End(); it != end; ++it)
+    {
+        Batch* current = &*it;
+        if (start && current->type == GEOM_STATIC && current->pass == start->pass && current->geometry == start->geometry &&
+            current->lights == start->lights)
         {
-            Batch* current = &*it;
-            if (start && current->type == GEOM_STATIC && current->pass == start->pass && current->geometry == start->geometry &&
-                current->lights == start->lights)
+            if (start->type == GEOM_INSTANCED)
             {
-                if (start->type == GEOM_INSTANCED)
-                {
-                    instanceTransforms.Push(*current->worldMatrix);
-                    ++start->instanceCount;
-                }
-                else
-                {
-                    // Begin new instanced batch
-                    start->type = GEOM_INSTANCED;
-                    size_t instanceStart = instanceTransforms.Size();
-                    instanceTransforms.Push(*start->worldMatrix);
-                    instanceTransforms.Push(*current->worldMatrix);
-                    start->instanceStart = instanceStart; // Overwrites non-instance world matrix
-                    start->instanceCount = 2; // Overwrites sort key / distance
-                }
+                instanceTransforms.Push(*current->worldMatrix);
+                ++start->instanceCount;
             }
             else
-                start = (current->type == GEOM_STATIC) ? current : nullptr;
+            {
+                // Begin new instanced batch
+                start->type = GEOM_INSTANCED;
+                size_t instanceStart = instanceTransforms.Size();
+                instanceTransforms.Push(*start->worldMatrix);
+                instanceTransforms.Push(*current->worldMatrix);
+                start->instanceStart = instanceStart; // Overwrites non-instance world matrix
+                start->instanceCount = 2; // Overwrites sort key / distance
+            }
         }
+        else
+            start = (current->type == GEOM_STATIC) ? current : nullptr;
     }
 }
 
