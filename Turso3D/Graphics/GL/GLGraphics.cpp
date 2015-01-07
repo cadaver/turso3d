@@ -126,7 +126,6 @@ public:
     Framebuffer() :
         depthStencil(nullptr),
         drawBuffers(0),
-        framesSinceUse(0),
         firstUse(true)
     {
         glGenFramebuffers(1, &buffer);
@@ -148,9 +147,7 @@ public:
     Texture* depthStencil;
     /// Enabled draw buffers.
     unsigned drawBuffers;
-    /// Time since use in frames.
-    unsigned framesSinceUse;
-    /// First use flag, for setting up readbuffers.
+    /// First use flag; used for setting up readbuffers.
     bool firstUse;
 };
 
@@ -215,6 +212,8 @@ bool Graphics::SetMode(const IntVector2& size, bool fullscreen, bool resizable, 
     backbufferSize = window->Size();
     ResetRenderTargets();
     ResetViewport();
+    // Cleanup framebuffers defined during the old resolution now
+    CleanupFramebuffers();
 
     screenModeEvent.size = backbufferSize;
     screenModeEvent.fullscreen = IsFullscreen();
@@ -274,7 +273,6 @@ void Graphics::Present()
     PROFILE(Present);
 
     context->Present();
-    CleanupFramebuffers();
 }
 
 void Graphics::SetRenderTarget(Texture* renderTarget_, Texture* depthStencil_)
@@ -826,19 +824,16 @@ void Graphics::HandleResize(WindowResizeEvent& event)
 
 void Graphics::CleanupFramebuffers()
 {
-    // Never clean up the framebuffer currently in use
-    if (framebuffer)
-        framebuffer->framesSinceUse = 0;
+    // Make sure the framebuffer is switched first if there are pending rendertarget changes
+    PrepareFramebuffer();
 
+    // Clear all except the framebuffer currently in use
     for (auto it = framebuffers.Begin(); it != framebuffers.End();)
     {
-        if (it->second->framesSinceUse > MAX_FRAMEBUFFER_AGE)
+        if (it->second != framebuffer)
             it = framebuffers.Erase(it);
         else
-        {
-            ++it->second->framesSinceUse;
             ++it;
-        }
     }
 }
 
@@ -896,8 +891,6 @@ void Graphics::PrepareFramebuffer()
             glBindFramebuffer(GL_FRAMEBUFFER, it->second->buffer);
             framebuffer = it->second;
         }
-
-        framebuffer->framesSinceUse = 0;
 
         // Setup readbuffers & drawbuffers
         if (framebuffer->firstUse)
