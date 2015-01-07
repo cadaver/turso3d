@@ -27,6 +27,7 @@ inline bool CompareBatchDistanceBackToFront(Batch& lhs, Batch& rhs)
 void BatchQueue::Clear()
 {
     batches.Clear();
+    additiveBatches.Clear();
 }
 
 void BatchQueue::Sort(Vector<Matrix3x4>& instanceTransforms)
