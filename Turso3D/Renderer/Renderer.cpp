@@ -768,6 +768,9 @@ void Renderer::AddLightToNode(GeometryNode* node, Light* light, LightList* light
 void Renderer::CollectShadowBatches(const Vector<GeometryNode*>& nodes, BatchQueue& batchQueue, const Frustum& frustum,
     bool checkShadowCaster, bool checkFrustum)
 {
+    Batch newBatch;
+    newBatch.lights = nullptr;
+    
     for (auto gIt = nodes.Begin(), gEnd = nodes.End(); gIt != gEnd; ++gIt)
     {
         GeometryNode* node = *gIt;
@@ -780,9 +783,7 @@ void Renderer::CollectShadowBatches(const Vector<GeometryNode*>& nodes, BatchQue
         if (node->LastFrameNumber() != frameNumber)
             node->OnPrepareRender(frameNumber, camera);
 
-        Batch newBatch;
         newBatch.type = node->GetGeometryType();
-        newBatch.lights = nullptr;
         newBatch.worldMatrix = &node->WorldTransform();
 
         // Loop through node's geometries
