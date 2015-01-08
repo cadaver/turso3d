@@ -833,9 +833,9 @@ bool Graphics::PrepareDraw(PrimitiveType type)
                     {
                         const Vector<VertexElement>& elements = vertexBuffers[i]->Elements();
                         
-                        for (size_t j = 0; j < elements.Size(); ++j)
+                        for (auto it = elements.Begin(); it != elements.End(); ++it)
                         {
-                            const VertexElement& element = elements[j];
+                            const VertexElement& element = *it;
                             D3D11_INPUT_ELEMENT_DESC newDesc;
                             newDesc.SemanticName = elementSemanticNames[element.semantic];
                             newDesc.SemanticIndex = element.index;

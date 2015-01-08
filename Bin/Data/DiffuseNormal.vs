@@ -29,12 +29,12 @@ VSOutput main(VSInput input)
 
     #ifdef INSTANCED
     output.worldPos.xyz = mul(input.position, input.instanceWorldMatrix);
-    output.normal = normalize(mul(float4(input.normal, 0.0), input.instanceWorldMatrix));
-    output.tangent = float4(normalize(mul(float4(input.tangent.xyz, 0), input.instanceWorldMatrix)), input.tangent.w);
+    output.normal = normalize(mul(input.normal, (float3x3)input.instanceWorldMatrix));
+    output.tangent = float4(normalize(mul(input.tangent.xyz, (float3x3)input.instanceWorldMatrix)), input.tangent.w);
     #else
     output.worldPos.xyz = mul(input.position, worldMatrix);
-    output.normal = normalize(mul(float4(input.normal, 0.0), worldMatrix));
-    output.tangent = float4(normalize(mul(float4(input.normal, 0.0), worldMatrix)), input.tangent.w);
+    output.normal = normalize(mul(input.normal, (float3x3)worldMatrix));
+    output.tangent = float4(normalize(mul(input.normal, (float3x3)worldMatrix)), input.tangent.w);
     #endif
 
     output.position = mul(float4(output.worldPos.xyz, 1), viewProjMatrix);
