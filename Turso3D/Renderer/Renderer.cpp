@@ -418,25 +418,14 @@ void Renderer::CollectLightInteractions()
 
 void Renderer::CollectBatches(const Vector<PassDesc>& passes)
 {
-    if (passes.Size())
-        CollectBatches(passes.Size(), &passes[0]);
-}
-
-void Renderer::CollectBatches(const PassDesc& pass)
-{
-    CollectBatches(1, &pass);
-}
-
-void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
-{
     PROFILE(CollectBatches);
 
     // Setup batch queues for each requested pass
     static Vector<BatchQueue*> currentQueues;
-    currentQueues.Resize(numPasses);
-    for (size_t i = 0; i < numPasses; ++i)
+    currentQueues.Resize(passes.Size());
+    for (size_t i = 0; i < passes.Size(); ++i)
     {
-        const PassDesc& srcPass = passes_[i];
+        const PassDesc& srcPass = passes[i];
         unsigned char baseIndex = Material::PassIndex(srcPass.name);
         BatchQueue* batchQueue = &batchQueues[baseIndex];
         currentQueues[i] = batchQueue;
@@ -521,6 +510,13 @@ void Renderer::CollectBatches(size_t numPasses, const PassDesc* passes_)
         instanceTransformsDirty = true;
 }
 
+void Renderer::CollectBatches(const PassDesc& pass)
+{
+    static Vector<PassDesc> passDescs(1);
+    passDescs[0] = pass;
+    CollectBatches(passDescs);
+}
+
 void Renderer::RenderShadowMaps()
 {
     PROFILE(RenderShadowMaps);
@@ -548,8 +544,15 @@ void Renderer::RenderShadowMaps()
 
 void Renderer::RenderBatches(const Vector<PassDesc>& passes)
 {
-    if (passes.Size())
-        RenderBatches(passes.Size(), &passes.Front());
+    PROFILE(RenderBatches);
+
+    for (size_t i = 0; i < passes.Size(); ++i)
+    {
+        unsigned char passIndex = Material::PassIndex(passes[i].name);
+        BatchQueue& batchQueue = batchQueues[passIndex];
+        RenderBatches(batchQueue.batches, camera, i == 0);
+        RenderBatches(batchQueue.additiveBatches, camera, false);
+    }
 }
 
 void Renderer::RenderBatches(const String& pass)
@@ -559,23 +562,7 @@ void Renderer::RenderBatches(const String& pass)
     unsigned char passIndex = Material::PassIndex(pass);
     BatchQueue& batchQueue = batchQueues[passIndex];
     RenderBatches(batchQueue.batches, camera);
-}
-
-void Renderer::RenderBatches(size_t numPasses, const PassDesc* passes)
-{
-    PROFILE(RenderBatches);
-
-    bool first = true;
-
-    while (numPasses--)
-    {
-        unsigned char passIndex = Material::PassIndex(passes->name);
-        BatchQueue& batchQueue = batchQueues[passIndex];
-        RenderBatches(batchQueue.batches, camera, first);
-        RenderBatches(batchQueue.additiveBatches, camera, false);
-        first = false;
-        ++passes;
-    }
+    RenderBatches(batchQueue.additiveBatches, camera, false);
 }
 
 void Renderer::Initialize()

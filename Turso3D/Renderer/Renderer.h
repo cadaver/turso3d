@@ -94,16 +94,12 @@ public:
     void CollectBatches(const Vector<PassDesc>& passes);
     /// Collect and sort batches from the visible objects. Convenience function for one pass only.
     void CollectBatches(const PassDesc& pass);
-    /// Collect and sort batches from the visible objects.
-    void CollectBatches(size_t numPasses, const PassDesc* passes);
     /// Render shadow maps. Should be called after all CollectBatches() calls but before RenderBatches(). Note that you must reassign your rendertarget and viewport after calling this.
     void RenderShadowMaps();
     /// Render several passes to the currently set rendertarget and viewport. Avoids setting the per-frame constants multiple times.
     void RenderBatches(const Vector<PassDesc>& passes);
     /// Render a pass to the currently set rendertarget and viewport. Convenience function for one pass only.
     void RenderBatches(const String& pass);
-    /// Render several passes to the currently set rendertarget and viewport.
-    void RenderBatches(size_t numPasses, const PassDesc* passes);
 
 private:
     /// Initialize. Needs the Graphics subsystem and rendering context to exist.
