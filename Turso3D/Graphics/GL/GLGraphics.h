@@ -167,9 +167,9 @@ public:
     void RemoveGPUObject(GPUObject* object);
     /// Cleanup shader programs when a vertex or pixel shader is destroyed.
     void CleanupShaderPrograms(ShaderVariation* shader);
-    /// Cleanup all framebuffers except the currently bound one. This is called whenever the backbuffer is resized, but can also be called manually if you have used rendertarget resolutions or color formats you believe you will not use anymore. Note however that this function is nonportable as it does not exist on Direct3D based builds.
+    /// Remove all framebuffers except the currently bound one. Called automatically on backbuffer resize, but can also be called manually if you have used rendertarget resolutions or color formats that you will not need any more.
     void CleanupFramebuffers();
-    /// Cleanup framebuffers when a rendertarget texture is destroyed.
+    /// Remove texture reference from framebuffers. Called by Texture when the texture GPU object is released.
     void CleanupFramebuffers(Texture* texture);
     /// Bind a VBO for editing or applying as a vertex source. Avoids redundant assignment.
     void BindVBO(unsigned vbo);

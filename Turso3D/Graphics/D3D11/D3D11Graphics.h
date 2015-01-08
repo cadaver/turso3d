@@ -159,6 +159,8 @@ public:
     void AddGPUObject(GPUObject* object);
     /// Remove a GPU object.
     void RemoveGPUObject(GPUObject* object);
+    /// Remove all framebuffers except the currently bound one. No-op on Direct3D but provided for compatibility.
+    void CleanupFramebuffers() {}
     /// Return the D3D11 device. Used internally and should not be called by portable application code.
     void* D3DDevice() const;
     /// Return the D3D11 immediate device context. Used internally and should not be called by portable application code.
@@ -166,9 +168,9 @@ public:
 
     /// Screen mode changed event.
     ScreenModeEvent screenModeEvent;
-    /// %Graphics context lost event. Will not be called, but provided for compatibility with other rendering API's.
+    /// %Graphics context lost event. Will not be called on Direct3D but provided for compatibility.
     Event contextLossEvent;
-    /// %Graphics context restored event. Will not be called, but provided for compatibility with other rendering API's.
+    /// %Graphics context restored event. Will not be called on Direct3D but provided for compatibility.
     Event contextRestoreEvent;
 
 private:
