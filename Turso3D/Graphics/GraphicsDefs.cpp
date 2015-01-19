@@ -8,7 +8,7 @@
 namespace Turso3D
 {
 
-const size_t elementSizes[] =
+TURSO3D_API const size_t elementSizes[] =
 {
     sizeof(int),
     sizeof(float),
@@ -20,7 +20,7 @@ const size_t elementSizes[] =
     sizeof(Matrix4)
 };
 
-const char* elementSemanticNames[] =
+TURSO3D_API const char* elementSemanticNames[] =
 {
     "POSITION",
     "NORMAL",
@@ -33,7 +33,7 @@ const char* elementSemanticNames[] =
     nullptr
 };
 
-const char* resourceUsageNames[] =
+TURSO3D_API const char* resourceUsageNames[] =
 {
     "default",
     "immutable",
@@ -42,7 +42,7 @@ const char* resourceUsageNames[] =
     nullptr
 };
 
-const char* elementTypeNames[] =
+TURSO3D_API const char* elementTypeNames[] =
 {
     "int",
     "float",
@@ -55,7 +55,7 @@ const char* elementTypeNames[] =
     nullptr
 };
 
-const char* blendFactorNames[] =
+TURSO3D_API const char* blendFactorNames[] =
 {
     "",
     "zero",
@@ -72,7 +72,7 @@ const char* blendFactorNames[] =
     nullptr
 };
 
-const char* blendOpNames[] =
+TURSO3D_API const char* blendOpNames[] =
 {
     "",
     "add",
@@ -83,7 +83,7 @@ const char* blendOpNames[] =
     nullptr
 };
 
-const char* blendModeNames[] = 
+TURSO3D_API const char* blendModeNames[] =
 {
     "replace",
     "add",
@@ -97,7 +97,7 @@ const char* blendModeNames[] =
     nullptr
 };
 
-const char* fillModeNames[] =
+TURSO3D_API const char* fillModeNames[] =
 {
     "",
     "",
@@ -106,7 +106,7 @@ const char* fillModeNames[] =
     nullptr
 };
 
-const char* cullModeNames[] =
+TURSO3D_API const char* cullModeNames[] =
 {
     "",
     "none",
@@ -115,7 +115,7 @@ const char* cullModeNames[] =
     nullptr
 };
 
-const char* compareFuncNames[] =
+TURSO3D_API const char* compareFuncNames[] =
 {
     "",
     "never",
@@ -129,7 +129,7 @@ const char* compareFuncNames[] =
     nullptr
 };
 
-const char* stencilOpNames[] =
+TURSO3D_API const char* stencilOpNames[] =
 {
     "",
     "keep",
@@ -143,7 +143,7 @@ const char* stencilOpNames[] =
     nullptr
 };
 
-const BlendModeDesc blendModes[] =
+TURSO3D_API const BlendModeDesc blendModes[] =
 {
     BlendModeDesc(false, BLEND_ONE, BLEND_ONE, BLEND_OP_ADD, BLEND_ONE, BLEND_ONE, BLEND_OP_ADD),
     BlendModeDesc(true, BLEND_ONE, BLEND_ONE, BLEND_OP_ADD, BLEND_ONE, BLEND_ONE, BLEND_OP_ADD),
