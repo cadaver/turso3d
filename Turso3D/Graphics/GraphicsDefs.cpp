@@ -8,7 +8,7 @@
 namespace Turso3D
 {
 
-TURSO3D_API const size_t elementSizes[] =
+extern TURSO3D_API const size_t elementSizes[] =
 {
     sizeof(int),
     sizeof(float),
@@ -20,7 +20,7 @@ TURSO3D_API const size_t elementSizes[] =
     sizeof(Matrix4)
 };
 
-TURSO3D_API const char* elementSemanticNames[] =
+extern TURSO3D_API const char* elementSemanticNames[] =
 {
     "POSITION",
     "NORMAL",
@@ -33,7 +33,7 @@ TURSO3D_API const char* elementSemanticNames[] =
     nullptr
 };
 
-TURSO3D_API const char* resourceUsageNames[] =
+extern TURSO3D_API const char* resourceUsageNames[] =
 {
     "default",
     "immutable",
@@ -42,7 +42,7 @@ TURSO3D_API const char* resourceUsageNames[] =
     nullptr
 };
 
-TURSO3D_API const char* elementTypeNames[] =
+extern TURSO3D_API const char* elementTypeNames[] =
 {
     "int",
     "float",
@@ -55,7 +55,7 @@ TURSO3D_API const char* elementTypeNames[] =
     nullptr
 };
 
-TURSO3D_API const char* blendFactorNames[] =
+extern TURSO3D_API const char* blendFactorNames[] =
 {
     "",
     "zero",
@@ -72,7 +72,7 @@ TURSO3D_API const char* blendFactorNames[] =
     nullptr
 };
 
-TURSO3D_API const char* blendOpNames[] =
+extern TURSO3D_API const char* blendOpNames[] =
 {
     "",
     "add",
@@ -83,7 +83,7 @@ TURSO3D_API const char* blendOpNames[] =
     nullptr
 };
 
-TURSO3D_API const char* blendModeNames[] =
+extern TURSO3D_API const char* blendModeNames[] =
 {
     "replace",
     "add",
@@ -97,7 +97,7 @@ TURSO3D_API const char* blendModeNames[] =
     nullptr
 };
 
-TURSO3D_API const char* fillModeNames[] =
+extern TURSO3D_API const char* fillModeNames[] =
 {
     "",
     "",
@@ -106,7 +106,7 @@ TURSO3D_API const char* fillModeNames[] =
     nullptr
 };
 
-TURSO3D_API const char* cullModeNames[] =
+extern TURSO3D_API const char* cullModeNames[] =
 {
     "",
     "none",
@@ -115,7 +115,7 @@ TURSO3D_API const char* cullModeNames[] =
     nullptr
 };
 
-TURSO3D_API const char* compareFuncNames[] =
+extern TURSO3D_API const char* compareFuncNames[] =
 {
     "",
     "never",
@@ -129,7 +129,7 @@ TURSO3D_API const char* compareFuncNames[] =
     nullptr
 };
 
-TURSO3D_API const char* stencilOpNames[] =
+extern TURSO3D_API const char* stencilOpNames[] =
 {
     "",
     "keep",
@@ -143,7 +143,7 @@ TURSO3D_API const char* stencilOpNames[] =
     nullptr
 };
 
-TURSO3D_API const BlendModeDesc blendModes[] =
+extern TURSO3D_API const BlendModeDesc blendModes[] =
 {
     BlendModeDesc(false, BLEND_ONE, BLEND_ONE, BLEND_OP_ADD, BLEND_ONE, BLEND_ONE, BLEND_OP_ADD),
     BlendModeDesc(true, BLEND_ONE, BLEND_ONE, BLEND_OP_ADD, BLEND_ONE, BLEND_ONE, BLEND_OP_ADD),
