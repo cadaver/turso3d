@@ -97,7 +97,7 @@ public:
     /// Assign a raw pointer.
     SharedPtr<T>& operator = (T* rhs)
     {
-        if (*this == rhs)
+        if (Get() == rhs)
             return *this;
 
         Reset();
@@ -262,7 +262,7 @@ public:
     /// Assign a raw pointer.
     WeakPtr<T>& operator = (T* rhs)
     {
-        if (*this == rhs)
+        if (Get() == rhs)
             return *this;
 
         Reset();
@@ -378,7 +378,7 @@ public:
         ptr(nullptr),
         refCount(nullptr)
     {
-        this = ptr_;
+        *this = ptr_;
     }
     
     /// Construct from a raw pointer. To avoid double refcount and double delete, create only once from the same raw pointer.
@@ -386,7 +386,7 @@ public:
         ptr(nullptr),
         refCount(nullptr)
     {
-        this = ptr_;
+        *this = ptr_;
     }
     
     /// Destruct. Release the array reference.
@@ -413,12 +413,12 @@ public:
     /// Assign from a raw pointer. To avoid double refcount and double delete, assign only once from the same raw pointer.
     SharedArrayPtr<T>& operator = (T* rhs)
     {
-        if (*this == rhs)
+        if (Get() == rhs)
             return *this;
         
         Reset();
 
-        if (ptr)
+        if (rhs)
         {
             ptr = rhs;
             refCount = new RefCount();
@@ -454,9 +454,10 @@ public:
             {
                 refCount->expired = true;
                 delete[] ptr;
+                // If no weak refs, destroy the ref count now too
+                if (refCount->weakRefs == 0)
+                    delete refCount;
             }
-            if (refCount->weakRefs == 0)
-                delete refCount;
         }
 
         ptr = 0;

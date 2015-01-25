@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "../Base/AutoPtr.h"
 #include "../Graphics/GraphicsDefs.h"
 #include "../Math/BoundingBox.h"
 #include "../Resource/Resource.h"
@@ -22,7 +21,7 @@ struct TURSO3D_API VertexBufferDesc
     /// Number of vertices.
     size_t numVertices;
     /// Vertex data.
-    AutoArrayPtr<unsigned char> vertexData;
+    SharedArrayPtr<unsigned char> vertexData;
 };
 
 /// Load-time description of an index buffer, to be uploaded on the GPU later.
@@ -33,8 +32,26 @@ struct TURSO3D_API IndexBufferDesc
     /// Number of indices.
     size_t numIndices;
     /// Index data.
-    AutoArrayPtr<unsigned char> indexData;
+    SharedArrayPtr<unsigned char> indexData;
 };
+
+/// Load-time description of a geometry.
+struct TURSO3D_API GeometryDesc
+{
+    /// LOD distance.
+    float lodDistance;
+    /// Primitive type.
+    PrimitiveType primitiveType;
+    /// Vertex buffer ref.
+    unsigned vbRef;
+    /// Index buffer ref.
+    unsigned ibRef;
+    /// Draw range start.
+    unsigned drawStart;
+    /// Draw range element count.
+    unsigned drawCount;
+};
+
 
 /// Model's bone description.
 struct TURSO3D_API Bone
@@ -125,9 +142,11 @@ private:
     /// Per-geometry bone mappings.
     Vector<Vector<size_t> > boneMappings;
     /// Vertex buffer data for loading.
-    AutoPtr<VertexBufferDesc> vbDesc;
+    Vector<VertexBufferDesc> vbDescs;
     /// Index buffer data for loading.
-    AutoPtr<IndexBufferDesc> ibDesc;
+    Vector<IndexBufferDesc> ibDescs;
+    /// Geometry descriptions for loading.
+    Vector<Vector<GeometryDesc> > geomDescs;
 };
 
 }

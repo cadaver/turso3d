@@ -52,93 +52,93 @@ bool Model::BeginLoad(Stream& source)
         return false;
     }
 
-    geometries.Clear();
+    vbDescs.Clear();
+    ibDescs.Clear();
+    geomDescs.Clear();
 
     size_t numVertexBuffers = source.Read<unsigned>();
-    if (numVertexBuffers != 1)
+    vbDescs.Resize(numVertexBuffers);
+    for (size_t i = 0; i < numVertexBuffers; ++i)
     {
-        LOGERROR("Only models with 1 vertex buffer are supported");
-        return false;
+        VertexBufferDesc& vbDesc = vbDescs[i];
+
+        vbDesc.numVertices = source.Read<unsigned>();
+        unsigned elementMask = source.Read<unsigned>();
+        source.Read<unsigned>(); // morphRangeStart
+        source.Read<unsigned>(); // morphRangeCount
+
+        size_t vertexSize = 0;
+        if (elementMask & 1)
+        {
+            vbDesc.vertexElements.Push(VertexElement(ELEM_VECTOR3, SEM_POSITION));
+            vertexSize += sizeof(Vector3);
+        }
+        if (elementMask & 2)
+        {
+            vbDesc.vertexElements.Push(VertexElement(ELEM_VECTOR3, SEM_NORMAL));
+            vertexSize += sizeof(Vector3);
+        }
+        if (elementMask & 4)
+        {
+            vbDesc.vertexElements.Push(VertexElement(ELEM_UBYTE4, SEM_COLOR));
+            vertexSize += 4;
+        }
+        if (elementMask & 8)
+        {
+            vbDesc.vertexElements.Push(VertexElement(ELEM_VECTOR2, SEM_TEXCOORD));
+            vertexSize += sizeof(Vector2);
+        }
+        if (elementMask & 16)
+        {
+            vbDesc.vertexElements.Push(VertexElement(ELEM_VECTOR2, SEM_TEXCOORD, 1));
+            vertexSize += sizeof(Vector2);
+        }
+        if (elementMask & 32)
+        {
+            vbDesc.vertexElements.Push(VertexElement(ELEM_VECTOR3, SEM_TEXCOORD));
+            vertexSize += sizeof(Vector3);
+        }
+        if (elementMask & 64)
+        {
+            vbDesc.vertexElements.Push(VertexElement(ELEM_VECTOR3, SEM_TEXCOORD, 1));
+            vertexSize += sizeof(Vector3);
+        }
+        if (elementMask & 128)
+        {
+            vbDesc.vertexElements.Push(VertexElement(ELEM_VECTOR4, SEM_TANGENT));
+            vertexSize += sizeof(Vector4);
+        }
+        if (elementMask & 256)
+        {
+            vbDesc.vertexElements.Push(VertexElement(ELEM_VECTOR4, SEM_BLENDWEIGHT));
+            vertexSize += sizeof(Vector4);
+        }
+        if (elementMask & 512)
+        {
+            vbDesc.vertexElements.Push(VertexElement(ELEM_UBYTE4, SEM_BLENDINDICES));
+            vertexSize += 4;
+        }
+
+        vbDesc.vertexData = new unsigned char[vbDesc.numVertices * vertexSize];
+        source.Read(&vbDesc.vertexData[0], vbDesc.numVertices * vertexSize);
     }
 
-    vbDesc = new VertexBufferDesc();
-    vbDesc->numVertices = source.Read<unsigned>();
-    unsigned elementMask = source.Read<unsigned>();
-    source.Read<unsigned>(); // morphRangeStart
-    source.Read<unsigned>(); // morphRangeCount
-
-    size_t vertexSize = 0;
-    if (elementMask & 1)
+    size_t numIndexBuffers = source.Read<unsigned>();
+    ibDescs.Resize(numIndexBuffers);
+    for (size_t i = 0; i < numIndexBuffers; ++i)
     {
-        vbDesc->vertexElements.Push(VertexElement(ELEM_VECTOR3, SEM_POSITION));
-        vertexSize += sizeof(Vector3);
+        IndexBufferDesc& ibDesc = ibDescs[i];
+    
+        ibDesc.numIndices = source.Read<unsigned>();
+        ibDesc.indexSize = source.Read<unsigned>();
+        ibDesc.indexData = new unsigned char[ibDesc.numIndices * ibDesc.indexSize];
+        source.Read(&ibDesc.indexData[0], ibDesc.numIndices * ibDesc.indexSize);
     }
-    if (elementMask & 2)
-    {
-        vbDesc->vertexElements.Push(VertexElement(ELEM_VECTOR3, SEM_NORMAL));
-        vertexSize += sizeof(Vector3);
-    }
-    if (elementMask & 4)
-    {
-        vbDesc->vertexElements.Push(VertexElement(ELEM_UBYTE4, SEM_COLOR));
-        vertexSize += 4;
-    }
-    if (elementMask & 8)
-    {
-        vbDesc->vertexElements.Push(VertexElement(ELEM_VECTOR2, SEM_TEXCOORD));
-        vertexSize += sizeof(Vector2);
-    }
-    if (elementMask & 16)
-    {
-        vbDesc->vertexElements.Push(VertexElement(ELEM_VECTOR2, SEM_TEXCOORD, 1));
-        vertexSize += sizeof(Vector2);
-    }
-    if (elementMask & 32)
-    {
-        vbDesc->vertexElements.Push(VertexElement(ELEM_VECTOR3, SEM_TEXCOORD));
-        vertexSize += sizeof(Vector3);
-    }
-    if (elementMask & 64)
-    {
-        vbDesc->vertexElements.Push(VertexElement(ELEM_VECTOR3, SEM_TEXCOORD, 1));
-        vertexSize += sizeof(Vector3);
-    }
-    if (elementMask & 128)
-    {
-        vbDesc->vertexElements.Push(VertexElement(ELEM_VECTOR4, SEM_TANGENT));
-        vertexSize += sizeof(Vector4);
-    }
-    if (elementMask & 256)
-    {
-        vbDesc->vertexElements.Push(VertexElement(ELEM_VECTOR4, SEM_BLENDWEIGHT));
-        vertexSize += sizeof(Vector4);
-    }
-    if (elementMask & 512)
-    {
-        vbDesc->vertexElements.Push(VertexElement(ELEM_UBYTE4, SEM_BLENDINDICES));
-        vertexSize += 4;
-    }
-
-    vbDesc->vertexData = new unsigned char[vbDesc->numVertices * vertexSize];
-    source.Read(&vbDesc->vertexData[0], vbDesc->numVertices * vertexSize);
-
-    unsigned numIndexBuffers = source.Read<unsigned>();
-    if (numIndexBuffers != 1)
-    {
-        LOGERROR("Only models with 1 index buffer are supported");
-        return false;
-    }
-
-    ibDesc = new IndexBufferDesc();
-    ibDesc->numIndices = source.Read<unsigned>();
-    ibDesc->indexSize = source.Read<unsigned>();
-    ibDesc->indexData = new unsigned char[ibDesc->numIndices * ibDesc->indexSize];
-    source.Read(&ibDesc->indexData[0], ibDesc->numIndices * ibDesc->indexSize);
 
     size_t numGeometries = source.Read<unsigned>();
-    geometries.Resize(numGeometries);
-    boneMappings.Resize(numGeometries);
 
+    geomDescs.Resize(numGeometries);
+    boneMappings.Resize(numGeometries);
     for (size_t i = 0; i < numGeometries; ++i)
     {
         // Read bone mappings
@@ -149,20 +149,19 @@ bool Model::BeginLoad(Stream& source)
             boneMappings[i][j] = source.Read<unsigned>();
 
         size_t numLodLevels = source.Read<unsigned>();
-        geometries[i].Resize(numLodLevels);
+        geomDescs[i].Resize(numLodLevels);
 
-        for (unsigned j = 0; j < numLodLevels; ++j)
+        for (size_t j = 0; j < numLodLevels; ++j)
         {
-            SharedPtr<Geometry> geom(new Geometry());
-            geometries[i][j] = geom;
-            geom->lodDistance = source.Read<float>();
+            GeometryDesc& geomDesc = geomDescs[i][j];
+
+            geomDesc.lodDistance = source.Read<float>();
             source.Read<unsigned>(); // Primitive type
-            geom->primitiveType = TRIANGLE_LIST; // Always assume triangle list for now
-            
-            source.Read<unsigned>(); // vbRef
-            source.Read<unsigned>(); // ibRef
-            geom->drawStart = source.Read<unsigned>();
-            geom->drawCount = source.Read<unsigned>();
+            geomDesc.primitiveType = TRIANGLE_LIST; // Always assume triangle list for now
+            geomDesc.vbRef = source.Read<unsigned>();
+            geomDesc.ibRef = source.Read<unsigned>();
+            geomDesc.drawStart = source.Read<unsigned>();
+            geomDesc.drawCount = source.Read<unsigned>();
         }
     }
 
@@ -205,25 +204,58 @@ bool Model::BeginLoad(Stream& source)
 
 bool Model::EndLoad()
 {
-    if (!vbDesc || !ibDesc)
-        return false;
+    Vector<SharedPtr<VertexBuffer> > vbs;
+    for (size_t i = 0; i < vbDescs.Size(); ++i)
+    {
+        const VertexBufferDesc& vbDesc = vbDescs[i];
+        SharedPtr<VertexBuffer> vb(new VertexBuffer());
 
-    SharedPtr<VertexBuffer> vb(new VertexBuffer());
-    SharedPtr<IndexBuffer> ib(new IndexBuffer());
-    vb->Define(USAGE_IMMUTABLE, vbDesc->numVertices, vbDesc->vertexElements, true, vbDesc->vertexData.Get());
-    ib->Define(USAGE_IMMUTABLE, ibDesc->numIndices, ibDesc->indexSize, true, ibDesc->indexData.Get());
-    vbDesc.Reset();
-    ibDesc.Reset();
+        vb->Define(USAGE_IMMUTABLE, vbDesc.numVertices, vbDesc.vertexElements, true, vbDesc.vertexData.Get());
+        vbs.Push(vb);
+    }
+
+    Vector<SharedPtr<IndexBuffer> > ibs;
+    for (size_t i = 0; i < ibDescs.Size(); ++i)
+    {
+        const IndexBufferDesc& ibDesc = ibDescs[i];
+        SharedPtr<IndexBuffer> ib(new IndexBuffer());
+
+        ib->Define(USAGE_IMMUTABLE, ibDesc.numIndices, ibDesc.indexSize, true, ibDesc.indexData.Get());
+        ibs.Push(ib);
+    }
 
     // Set the buffers to each geometry
-    for (size_t i = 0; i < geometries.Size(); ++i)
+    geometries.Resize(geomDescs.Size());
+    for (size_t i = 0; i < geomDescs.Size(); ++i)
     {
-        for (size_t j = 0; j < geometries[i].Size(); ++j)
+        geometries[i].Resize(geomDescs[i].Size());
+        for (size_t j = 0; j < geomDescs[i].Size(); ++j)
         {
-            geometries[i][j]->vertexBuffer = vb;
-            geometries[i][j]->indexBuffer = ib;
+            const GeometryDesc& geomDesc = geomDescs[i][j];
+            SharedPtr<Geometry> geom(new Geometry());
+
+            geom->lodDistance = geomDesc.lodDistance;
+            geom->primitiveType = geomDesc.primitiveType;
+            geom->drawStart = geomDesc.drawStart;
+            geom->drawCount = geomDesc.drawCount;
+            
+            if (geomDesc.vbRef < vbs.Size())
+                geom->vertexBuffer = vbs[geomDesc.vbRef];
+            else
+                LOGERROR("Out of range vertex buffer reference in " + Name());
+
+            if (geomDesc.ibRef < ibs.Size())
+                geom->indexBuffer = ibs[geomDesc.ibRef];
+            else
+                LOGERROR("Out of range index buffer reference in " + Name());
+            
+            geometries[i][j] = geom;
         }
     }
+
+    vbDescs.Clear();
+    ibDescs.Clear();
+    geomDescs.Clear();
 
     return true;
 }
