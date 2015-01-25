@@ -15,7 +15,7 @@ static const LightType DEFAULT_LIGHTTYPE = LIGHT_POINT;
 static const Color DEFAULT_COLOR = Color(1.0f, 1.0f, 1.0f, 0.5f);
 static const float DEFAULT_RANGE = 10.0f;
 static const float DEFAULT_SPOT_FOV = 30.0f;
-static const int DEFAULT_SHADOWMAP_SIZE = 512;
+static const int DEFAULT_SHADOWMAP_SIZE = 256;
 static const Vector4 DEFAULT_SHADOW_SPLITS = Vector4(10.0f, 50.0f, 150.0f, 0.0f);
 static const float DEFAULT_FADE_START = 0.9f;
 static const int DEFAULT_DEPTH_BIAS = 5;
@@ -390,7 +390,7 @@ void Light::SetupShadowViews(Camera* mainCamera, Vector<AutoPtr<ShadowView> >& s
                 IntVector2 topLeft(shadowRect.left, shadowRect.top);
                 if (i & 1)
                     topLeft.y += actualShadowMapSize;
-                topLeft.x += (i >> 1) * actualShadowMapSize;
+                topLeft.x += ((unsigned)i >> 1) * actualShadowMapSize;
                 view->viewport = IntRect(topLeft.x, topLeft.y, topLeft.x + actualShadowMapSize, topLeft.y + actualShadowMapSize);
 
                 shadowCamera.SetTransform(WorldPosition(), pointLightFaceRotations[i]);

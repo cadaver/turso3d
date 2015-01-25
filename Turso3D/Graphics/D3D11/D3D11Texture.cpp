@@ -205,7 +205,7 @@ bool Texture::Define(TextureType type_, ResourceUsage usage_, const IntVector2& 
         textureDesc.Width = size_.x;
         textureDesc.Height = size_.y;
         textureDesc.MipLevels = (unsigned)numLevels_;
-        textureDesc.ArraySize = NumFaces();
+        textureDesc.ArraySize = (unsigned)NumFaces();
         textureDesc.Format = textureFormat[format_];
         /// \todo Support defining multisampled textures
         textureDesc.SampleDesc.Count = 1;
@@ -393,7 +393,7 @@ bool Texture::SetData(size_t face, size_t level, const IntRect rect, const Image
         }
 
         ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->D3DDeviceContext();
-        unsigned subResource = D3D11CalcSubresource(level, face, numLevels);
+        unsigned subResource = D3D11CalcSubresource((unsigned)level, (unsigned)face, (unsigned)numLevels);
 
         if (usage == USAGE_DYNAMIC)
         {
