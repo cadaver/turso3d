@@ -317,6 +317,10 @@ void Renderer::CollectLightInteractions()
             if (!list.useCount)
                 continue;
 
+            // Sort lights according to the light pointer to prevent camera angle from changing the light list order and
+            // causing extra shader variations to be compiled
+            Sort(list.lights.Begin(), list.lights.End());
+
             size_t lightsLeft = list.lights.Size();
             static Vector<bool> lightDone;
             static Vector<Light*> currentPass;
