@@ -72,8 +72,10 @@ public:
     
     /// Register a per-class attribute. If an attribute with the same name already exists, it will be replaced.
     static void RegisterAttribute(StringHash type, Attribute* attr);
-    /// Copy base class attributes.
+    /// Copy all base class attributes.
     static void CopyBaseAttributes(StringHash type, StringHash baseType);
+    /// Copy one base class attribute.
+    static void CopyBaseAttribute(StringHash type, StringHash baseType, const String& name);
     /// Skip binary data of an object's all attributes.
     static void Skip(Stream& source);
     
@@ -95,10 +97,16 @@ public:
         RegisterAttribute(T::TypeStatic(), new AttributeImpl<U>(name, new MixedRefAttributeAccessorImpl<T, U>(getFunction, setFunction), defaultValue, enumNames));
     }
 
-    /// Copy base class attributes, template version.
+    /// Copy all base class attributes, template version.
     template <class T, class U> static void CopyBaseAttributes()
     {
         CopyBaseAttributes(T::TypeStatic(), U::TypeStatic());
+    }
+
+    /// Copy one base class attribute, template version.
+    template <class T, class U> static void CopyBaseAttribute(const String& name)
+    {
+        CopyBaseAttribute(T::TypeStatic(), U::TypeStatic(), name);
     }
     
 private:

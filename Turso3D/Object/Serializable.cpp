@@ -157,7 +157,28 @@ void Serializable::CopyBaseAttributes(StringHash type, StringHash baseType)
 {
     // Make sure the types are different, which may not be true if the OBJECT macro has been omitted
     if (type != baseType)
-        classAttributes[type].Push(classAttributes[baseType]);
+    {
+        Vector<SharedPtr<Attribute> >& attributes = classAttributes[baseType];
+        for (size_t i = 0; i < attributes.Size(); ++i)
+            RegisterAttribute(type, attributes[i]);
+    }
+}
+
+void Serializable::CopyBaseAttribute(StringHash type, StringHash baseType, const String& name)
+{
+    // Make sure the types are different, which may not be true if the OBJECT macro has been omitted
+    if (type != baseType)
+    {
+        Vector<SharedPtr<Attribute> >& attributes = classAttributes[baseType];
+        for (size_t i = 0; i < attributes.Size(); ++i)
+        {
+            if (attributes[i]->Name() == name)
+            {
+                RegisterAttribute(type, attributes[i]);
+                break;
+            }
+        }
+    }
 }
 
 void Serializable::Skip(Stream& source)

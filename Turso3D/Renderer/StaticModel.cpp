@@ -33,8 +33,7 @@ void StaticModel::RegisterObject()
     // there is the correct amount of materials to assign
     CopyBaseAttributes<StaticModel, OctreeNode>();
     RegisterMixedRefAttribute("model", &StaticModel::ModelAttr, &StaticModel::SetModelAttr, ResourceRef(Model::TypeStatic()));
-    RegisterMixedRefAttribute("materials", &GeometryNode::MaterialsAttr, &GeometryNode::SetMaterialsAttr,
-        ResourceRefList(Material::TypeStatic()));
+    CopyBaseAttribute<StaticModel, GeometryNode>("materials");
     RegisterAttribute("lodBias", &StaticModel::LodBias, &StaticModel::SetLodBias, 1.0f);
 }
 
