@@ -172,7 +172,7 @@ private:
     }
     
     /// Collect nodes from octant and child octants. Invoke a function for each octant.
-    template <class T, class U> void CollectNodesCallback(const Octant* octant, void(*callback)(Vector<OctreeNode*>::ConstIterator, Vector<OctreeNode*>::ConstIterator, bool)) const
+    void CollectNodesCallback(const Octant* octant, void(*callback)(Vector<OctreeNode*>::ConstIterator, Vector<OctreeNode*>::ConstIterator, bool)) const
     {
         const Vector<OctreeNode*>& octantNodes = octant->nodes;
         callback(octantNodes.Begin(), octantNodes.End(), true);
@@ -208,7 +208,7 @@ private:
     }
 
     /// Collect nodes from octant and child octants. Invoke a member function for each octant.
-    template <class T, class U> void CollectNodesMemberCallback(const Octant* octant, U* object, void (U::*callback)(Vector<OctreeNode*>::ConstIterator, Vector<OctreeNode*>::ConstIterator, bool)) const
+    template <class T> void CollectNodesMemberCallback(const Octant* octant, T* object, void (T::*callback)(Vector<OctreeNode*>::ConstIterator, Vector<OctreeNode*>::ConstIterator, bool)) const
     {
         const Vector<OctreeNode*>& octantNodes = octant->nodes;
         (object->*callback)(octantNodes.Begin(), octantNodes.End(), true);
@@ -216,7 +216,7 @@ private:
         for (size_t i = 0; i < NUM_OCTANTS; ++i)
         {
             if (octant->children[i])
-                CollectNodesMemberCallback<T, U>(octant->children[i], object, callback);
+                CollectNodesMemberCallback(octant->children[i], object, callback);
         }
     }
 
@@ -229,7 +229,7 @@ private:
 
         // If this octant is completely inside the volume, can include all contained octants and their nodes without further tests
         if (res == INSIDE)
-            CollectNodesMemberCallback<T, U>(octant, object, callback);
+            CollectNodesMemberCallback(octant, object, callback);
         else
         {
             const Vector<OctreeNode*>& octantNodes = octant->nodes;
@@ -238,7 +238,7 @@ private:
             for (size_t i = 0; i < NUM_OCTANTS; ++i)
             {
                 if (octant->children[i])
-                    CollectNodesMemberCallback<T, U>(octant->children[i], volume, object, callback);
+                    CollectNodesMemberCallback(octant->children[i], volume, object, callback);
             }
         }
     }

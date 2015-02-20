@@ -95,7 +95,6 @@ public:
         HiresTimer frameTimer;
         Timer profilerTimer;
         float dt = 0.0f;
-        Quaternion nodeRot = Quaternion::IDENTITY;
         String profilerOutput;
 
         for (;;)
