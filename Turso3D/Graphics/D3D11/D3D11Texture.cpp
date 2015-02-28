@@ -415,6 +415,7 @@ bool Texture::SetData(size_t face, size_t level, const IntRect rect, const Image
                     memcpy((unsigned char*)mappedData.pData + y * mappedData.RowPitch + rect.left + pixelByteSize, data.data +
                         (y - rect.top) * data.rowSize, (rect.right - rect.left) * pixelByteSize);
                 }
+                d3dDeviceContext->Unmap((ID3D11Resource*)texture, subResource);
             }
             else
             {
