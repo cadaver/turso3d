@@ -27,7 +27,7 @@ static const DXGI_FORMAT d3dElementFormats[] = {
     DXGI_FORMAT_R32G32_FLOAT,
     DXGI_FORMAT_R32G32B32_FLOAT,
     DXGI_FORMAT_R32G32B32A32_FLOAT,
-    DXGI_FORMAT_R8G8B8A8_UNORM,
+    DXGI_FORMAT_R8G8B8A8_UINT,
     DXGI_FORMAT_R32G32B32A32_FLOAT, // Incorrect, but included to not cause out-of-range indexing
     DXGI_FORMAT_R32G32B32A32_FLOAT  //                          --||--
 };
@@ -839,7 +839,8 @@ bool Graphics::PrepareDraw(PrimitiveType type)
                             D3D11_INPUT_ELEMENT_DESC newDesc;
                             newDesc.SemanticName = elementSemanticNames[element.semantic];
                             newDesc.SemanticIndex = element.index;
-                            newDesc.Format = d3dElementFormats[element.type];
+                            newDesc.Format = (element.semantic == SEM_COLOR && element.type == ELEM_UBYTE4) ?
+                                DXGI_FORMAT_R8G8B8A8_UNORM : d3dElementFormats[element.type];
                             newDesc.InputSlot = (unsigned)i;
                             newDesc.AlignedByteOffset = (unsigned)element.offset;
                             newDesc.InputSlotClass = element.perInstance ? D3D11_INPUT_PER_INSTANCE_DATA :
