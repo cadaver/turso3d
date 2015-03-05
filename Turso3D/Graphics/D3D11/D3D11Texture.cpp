@@ -363,7 +363,7 @@ bool Texture::DefineSampler(TextureFilterMode filter_, TextureAddressMode u, Tex
     return true;
 }
 
-bool Texture::SetData(size_t face, size_t level, const IntRect rect, const ImageLevel& data)
+bool Texture::SetData(size_t face, size_t level, IntRect rect, const ImageLevel& data)
 {
     PROFILE(UpdateTextureLevel);
 
@@ -390,6 +390,17 @@ bool Texture::SetData(size_t face, size_t level, const IntRect rect, const Image
         {
             LOGERROR("Texture update region is outside level");
             return false;
+        }
+
+        // If compressed, align the update region on a block
+        if (IsCompressed())
+        {
+            rect.left &= 0xfffffffc;
+            rect.top &= 0xfffffffc;
+            rect.right += 3;
+            rect.bottom += 3;
+            rect.right &= 0xfffffffc;
+            rect.bottom &= 0xfffffffc;
         }
 
         ID3D11DeviceContext* d3dDeviceContext = (ID3D11DeviceContext*)graphics->D3DDeviceContext();

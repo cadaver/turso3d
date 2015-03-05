@@ -395,6 +395,17 @@ bool Texture::SetData(size_t face, size_t level, const IntRect rect, const Image
             return false;
         }
 
+        // If compressed, align the update region on a block
+        if (IsCompressed())
+        {
+            rect.left &= 0xfffffffc;
+            rect.top &= 0xfffffffc;
+            rect.right += 3;
+            rect.bottom += 3;
+            rect.right &= 0xfffffffc;
+            rect.bottom &= 0xfffffffc;
+        }
+
         // Bind for updating
         graphics->SetTexture(0, this);
 
