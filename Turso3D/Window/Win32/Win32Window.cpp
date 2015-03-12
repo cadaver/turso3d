@@ -415,9 +415,14 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
                 }
             }
         }
-
         closeTouchInputHandle((HTOUCHINPUT)lParam);
         handled = true;
+        break;
+
+    case WM_SYSCOMMAND:
+        // Prevent system bell sound from Alt key combinations
+        if ((wParam & 0xff00) == SC_KEYMENU)
+            handled = true;
         break;
     }
 
