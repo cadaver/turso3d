@@ -348,12 +348,18 @@ void Graphics::SetConstantBuffer(ShaderStage stage, size_t index, ConstantBuffer
         {
         case SHADER_VS:
             if (index < vsConstantBuffers)
+            {
                 glBindBufferBase(GL_UNIFORM_BUFFER, (unsigned)index, bufferObject);
+                boundUBO = bufferObject;
+            }
             break;
 
         case SHADER_PS:
             if (index < psConstantBuffers)
+            {
                 glBindBufferBase(GL_UNIFORM_BUFFER, (unsigned)(index + vsConstantBuffers), bufferObject);
+                boundUBO = bufferObject;
+            }
             break;
 
         default:
