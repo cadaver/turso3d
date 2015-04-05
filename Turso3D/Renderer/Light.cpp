@@ -108,7 +108,7 @@ void Light::OnRaycast(Vector<RaycastResult>& dest, const Ray& ray, float maxDist
             res.normal = -ray.direction;
             res.distance = distance;
             res.node = this;
-            res.extraData = nullptr;
+            res.subObject = 0;
             dest.Push(res);
         }
     }
@@ -122,7 +122,7 @@ void Light::OnRaycast(Vector<RaycastResult>& dest, const Ray& ray, float maxDist
             res.normal = -ray.direction;
             res.distance = distance;
             res.node = this;
-            res.extraData = nullptr;
+            res.subObject = 0;
             dest.Push(res);
         }
     }

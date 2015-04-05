@@ -216,7 +216,7 @@ RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, fl
         emptyRes.position = emptyRes.normal = Vector3::ZERO;
         emptyRes.distance = M_INFINITY;
         emptyRes.node = nullptr;
-        emptyRes.extraData = 0;
+        emptyRes.subObject = 0;
         return emptyRes;
     }
 }

@@ -27,8 +27,8 @@ struct TURSO3D_API RaycastResult
     float distance;
     /// Hit node.
     OctreeNode* node;
-    /// Subclass specific hit details.
-    void* extraData;
+    /// Hit geometry index or other, GeometryNode subclass-specific subobject index.
+    size_t subObject;
 };
 
 /// %Octree cell, contains up to 8 child octants.
