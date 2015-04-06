@@ -392,19 +392,25 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
         break;
 
     case WM_MOUSEMOVE:
-        // Do not transmit mouse move when mouse should be hidden, but is not due to no input focus
-        if (input && !emulatedMouse && mouseVisible == mouseVisibleInternal)
+        if (input && !emulatedMouse)
         {
             IntVector2 center(Size() / 2);
             IntVector2 newPosition;
             IntVector2 delta;
             newPosition.x = (int)(short)LOWORD(lParam);
             newPosition.y = (int)(short)HIWORD(lParam);
-            delta = newPosition - mousePosition;
-            input->OnMouseMove(newPosition, delta);
-            // Recenter in hidden mouse cursor mode to allow endless relative motion
-            if (!mouseVisibleInternal && delta != IntVector2::ZERO)
-                SetMousePosition(IntVector2(Width() / 2, Height() / 2));
+
+            // Do not transmit mouse move when mouse should be hidden, but is not due to no input focus
+            if (mouseVisibleInternal == mouseVisible)
+            {
+                delta = newPosition - mousePosition;
+                input->OnMouseMove(newPosition, delta);
+                // Recenter in hidden mouse cursor mode to allow endless relative motion
+                if (!mouseVisibleInternal && delta != IntVector2::ZERO)
+                    SetMousePosition(IntVector2(Width() / 2, Height() / 2));
+                else
+                    mousePosition = newPosition;
+            }
             else
                 mousePosition = newPosition;
         }
@@ -422,10 +428,7 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
             SetCapture((HWND)handle);
             // Re-establish mouse cursor hiding & clipping
             if (!mouseVisible && mouseVisibleInternal)
-            {
                 UpdateMouseVisible();
-                UpdateMousePosition();
-            }
         }
         handled = true;
         break;
@@ -457,14 +460,21 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
                     point.x = it->x / 100;
                     point.y = it->y / 100;
                     ScreenToClient((HWND)handle, &point);
+                    IntVector2 position(point.x, point.y);
 
                     if (it->dwFlags & (TOUCHEVENTF_DOWN || TOUCHEVENTF_UP))
-                        input->OnTouch(it->dwID, true, IntVector2(point.x, point.y), 1.0f);
+                        input->OnTouch(it->dwID, true, position, 1.0f);
                     else if (it->dwFlags & TOUCHEVENTF_UP)
-                        input->OnTouch(it->dwID, false, IntVector2(point.x, point.y), 1.0f);
+                        input->OnTouch(it->dwID, false, position, 1.0f);
+
+                    // Mouse cursor will move to the position of the touch on next move, so move beforehand
+                    // to prevent erratic jumps in hidden mouse mode
+                    if (!mouseVisibleInternal)
+                        mousePosition = position;
                 }
             }
         }
+
         closeTouchInputHandle((HTOUCHINPUT)lParam);
         handled = true;
         break;
