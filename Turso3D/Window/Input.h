@@ -146,7 +146,7 @@ public:
     /// Return whether key was pressed on this frame by raw key code.
     bool IsKeyPressRaw(unsigned rawKeyCode) const;
     /// Return current mouse position.
-    IntVector2 MousePosition() const { return mousePosition; }
+    const IntVector2& MousePosition() const;
     /// Return accumulated mouse movement since last frame.
     IntVector2 MouseMove() const { return mouseMove; }
     /// Return pressed down mouse buttons bitmask.
@@ -167,7 +167,7 @@ public:
     /// React to char input. Called by window message handling.
     void OnChar(unsigned unicodeChar);
     /// React to a mouse move. Called by window message handling.
-    void OnMouseMove(const IntVector2& position);
+    void OnMouseMove(const IntVector2& position, const IntVector2& delta);
     /// React to a mouse button. Called by window message handling.
     void OnMouseButton(unsigned button, bool pressed);
     /// React to a touch. Called by window message handling.
@@ -203,16 +203,12 @@ private:
     HashMap<unsigned, bool> rawKeyPress;
     /// Active touches.
     Vector<Touch> touches;
-    /// Current mouse position.
-    IntVector2 mousePosition;
     /// Accumulated mouse move since last frame.
     IntVector2 mouseMove;
     /// Mouse buttons bitmask.
     unsigned mouseButtons;
     /// Mouse buttons pressed bitmask.
     unsigned mouseButtonsPressed;
-    /// Discard next mouse move flag.
-    bool discardMouseMove;
 };
 
 }

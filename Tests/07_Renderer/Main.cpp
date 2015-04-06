@@ -42,6 +42,7 @@ public:
         renderer = new Renderer();
 
         graphics->RenderWindow()->SetTitle("Renderer test");
+        graphics->RenderWindow()->SetMouseVisible(false);
         graphics->SetMode(IntVector2(640, 480), false, true);
 
         renderer->SetupShadowMaps(1, 2048, FMT_D16);
@@ -113,12 +114,9 @@ public:
             if (input->IsKeyPress(27))
                 graphics->Close();
 
-            if (input->IsMouseButtonDown(MOUSEB_RIGHT))
-            {
-                pitch += input->MouseMove().y * 0.25f;
-                yaw += input->MouseMove().x * 0.25f;
-                pitch = Clamp(pitch, -90.0f, 90.0f);
-            }
+            pitch += input->MouseMove().y * 0.25f;
+            yaw += input->MouseMove().x * 0.25f;
+            pitch = Clamp(pitch, -90.0f, 90.0f);
 
             float moveSpeed = input->IsKeyDown(VK_SHIFT) ? 50.0f : 10.0f;
 

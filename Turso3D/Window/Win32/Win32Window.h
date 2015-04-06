@@ -33,6 +33,10 @@ public:
     bool SetSize(const IntVector2& size, bool fullscreen, bool resizable);
     /// Set window position.
     void SetPosition(const IntVector2& position);
+    /// Set mouse cursor visible. Default is true. When hidden, the mouse cursor is confined to the window and kept centered; relative mouse motion can be read "endlessly" but absolute mouse position should not be used.
+    void SetMouseVisible(bool enable);
+    /// Move the mouse cursor to a window top-left relative position.
+    void SetMousePosition(const IntVector2& position);
     /// Close the window.
     void Close();
     /// Minimize the window.
@@ -54,6 +58,8 @@ public:
     int Height() const { return size.y; }
     /// Return window position.
     IntVector2 Position() const;
+    /// Return last known mouse cursor position relative to window top-left.
+    const IntVector2& MousePosition() const { return mousePosition; }
     /// Return whether window is open.
     bool IsOpen() const { return handle != nullptr; }
     /// Return whether is resizable.
@@ -64,6 +70,8 @@ public:
     bool IsMinimized() const { return minimized; }
     /// Return whether has input focus.
     bool HasFocus() const { return focus; }
+    /// Return whether mouse cursor is visible.
+    bool IsMouseVisible() const { return mouseVisible; }
     /// Return window handle. Can be cast to a HWND.
     void* Handle() const { return handle; }
 
@@ -89,6 +97,12 @@ public:
 private:
     /// Change display mode. If width and height are zero, will restore desktop resolution.
     void SetDisplayMode(int width, int height);
+    /// Update mouse visibility and clipping region to the OS.
+    void UpdateMouseVisible();
+    /// Update mouse clipping region.
+    void UpdateMouseClipping();
+    /// Refresh the internally tracked mouse cursor position.
+    void UpdateMousePosition();
     /// Verify window size from the window client rect.
     IntVector2 ClientRectSize() const;
 
@@ -100,6 +114,8 @@ private:
     IntVector2 size;
     /// Last stored windowed mode position.
     IntVector2 savedPosition;
+    /// Current mouse cursor position.
+    IntVector2 mousePosition;
     /// Window style flags.
     unsigned windowStyle;
     /// Current minimization state.
@@ -112,6 +128,10 @@ private:
     bool fullscreen;
     /// Performing size set. Used internally to suppress resize events during it.
     bool inResize;
+    /// Mouse visible flag as requested by the application.
+    bool mouseVisible;
+    /// Internal mouse visible flag. The mouse is automaticaly shown when the window is unfocused, while mouseVisible represents the application's desired state. Used to prevent multiple calls to OS mouse visibility functions, which utilize a counter.
+    bool mouseVisibleInternal;
 };
 
 }

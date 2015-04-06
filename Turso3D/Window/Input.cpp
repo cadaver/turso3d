@@ -10,8 +10,7 @@ namespace Turso3D
 
 Input::Input() :
     mouseButtons(0),
-    mouseButtonsPressed(0),
-    discardMouseMove(true)
+    mouseButtonsPressed(0)
 {
     RegisterSubsystem(this);
 }
@@ -61,6 +60,12 @@ bool Input::IsKeyPressRaw(unsigned rawKeyCode) const
     return it != rawKeyPress.End() ? it->second : false;
 }
 
+const IntVector2& Input::MousePosition() const
+{
+    Window* window = Subsystem<Window>();
+    return window ? window->MousePosition() : IntVector2::ZERO;
+}
+
 bool Input::IsMouseButtonDown(unsigned button) const
 {
     return (mouseButtons & (1 << button)) != 0;
@@ -107,12 +112,9 @@ void Input::OnChar(unsigned unicodeChar)
     SendEvent(charInputEvent);
 }
 
-void Input::OnMouseMove(const IntVector2& position)
+void Input::OnMouseMove(const IntVector2& position, const IntVector2& delta)
 {
-    IntVector2 delta = discardMouseMove ? IntVector2::ZERO : position - mousePosition;
-    mousePosition = position;
     mouseMove += delta;
-    discardMouseMove = false;
 
     mouseMoveEvent.position = position;
     mouseMoveEvent.delta = delta;
@@ -134,7 +136,7 @@ void Input::OnMouseButton(unsigned button, bool pressed)
     mouseButtonEvent.button = button;
     mouseButtonEvent.buttons = mouseButtons;
     mouseButtonEvent.pressed = pressed;
-    mouseButtonEvent.position = mousePosition;
+    mouseButtonEvent.position = MousePosition();
     SendEvent(mouseButtonEvent);
 }
 
@@ -221,7 +223,6 @@ void Input::OnTouch(unsigned internalId, bool pressed, const IntVector2& positio
 
 void Input::OnGainFocus()
 {
-    discardMouseMove = true;
 }
 
 void Input::OnLoseFocus()

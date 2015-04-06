@@ -55,12 +55,15 @@ Window::Window() :
     title("Turso3D Window"),
     size(IntVector2::ZERO),
     savedPosition(IntVector2(M_MIN_INT, M_MIN_INT)),
+    mousePosition(IntVector2::ZERO),
     windowStyle(0),
     minimized(false),
     focus(false),
     resizable(false),
     fullscreen(false),
-    inResize(false)
+    inResize(false),
+    mouseVisible(true),
+    mouseVisibleInternal(true)
 {
     RegisterSubsystem(this);
 
@@ -186,6 +189,9 @@ bool Window::SetSize(const IntVector2& size_, bool fullscreen_, bool resizable_)
         SendEvent(resizeEvent);
     }
 
+    UpdateMouseVisible();
+    UpdateMousePosition();
+
     return true;
 }
 
@@ -193,6 +199,28 @@ void Window::SetPosition(const IntVector2& position)
 {
     if (handle)
         SetWindowPos((HWND)handle, NULL, position.x, position.y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+}
+
+void Window::SetMouseVisible(bool enable)
+{
+    if (enable != mouseVisible)
+    {
+        mouseVisible = enable;
+        UpdateMouseVisible();
+    }
+}
+
+void Window::SetMousePosition(const IntVector2& position)
+{
+    if (handle)
+    {
+        mousePosition = position;
+        POINT screenPosition;
+        screenPosition.x = position.x;
+        screenPosition.y = position.y;
+        ClientToScreen((HWND)handle, &screenPosition);
+        SetCursorPos(screenPosition.x, screenPosition.y);
+    }
 }
 
 void Window::Close()
@@ -294,6 +322,9 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
                     // If fullscreen, minimize on focus loss
                     if (fullscreen)
                         ShowWindow((HWND)handle, SW_MINIMIZE);
+
+                    // Stop mouse cursor hiding & clipping
+                    UpdateMouseVisible();
                 }
             }
         }
@@ -333,6 +364,10 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
                     SendEvent(resizeEvent);
                 }
             }
+
+            // If mouse is currently hidden, update the clip region
+            if (!mouseVisibleInternal)
+                UpdateMouseClipping();
         }
         break;
 
@@ -357,12 +392,21 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
         break;
 
     case WM_MOUSEMOVE:
-        if (input && !emulatedMouse)
+        // Do not transmit mouse move when mouse should be hidden, but is not due to no input focus
+        if (input && !emulatedMouse && mouseVisible == mouseVisibleInternal)
         {
+            IntVector2 center(Size() / 2);
             IntVector2 newPosition;
+            IntVector2 delta;
             newPosition.x = (int)(short)LOWORD(lParam);
             newPosition.y = (int)(short)HIWORD(lParam);
-            input->OnMouseMove(newPosition);
+            delta = newPosition - mousePosition;
+            input->OnMouseMove(newPosition, delta);
+            // Recenter in hidden mouse cursor mode to allow endless relative motion
+            if (!mouseVisibleInternal && delta != IntVector2::ZERO)
+                SetMousePosition(IntVector2(Width() / 2, Height() / 2));
+            else
+                mousePosition = newPosition;
         }
         handled = true;
         break;
@@ -376,6 +420,12 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
             input->OnMouseButton(button, true);
             // Make sure we track the button release even if mouse moves outside the window
             SetCapture((HWND)handle);
+            // Re-establish mouse cursor hiding & clipping
+            if (!mouseVisible && mouseVisibleInternal)
+            {
+                UpdateMouseVisible();
+                UpdateMousePosition();
+            }
         }
         handled = true;
         break;
@@ -455,6 +505,51 @@ void Window::SetDisplayMode(int width, int height)
     }
     else
         ChangeDisplaySettings(nullptr, CDS_FULLSCREEN);
+}
+
+void Window::UpdateMouseVisible()
+{
+    if (!handle)
+        return;
+
+    // When the window is unfocused, mouse should never be hidden
+    bool newMouseVisible = HasFocus() ? mouseVisible : true;
+    if (newMouseVisible != mouseVisibleInternal)
+    {
+        ShowCursor(newMouseVisible ? TRUE : FALSE);
+        mouseVisibleInternal = newMouseVisible;
+    }
+
+    UpdateMouseClipping();
+}
+
+void Window::UpdateMouseClipping()
+{
+    if (mouseVisibleInternal)
+        ClipCursor(nullptr);
+    else
+    {
+        RECT mouseRect;
+        POINT point;
+        IntVector2 windowSize = Size();
+
+        point.x = point.y = 0;
+        ClientToScreen((HWND)handle, &point);
+        mouseRect.left = point.x;
+        mouseRect.top = point.y;
+        mouseRect.right = point.x + windowSize.x;
+        mouseRect.bottom = point.y + windowSize.y;
+        ClipCursor(&mouseRect);
+    }
+}
+
+void Window::UpdateMousePosition()
+{
+    POINT screenPosition;
+    GetCursorPos(&screenPosition);
+    ScreenToClient((HWND)handle, &screenPosition);
+    mousePosition.x = screenPosition.x;
+    mousePosition.y = screenPosition.y;
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
