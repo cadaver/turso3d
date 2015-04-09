@@ -43,7 +43,7 @@ public:
 
         graphics->RenderWindow()->SetTitle("Renderer test");
         graphics->RenderWindow()->SetMouseVisible(false);
-        graphics->SetMode(IntVector2(640, 480), false, true);
+        graphics->SetMode(IntVector2(800, 600), false, true);
 
         renderer->SetupShadowMaps(1, 2048, FMT_D16);
 

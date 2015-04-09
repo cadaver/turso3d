@@ -30,7 +30,7 @@ public:
 
         graphics = new Graphics();
         graphics->RenderWindow()->SetTitle("Graphics test");
-        graphics->SetMode(IntVector2(640, 480), false, true);
+        graphics->SetMode(IntVector2(800, 600), false, true);
 
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &GraphicsTest::HandleCloseRequest);
         

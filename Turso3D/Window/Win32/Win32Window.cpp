@@ -394,20 +394,18 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
     case WM_MOUSEMOVE:
         if (input && !emulatedMouse)
         {
-            IntVector2 center(Size() / 2);
             IntVector2 newPosition;
-            IntVector2 delta;
             newPosition.x = (int)(short)LOWORD(lParam);
             newPosition.y = (int)(short)HIWORD(lParam);
 
             // Do not transmit mouse move when mouse should be hidden, but is not due to no input focus
             if (mouseVisibleInternal == mouseVisible)
             {
-                delta = newPosition - mousePosition;
+                IntVector2 delta = newPosition - mousePosition;
                 input->OnMouseMove(newPosition, delta);
                 // Recenter in hidden mouse cursor mode to allow endless relative motion
                 if (!mouseVisibleInternal && delta != IntVector2::ZERO)
-                    SetMousePosition(IntVector2(Width() / 2, Height() / 2));
+                    SetMousePosition(Size() / 2);
                 else
                     mousePosition = newPosition;
             }
