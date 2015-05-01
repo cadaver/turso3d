@@ -126,11 +126,11 @@ private:
     bool resizable;
     /// Fullscreen flag.
     bool fullscreen;
-    /// Performing size set. Used internally to suppress resize events during it.
+    /// Performing window resize flag. Used internally to suppress resize events during it.
     bool inResize;
     /// Mouse visible flag as requested by the application.
     bool mouseVisible;
-    /// Internal mouse visible flag. The mouse is automaticaly shown when the window is unfocused, while mouseVisible represents the application's desired state. Used to prevent multiple calls to OS mouse visibility functions, which utilize a counter.
+    /// Internal mouse visible flag. The mouse is automatically shown when the window is unfocused, while mouseVisible represents the application's desired state. Used to prevent multiple calls to OS mouse visibility functions, which utilize a counter.
     bool mouseVisibleInternal;
 };
 
