@@ -139,7 +139,7 @@ public:
     /// Return the current depth-stencil buffer, or null if rendering to the backbuffer.
     Texture* DepthStencil() const { return depthStencil; }
     /// Return the current viewport rectangle.
-    const IntRect Viewport() const { return viewport; }
+    const IntRect& Viewport() const { return viewport; }
     /// Return currently bound vertex buffer by index.
     VertexBuffer* GetVertexBuffer(size_t index) const;
     /// Return currently bound index buffer.
