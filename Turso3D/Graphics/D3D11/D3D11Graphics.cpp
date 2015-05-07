@@ -256,12 +256,14 @@ void Graphics::SetRenderTargets(const Vector<Texture*>& renderTargets_, Texture*
 {
     PrepareTextures();
 
-    // If depth stencil is specified but no rendertarget, use null instead of backbuffer
+    // If depth stencil is specified but no rendertarget, use null instead of backbuffer, unless the depth stencil has same
+    // size as the backbuffer
+    bool depthOnlyRendering = depthStencil_ && depthStencil_->Size() != backbufferSize;
     for (size_t i = 0; i < MAX_RENDERTARGETS && i < renderTargets_.Size(); ++i)
     {
         renderTargets[i] = (renderTargets_[i] && renderTargets_[i]->IsRenderTarget()) ? renderTargets_[i] : nullptr;
         impl->renderTargetViews[i] = renderTargets[i] ? (ID3D11RenderTargetView*)renderTargets_[i]->D3DRenderTargetView() :
-            (i > 0 || depthStencil_) ? nullptr : impl->defaultRenderTargetView;
+            (i > 0 || depthOnlyRendering) ? nullptr : impl->defaultRenderTargetView;
     }
 
     for (size_t i = renderTargets_.Size(); i < MAX_RENDERTARGETS; ++i)
