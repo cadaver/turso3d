@@ -21,15 +21,6 @@ static const float DEFAULT_FADE_START = 0.9f;
 static const int DEFAULT_DEPTH_BIAS = 5;
 static const float DEFAULT_SLOPE_SCALED_DEPTH_BIAS = 0.5f;
 
-static const Quaternion pointLightFaceRotations[] = {
-    Quaternion(0.0f, 90.0f, 0.0f),
-    Quaternion(0.0f, -90.0f, 0.0f),
-    Quaternion(-90.0f, 0.0f, 0.0f),
-    Quaternion(90.0f, 0.0f, 0.0f),
-    Quaternion(0.0f, 0.0f, 0.0f),
-    Quaternion(0.0f, 180.0f, 0.0f)
-};
-
 static const char* lightTypeNames[] =
 {
     "directional",
@@ -387,6 +378,15 @@ void Light::SetupShadowViews(Camera* mainCamera, Vector<AutoPtr<ShadowView> >& s
 
         case LIGHT_POINT:
             {
+                static const Quaternion pointLightFaceRotations[] = {
+                    Quaternion(0.0f, 90.0f, 0.0f),
+                    Quaternion(0.0f, -90.0f, 0.0f),
+                    Quaternion(-90.0f, 0.0f, 0.0f),
+                    Quaternion(90.0f, 0.0f, 0.0f),
+                    Quaternion(0.0f, 0.0f, 0.0f),
+                    Quaternion(0.0f, 180.0f, 0.0f)
+                };
+
                 IntVector2 topLeft(shadowRect.left, shadowRect.top);
                 if (i & 1)
                     topLeft.y += actualShadowMapSize;
