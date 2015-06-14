@@ -30,7 +30,8 @@ public:
 
         graphics = new Graphics();
         graphics->RenderWindow()->SetTitle("Graphics test");
-        graphics->SetMode(IntVector2(800, 600), false, true);
+        if (!graphics->SetMode(IntVector2(800, 600), false, true))
+            return;
 
         SubscribeToEvent(graphics->RenderWindow()->closeRequestEvent, &GraphicsTest::HandleCloseRequest);
         
@@ -154,7 +155,7 @@ public:
             if (input->IsKeyPress(27))
                 graphics->Close();
 
-            // Drawing and state setting functions will not check Graphics initialization state, check now
+            // Break if window closed; Graphics drawing functions are not safe to any more
             if (!graphics->IsInitialized())
                 break;
 

@@ -21,13 +21,6 @@ class RendererTest : public Object
 public:
     void Run()
     {
-        printf("Size of SpatialNode: %d\n", sizeof(SpatialNode));
-        printf("Size of OctreeNode: %d\n", sizeof(OctreeNode));
-        printf("Size of GeometryNode: %d\n", sizeof(GeometryNode));
-        printf("Size of StaticModel: %d\n", sizeof(StaticModel));
-        printf("Size of Octant: %d\n", sizeof(Octant));
-        printf("Size of Geometry: %d\n", sizeof(Geometry));
-
         RegisterGraphicsLibrary();
         RegisterResourceLibrary();
         RegisterRendererLibrary();
@@ -43,7 +36,8 @@ public:
 
         graphics->RenderWindow()->SetTitle("Renderer test");
         graphics->RenderWindow()->SetMouseVisible(false);
-        graphics->SetMode(IntVector2(800, 600), false, true);
+        if (!graphics->SetMode(IntVector2(800, 600), false, true))
+            return;
 
         renderer->SetupShadowMaps(1, 2048, FMT_D16);
 
@@ -114,6 +108,10 @@ public:
             if (input->IsKeyPress(27))
                 graphics->Close();
 
+            // Break if window closed; Graphics drawing functions are not safe to any more
+            if (!graphics->IsInitialized())
+                break;
+
             pitch += input->MouseMove().y * 0.25f;
             yaw += input->MouseMove().x * 0.25f;
             pitch = Clamp(pitch, -90.0f, 90.0f);
@@ -129,10 +127,6 @@ public:
                 camera->Translate(Vector3::LEFT * dt * moveSpeed);
             if (input->IsKeyDown('D'))
                 camera->Translate(Vector3::RIGHT * dt * moveSpeed);
-
-            // Drawing and state setting functions will not check Graphics initialization state, check now
-            if (!graphics->IsInitialized())
-                break;
 
             // Update camera aspect ratio based on window size
             camera->SetAspectRatio((float)graphics->Width() / (float)graphics->Height());
