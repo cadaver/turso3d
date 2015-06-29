@@ -8,6 +8,8 @@
 namespace Turso3D
 {
 
+class Stream;
+
 /// Typed resource reference for serialization.
 struct TURSO3D_API ResourceRef
 {
@@ -51,9 +53,13 @@ struct TURSO3D_API ResourceRef
     bool FromString(const String& str);
     /// Set from a C string that contains the type and name separated by a semicolon. Return true on success.
     bool FromString(const char* str);
+    /// Deserialize from a binary stream.
+    void FromBinary(Stream& source);
     
     /// Return as a string.
     String ToString() const;
+    /// Serialize to a binary stream.
+    void ToBinary(Stream& dest) const;
 
     /// Test for equality with another reference.
     bool operator == (const ResourceRef& rhs) const { return type == rhs.type && name == rhs.name; }
@@ -104,10 +110,14 @@ struct TURSO3D_API ResourceRefList
     bool FromString(const String& str);
     /// Set from a C string that contains the type and names separated by semicolons. Return true on success.
     bool FromString(const char* str);
-    
+    /// Deserialize from a binary stream.
+    void FromBinary(Stream& source);
+
     /// Return as a string.
     String ToString() const;
-    
+    /// Deserialize from a binary stream.
+    void ToBinary(Stream& dest) const;
+
     /// Test for equality with another reference list.
     bool operator == (const ResourceRefList& rhs) const { return type == rhs.type && names == rhs.names; }
     /// Test for inequality with another reference list.

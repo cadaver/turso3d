@@ -107,10 +107,14 @@ public:
     bool FromString(const String& str);
     /// Parse from a C string. Return true on success.
     bool FromString(const char* str);
+    /// Parse from a binary stream.
+    void FromBinary(Stream& source);
     /// Write to a string. Called recursively to write nested values.
     void ToString(String& dest, int spacing = 2, int indent = 0) const;
     /// Return as string.
     String ToString(int spacing = 2) const;
+    /// Serialize to a binary stream.
+    void ToBinary(Stream& dest) const;
     
     /// Push a value at the end. Becomes an array if was not before.
     void Push(const JSONValue& value);

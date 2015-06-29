@@ -61,9 +61,9 @@ public:
     /// Construct.
     Attribute(const char* name, AttributeAccessor* accessor, const char** enumNames = 0);
     
-    /// Deserialize from binary.
+    /// Deserialize from a binary stream.
     virtual void FromBinary(Serializable* instance, Stream& source) = 0;
-    /// Serialize to binary.
+    /// Serialize to a binary stream.
     virtual void ToBinary(Serializable* instance, Stream& dest) = 0;
     /// Deserialize from JSON.
     virtual void FromJSON(Serializable* instance, const JSONValue& source) = 0;
@@ -130,14 +130,14 @@ public:
     {
     }
     
-    /// Deserialize from binary.
+    /// Deserialize from a binary stream.
     void FromBinary(Serializable* instance, Stream& source) override
     {
         T value = source.Read<T>();
         accessor->Set(instance, &value);
     }
     
-    /// Serialize to binary.
+    /// Serialize to a binary stream.
     void ToBinary(Serializable* instance, Stream& dest) override
     {
         T value;

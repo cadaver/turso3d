@@ -134,18 +134,14 @@ template<> StringHash Stream::Read<StringHash>()
 template<> ResourceRef Stream::Read<ResourceRef>()
 {
     ResourceRef ret;
-    ret.type = Read<StringHash>();
-    ret.name = Read<String>();
+    ret.FromBinary(*this);
     return ret;
 }
 
 template<> ResourceRefList Stream::Read<ResourceRefList>()
 {
     ResourceRefList ret;
-    ret.type = Read<StringHash>();
-    ret.names.Resize(ReadVLE());
-    for (auto it = ret.names.Begin(); it != ret.names.End(); ++it)
-        *it = Read<String>();
+    ret.FromBinary(*this);
     return ret;
 }
 
@@ -159,48 +155,7 @@ template<> ObjectRef Stream::Read<ObjectRef>()
 template<> JSONValue Stream::Read<JSONValue>()
 {
     JSONValue ret;
-    
-    JSONType type = (JSONType)Read<unsigned char>();
-    
-    switch (type)
-    {
-    case JSON_BOOL:
-        ret = Read<bool>();
-        break;
-        
-    case JSON_NUMBER:
-        ret = Read<double>();
-        break;
-        
-    case JSON_STRING:
-        ret = Read<String>();
-        break;
-        
-    case JSON_ARRAY:
-        {
-            size_t num = ReadVLE();
-            ret.SetEmptyArray();
-            for (size_t i = 0; i < num; ++i)
-                ret.Push(Read<JSONValue>());
-        }
-        break;
-        
-    case JSON_OBJECT:
-        {
-            size_t num = ReadVLE();
-            ret.SetEmptyObject();
-            for (size_t i = 0; i < num; ++i)
-            {
-                String key = Read<String>();
-                ret[key] = Read<JSONValue>();
-            }
-        }
-        break;
-        
-    default:
-        break;
-    }
-    
+    ret.FromBinary(*this);
     return ret;
 }
 
@@ -288,16 +243,12 @@ template<> void Stream::Write<StringHash>(const StringHash& value)
 
 template<> void Stream::Write<ResourceRef>(const ResourceRef& value)
 {
-    Write(value.type);
-    Write(value.name);
+    value.ToBinary(*this);
 }
 
 template<> void Stream::Write<ResourceRefList>(const ResourceRefList& value)
 {
-    Write(value.type);
-    WriteVLE(value.names.Size());
-    for (size_t i = 0; i < value.names.Size(); ++i)
-        Write(value.names[i]);
+    value.ToBinary(*this);
 }
 
 template<> void Stream::Write<ObjectRef>(const ObjectRef& value)
@@ -307,46 +258,7 @@ template<> void Stream::Write<ObjectRef>(const ObjectRef& value)
 
 template<> void Stream::Write<JSONValue>(const JSONValue& value)
 {
-    Write((unsigned char)value.Type());
-    
-    switch (value.Type())
-    {
-    case JSON_BOOL:
-        Write(value.GetBool());
-        break;
-        
-    case JSON_NUMBER:
-        Write(value.GetNumber());
-        break;
-
-    case JSON_STRING:
-        Write(value.GetString());
-        break;
-
-    case JSON_ARRAY:
-        {
-            const JSONArray& array = value.GetArray();
-            WriteVLE(array.Size());
-            for (auto it = array.Begin(); it != array.End(); ++it)
-                Write(*it);
-        }
-        break;
-        
-    case JSON_OBJECT:
-        {
-            const JSONObject& object = value.GetObject();
-            WriteVLE(object.Size());
-            for (auto it = object.Begin(); it != object.End(); ++it)
-            {
-                Write(it->first);
-                Write(it->second);
-            }
-        }
-        break;
-        
-    default:
-        break;
-    }
+    value.ToBinary(*this);
 }
 
 }

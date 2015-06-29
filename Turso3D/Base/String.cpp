@@ -119,7 +119,7 @@ String::String(double value) :
     buffer(nullptr)
 {
     char tempBuffer[CONVERSION_BUFFER_LENGTH];
-    sprintf(tempBuffer, "%g", value);
+    sprintf(tempBuffer, "%.15g", value);
     *this = tempBuffer;
 }
 

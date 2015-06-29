@@ -3,6 +3,7 @@
 #include "../Base/Vector.h"
 #include "../Base/HashMap.h"
 #include "JSONValue.h"
+#include "Stream.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -257,6 +258,54 @@ bool JSONValue::FromString(const char* str)
     return Parse(pos, end);
 }
 
+void JSONValue::FromBinary(Stream& source)
+{
+    JSONType newType = (JSONType)source.Read<unsigned char>();
+
+    switch (newType)
+    {
+    case JSON_NULL:
+        Clear();
+        break;
+
+    case JSON_BOOL:
+        *this = source.Read<bool>();
+        break;
+
+    case JSON_NUMBER:
+        *this = source.Read<double>();
+        break;
+
+    case JSON_STRING:
+        *this = source.Read<String>();
+        break;
+
+    case JSON_ARRAY:
+        {
+            size_t num = source.ReadVLE();
+            SetEmptyArray();
+            for (size_t i = 0; i < num && !source.IsEof(); ++i)
+                Push(source.Read<JSONValue>());
+        }
+        break;
+
+    case JSON_OBJECT:
+        {
+            size_t num = source.ReadVLE();
+            SetEmptyObject();
+            for (size_t i = 0; i < num && !source.IsEof(); ++i)
+            {
+                String key = source.Read<String>();
+                (*this)[key] = source.Read<JSONValue>();
+            }
+        }
+        break;
+
+    default:
+        break;
+    }
+}
+
 void JSONValue::ToString(String& dest, int spacing, int indent) const
 {
     switch (type)
@@ -335,6 +384,50 @@ String JSONValue::ToString(int spacing) const
     String ret;
     ToString(ret, spacing);
     return ret;
+}
+
+void JSONValue::ToBinary(Stream& dest) const
+{
+    dest.Write((unsigned char)type);
+
+    switch (type)
+    {
+    case JSON_BOOL:
+        dest.Write(GetBool());
+        break;
+
+    case JSON_NUMBER:
+        dest.Write(GetNumber());
+        break;
+
+    case JSON_STRING:
+        dest.Write(GetString());
+        break;
+
+    case JSON_ARRAY:
+        {
+            const JSONArray& array = GetArray();
+            dest.WriteVLE(array.Size());
+            for (auto it = array.Begin(); it != array.End(); ++it)
+                it->ToBinary(dest);
+        }
+        break;
+
+    case JSON_OBJECT:
+        {
+            const JSONObject& object = GetObject();
+            dest.WriteVLE(object.Size());
+            for (auto it = object.Begin(); it != object.End(); ++it)
+            {
+                dest.Write(it->first);
+                it->second.ToBinary(dest);
+            }
+        }
+        break;
+
+    default:
+        break;
+    }
 }
 
 void JSONValue::Push(const JSONValue& value)
