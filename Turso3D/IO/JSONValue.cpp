@@ -282,8 +282,8 @@ void JSONValue::FromBinary(Stream& source)
 
     case JSON_ARRAY:
         {
-            size_t num = source.ReadVLE();
             SetEmptyArray();
+            size_t num = source.ReadVLE();
             for (size_t i = 0; i < num && !source.IsEof(); ++i)
                 Push(source.Read<JSONValue>());
         }
@@ -291,8 +291,8 @@ void JSONValue::FromBinary(Stream& source)
 
     case JSON_OBJECT:
         {
-            size_t num = source.ReadVLE();
             SetEmptyObject();
+            size_t num = source.ReadVLE();
             for (size_t i = 0; i < num && !source.IsEof(); ++i)
             {
                 String key = source.Read<String>();
@@ -393,11 +393,11 @@ void JSONValue::ToBinary(Stream& dest) const
     switch (type)
     {
     case JSON_BOOL:
-        dest.Write(GetBool());
+        dest.Write(data.boolValue);
         break;
 
     case JSON_NUMBER:
-        dest.Write(GetNumber());
+        dest.Write(data.numberValue);
         break;
 
     case JSON_STRING:
