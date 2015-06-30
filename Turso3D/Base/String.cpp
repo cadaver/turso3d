@@ -149,8 +149,7 @@ String::String(char value, size_t numChars) :
 
 String::~String()
 {
-    if (buffer)
-        delete[] buffer;
+    delete[] buffer;
 }
 
 String& String::operator = (const String& rhs)
