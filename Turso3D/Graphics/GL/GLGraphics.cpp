@@ -17,15 +17,16 @@
 #include <cstdlib>
 #include <flextGL.h>
 
-#include "../../Debug/DebugNew.h"
-
 #ifdef WIN32
+#include <Windows.h>
 // Prefer the high-performance GPU on switchable GPU systems
 extern "C" {
     __declspec(dllexport) DWORD NvOptimusEnablement = 1;
     __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 #endif
+
+#include "../../Debug/DebugNew.h"
 
 namespace Turso3D
 {

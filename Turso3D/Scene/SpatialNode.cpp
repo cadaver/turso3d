@@ -46,6 +46,14 @@ void SpatialNode::SetDirection(const Vector3& newDirection)
 void SpatialNode::SetScale(const Vector3& newScale)
 {
     scale = newScale;
+    // Make sure scale components never go to exactly zero, to prevent problems with decomposing the world matrix
+    if (scale.x == 0.0f)
+        scale.x = M_EPSILON;
+    if (scale.y == 0.0f)
+        scale.y = M_EPSILON;
+    if (scale.z == 0.0f)
+        scale.z = M_EPSILON;
+
     OnTransformChanged();
 }
 
