@@ -101,6 +101,17 @@ public:
     /// Render a pass to the currently set rendertarget and viewport. Convenience function for one pass only.
     void RenderBatches(const String& pass);
 
+    /// Per-frame vertex shader constant buffer.
+    SharedPtr<ConstantBuffer> vsFrameConstantBuffer;
+    /// Per-frame pixel shader constant buffer.
+    SharedPtr<ConstantBuffer> psFrameConstantBuffer;
+    /// Per-object vertex shader constant buffer.
+    SharedPtr<ConstantBuffer> vsObjectConstantBuffer;
+    /// Lights vertex shader constant buffer.
+    SharedPtr<ConstantBuffer> vsLightConstantBuffer;
+    /// Lights pixel shader constant buffer.
+    SharedPtr<ConstantBuffer> psLightConstantBuffer;
+
 private:
     /// Initialize. Needs the Graphics subsystem and rendering context to exist.
     void Initialize();
@@ -157,16 +168,6 @@ private:
     Vector<AutoPtr<ShadowView> > shadowViews;
     /// Used shadow views so far.
     size_t usedShadowViews;
-    /// Per-frame vertex shader constant buffer.
-    AutoPtr<ConstantBuffer> vsFrameConstantBuffer;
-    /// Per-frame pixel shader constant buffer.
-    AutoPtr<ConstantBuffer> psFrameConstantBuffer;
-    /// Per-object vertex shader constant buffer.
-    AutoPtr<ConstantBuffer> vsObjectConstantBuffer;
-    /// Lights vertex shader constant buffer.
-    AutoPtr<ConstantBuffer> vsLightConstantBuffer;
-    /// Lights pixel shader constant buffer.
-    AutoPtr<ConstantBuffer> psLightConstantBuffer;
     /// Instance transform vertex buffer.
     AutoPtr<VertexBuffer> instanceVertexBuffer;
     /// Vertex elements for the instance vertex buffer.

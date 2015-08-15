@@ -850,9 +850,8 @@ void Renderer::RenderBatches(const Vector<Batch>& batches, Camera* camera_, bool
     if (instanceTransformsDirty && instanceTransforms.Size())
     {
         if (instanceVertexBuffer->NumVertices() < instanceTransforms.Size())
-            instanceVertexBuffer->Define(USAGE_DYNAMIC, instanceTransforms.Size(), instanceVertexElements, false, &instanceTransforms[0]);
-        else
-            instanceVertexBuffer->SetData(0, instanceTransforms.Size(), &instanceTransforms[0]);
+            instanceVertexBuffer->Define(USAGE_DYNAMIC, NextPowerOfTwo(instanceTransforms.Size()), instanceVertexElements, false);
+        instanceVertexBuffer->SetData(0, instanceTransforms.Size(), &instanceTransforms[0]);
         graphics->SetVertexBuffer(1, instanceVertexBuffer);
         instanceTransformsDirty = false;
     }
