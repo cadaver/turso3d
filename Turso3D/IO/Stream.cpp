@@ -159,21 +159,6 @@ template<> JSONValue Stream::Read<JSONValue>()
     return ret;
 }
 
-void Stream::WriteString(const String& value, bool nullTerminate)
-{
-    WriteString(value.CString(), nullTerminate);
-}
-
-void Stream::WriteString(const char* value, bool nullTerminate)
-{
-    // Count length to the first zero, because ReadString() does the same
-    size_t length = String::CStringLength(value);
-    if (nullTerminate)
-        Write(value, length + 1);
-    else
-        Write(value, length);
-}
-
 void Stream::WriteFileID(const String& value)
 {
     Write(value.CString(), Min((int)value.Length(), 4));
@@ -233,7 +218,8 @@ template<> void Stream::Write<bool>(const bool& value)
 
 template<> void Stream::Write<String>(const String& value)
 {
-    WriteString(value);
+    // Write content and null terminator
+    Write(value.CString(), value.Length() + 1);
 }
 
 template<> void Stream::Write<StringHash>(const StringHash& value)

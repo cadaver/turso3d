@@ -48,10 +48,6 @@ public:
     String ReadFileID();
     /// Read a byte buffer, with size prepended as a VLE value.
     Vector<unsigned char> ReadBuffer();
-    /// Write a string with optional null termination.
-    void WriteString(const String& value, bool nullTerminate = true);
-    /// Write a C string with optional null termination.
-    void WriteString(const char* value, bool nullTerminate = true);
     /// Write a four-letter file ID. If the string is not long enough, spaces will be appended.
     void WriteFileID(const String& value);
     /// Write a byte buffer, with size encoded as VLE.

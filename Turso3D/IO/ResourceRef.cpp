@@ -89,7 +89,7 @@ void ResourceRefList::ToBinary(Stream& dest) const
     dest.Write(type);
     dest.WriteVLE(names.Size());
     for (auto it = names.Begin(); it != names.End(); ++it)
-        dest.WriteString(*it);
+        dest.Write(*it);
 }
 
 }
