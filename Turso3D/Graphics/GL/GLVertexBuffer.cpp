@@ -85,9 +85,9 @@ bool VertexBuffer::SetData(size_t firstVertex, size_t numVertices_, const void* 
     {
         graphics->BindVBO(buffer);
         if (numVertices_ == numVertices)
-            glBufferData(GL_ARRAY_BUFFER, numVertices * vertexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, numVertices_ * vertexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
         else
-            glBufferSubData(GL_ARRAY_BUFFER, firstVertex * vertexSize, numVertices * vertexSize, data);
+            glBufferSubData(GL_ARRAY_BUFFER, firstVertex * vertexSize, numVertices_ * vertexSize, data);
     }
 
     return true;

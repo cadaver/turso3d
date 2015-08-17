@@ -73,9 +73,9 @@ bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* dat
     {
         graphics->SetIndexBuffer(this);
         if (numIndices_ == numIndices)
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, numIndices * indexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, numIndices_ * indexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
         else
-            glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, firstIndex * indexSize, numIndices * indexSize, data);
+            glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, firstIndex * indexSize, numIndices_ * indexSize, data);
     }
 
     return true;
