@@ -282,6 +282,10 @@ void Graphics::Present()
     PROFILE(Present);
 
     context->Present();
+
+    // In case of third party hooks which modify the GL state and don't restore it properly, re-enable depth test now
+    /// \todo Need to restore other state?
+    glEnable(GL_DEPTH_TEST);
 }
 
 void Graphics::SetRenderTarget(Texture* renderTarget_, Texture* depthStencil_)
