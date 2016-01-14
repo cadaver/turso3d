@@ -312,6 +312,8 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
                     SendEvent(gainFocusEvent);
                     if (input)
                         input->OnGainFocus();
+                    if (minimized)
+                        Restore();
                 }
                 else
                 {
