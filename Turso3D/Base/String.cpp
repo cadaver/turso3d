@@ -632,11 +632,11 @@ String& String::AppendWithFormatArgs(const char* formatStr, va_list args)
         if (pos >= length)
             break;
         
-        char arg = formatStr[pos + 1];
+        char argType = formatStr[pos + 1];
         pos += 2;
         lastPos = pos;
         
-        switch (arg)
+        switch (argType)
         {
         // Integer
         case 'd':

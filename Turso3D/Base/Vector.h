@@ -128,12 +128,12 @@ public:
         if (rhs.Size() != size)
             return false;
 
-        T* buffer = Buffer();
+        T* lhsBuffer = Buffer();
         T* rhsBuffer = rhs.Buffer();
 
         for (size_t i = 0; i < size; ++i)
         {
-            if (buffer[i] != rhsBuffer[i])
+            if (lhsBuffer[i] != rhsBuffer[i])
                 return false;
         }
 
@@ -442,16 +442,16 @@ private:
     /// Move a range of elements within the vector.
     void MoveRange(size_t dest, size_t src, size_t count)
     {
-        T* buffer = Buffer();
+        T* data = Buffer();
         if (src < dest)
         {
             for (size_t i = count - 1; i < count; --i)
-                buffer[dest + i] = buffer[src + i];
+                data[dest + i] = data[src + i];
         }
         if (src > dest)
         {
             for (size_t i = 0; i < count; ++i)
-                buffer[dest + i] = buffer[src + i];
+                data[dest + i] = data[src + i];
         }
     }
 
