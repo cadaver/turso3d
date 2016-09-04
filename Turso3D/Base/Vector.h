@@ -79,15 +79,18 @@ public:
     /// Destruct.
     ~Vector()
     {
-        Clear();
+        DestructElements(Buffer(), Size());
         delete[] buffer;
     }
 
     /// Assign from another vector.
     Vector<T>& operator = (const Vector<T>& rhs)
     {
-        Clear();
-        Resize(rhs.Size(), rhs.Buffer());
+        if (&rhs != this)
+        {
+            Clear();
+            Resize(rhs.Size(), rhs.Buffer());
+        }
         return *this;
     }
 
@@ -375,10 +378,14 @@ private:
         size_t size = Size();
         
         if (newSize < size)
+        {
             DestructElements(Buffer() + newSize, size - newSize);
-        else
+            SetSize(newSize);
+        }
+        else if (newSize > size)
         {
             size_t capacity = Capacity();
+            unsigned char* oldBuffer = nullptr;
 
             // Allocate new buffer if necessary and copy the current elements
             if (newSize > capacity)
@@ -391,17 +398,15 @@ private:
                         capacity += (capacity + 1) >> 1;
                 }
 
-                unsigned char* newBuffer = AllocateBuffer(capacity * sizeof(T));
-                if (buffer)
-                {
-                    MoveElements(reinterpret_cast<T*>(newBuffer + 2 * sizeof(size_t)), Buffer(), size);
-                    delete[] buffer;
-                }
-                buffer = newBuffer;
+                oldBuffer = buffer;
+                buffer = AllocateBuffer(capacity * sizeof(T));
+                if (oldBuffer)
+                    MoveElements(Buffer(), reinterpret_cast<T*>(oldBuffer + 2 * sizeof(size_t)), size);
+
                 SetCapacity(capacity);
             }
 
-            // Initialize the new elements. Optimize for case of only 1 element
+            // Initialize the new elements. Optimize for case of 1 element with source (push)
             size_t count = newSize - size;
             T* dest = Buffer() + size;
             if (src)
@@ -421,22 +426,19 @@ private:
             }
             else
             {
-                if (count == 1)
-                    new(dest) T();
-                else
+                T* end = dest + count;
+                while (dest != end)
                 {
-                    T* end = dest + count;
-                    while (dest != end)
-                    {
-                        new(dest) T();
-                        ++dest;
-                    }
+                    new(dest) T();
+                    ++dest;
                 }
             }
-        }
 
-        if (buffer)
             SetSize(newSize);
+
+            // Delete old buffer last
+            delete[] oldBuffer;
+        }
     }
 
     /// Move a range of elements within the vector.
@@ -465,7 +467,8 @@ private:
     /// Move elements from one buffer to another. Constructors or destructors are not called.
     static void MoveElements(T* dest, const T* src, size_t count)
     {
-        memcpy(dest, src, sizeof(T) * count);
+        if (count)
+            memcpy(dest, src, sizeof(T) * count);
     }
 
     // Call the elements' destructors.

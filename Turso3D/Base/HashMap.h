@@ -165,8 +165,11 @@ public:
     /// Assign a hash map.
     HashMap& operator = (const HashMap<T, U>& rhs)
     {
-        Clear();
-        Insert(rhs);
+        if (&rhs != this)
+        {
+            Clear();
+            Insert(rhs);
+        }
         return *this;
     }
     

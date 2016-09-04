@@ -232,9 +232,11 @@ public:
     /// Assign from another list.
     List& operator = (const List<T>& rhs)
     {
-        // Clear, then insert the nodes of the other list
-        Clear();
-        Insert(End(), rhs);
+        if (&rhs != this)
+        {
+            Clear();
+            Insert(End(), rhs);
+        }
         return *this;
     }
     

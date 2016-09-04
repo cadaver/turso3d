@@ -131,8 +131,11 @@ public:
     /// Assign a hash set.
     HashSet& operator = (const HashSet<T>& rhs)
     {
-        Clear();
-        Insert(rhs);
+        if (&rhs != this)
+        {
+            Clear();
+            Insert(rhs);
+        }
         return *this;
     }
     
