@@ -112,6 +112,9 @@ public:
             if (!graphics->IsInitialized())
                 break;
 
+            if (input->IsKeyPress('F'))
+                graphics->SetFullscreen(!graphics->IsFullscreen());
+
             pitch += input->MouseMove().y * 0.25f;
             yaw += input->MouseMove().x * 0.25f;
             pitch = Clamp(pitch, -90.0f, 90.0f);

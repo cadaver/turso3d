@@ -314,6 +314,10 @@ bool Window::OnWindowMessage(unsigned msg, unsigned wParam, unsigned lParam)
                         input->OnGainFocus();
                     if (minimized)
                         Restore();
+
+                    // If fullscreen, automatically restore mouse focus
+                    if (fullscreen)
+                        UpdateMouseVisible();
                 }
                 else
                 {
