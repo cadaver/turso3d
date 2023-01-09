@@ -1,5 +1,5 @@
 # Set CMake minimum version
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 2.8.12)
 
 # Set project name
 project (Turso3D)
