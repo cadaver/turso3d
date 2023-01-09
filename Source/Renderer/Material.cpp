@@ -49,8 +49,8 @@ const char* dirLightDefines[] = {
     nullptr
 };
 
-SharedPtr<Material> Material::defaultMaterial;
 std::set<Material*> Material::allMaterials;
+SharedPtr<Material> Material::defaultMaterial;
 std::string Material::globalVSDefines;
 std::string Material::globalFSDefines;
 
