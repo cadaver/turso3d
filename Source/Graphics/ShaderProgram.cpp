@@ -1,0 +1,300 @@
+﻿// For conditions of distribution and use, see copyright notice in License.txt
+
+#include "../IO/Log.h"
+#include "../Thread/Profiler.h"
+#include "Graphics.h"
+#include "ShaderProgram.h"
+
+#include <glew.h>
+
+#include <cctype>
+
+static ShaderProgram* boundProgram = nullptr;
+
+const size_t MAX_NAME_LENGTH = 256;
+
+const char* attribNames[] =
+{
+    "position",
+    "normal",
+    "tangent",
+    "color",
+    "texCoord",
+    "texCoord1",
+    "texCoord2",
+    "texCoord3",
+    "texCoord4",
+    "texCoord5",
+    "blendWeights",
+    "blendIndices"
+};
+
+void CommentOutFunction(std::string& code, const std::string& signature)
+{
+    size_t startPos = code.find(signature);
+    unsigned braceLevel = 0;
+    if (startPos == std::string::npos)
+        return;
+
+    code.insert(startPos, "/*");
+
+    for (size_t i = startPos + 2 + signature.length(); i < code.length(); ++i)
+    {
+        if (code[i] == '{')
+            ++braceLevel;
+        else if (code[i] == '}')
+        {
+            --braceLevel;
+            if (braceLevel == 0)
+            {
+                code.insert(i + 1, "*/");
+                return;
+            }
+        }
+    }
+}
+
+int NumberPostfix(const std::string& string)
+{
+    for (size_t i = 0; i < string.length(); ++i)
+    {
+        if (isdigit(string[i]))
+            return ParseInt(string.c_str() + i);
+    }
+
+    return -1;
+}
+
+ShaderProgram::ShaderProgram(const std::string& sourceCode, const std::string& shaderName_, const std::string& vsDefines, const std::string& fsDefines) :
+    shaderName(shaderName_ + " " + vsDefines + " " + fsDefines),
+    program(0),
+    lastPerViewUniforms(0),
+    lastPerLightUniforms(0),
+    lastPerMaterialUniforms(0)
+{
+    Create(sourceCode, Split(vsDefines), Split(fsDefines));
+}
+
+ShaderProgram::~ShaderProgram()
+{
+    // Context may be gone at destruction time. In this case just no-op the cleanup
+    if (!Object::Subsystem<Graphics>())
+        return;
+
+    Release();
+}
+
+void ShaderProgram::Release()
+{
+    if (program)
+    {
+        glDeleteProgram(program);
+        program = 0;
+
+        if (boundProgram == this)
+            boundProgram = nullptr;
+    }
+}
+
+void ShaderProgram::Create(const std::string& sourceCode, const std::vector<std::string>& vsDefines, const std::vector<std::string>& fsDefines)
+{
+    PROFILE(CreateShaderProgram);
+
+    std::string vsSourceCode;
+    vsSourceCode += "#version 150\n";
+    vsSourceCode += "#define COMPILEVS\n";
+    for (size_t i = 0; i < vsDefines.size(); ++i)
+    {
+        vsSourceCode += "#define ";
+        vsSourceCode += Replace(vsDefines[i], '=', ' ');
+        vsSourceCode += "\n";
+    }
+    vsSourceCode += sourceCode;
+    CommentOutFunction(vsSourceCode, "void frag(");
+    ReplaceInPlace(vsSourceCode, "void vert(", "void main(");
+    const char* vsShaderStr = vsSourceCode.c_str();
+    
+    int vsCompiled;
+    unsigned vs = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vs, 1, &vsShaderStr, nullptr);
+    glCompileShader(vs);
+    glGetShaderiv(vs, GL_COMPILE_STATUS, &vsCompiled);
+
+    {
+        int length, outLength;
+        std::string errorString;
+        
+        glGetShaderiv(vs, GL_INFO_LOG_LENGTH, &length);
+        errorString.resize(length);
+        glGetShaderInfoLog(vs, 1024, &outLength, &errorString[0]);
+        
+        if (!vsCompiled)
+            LOGERRORF("VS %s compile error: %s", shaderName.c_str(), errorString.c_str());
+        else if (length > 1)
+            LOGDEBUGF("VS %s compile output: %s", shaderName.c_str(), errorString.c_str());
+    }
+
+    std::string fsSourceCode;
+    fsSourceCode += "#version 150\n";
+    fsSourceCode += "#define COMPILEFS\n";
+    for (size_t i = 0; i < fsDefines.size(); ++i)
+    {
+        fsSourceCode += "#define ";
+        fsSourceCode += Replace(fsDefines[i], '=', ' ');
+        fsSourceCode += "\n";
+    }
+    fsSourceCode += sourceCode;
+    CommentOutFunction(fsSourceCode, "void vert(");
+    ReplaceInPlace(fsSourceCode, "void frag(", "void main(");
+    const char* fsShaderStr = fsSourceCode.c_str();
+
+    int fsCompiled;
+    unsigned fs = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fs, 1, &fsShaderStr, nullptr);
+    glCompileShader(fs);
+    glGetShaderiv(fs, GL_COMPILE_STATUS, &fsCompiled);
+
+    {
+        int length, outLength;
+        std::string errorString;
+
+        glGetShaderiv(fs, GL_INFO_LOG_LENGTH, &length);
+        errorString.resize(length);
+        glGetShaderInfoLog(fs, 1024, &outLength, &errorString[0]);
+
+        if (!fsCompiled)
+            LOGERRORF("FS %s compile error: %s", shaderName.c_str(), errorString.c_str());
+        else if (length > 1)
+            LOGDEBUGF("FS %s compile output: %s", shaderName.c_str(), errorString.c_str());
+    }
+
+    if (!vsCompiled || !fsCompiled)
+    {
+        glDeleteShader(vs);
+        glDeleteShader(fs);
+        return;
+    }
+
+    program = glCreateProgram();
+    glAttachShader(program, vs);
+    glAttachShader(program, fs);
+    for (unsigned i = 0; i < 12; ++i)
+        glBindAttribLocation(program, i, attribNames[i]);
+    
+    glLinkProgram(program);
+    glDeleteShader(vs);
+    glDeleteShader(fs);
+
+    int linked;
+    glGetProgramiv(program, GL_LINK_STATUS, &linked);
+
+    {
+        int length, outLength;
+        std::string errorString;
+
+        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &length);
+        errorString.resize(length);
+        glGetProgramInfoLog(program, length, &outLength, &errorString[0]);
+
+        if (!linked)
+        {
+            LOGERRORF("Could not link shader %s: %s", shaderName.c_str(), errorString.c_str());
+            glDeleteProgram(program);
+            program = 0;
+            return;
+        }
+        else if (length > 1)
+            LOGDEBUGF("Shader %s link messages: %s", shaderName.c_str(), errorString.c_str());
+    }
+
+    char nameBuffer[MAX_NAME_LENGTH];
+    int numAttributes, numUniforms,  nameLength, numElements;
+    GLenum type;
+
+    attributes = 0;
+
+    glGetProgramiv(program, GL_ACTIVE_ATTRIBUTES, &numAttributes);
+    for (int i = 0; i < numAttributes; ++i)
+    {
+        glGetActiveAttrib(program, i, (GLsizei)MAX_NAME_LENGTH, &nameLength, &numElements, &type, nameBuffer);
+        
+        std::string name(nameBuffer, nameLength);
+        size_t attribIndex = ListIndex(name.c_str(), attribNames, 0xfffffff);
+        if (attribIndex < 32)
+            attributes |= (1 << attribIndex);
+    }
+
+    uniforms.clear();
+
+    Bind(true);
+    glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &numUniforms);
+
+    for (size_t i = 0; i < MAX_PRESET_UNIFORMS; ++i)
+        presetUniforms[i] = -1;
+
+    for (int i = 0; i < numUniforms; ++i)
+    {
+        glGetActiveUniform(program, i, MAX_NAME_LENGTH, &nameLength, &numElements, &type, nameBuffer);
+        std::string name(nameBuffer, nameLength);
+
+        int location = glGetUniformLocation(program, name.c_str());
+        ReplaceInPlace(name, "[0]", "");
+        uniforms[StringHash(name)] = location;
+
+        // Check if uniform is a preset one for quick access
+        PresetUniform preset = (PresetUniform)ListIndex(name.c_str(), presetUniformNames, MAX_PRESET_UNIFORMS);
+        if (preset < MAX_PRESET_UNIFORMS)
+            presetUniforms[preset] = location;
+
+        if ((type >= GL_SAMPLER_1D && type <= GL_SAMPLER_2D_SHADOW) || (type >= GL_SAMPLER_1D_ARRAY && type <= GL_SAMPLER_CUBE_SHADOW) || (type >= GL_INT_SAMPLER_1D && type <= GL_UNSIGNED_INT_SAMPLER_2D_ARRAY))
+        {
+            // Assign sampler uniforms to a texture unit according to the number appended to the sampler name
+            int unit = NumberPostfix(name);
+            
+            if (unit < 0)
+                continue;
+
+            // Array samplers may have multiple elements, assign each sequentially
+            if (numElements > 1)
+            {
+                std::vector<int> units;
+                for (int j = 0; j < numElements; ++j)
+                    units.push_back(unit++);
+                glUniform1iv(location, numElements, &units[0]);
+            }
+            else
+                glUniform1iv(location, 1, &unit);
+        }
+    }
+    
+    LOGDEBUGF("Linked shader program %s", shaderName.c_str());
+}
+
+int ShaderProgram::Uniform(const std::string& name) const
+{
+    return Uniform(StringHash(name));
+}
+
+int ShaderProgram::Uniform(const char* name) const
+{
+    return Uniform(StringHash(name));
+}
+
+int ShaderProgram::Uniform(StringHash name) const
+{
+    auto it = uniforms.find(name);
+    return it != uniforms.end() ? it->second : -1;
+}
+
+bool ShaderProgram::Bind(bool force)
+{
+    if (!program)
+        return false;
+
+    if (!force && boundProgram == this)
+        return true;
+
+    glUseProgram(program);
+    boundProgram = this;
+    return true;
+}

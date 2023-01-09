@@ -1,7 +1,0 @@
-add_subdirectory (01_Base)
-add_subdirectory (02_IO)
-add_subdirectory (03_Scene)
-add_subdirectory (04_Resource)
-add_subdirectory (05_Window)
-add_subdirectory (06_Graphics)
-add_subdirectory (07_Renderer)

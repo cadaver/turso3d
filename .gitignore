@@ -1,10 +1,23 @@
-# Build directory
-Build/
+.vs/
 
-# Output directory
-Bin/*
-!Bin/**/
+CMakeFiles/
+cmake_install.cmake
+CMakeCache.txt
+Makefile
+*FileListAbsolute.txt
 
+SDL_config.h
 
-# Generated documentation
-Docs/html/
+*.exe
+*.exp
+*.ilk
+*.lib
+*.obj
+*.pdb
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+*.log
+*.tlog
+*.rule

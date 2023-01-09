@@ -1,5 +1,0 @@
-version 3.2 core
-extension ARB_instanced_arrays required
-extension EXT_texture_compression_s3tc required
-extension EXT_texture_mirror_clamp optional
-extension EXT_texture_filter_anisotropic optional

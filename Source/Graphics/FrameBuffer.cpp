@@ -1,0 +1,197 @@
+// For conditions of distribution and use, see copyright notice in License.txt
+
+#include "../IO/Log.h"
+#include "../Thread/Profiler.h"
+#include "FrameBuffer.h"
+#include "Graphics.h"
+#include "RenderBuffer.h"
+#include "Texture.h"
+
+#include <glew.h>
+
+static FrameBuffer* boundDrawBuffer = nullptr;
+static FrameBuffer* boundReadBuffer = nullptr;
+
+FrameBuffer::FrameBuffer()
+{
+    glGenFramebuffers(1, &buffer);
+}
+
+FrameBuffer::~FrameBuffer()
+{
+    // Context may be gone at destruction time. In this case just no-op the cleanup
+    if (!Object::Subsystem<Graphics>())
+        return;
+
+    Release();
+}
+
+void FrameBuffer::Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBuffer)
+{
+    Bind(true);
+
+    if (colorBuffer)
+    {
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorBuffer->GLBuffer());
+    }
+    else
+    {
+        glDrawBuffer(GL_NONE);
+        glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, 0);
+    }
+
+    if (depthStencilBuffer)
+    {
+        glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthStencilBuffer->GLBuffer());
+        glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depthStencilBuffer->Format() == FMT_D24S8 ? depthStencilBuffer->GLBuffer() : 0);
+    }
+    else
+    {
+        glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
+        glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, 0);
+    }
+}
+
+void FrameBuffer::Define(Texture* colorTexture, Texture* depthStencilTexture)
+{
+    Bind(true);
+
+    if (colorTexture && colorTexture->TexType() == TEX_2D)
+    {
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture->GLTexture(), 0);
+    }
+    else
+    {
+        glDrawBuffer(GL_NONE);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+    }
+
+    if (depthStencilTexture)
+    {
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthStencilTexture->GLTexture(), 0);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthStencilTexture->Format() == FMT_D24S8 ? depthStencilTexture->GLTexture() : 0, 0);
+    }
+    else
+    {
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
+    }
+}
+
+void FrameBuffer::Define(Texture* colorTexture, size_t cubeMapFace, Texture* depthStencilTexture)
+{
+    Bind(true);
+
+    if (colorTexture && colorTexture->TexType() == TEX_CUBE)
+    {
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + (GLenum)cubeMapFace, colorTexture->GLTexture(), 0);
+    }
+    else
+    {
+        glDrawBuffer(GL_NONE);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+    }
+
+    if (depthStencilTexture)
+    {
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthStencilTexture->GLTexture(), 0);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthStencilTexture->Format() == FMT_D24S8 ? depthStencilTexture->GLTexture() : 0, 0);
+    }
+    else
+    {
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
+    }
+}
+
+void FrameBuffer::Define(const std::vector<Texture*>& colorTextures, Texture* depthStencilTexture)
+{
+    Bind(true);
+
+    std::vector<GLenum> drawBufferIds;
+    for (size_t i = 0; i < colorTextures.size(); ++i)
+    {
+        if (colorTextures[i] && colorTextures[i]->TexType() == TEX_2D)
+        {
+            drawBufferIds.push_back(GL_COLOR_ATTACHMENT0 + (GLenum)i);
+            glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + (GLenum)i, GL_TEXTURE_2D, colorTextures[i]->GLTexture(), 0);
+        }
+        else
+            glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + (GLenum)i, GL_TEXTURE_2D, 0, 0);
+    }
+
+    if (drawBufferIds.size())
+        glDrawBuffers((GLsizei)drawBufferIds.size(), &drawBufferIds[0]);
+    else
+        glDrawBuffer(GL_NONE);
+
+    if (depthStencilTexture)
+    {
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthStencilTexture->GLTexture(), 0);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthStencilTexture->Format() == FMT_D24S8 ? depthStencilTexture->GLTexture() : 0, 0);
+    }
+    else
+    {
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
+    }
+}
+
+void FrameBuffer::Bind(bool force)
+{
+    if (!buffer || (boundDrawBuffer == this && !force))
+        return;
+
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, buffer);
+    boundDrawBuffer = this;
+}
+
+void FrameBuffer::Blit(FrameBuffer* dest, const IntRect& destRect, FrameBuffer* src, const IntRect& srcRect, bool blitColor, bool blitDepth, TextureFilterMode filter)
+{
+    GLenum glBlitBits = 0;
+    if (blitColor)
+        glBlitBits |= GL_COLOR_BUFFER_BIT;
+    if (blitDepth)
+        glBlitBits |= GL_DEPTH_BUFFER_BIT;
+
+    if (boundReadBuffer != src)
+    {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, src ? src->buffer : 0);
+        boundReadBuffer = src;
+    }
+    if (boundDrawBuffer != dest)
+    {
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dest ? dest->buffer : 0);
+        boundDrawBuffer = dest;
+    }
+    glBlitFramebuffer(srcRect.left, srcRect.top, srcRect.right, srcRect.bottom, destRect.left, destRect.top, destRect.right, destRect.bottom, glBlitBits, filter == FILTER_POINT ? GL_NEAREST : GL_LINEAR);
+}
+
+void FrameBuffer::Unbind()
+{
+    if (boundDrawBuffer)
+    {
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        boundDrawBuffer = nullptr;
+    }
+    if (boundReadBuffer)
+    {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+        boundReadBuffer = nullptr;
+    }
+}
+
+void FrameBuffer::Release()
+{
+    if (buffer)
+    {
+        if (boundDrawBuffer == this || boundReadBuffer == this)
+            FrameBuffer::Unbind();
+
+        glDeleteFramebuffers(1, &buffer);
+        buffer = 0;
+    }
+}

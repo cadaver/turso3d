@@ -1,41 +1,24 @@
 {
   "passes": {
+    "shadow": {
+      "shader": "Shaders/Shadow.glsl",
+      "colorWrite": false
+    },
     "opaque": {
-      "vs": "Diffuse",
-      "ps": "Diffuse",
-      "depthFunc": "lessEqual",
-      "depthWrite": true,
-      "depthClip": true,
-      "alphaToCoverage": false,
-      "blendMode": "replace",
-      "fillMode": "solid",
-      "cullMode": "back"
+      "shader": "Shaders/Diffuse.glsl",
+      "fsDefines": "AMBIENT"
     },
     "opaqueadd": {
-      "vs": "Diffuse",
-      "ps": "Diffuse",
-      "depthFunc": "lessEqual",
-      "depthWrite": false,
-      "depthClip": true,
-      "alphaToCoverage": false,
+      "shader": "Shaders/Diffuse.glsl",
       "blendMode": "add",
-      "fillMode": "solid",
-      "cullMode": "back"
-    },
-    "shadow": {
-      "vs": "Shadow",
-      "ps": "Shadow",
-      "depthFunc": "lessEqual",
-      "depthWrite": true,
-      "depthClip": true,
-      "alphaToCoverage": false,
-      "blendMode": "replace",
-      "colorWriteMask": 0,
-      "fillMode": "solid",
-      "cullMode": "back"
+      "depthTest": "equal",
+      "depthWrite": false
     }
   },
   "textures": {
     "0": "Mushroom.dds"
+  },
+  "uniformValues": {
+    "matDiffColor": "1 1 1 1"
   }
 }
