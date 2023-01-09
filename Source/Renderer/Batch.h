@@ -19,7 +19,7 @@ struct ShadowView;
 
 static const int MAX_LIGHTS_PER_PASS = 4;
 
-/// Lights affecting a rendering batch.
+/// Lights affecting a draw call.
 struct LightPass
 {
     /// Number of lights.
@@ -79,6 +79,7 @@ struct Batch
     };
 };
 
+/// Collection of draw calls with sorting and instancing functionality.
 struct BatchQueue
 {
     /// Clear.
