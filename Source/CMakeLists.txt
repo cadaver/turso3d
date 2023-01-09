@@ -17,7 +17,6 @@ macro (add_engine_directory_group DIRECTORY GROUP)
 endmacro ()
 
 add_engine_directory (Graphics)
-add_engine_directory (../ThirdParty/FlextGL)
 add_engine_directory (Input)
 add_engine_directory (IO)
 add_engine_directory (Math)
