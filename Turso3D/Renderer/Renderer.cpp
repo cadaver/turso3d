@@ -931,7 +931,6 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
                 }
             }
 
-            newBatch.SetStateSortKey();
             dest.batches.push_back(newBatch);
         }
     }
@@ -1025,7 +1024,6 @@ void Renderer::CollectNodeBatches()
                     geometry->lastSortKey.second = distance;
                 }
 
-                newBatch.SetStateSortKey();
                 opaqueBatches.batches.push_back(newBatch);
 
                 // Add additive passes if necessary
@@ -1053,7 +1051,6 @@ void Renderer::CollectNodeBatches()
                                 newBatch.lightPass->lastSortKey.second = distance;
                             }
 
-                            newBatch.SetStateSortKey();
                             opaqueAdditiveBatches.batches.push_back(newBatch);
                         }
                     }

@@ -58,7 +58,12 @@ void BatchQueue::Clear()
 void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortByState, bool convertToInstanced)
 {
     if (sortByState)
+    {
+        for (auto it = batches.begin(); it != batches.end(); ++it)
+            it->SetStateSortKey();
+
         std::sort(batches.begin(), batches.end(), CompareBatchKeys);
+    }
     else
     {
         std::sort(batches.begin(), batches.end(), CompareBatchDistance);
