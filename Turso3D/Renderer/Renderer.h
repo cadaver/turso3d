@@ -35,11 +35,11 @@ public:
     void SetShadowDepthBiasMul(float depthBiasMul, float slopeScaleBiasMul);
     /// Prepare view for rendering.
     void PrepareView(Scene* scene, Camera* camera, bool drawShadows);
-    /// Render shadowmaps before rendering the view. Will bind backbuffer after completion, but viewport must be set.
+    /// Render shadowmaps before rendering the view. Last shadow framebuffer will be left bound.
     void RenderShadowMaps();
-    /// Render opaque objects. Additive batches can be optionally rendered into a different framebuffer.
+    /// Render opaque objects into currently set framebuffer and viewport. Additive batches can be optionally rendered into a different framebuffer.
     void RenderOpaque(FrameBuffer* additiveFbo);
-    /// Render transparent objects.
+    /// Render transparent objects into currently set framebuffer and viewport.
     void RenderAlpha();
 
     /// Clear the current framebuffer.

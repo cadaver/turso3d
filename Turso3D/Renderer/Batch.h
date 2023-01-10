@@ -108,7 +108,7 @@ struct ShadowMap
     AreaAllocator allocator;
     /// Shadow map texture.
     SharedPtr<Texture> texture;
-    /// Shadow map FBO.
+    /// Shadow map framebuffer.
     SharedPtr<FrameBuffer> fbo;
     /// Shadow views that use this shadow map.
     std::vector<ShadowView*> shadowViews;
