@@ -49,5 +49,6 @@ endmacro ()
 # Set output directory for executables
 set_output_directories (${PROJECT_SOURCE_DIR}/Bin RUNTIME PDB)
 
-add_subdirectory (Source)
 add_subdirectory (ThirdParty)
+add_subdirectory (Turso3D)
+add_subdirectory (Turso3DTest)

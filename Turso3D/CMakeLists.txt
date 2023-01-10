@@ -25,22 +25,14 @@ add_engine_directory (Renderer)
 add_engine_directory (Resource)
 add_engine_directory (Scene)
 add_engine_directory (Thread)
-add_engine_directory_group (. Main)
 
-add_executable (${TARGET_NAME} ${SOURCE_FILES})
+add_library (${TARGET_NAME} ${SOURCE_FILES})
 
-include_directories (../ThirdParty/SDL/include)
-include_directories (../ThirdParty/GLEW)
-include_directories (../ThirdParty/STB)
+target_include_directories (${TARGET_NAME} PUBLIC ../ThirdParty/SDL/include)
+target_include_directories (${TARGET_NAME} PUBLIC ../ThirdParty/GLEW)
+target_include_directories (${TARGET_NAME} PUBLIC ../ThirdParty/STB)
+target_include_directories (${TARGET_NAME} PUBLIC .)
 
 target_link_libraries (${TARGET_NAME} SDL2-static GLEW)
 
 add_definitions (-DGLEW_STATIC -DSDL_MAIN_HANDLED)
-
-if (WIN32)
-    target_link_libraries (${TARGET_NAME} winmm imm32 ole32 oleaut32 setupapi version uuid opengl32)
-elseif (APPLE)
-    target_link_libraries (${TARGET_NAME} "-framework Carbon" "-framework Cocoa" "-framework OpenGL")
-else ()
-    target_link_libraries (${TARGET_NAME} -lGL -lpthread)
-endif ()
