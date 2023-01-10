@@ -34,32 +34,33 @@ void CreateScene(Scene* scene, int preset)
     {
         SetRandomSeed(1);
 
-        for (int y = -5; y <= 5; ++y)
+        for (int y = -55; y <= 55; ++y)
         {
-            for (int x = -5; x <= 5; ++x)
+            for (int x = -55; x <= 55; ++x)
             {
                 StaticModel* object = scene->CreateChild<StaticModel>();
                 object->SetStatic(true);
-                object->SetPosition(Vector3(10.5f * x, -0.1f, 10.5f * y));
+                object->SetPosition(Vector3(10.5f * x, -0.05f, 10.5f * y));
                 object->SetScale(Vector3(10.0f, 0.1f, 10.0f));
                 object->SetModel(cache->LoadResource<Model>("Box.mdl"));
                 object->SetMaterial(cache->LoadResource<Material>("Stone.json"));
             }
         }
 
-        for (unsigned i = 0; i < 435; ++i)
+        for (unsigned i = 0; i < 10000; ++i)
         {
             StaticModel* object = scene->CreateChild<StaticModel>();
             object->SetStatic(true);
-            object->SetPosition(Vector3(Random() * 100.0f - 50.0f, 1.0f, Random() * 100.0f - 50.0f));
+            object->SetPosition(Vector3(Random() * 1000.0f - 500.0f, 0.0f, Random() * 1000.0f - 500.0f));
             object->SetScale(1.5f);
             object->SetModel(cache->LoadResource<Model>("Mushroom.mdl"));
             object->SetMaterial(cache->LoadResource<Material>("Mushroom.json"));
             object->SetCastShadows(true);
             object->SetLodBias(2.0f);
+            object->SetMaxDistance(600.0f);
         }
 
-        for (unsigned i = 0; i < 10; ++i)
+        for (unsigned i = 0; i < 100; ++i)
         {
             Light* light = scene->CreateChild<Light>();
             light->SetStatic(true);
@@ -67,11 +68,12 @@ void CreateScene(Scene* scene, int preset)
             light->SetCastShadows(true);
             Vector3 colorVec = 2.0f * Vector3(Random(), Random(), Random()).Normalized();
             light->SetColor(Color(colorVec.x, colorVec.y, colorVec.z));
-            light->SetFov(90.0f);
-            light->SetRange(20.0f);
-            light->SetPosition(Vector3(Random() * 120.0f - 60.0f, 7.0f, Random() * 120.0f - 60.0f));
+            light->SetRange(40.0f);
+            light->SetPosition(Vector3(Random() * 1000.0f - 500.0f, 7.0f, Random() * 1000.0f - 500.0f));
             light->SetDirection(Vector3(0.0f, -1.0f, 0.0f));
             light->SetShadowMapSize(256);
+            light->SetShadowMaxDistance(200.0f);
+            light->SetMaxDistance(900.0f);
         }
     }
 

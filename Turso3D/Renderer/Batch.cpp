@@ -35,26 +35,19 @@ void ShadowMap::Clear()
     freeQueueIdx = 0;
 }
 
-void Batch::SetStateSortKey(unsigned short distance_)
+void Batch::SetStateSortKey()
 {
     unsigned short lightId = lightPass ? lightPass->lastSortKey.second : 0;
     unsigned short materialId = pass->lastSortKey.second;
     unsigned short geomId = geometry->lastSortKey.second;
 
-    // If no light influence, use only a coarse distance for faster sorting
-    if (!lightId)
-    {
-        lightId = materialId;
-        distance_ &= 0xf000;
-    }
-
     // If uses a combined vertex buffer, add its key to light sorting key to further reduce state changes
     if (geometry->useCombined)
         lightId += geometry->vertexBuffer->lastSortKey.second;
 
-    sortKey = (((unsigned long long)lightId) << 48) |
-        (((unsigned long long)materialId) << 32) |
-        (((unsigned long long)geomId) << 16) | distance_;
+    sortKey = (((unsigned long long)lightId) << 32) |
+        (((unsigned long long)materialId) << 16) |
+        ((unsigned long long)geomId);
 }
 
 void BatchQueue::Clear()

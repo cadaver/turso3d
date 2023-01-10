@@ -30,11 +30,15 @@ void StaticModel::RegisterObject()
     RegisterAttribute("lodBias", &StaticModel::LodBias, &StaticModel::SetLodBias, 1.0f);
 }
 
-void StaticModel::OnPrepareRender(unsigned short frameNumber, Camera* camera)
+bool StaticModel::OnPrepareRender(unsigned short frameNumber, Camera* camera)
 {
-    lastFrameNumber = frameNumber;
     distance = camera->Distance(WorldBoundingBox().Center());
     lightList = nullptr;
+
+    if (maxDistance > 0.0f && distance > maxDistance)
+        return false;
+
+    lastFrameNumber = frameNumber;
 
     // If model was last updated long ago, reset update framenumber to illegal
     if (frameNumber - lastUpdateFrameNumber == 0x8000)
@@ -65,6 +69,8 @@ void StaticModel::OnPrepareRender(unsigned short frameNumber, Camera* camera)
             }
         }
     }
+
+    return true;
 }
 
 void StaticModel::SetModel(Model* model_)

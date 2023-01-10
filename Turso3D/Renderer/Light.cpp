@@ -14,7 +14,7 @@ static const Color DEFAULT_COLOR = Color(1.0f, 1.0f, 1.0f, 0.5f);
 static const float DEFAULT_RANGE = 10.0f;
 static const float DEFAULT_SPOT_FOV = 30.0f;
 static const int DEFAULT_SHADOWMAP_SIZE = 512;
-static const float DEFAULT_SHADOW_FADE_START = 0.9f;
+static const float DEFAULT_FADE_START = 0.9f;
 static const float DEFAULT_SHADOW_MAX_DISTANCE = 250.0f;
 static const float DEFAULT_SHADOW_MAX_STRENGTH = 0.0f;
 static const float DEFAULT_SHADOW_QUANTIZE = 0.5f;
@@ -34,8 +34,9 @@ Light::Light() :
     color(DEFAULT_COLOR),
     range(DEFAULT_RANGE),
     fov(DEFAULT_SPOT_FOV),
+    fadeStart(DEFAULT_FADE_START),
     shadowMapSize(DEFAULT_SHADOWMAP_SIZE),
-    shadowFadeStart(DEFAULT_SHADOW_FADE_START),
+    shadowFadeStart(DEFAULT_FADE_START),
     shadowMaxDistance(DEFAULT_SHADOW_MAX_DISTANCE),
     shadowMaxStrength(DEFAULT_SHADOW_MAX_STRENGTH),
     shadowQuantize(DEFAULT_SHADOW_QUANTIZE),
@@ -60,8 +61,9 @@ void Light::RegisterObject()
     RegisterRefAttribute("color", &Light::GetColor, &Light::SetColor, DEFAULT_COLOR);
     RegisterAttribute("range", &Light::Range, &Light::SetRange, DEFAULT_RANGE);
     RegisterAttribute("fov", &Light::Fov, &Light::SetFov, DEFAULT_SPOT_FOV);
+    RegisterAttribute("fadeStart", &Light::FadeStart, &Light::SetFadeStart, DEFAULT_FADE_START);
     RegisterAttribute("shadowMapSize", &Light::ShadowMapSize, &Light::SetShadowMapSize, DEFAULT_SHADOWMAP_SIZE);
-    RegisterAttribute("shadowFadeStart", &Light::ShadowFadeStart, &Light::SetShadowFadeStart, DEFAULT_SHADOW_FADE_START);
+    RegisterAttribute("shadowFadeStart", &Light::ShadowFadeStart, &Light::SetShadowFadeStart, DEFAULT_FADE_START);
     RegisterAttribute("shadowMaxDistance", &Light::ShadowMaxDistance, &Light::SetShadowMaxDistance, DEFAULT_SHADOW_MAX_DISTANCE);
     RegisterAttribute("shadowMaxStrength", &Light::ShadowMaxStrength, &Light::SetShadowMaxStrength, DEFAULT_SHADOW_MAX_STRENGTH);
     RegisterAttribute("shadowQuantize", &Light::ShadowQuantize, &Light::SetShadowQuantize, DEFAULT_SHADOW_QUANTIZE);
@@ -69,18 +71,8 @@ void Light::RegisterObject()
     RegisterAttribute("slopeScaleBias", &Light::SlopeScaleBias, &Light::SetSlopeScaleBias, DEFAULT_SLOPESCALE_BIAS);
 }
 
-
-void Light::OnPrepareRender(unsigned short frameNumber, Camera* camera)
+bool Light::OnPrepareRender(unsigned short frameNumber, Camera* camera)
 {
-    // If there was a discontinuity in rendering the light, assume cached shadow map content lost
-    unsigned previousFrameNumber = frameNumber - 1;
-    if (!previousFrameNumber)
-        --previousFrameNumber;
-    if (lastFrameNumber != previousFrameNumber)
-        SetShadowMap(nullptr);
-
-    lastFrameNumber = frameNumber;
-    
     switch (lightType)
     {
     case LIGHT_DIRECTIONAL:
@@ -95,14 +87,27 @@ void Light::OnPrepareRender(unsigned short frameNumber, Camera* camera)
         distance = camera->Distance(WorldPosition());
         break;
     }
+
+    if (maxDistance > 0.0f && distance > maxDistance)
+        return false;
+
+    // If there was a discontinuity in rendering the light, assume cached shadow map content lost
+    unsigned previousFrameNumber = frameNumber - 1;
+    if (!previousFrameNumber)
+        --previousFrameNumber;
+    if (lastFrameNumber != previousFrameNumber)
+        SetShadowMap(nullptr);
+
+    lastFrameNumber = frameNumber;
+    return true;
 }
 
-void Light::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance)
+void Light::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance_)
 {
     if (lightType == LIGHT_SPOT)
     {
         float hitDistance = ray.HitDistance(WorldFrustum());
-        if (hitDistance <= maxDistance)
+        if (hitDistance <= maxDistance_)
         {
             RaycastResult res;
             res.position = ray.origin + hitDistance * ray.direction;
@@ -116,7 +121,7 @@ void Light::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float ma
     else if (lightType == LIGHT_POINT)
     {
         float hitDistance = ray.HitDistance(WorldSphere());
-        if (hitDistance <= maxDistance)
+        if (hitDistance <= maxDistance_)
         {
             RaycastResult res;
             res.position = ray.origin + hitDistance * ray.direction;
@@ -167,6 +172,11 @@ void Light::SetFov(float fov_)
     }
 }
 
+void Light::SetFadeStart(float start)
+{
+    fadeStart = Clamp(start, 0.0f, 1.0f - M_EPSILON);
+}
+
 void Light::SetShadowMapSize(int size)
 {
     if (size < 1)
@@ -213,6 +223,18 @@ IntVector2 Light::TotalShadowMapSize() const
         return IntVector2(shadowMapSize * 3, shadowMapSize * 2);
     else
         return IntVector2(shadowMapSize, shadowMapSize);
+}
+
+Color Light::EffectiveColor() const
+{
+    if (maxDistance > 0.0f)
+    {
+        float scaledDistance = distance / maxDistance;
+        if (scaledDistance >= shadowFadeStart)
+            return color.Lerp(Color::BLACK, (scaledDistance - fadeStart) / (1.0f - fadeStart));
+    }
+
+    return color;
 }
 
 float Light::ShadowStrength() const

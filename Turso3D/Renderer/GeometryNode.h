@@ -31,8 +31,6 @@ struct Geometry : public RefCounted
     /// Destruct.
     ~Geometry();
 
-    /// Last sort key for combined distance and state sorting. Used by Renderer.
-    std::pair<unsigned short, unsigned short> lastSortKey;
     /// %Geometry vertex buffer.
     SharedPtr<VertexBuffer> vertexBuffer;
     /// %Geometry index buffer.
@@ -45,6 +43,9 @@ struct Geometry : public RefCounted
     float lodDistance;
     /// Whether uses a combined vertex buffer.
     bool useCombined;
+
+    /// Last sort key for combined distance and state sorting. Used by Renderer.
+    std::pair<unsigned short, unsigned short> lastSortKey;
 };
 
 /// Draw call source data with optimal memory storage.
@@ -121,8 +122,8 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
 
-    /// Prepare object for rendering. Reset framenumber and light list and calculate distance from camera. Called by Renderer.
-    void OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
+    /// Prepare object for rendering. Reset framenumber and light list and calculate distance from camera. Called by Renderer. Return false if should not render.
+    bool OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
 
     /// Set number of geometries.
     void SetNumGeometries(size_t num);

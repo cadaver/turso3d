@@ -49,7 +49,7 @@ struct LightList
 struct Batch
 {
     // Define state sort key.
-    void SetStateSortKey(unsigned short distance);
+    void SetStateSortKey();
 
     /// Light pass, or null if not lit.
     LightPass* lightPass;

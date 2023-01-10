@@ -654,7 +654,7 @@ void Renderer::CollectLightInteractions(bool drawShadows)
                     pass.lightData[idx * 9] = Vector4(light->WorldPosition(), 1.0f);
                     pass.lightData[idx * 9 + 1] = Vector4(-light->WorldDirection(), 1.0f);
                     pass.lightData[idx * 9 + 2] = Vector4(1.0f / Max(light->Range(), M_EPSILON), cutoff, 1.0f / (1.0f - cutoff), 0.0f);
-                    pass.lightData[idx * 9 + 3] = light->GetColor().Data();
+                    pass.lightData[idx * 9 + 3] = light->EffectiveColor().Data();
                     pass.lightData[idx * 9 + 4] = light->ShadowParameters();
                     *reinterpret_cast<Matrix4*>(&pass.lightData[idx * 9 + 5]) = light->ShadowViews()[0].shadowMatrix;
                     ++idx;
@@ -671,7 +671,7 @@ void Renderer::CollectLightInteractions(bool drawShadows)
                     pass.lightData[idx * 9] = Vector4(light->WorldPosition(), 1.0f);
                     pass.lightData[idx * 9 + 1] = Vector4(-light->WorldDirection(), 1.0f);
                     pass.lightData[idx * 9 + 2] = Vector4(1.0f / Max(light->Range(), M_EPSILON), cutoff, 1.0f / (1.0f - cutoff), 0.0f);
-                    pass.lightData[idx * 9 + 3] = light->GetColor().Data();
+                    pass.lightData[idx * 9 + 3] = light->EffectiveColor().Data();
                     ++idx;
                 }
             }
@@ -735,7 +735,10 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
         bool inView = node->LastFrameNumber() == frameNumber;
         // If not in view, let the node prepare itself for render now. Note: is called for each light the object casts shadows from
         if (!inView)
-            node->OnPrepareRender(0, camera);
+        {
+            if (!node->OnPrepareRender(0, camera))
+                continue;
+        }
 
         if (!inView && (dynamicNode || dynamicOrDirLight))
         { 
@@ -928,7 +931,7 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
                 }
             }
 
-            newBatch.SetStateSortKey(distance);
+            newBatch.SetStateSortKey();
             dest.batches.push_back(newBatch);
         }
     }
@@ -993,9 +996,19 @@ void Renderer::CollectNodeBatches()
             newBatch.program = pass->GetShaderProgram(programBits);
             newBatch.pass = pass;
 
+            if (geometry->useCombined)
+            {
+                VertexBuffer* vb = geometry->vertexBuffer.Get();
+                if (vb->lastSortKey.first != sortViewNumber || vb->lastSortKey.second > distance)
+                {
+                    vb->lastSortKey.first = sortViewNumber;
+                    vb->lastSortKey.second = distance;
+                }
+            }
+
             if (type == PASS_OPAQUE)
             {
-                // Perform distance sort for program / pass / geometry / lightpass in addition to state sort
+                // Perform distance sort for pass / geometry / lightpass in addition to state sort
                 if (newBatch.lightPass && (newBatch.lightPass->lastSortKey.first != sortViewNumber || newBatch.lightPass->lastSortKey.second > distance))
                 {
                     newBatch.lightPass->lastSortKey.first = sortViewNumber;
@@ -1011,17 +1024,8 @@ void Renderer::CollectNodeBatches()
                     geometry->lastSortKey.first = sortViewNumber;
                     geometry->lastSortKey.second = distance;
                 }
-                if (geometry->useCombined)
-                {
-                    VertexBuffer* vb = geometry->vertexBuffer.Get();
-                    if (vb->lastSortKey.first != sortViewNumber || vb->lastSortKey.second > distance)
-                    {
-                        vb->lastSortKey.first = sortViewNumber;
-                        vb->lastSortKey.second = distance;
-                    }
-                }
 
-                newBatch.SetStateSortKey(distance);
+                newBatch.SetStateSortKey();
                 opaqueBatches.batches.push_back(newBatch);
 
                 // Add additive passes if necessary
@@ -1049,7 +1053,7 @@ void Renderer::CollectNodeBatches()
                                 newBatch.lightPass->lastSortKey.second = distance;
                             }
 
-                            newBatch.SetStateSortKey(distance);
+                            newBatch.SetStateSortKey();
                             opaqueAdditiveBatches.batches.push_back(newBatch);
                         }
                     }
@@ -1356,51 +1360,23 @@ bool Renderer::AllocateShadowMap(Light* light)
 
 void Renderer::CollectGeometriesAndLights(std::vector<OctreeNode*>::const_iterator begin, std::vector<OctreeNode*>::const_iterator end, bool inside)
 {
-    if (inside)
+    for (auto it = begin; it != end; ++it)
     {
-        for (auto it = begin; it != end; ++it)
+        OctreeNode* node = *it;
+        unsigned short flags = node->Flags();
+        if ((flags & NF_ENABLED) && (flags & (NF_GEOMETRY | NF_LIGHT)) && (node->LayerMask() & viewMask) && (inside || frustum.IsInsideFast(node->WorldBoundingBox())))
         {
-            OctreeNode* node = *it;
-            unsigned short flags = node->Flags();
-            if ((flags & NF_ENABLED) && (flags & (NF_GEOMETRY | NF_LIGHT)) && (node->LayerMask() & viewMask))
+            if (flags & NF_GEOMETRY)
             {
-                if (flags & NF_GEOMETRY)
-                {
-                    GeometryNode* geometry = static_cast<GeometryNode*>(node);
-                    geometry->OnPrepareRender(frameNumber, camera);
+                GeometryNode* geometry = static_cast<GeometryNode*>(node);
+                if (geometry->OnPrepareRender(frameNumber, camera))
                     geometries.push_back(geometry);
-                }
-                else
-                {
-                    Light* light = static_cast<Light*>(node);
-                    light->OnPrepareRender(frameNumber, camera);
-                    if (light->GetLightType() != LIGHT_DIRECTIONAL)
-                        lights.push_back(light);
-                    else if (!dirLight || light->GetColor().Average() > dirLight->GetColor().Average())
-                        dirLight = light;
-                }
             }
-        }
-    }
-    else
-    {
-        for (auto it = begin; it != end; ++it)
-        {
-            OctreeNode* node = *it;
-            unsigned short flags = node->Flags();
-            if ((flags & NF_ENABLED) && (flags & (NF_GEOMETRY | NF_LIGHT)) && (node->LayerMask() & viewMask) &&
-                frustum.IsInsideFast(node->WorldBoundingBox()))
+            else
             {
-                if (flags & NF_GEOMETRY)
+                Light* light = static_cast<Light*>(node);
+                if (light->OnPrepareRender(frameNumber, camera))
                 {
-                    GeometryNode* geometry = static_cast<GeometryNode*>(node);
-                    geometry->OnPrepareRender(frameNumber, camera);
-                    geometries.push_back(geometry);
-                }
-                else
-                {
-                    Light* light = static_cast<Light*>(node);
-                    light->OnPrepareRender(frameNumber, camera);
                     if (light->GetLightType() != LIGHT_DIRECTIONAL)
                         lights.push_back(light);
                     else if (!dirLight || light->GetColor().Average() > dirLight->GetColor().Average())

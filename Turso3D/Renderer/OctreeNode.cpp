@@ -8,7 +8,8 @@
 
 OctreeNode::OctreeNode() :
     lastFrameNumber(0),
-    distance(0.0f)
+    distance(0.0f),
+    maxDistance(0.0f)
 {
     impl->octree = nullptr;
     impl->octant = nullptr;
@@ -25,6 +26,7 @@ void OctreeNode::RegisterObject()
     CopyBaseAttributes<OctreeNode, SpatialNode>();
     RegisterDerivedType<OctreeNode, SpatialNode>();
     RegisterAttribute("castShadows", &OctreeNode::CastShadows, &OctreeNode::SetCastShadows, false);
+    RegisterAttribute("maxDistance", &OctreeNode::MaxDistance, &OctreeNode::SetMaxDistance, 0.0f);
 }
 
 void OctreeNode::SetCastShadows(bool enable)
@@ -39,16 +41,26 @@ void OctreeNode::SetCastShadows(bool enable)
     }
 }
 
-void OctreeNode::OnPrepareRender(unsigned short frameNumber, Camera* camera)
+void OctreeNode::SetMaxDistance(float distance_)
 {
-    lastFrameNumber = frameNumber;
-    distance = camera->Distance(WorldBoundingBox().Center());
+    maxDistance = Max(distance_, 0.0f);
 }
 
-void OctreeNode::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance)
+bool OctreeNode::OnPrepareRender(unsigned short frameNumber, Camera* camera)
+{
+    distance = camera->Distance(WorldBoundingBox().Center());
+
+    if (maxDistance > 0.0f && distance > maxDistance)
+        return false;
+
+    lastFrameNumber = frameNumber;
+    return true;
+}
+
+void OctreeNode::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance_)
 {
     float hitDistance = ray.HitDistance(WorldBoundingBox());
-    if (hitDistance < maxDistance)
+    if (hitDistance < maxDistance_)
     {
         RaycastResult res;
         res.position = ray.origin + hitDistance * ray.direction;

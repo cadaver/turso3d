@@ -117,11 +117,16 @@ void GeometryNode::RegisterObject()
         ResourceRefList(Material::TypeStatic()));
 }
 
-void GeometryNode::OnPrepareRender(unsigned short frameNumber, Camera* camera)
+bool GeometryNode::OnPrepareRender(unsigned short frameNumber, Camera* camera)
 {
-    lastFrameNumber = frameNumber;
     distance = camera->Distance(WorldPosition());
     lightList = nullptr;
+
+    if (maxDistance > 0.0f && distance > maxDistance)
+        return false;
+
+    lastFrameNumber = frameNumber;
+    return true;
 }
 
 void GeometryNode::SetNumGeometries(size_t num)

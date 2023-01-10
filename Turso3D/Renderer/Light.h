@@ -83,8 +83,8 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
 
-    /// Prepare object for rendering. Reset framenumber and calculate distance from camera. Called by Renderer.
-    void OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
+    /// Prepare object for rendering. Reset framenumber and calculate distance from camera. Called by Renderer. Return false if should not render.
+    bool OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
     /// Perform ray test on self and add possible hit to the result vector.
     void OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance) override;
 
@@ -96,6 +96,8 @@ public:
     void SetRange(float range);
     /// Set spotlight field of view.
     void SetFov(float fov);
+    /// Set fade start distance, where 1 represents max draw distance. Only has effect when max draw distance has been defined.
+    void SetFadeStart(float start);
     /// Set shadow map face resolution in pixels.
     void SetShadowMapSize(int size);
     /// Set light shadow fade start distance, where 1 represents shadow max distance.
@@ -115,17 +117,21 @@ public:
     LightType GetLightType() const { return lightType; }
     /// Return color.
     const Color& GetColor() const { return color; }
+    /// Return effective color taking distance fade into account.
+    Color EffectiveColor() const;
     /// Return range.
     float Range() const { return range; }
     /// Return spotlight field of view.
     float Fov() const { return fov; }
+    /// Return fade start as a function of max draw distance.
+    float FadeStart() const { return fadeStart; }
     /// Return shadow map face resolution in pixels.
     int ShadowMapSize() const { return shadowMapSize; }
     /// Return shadow split distance by index.
     float ShadowSplit(size_t index) const;
     /// Return directional light shadow split distances.
     Vector2 ShadowSplits() const;
-    /// Return light shadow fade start depth.
+    /// Return light shadow fade start as a function of max shadow distance.
     float ShadowFadeStart() const { return shadowFadeStart; }
     /// Return maximum distance for shadow rendering.
     float ShadowMaxDistance() const { return shadowMaxDistance; }
@@ -179,6 +185,8 @@ private:
     float range;
     /// Spotlight field of view.
     float fov;
+    /// Fade start as a function of max distance.
+    float fadeStart;
     /// Shadow map resolution in pixels.
     int shadowMapSize;
     /// Directional shadow splits.
