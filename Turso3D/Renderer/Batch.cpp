@@ -72,7 +72,7 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortBySta
     if (!convertToInstanced || batches.size() < 2)
         return;
 
-    for (size_t i = 0; i < batches.size() - 1;)
+    for (size_t i = 0; i < batches.size() - 1; ++i)
     {
         Batch& current = batches[i];
         ShaderProgram* origProgram = current.program;
@@ -84,6 +84,7 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortBySta
         }
 
         bool hasInstances = false;
+        size_t start = instanceTransforms.size();
 
         for (size_t j = i + 1; j < batches.size(); ++j)
         {
@@ -91,24 +92,14 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortBySta
 
             if (next.program == origProgram && next.lightPass == current.lightPass && next.pass == current.pass && next.geometry == current.geometry)
             {
-                if (hasInstances)
+                if (instanceTransforms.size() == start)
                 {
-                    instanceTransforms.push_back(*next.worldTransform);
-                    ++current.instanceRange[1];
-                }
-                else
-                {
-                    unsigned char newProgramBits = origProgram->programBits | GEOM_INSTANCED;
-                    ShaderProgram* newProgram = current.pass->GetShaderProgram(newProgramBits);
-                    hasInstances = true;
-                    unsigned numInstancesNow = (unsigned)instanceTransforms.size();
-
-                    current.program = newProgram;
+                    current.program = current.pass->GetShaderProgram(origProgram->programBits | GEOM_INSTANCED);
                     instanceTransforms.push_back(*current.worldTransform);
-                    instanceTransforms.push_back(*next.worldTransform);
-                    current.instanceRange[0] = numInstancesNow;
-                    current.instanceRange[1] = 2;
+                    hasInstances = true;
                 }
+                
+                instanceTransforms.push_back(*next.worldTransform);
             }
             else
                 break;
@@ -116,10 +107,9 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortBySta
 
         if (hasInstances)
         {
+            current.instanceRange[0] = start;
+            current.instanceRange[1] = instanceTransforms.size() - start;
             batches.erase(batches.begin() + i + 1, batches.begin() + i + current.instanceRange[1]);
-            ++i;
         }
-        else
-            ++i;
     }
 }
