@@ -56,8 +56,7 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortBySta
 
     for (auto it = batches.begin(); it < batches.end() - 1; ++it)
     {
-        Batch& current = *it;
-        ShaderProgram* origProgram = current.program;
+        ShaderProgram* origProgram = it->program;
         // Check if batch can be converted (static geometry)
         if (origProgram->programBits & SP_GEOMETRYBITS)
             continue;
@@ -65,20 +64,18 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortBySta
         bool hasInstances = false;
         size_t start = instanceTransforms.size();
 
-        for (auto it2 = it + 1; it2 < batches.end(); ++it2)
+        for (auto next = it + 1; next < batches.end(); ++next)
         {
-            Batch& next = *it2;
-
-            if (next.program == origProgram && next.lightPass == current.lightPass && next.pass == current.pass && next.geometry == current.geometry)
+            if (next->program == origProgram && next->lightPass == it->lightPass && next->pass == it->pass && next->geometry == it->geometry)
             {
                 if (!hasInstances)
                 {
-                    current.program = current.pass->GetShaderProgram(origProgram->programBits | GEOM_INSTANCED);
-                    instanceTransforms.push_back(*current.worldTransform);
+                    it->program = it->pass->GetShaderProgram(origProgram->programBits | GEOM_INSTANCED);
+                    instanceTransforms.push_back(*it->worldTransform);
                     hasInstances = true;
                 }
                 
-                instanceTransforms.push_back(*next.worldTransform);
+                instanceTransforms.push_back(*next->worldTransform);
             }
             else
                 break;
@@ -87,8 +84,8 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortBySta
         if (hasInstances)
         {
             size_t count = instanceTransforms.size() - start;
-            current.instanceRange[0] = start;
-            current.instanceRange[1] = count;
+            it->instanceRange[0] = start;
+            it->instanceRange[1] = count;
             batches.erase(it + 1, it + count);
         }
     }
