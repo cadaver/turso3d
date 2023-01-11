@@ -78,10 +78,7 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortBySta
         ShaderProgram* origProgram = current.program;
         // Check if batch can be converted (static geometry)
         if (origProgram->programBits & SP_GEOMETRYBITS)
-        {
-            ++i;
             continue;
-        }
 
         bool hasInstances = false;
         size_t start = instanceTransforms.size();
