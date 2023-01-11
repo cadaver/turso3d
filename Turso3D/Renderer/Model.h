@@ -47,7 +47,7 @@ struct GeometryDesc
     unsigned drawCount;
 };
 
-/// Model's bone description.
+/// %Model's bone description.
 struct Bone
 {
     /// Default-construct.

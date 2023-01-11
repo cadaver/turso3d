@@ -16,7 +16,7 @@ enum ButtonState
     STATE_PRESSED
 };
 
-/// Input collection subsystem.
+/// %Input collection subsystem.
 class Input : public Object
 {
     OBJECT(Input);

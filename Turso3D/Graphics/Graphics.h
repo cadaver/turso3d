@@ -9,7 +9,7 @@
 
 struct SDL_Window;
 
-/// Graphics rendering context and application window.
+/// %Graphics rendering context and application window.
 class Graphics : public Object
 {
     OBJECT(Graphics);
