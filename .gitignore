@@ -1,16 +1,17 @@
 .vs/
-
+Docs/html
+Docs/latex
 CMakeFiles/
 cmake_install.cmake
 CMakeCache.txt
 Makefile
 *FileListAbsolute.txt
-
 SDL_config.h
 
 *.exe
 *.exp
 *.ilk
+*.a
 *.lib
 *.obj
 *.pdb
