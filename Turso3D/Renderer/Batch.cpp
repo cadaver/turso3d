@@ -56,9 +56,8 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortBySta
 
     for (auto it = batches.begin(); it < batches.end() - 1; ++it)
     {
-        ShaderProgram* origProgram = it->program;
         // Check if batch can be converted (static geometry)
-        if (origProgram->programBits & SP_GEOMETRYBITS)
+        if (it->programBits & SP_GEOMETRYBITS)
             continue;
 
         bool hasInstances = false;
@@ -66,11 +65,10 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortBySta
 
         for (auto next = it + 1; next < batches.end(); ++next)
         {
-            if (next->program == origProgram && next->lightPass == it->lightPass && next->pass == it->pass && next->geometry == it->geometry)
+            if (next->programBits == it->programBits && next->lightPass == it->lightPass && next->pass == it->pass && next->geometry == it->geometry)
             {
                 if (!hasInstances)
                 {
-                    it->program = it->pass->GetShaderProgram(origProgram->programBits | GEOM_INSTANCED);
                     instanceTransforms.push_back(*it->worldTransform);
                     hasInstances = true;
                 }
@@ -84,6 +82,7 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortBySta
         if (hasInstances)
         {
             size_t count = instanceTransforms.size() - start;
+            it->programBits |= GEOM_INSTANCED;
             it->instanceRange[0] = start;
             it->instanceRange[1] = count;
             batches.erase(it + 1, it + count);

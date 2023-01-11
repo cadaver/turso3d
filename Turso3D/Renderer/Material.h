@@ -205,9 +205,7 @@ inline ShaderProgram* Pass::GetShaderProgram(unsigned char programBits)
             Material::GlobalFSDefines() + parent->FSDefines() + fsDefines + lightDefines[lightBits] + dirLightDefines[dirLightBits]
         );
 
-        newShaderProgram->programBits = programBits;
         shaderPrograms[programBits] = newShaderProgram;
-
-        return shaderPrograms[programBits];
+        return newShaderProgram;
     }
 }

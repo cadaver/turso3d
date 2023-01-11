@@ -908,7 +908,7 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
             newBatch.lightPass = nullptr;
             newBatch.pass = pass;
             newBatch.geometry = geometry;
-            newBatch.program = pass->GetShaderProgram((unsigned char)node->GetGeometryType());
+            newBatch.programBits = (unsigned char)node->GetGeometryType();
 
             // Perform distance sort for pass / geometry in addition to state sort
             if (pass->lastSortKey.first != sortViewNumber || pass->lastSortKey.second > distance)
@@ -987,13 +987,12 @@ void Renderer::CollectNodeBatches()
             else
                 newBatch.node = node;
 
-            newBatch.geometry = geometry;
             newBatch.lightPass = lightList ? &lightList->lightPasses[0] : nullptr;
-            unsigned char programBits = geomType | (newBatch.lightPass ? newBatch.lightPass->lightBits : 0);
+            newBatch.programBits = geomType | (newBatch.lightPass ? newBatch.lightPass->lightBits : 0);
             if (lit && hasShadowDirLight)
-                programBits += SP_SHADOWDIRLIGHT;
-            newBatch.program = pass->GetShaderProgram(programBits);
+                newBatch.programBits += SP_SHADOWDIRLIGHT;
             newBatch.pass = pass;
+            newBatch.geometry = geometry;
 
             if (geometry->useCombined)
             {
@@ -1042,7 +1041,7 @@ void Renderer::CollectNodeBatches()
                         for (size_t idx = 1; idx < lightList->lightPasses.size(); ++idx)
                         {
                             newBatch.lightPass = &lightList->lightPasses[idx];
-                            newBatch.program = pass->GetShaderProgram(geomType | newBatch.lightPass->lightBits);
+                            newBatch.programBits = geomType | newBatch.lightPass->lightBits;
                             newBatch.pass = pass;
 
                             if (newBatch.lightPass->lastSortKey.first != sortViewNumber || newBatch.lightPass->lastSortKey.second > distance)
@@ -1070,8 +1069,8 @@ void Renderer::CollectNodeBatches()
                     {
                         for (size_t idx = 1; idx < lightList->lightPasses.size(); ++idx)
                         {
+                            newBatch.programBits = geomType | newBatch.lightPass->lightBits;
                             newBatch.lightPass = &lightList->lightPasses[idx];
-                            newBatch.program = pass->GetShaderProgram(geomType | newBatch.lightPass->lightBits);
                             newBatch.pass = pass;
                             // Each successive additive batch a little closer for correct order
                             newBatch.distance -= 0.00001f;
@@ -1122,7 +1121,7 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
     {
         const Batch& batch = *it;
 
-        ShaderProgram* program = batch.program;
+        ShaderProgram* program = batch.pass->GetShaderProgram(batch.programBits);
         if (!program->Bind())
             continue;
 
@@ -1261,7 +1260,7 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
 
         Geometry* geometry = batch.geometry;
 
-        if ((program->programBits & 0x3) == GEOM_INSTANCED)
+        if ((batch.programBits & SP_GEOMETRYBITS) == GEOM_INSTANCED)
         {
             if (!instancingEnabled)
             {
@@ -1303,7 +1302,7 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
             if (ib)
                 ib->Bind();
 
-            if (!(program->programBits & 0x3))
+            if (!(batch.programBits & SP_GEOMETRYBITS))
                 glUniformMatrix3x4fv(program->Uniform(U_WORLDMATRIX), 1, GL_FALSE, batch.worldTransform->Data());
             // TODO: set per-object uniforms from node for other geometry modes (skinning, billboards...)
 

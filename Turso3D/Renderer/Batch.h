@@ -79,12 +79,12 @@ struct Batch
 
     /// %Light pass, or null if not lit.
     LightPass* lightPass;
-    /// %Shader program.
-    ShaderProgram* program;
     /// %Material pass.
     Pass* pass;
     /// %Geometry.
     Geometry* geometry;
+    /// %Shader variation bits.
+    unsigned char programBits;
 
     union
     {

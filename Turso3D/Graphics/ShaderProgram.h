@@ -37,8 +37,6 @@ public:
     /// Return the OpenGL shader program identifier. Zero if not successfully compiled and linked.
     unsigned GLProgram() const { return program; }
 
-    /// Program bits used by this shader. Used by Renderer.
-    unsigned char programBits;
     /// Last per-view / per-frame uniform assignment. Used by Renderer.
     unsigned lastPerViewUniforms;
     /// Last per-light uniform assignment. Used by Renderer.
