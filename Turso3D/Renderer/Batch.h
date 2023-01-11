@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "../Graphics/VertexBuffer.h"
 #include "../Math/AreaAllocator.h"
 #include "../Math/Matrix3x4.h"
 #include "../Object/Ptr.h"
+#include "GeometryNode.h"
+#include "Material.h"
 
 #include <vector>
 
@@ -24,9 +27,9 @@ struct LightPass
 {
     /// Number of lights.
     unsigned char numLights;
-    /// Shader program light bits.
+    /// %Shader program light bits.
     unsigned char lightBits;
-    /// Light data. Shadowed lights are stored first.
+    /// %Light data. Shadowed lights are stored first.
     Vector4 lightData[MAX_LIGHTS_PER_PASS * 9];
     /// Last sort key for combined distance and state sorting.
     std::pair<unsigned short, unsigned short> lastSortKey;
@@ -41,23 +44,46 @@ struct LightList
     size_t useCount;
     /// Lights.
     std::vector<Light*> lights;
-    /// Light rendering passes.
+    /// %Light rendering passes.
     std::vector<LightPass> lightPasses;
 };
 
 /// Stored draw call.
 struct Batch
 {
-    // Define state sort key.
-    void SetStateSortKey();
+    // Define state sorting key.
+    inline void SetStateSortKey()
+    {
+        unsigned short lightId = lightPass ? lightPass->lastSortKey.second : 0;
+        unsigned short materialId = pass->lastSortKey.second;
+        unsigned short geomId = geometry->lastSortKey.second;
 
-    /// Light pass, or null if not lit.
+        // If uses a combined vertex buffer, add its key to light sorting key to further reduce state changes
+        if (geometry->useCombined)
+            lightId += geometry->vertexBuffer->lastSortKey.second;
+
+        sortKey = (((unsigned long long)lightId) << 32) |
+            (((unsigned long long)materialId) << 16) |
+            geomId;
+    }
+
+    union
+    {
+        /// State sorting key.
+        unsigned long long sortKey;
+        /// Distance for alpha batches.
+        float distance;
+        /// Instancing start position in the instance vertex buffer and instance count.
+        unsigned instanceRange[2];
+    };
+
+    /// %Light pass, or null if not lit.
     LightPass* lightPass;
-    /// Shader program.
+    /// %Shader program.
     ShaderProgram* program;
-    /// Material pass.
+    /// %Material pass.
     Pass* pass;
-    /// Geometry.
+    /// %Geometry.
     Geometry* geometry;
 
     union
@@ -66,16 +92,6 @@ struct Batch
         GeometryNode* node;
         /// Pointer to world transform matrix for static geometry rendering.
         const Matrix3x4* worldTransform;
-        /// Instancing start and size.
-        unsigned instanceRange[2];
-    };
-
-    union
-    {
-        /// Sort key.
-        unsigned long long sortKey;
-        /// Distance for alpha batches.
-        float distance;
     };
 };
 
