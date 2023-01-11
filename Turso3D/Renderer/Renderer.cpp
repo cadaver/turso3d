@@ -1259,8 +1259,9 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
         }
 
         Geometry* geometry = batch.geometry;
+        unsigned char geometryBits = batch.programBits & SP_GEOMETRYBITS;
 
-        if ((batch.programBits & SP_GEOMETRYBITS) == GEOM_INSTANCED)
+        if (geometryBits == GEOM_INSTANCED)
         {
             if (!instancingEnabled)
             {
@@ -1302,7 +1303,7 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
             if (ib)
                 ib->Bind();
 
-            if (!(batch.programBits & SP_GEOMETRYBITS))
+            if (!geometryBits)
                 glUniformMatrix3x4fv(program->Uniform(U_WORLDMATRIX), 1, GL_FALSE, batch.worldTransform->Data());
             // TODO: set per-object uniforms from node for other geometry modes (skinning, billboards...)
 
