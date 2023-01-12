@@ -2,12 +2,9 @@
 
 #pragma once
 
-#include "../Graphics/VertexBuffer.h"
 #include "../Math/AreaAllocator.h"
 #include "../Math/Matrix3x4.h"
 #include "../Object/Ptr.h"
-#include "GeometryNode.h"
-#include "Material.h"
 
 #include <vector>
 
@@ -51,22 +48,6 @@ struct LightList
 /// Stored draw call.
 struct Batch
 {
-    /// Define state sorting key.
-    inline void SetStateSortKey()
-    {
-        unsigned short lightId = lightPass ? lightPass->lastSortKey.second : 0;
-        unsigned short materialId = pass->lastSortKey.second;
-        unsigned short geomId = geometry->lastSortKey.second;
-
-        // If uses a combined vertex buffer, add its key to light sorting key to further reduce state changes
-        if (geometry->useCombined)
-            lightId += geometry->vertexBuffer->lastSortKey.second;
-
-        sortKey = (((unsigned long long)lightId) << 32) |
-            (((unsigned long long)materialId) << 16) |
-            geomId;
-    }
-
     union
     {
         /// State sorting key.

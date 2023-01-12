@@ -1,6 +1,9 @@
 #include "../Graphics/FrameBuffer.h"
 #include "../Graphics/Texture.h"
+#include "../Graphics/VertexBuffer.h"
 #include "Batch.h"
+#include "GeometryNode.h"
+#include "Material.h"
 
 #include <algorithm>
 
@@ -42,7 +45,20 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortBySta
     if (sortByState)
     {
         for (auto it = batches.begin(); it < batches.end(); ++it)
-            it->SetStateSortKey();
+        {
+            unsigned short lightId = it->lightPass ? it->lightPass->lastSortKey.second : 0;
+            unsigned short materialId = it->pass->lastSortKey.second;
+            unsigned short geomId = it->geometry->lastSortKey.second;
+
+            // If uses a combined vertex buffer, add its key to light sorting key to further reduce state changes
+            if (it->geometry->useCombined)
+                lightId += it->geometry->vertexBuffer->lastSortKey.second;
+
+            it->sortKey = (((unsigned long long)lightId) << 32) |
+                (((unsigned long long)materialId) << 16) |
+                geomId;
+        }
+
 
         std::sort(batches.begin(), batches.end(), CompareBatchKeys);
     }
