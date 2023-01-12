@@ -130,8 +130,10 @@ void ShaderProgram::Create(const std::string& sourceCode, const std::vector<std:
         
         if (!vsCompiled)
             LOGERRORF("VS %s compile error: %s", shaderName.c_str(), errorString.c_str());
+#ifdef _DEBUG
         else if (length > 1)
             LOGDEBUGF("VS %s compile output: %s", shaderName.c_str(), errorString.c_str());
+#endif
     }
 
     std::string fsSourceCode;
@@ -164,8 +166,10 @@ void ShaderProgram::Create(const std::string& sourceCode, const std::vector<std:
 
         if (!fsCompiled)
             LOGERRORF("FS %s compile error: %s", shaderName.c_str(), errorString.c_str());
+#ifdef _DEBUG
         else if (length > 1)
             LOGDEBUGF("FS %s compile output: %s", shaderName.c_str(), errorString.c_str());
+#endif
     }
 
     if (!vsCompiled || !fsCompiled)
@@ -203,8 +207,10 @@ void ShaderProgram::Create(const std::string& sourceCode, const std::vector<std:
             program = 0;
             return;
         }
+#ifdef _DEBUG
         else if (length > 1)
             LOGDEBUGF("Shader %s link messages: %s", shaderName.c_str(), errorString.c_str());
+#endif
     }
 
     char nameBuffer[MAX_NAME_LENGTH];

@@ -1,7 +1,6 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../Graphics/FrameBuffer.h"
-#include "../Graphics/Graphics.h"
 #include "../Graphics/IndexBuffer.h"
 #include "../Graphics/RenderBuffer.h"
 #include "../Graphics/Shader.h"
@@ -83,7 +82,6 @@ inline bool CompareLights(Light* lhs, Light* rhs)
 }
 
 Renderer::Renderer() :
-    graphics(Subsystem<Graphics>()),
     frameNumber(0),
     sortViewNumber(0),
     lastPerViewUniforms(0),

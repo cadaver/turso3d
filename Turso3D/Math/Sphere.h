@@ -179,56 +179,54 @@ public:
         float radiusSquared = radius * radius;
         float distSquared = 0;
         float temp;
-        Vector3 min = box.min;
-        Vector3 max = box.max;
 
-        if (center.x < min.x)
+        if (center.x < box.min.x)
         {
-            temp = center.x - min.x;
+            temp = center.x - box.min.x;
             distSquared += temp * temp;
             if (distSquared >= radiusSquared)
                 return OUTSIDE;
         }
-        else if (center.x > max.x)
+        else if (center.x > box.max.x)
         {
-            temp = center.x - max.x;
+            temp = center.x - box.max.x;
             distSquared += temp * temp;
             if (distSquared >= radiusSquared)
                 return OUTSIDE;
         }
 
-        if (center.y < min.y)
+        if (center.y < box.min.y)
         {
-            temp = center.y - min.y;
+            temp = center.y - box.min.y;
             distSquared += temp * temp;
             if (distSquared >= radiusSquared)
                 return OUTSIDE;
         }
-        else if (center.y > max.y)
+        else if (center.y > box.max.y)
         {
-            temp = center.y - max.y;
-            distSquared += temp * temp;
-            if (distSquared >= radiusSquared)
-                return OUTSIDE;
-        }
-
-        if (center.z < min.z)
-        {
-            temp = center.z - min.z;
-            distSquared += temp * temp;
-            if (distSquared >= radiusSquared)
-                return OUTSIDE;
-        }
-        else if (center.z > max.z)
-        {
-            temp = center.z - max.z;
+            temp = center.y - box.max.y;
             distSquared += temp * temp;
             if (distSquared >= radiusSquared)
                 return OUTSIDE;
         }
 
-        min -= center;
-        max -= center;
+        if (center.z < box.min.z)
+        {
+            temp = center.z - box.min.z;
+            distSquared += temp * temp;
+            if (distSquared >= radiusSquared)
+                return OUTSIDE;
+        }
+        else if (center.z > box.max.z)
+        {
+            temp = center.z - box.max.z;
+            distSquared += temp * temp;
+            if (distSquared >= radiusSquared)
+                return OUTSIDE;
+        }
+
+        Vector3 min = box.min - center;
+        Vector3 max = box.max - center;
 
         Vector3 tempVec = min; // - - -
         if (tempVec.LengthSquared() >= radiusSquared)
@@ -264,49 +262,47 @@ public:
         float radiusSquared = radius * radius;
         float distSquared = 0;
         float temp;
-        Vector3 min = box.min;
-        Vector3 max = box.max;
 
-        if (center.x < min.x)
+        if (center.x < box.min.x)
         {
-            temp = center.x - min.x;
+            temp = center.x - box.min.x;
             distSquared += temp * temp;
             if (distSquared >= radiusSquared)
                 return OUTSIDE;
         }
-        else if (center.x > max.x)
+        else if (center.x > box.max.x)
         {
-            temp = center.x - max.x;
+            temp = center.x - box.max.x;
             distSquared += temp * temp;
             if (distSquared >= radiusSquared)
                 return OUTSIDE;
         }
 
-        if (center.y < min.y)
+        if (center.y < box.min.y)
         {
-            temp = center.y - min.y;
+            temp = center.y - box.min.y;
             distSquared += temp * temp;
             if (distSquared >= radiusSquared)
                 return OUTSIDE;
         }
-        else if (center.y > max.y)
+        else if (center.y > box.max.y)
         {
-            temp = center.y - max.y;
+            temp = center.y - box.max.y;
             distSquared += temp * temp;
             if (distSquared >= radiusSquared)
                 return OUTSIDE;
         }
 
-        if (center.z < min.z)
+        if (center.z < box.min.z)
         {
-            temp = center.z - min.z;
+            temp = center.z - box.min.z;
             distSquared += temp * temp;
             if (distSquared >= radiusSquared)
                 return OUTSIDE;
         }
-        else if (center.z > max.z)
+        else if (center.z > box.max.z)
         {
-            temp = center.z - max.z;
+            temp = center.z - box.max.z;
             distSquared += temp * temp;
             if (distSquared >= radiusSquared)
                 return OUTSIDE;

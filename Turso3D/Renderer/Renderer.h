@@ -79,7 +79,7 @@ private:
     void RenderBatches(Camera* camera, const std::vector<Batch>& batches);
     /// Allocate shadow map for light. Return true on success.
     bool AllocateShadowMap(Light* light);
-    /// Octree callback for collecting lights and geometries.
+    /// %Octree callback for collecting lights and geometries.
     void CollectGeometriesAndLights(std::vector<OctreeNode*>::const_iterator begin, std::vector<OctreeNode*>::const_iterator end, bool inside);
     /// Assign a light list to a node. Creates new light lists as necessary to handle multiple lights.
     void AddLightToNode(GeometryNode* node, Light* light, LightList* lightList);
@@ -88,8 +88,6 @@ private:
     /// Define vertex data for rendering full-screen quads.
     void DefineQuadVertexBuffer();
 
-    /// Graphics subsystem.
-    Graphics* graphics;
     /// Current scene.
     Scene* scene;
     /// Current scene octree.

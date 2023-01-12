@@ -51,7 +51,7 @@ struct LightList
 /// Stored draw call.
 struct Batch
 {
-    // Define state sorting key.
+    /// Define state sorting key.
     inline void SetStateSortKey()
     {
         unsigned short lightId = lightPass ? lightPass->lastSortKey.second : 0;

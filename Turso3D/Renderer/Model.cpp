@@ -73,6 +73,7 @@ CombinedBuffer* CombinedBuffer::Allocate(const std::vector<VertexElement>& eleme
     LOGDEBUGF("Creating new combined buffer for attribute mask %d", key);
     CombinedBuffer* buffer = new CombinedBuffer(elements);
 
+#ifdef _DEBUG
     if (it != buffers.end())
     {
         for (auto vIt = it->second.begin(); vIt != it->second.end(); ++vIt)
@@ -81,6 +82,7 @@ CombinedBuffer* CombinedBuffer::Allocate(const std::vector<VertexElement>& eleme
             LOGDEBUGF("Previous buffer use %d/%d %d/%d", prevBuffer->usedVertices, prevBuffer->vertexBuffer->NumVertices(), prevBuffer->usedIndices, prevBuffer->indexBuffer->NumIndices());
         }
     }
+#endif
 
     buffers[key].push_back(buffer);
     return buffer;
