@@ -177,138 +177,40 @@ public:
     Intersection IsInside(const BoundingBox& box) const
     {
         float radiusSquared = radius * radius;
-        float distSquared = 0;
-        float temp;
+        
+        Vector3 closest(
+            Clamp(center.x, box.min.x, box.max.x),
+            Clamp(center.y, box.min.y, box.max.y),
+            Clamp(center.z, box.min.z, box.max.z)
+        );
 
-        if (center.x < box.min.x)
-        {
-            temp = center.x - box.min.x;
-            distSquared += temp * temp;
-            if (distSquared >= radiusSquared)
-                return OUTSIDE;
-        }
-        else if (center.x > box.max.x)
-        {
-            temp = center.x - box.max.x;
-            distSquared += temp * temp;
-            if (distSquared >= radiusSquared)
-                return OUTSIDE;
-        }
+        if ((closest - center).LengthSquared() >= radiusSquared)
+            return OUTSIDE;
 
-        if (center.y < box.min.y)
-        {
-            temp = center.y - box.min.y;
-            distSquared += temp * temp;
-            if (distSquared >= radiusSquared)
-                return OUTSIDE;
-        }
-        else if (center.y > box.max.y)
-        {
-            temp = center.y - box.max.y;
-            distSquared += temp * temp;
-            if (distSquared >= radiusSquared)
-                return OUTSIDE;
-        }
+        Vector3 min = (box.min - center).Abs();
+        Vector3 max = (box.max - center).Abs();
 
-        if (center.z < box.min.z)
-        {
-            temp = center.z - box.min.z;
-            distSquared += temp * temp;
-            if (distSquared >= radiusSquared)
-                return OUTSIDE;
-        }
-        else if (center.z > box.max.z)
-        {
-            temp = center.z - box.max.z;
-            distSquared += temp * temp;
-            if (distSquared >= radiusSquared)
-                return OUTSIDE;
-        }
+        Vector3 furthest(
+            Max(min.x, max.x),
+            Max(min.y, max.y),
+            Max(min.z, max.z)
+        );
 
-        Vector3 min = box.min - center;
-        Vector3 max = box.max - center;
-
-        Vector3 tempVec = min; // - - -
-        if (tempVec.LengthSquared() >= radiusSquared)
-            return INTERSECTS;
-        tempVec.x = max.x; // + - -
-        if (tempVec.LengthSquared() >= radiusSquared)
-            return INTERSECTS;
-        tempVec.y = max.y; // + + -
-        if (tempVec.LengthSquared() >= radiusSquared)
-            return INTERSECTS;
-        tempVec.x = min.x; // - + -
-        if (tempVec.LengthSquared() >= radiusSquared)
-            return INTERSECTS;
-        tempVec.z = max.z; // - + +
-        if (tempVec.LengthSquared() >= radiusSquared)
-            return INTERSECTS;
-        tempVec.y = min.y; // - - +
-        if (tempVec.LengthSquared() >= radiusSquared)
-            return INTERSECTS;
-        tempVec.x = max.x; // + - +
-        if (tempVec.LengthSquared() >= radiusSquared)
-            return INTERSECTS;
-        tempVec.y = max.y; // + + +
-        if (tempVec.LengthSquared() >= radiusSquared)
-            return INTERSECTS;
-
-        return INSIDE;
+        return furthest.LengthSquared() >= radiusSquared ? INTERSECTS : INSIDE;
     }
 
     /// Test if a bounding box is (partially) inside or outside.
     Intersection IsInsideFast(const BoundingBox& box) const
     {
         float radiusSquared = radius * radius;
-        float distSquared = 0;
-        float temp;
 
-        if (center.x < box.min.x)
-        {
-            temp = center.x - box.min.x;
-            distSquared += temp * temp;
-            if (distSquared >= radiusSquared)
-                return OUTSIDE;
-        }
-        else if (center.x > box.max.x)
-        {
-            temp = center.x - box.max.x;
-            distSquared += temp * temp;
-            if (distSquared >= radiusSquared)
-                return OUTSIDE;
-        }
+        Vector3 closest(
+            Clamp(center.x, box.min.x, box.max.x),
+            Clamp(center.y, box.min.y, box.max.y),
+            Clamp(center.z, box.min.z, box.max.z)
+        );
 
-        if (center.y < box.min.y)
-        {
-            temp = center.y - box.min.y;
-            distSquared += temp * temp;
-            if (distSquared >= radiusSquared)
-                return OUTSIDE;
-        }
-        else if (center.y > box.max.y)
-        {
-            temp = center.y - box.max.y;
-            distSquared += temp * temp;
-            if (distSquared >= radiusSquared)
-                return OUTSIDE;
-        }
-
-        if (center.z < box.min.z)
-        {
-            temp = center.z - box.min.z;
-            distSquared += temp * temp;
-            if (distSquared >= radiusSquared)
-                return OUTSIDE;
-        }
-        else if (center.z > box.max.z)
-        {
-            temp = center.z - box.max.z;
-            distSquared += temp * temp;
-            if (distSquared >= radiusSquared)
-                return OUTSIDE;
-        }
-
-        return INSIDE;
+        return ((closest - center).LengthSquared() >= radiusSquared) ? OUTSIDE : INSIDE;
     }
 
     /// Return distance of a point to the surface, or 0 if inside.

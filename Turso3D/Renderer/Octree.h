@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "../Math/BoundingBox.h"
+#include "../Math/Frustum.h"
 #include "../Thread/Profiler.h"
 #include "../Object/Allocator.h"
 #include "OctreeNode.h"
@@ -110,6 +110,18 @@ public:
     template <class T, class U> void FindNodes(const T& volume, U* object, void (U::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, bool))
     {
         CollectNodesMemberCallback(&root, volume, object, callback);
+    }
+
+    /// Collect nodes matching flags using a frustum and masked testing.
+    void FindNodesMasked(std::vector<OctreeNode*>& result, const Frustum& frustum, unsigned short nodeFlags, unsigned layerMask = LAYERMASK_ALL)
+    {
+        CollectNodesMasked(result, &root, frustum, nodeFlags, layerMask, 0);
+    }
+
+    /// Collect nodes matching flags using a frustum and masked testing. Invoke a member callback for each octant, with current mask provided.
+    template <class T> void FindNodesMasked(const Frustum& frustum, T* object, void (T::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, unsigned char))
+    {
+        CollectNodesMaskedMemberCallback(&root, frustum, object, callback, 0);
     }
 
 private:
@@ -268,6 +280,65 @@ private:
                 if (octant->children[i])
                     CollectNodesMemberCallback(octant->children[i], volume, object, callback);
             }
+        }
+    }
+
+    /// Collect nodes using a frustum and masked testing.
+    void CollectNodesMasked(std::vector<OctreeNode*> result, Octant* octant, const Frustum& frustum, unsigned short nodeFlags, unsigned layerMask, unsigned char planeMask) const
+    {
+        if (planeMask != 0x3f)
+        {
+            planeMask = frustum.IsInsideMasked(octant->cullingBox, planeMask);
+            if (planeMask == 0xff)
+                return;
+        }
+
+        std::vector<OctreeNode*>& octantNodes = octant->nodes;
+        if (octant->sortDirty)
+        {
+            std::sort(octantNodes.begin(), octantNodes.end());
+            octant->sortDirty = false;
+        }
+
+        for (auto it = octantNodes.begin(); it != octantNodes.end(); ++it)
+        {
+            OctreeNode* node = *it;
+            if ((node->Flags() & nodeFlags) == nodeFlags && (node->LayerMask() & layerMask) && (planeMask == 0x3f || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask) != OUTSIDE))
+                result.push_back(node);
+        }
+
+        for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        {
+            if (octant->children[i])
+                CollectNodesMasked(result, octant->children[i], frustum, nodeFlags, layerMask, planeMask);
+        }
+    }
+
+    /// Collect nodes using a frustum and masked testing. Invoke a member function for each octant.
+    template <class T> void CollectNodesMaskedMemberCallback(Octant* octant, const Frustum& frustum, T* object, void (T::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, unsigned char), unsigned char planeMask) const
+    {
+        if (planeMask != 0x3f)
+        {
+            planeMask = frustum.IsInsideMasked(octant->cullingBox, planeMask);
+            if (planeMask == 0xff)
+                return;
+        }
+
+        std::vector<OctreeNode*>& octantNodes = octant->nodes;
+        if (octantNodes.size())
+        {
+            if (octant->sortDirty)
+            {
+                std::sort(octantNodes.begin(), octantNodes.end());
+                octant->sortDirty = false;
+            }
+            (object->*callback)(octantNodes.begin(), octantNodes.end(), planeMask);
+        }
+
+        for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        {
+            if (octant->children[i])
+                CollectNodesMaskedMemberCallback(octant->children[i], frustum, object, callback, planeMask);
         }
     }
 

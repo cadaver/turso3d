@@ -80,7 +80,7 @@ private:
     /// Allocate shadow map for light. Return true on success.
     bool AllocateShadowMap(Light* light);
     /// %Octree callback for collecting lights and geometries.
-    void CollectGeometriesAndLights(std::vector<OctreeNode*>::const_iterator begin, std::vector<OctreeNode*>::const_iterator end, bool inside);
+    void CollectGeometriesAndLights(std::vector<OctreeNode*>::const_iterator begin, std::vector<OctreeNode*>::const_iterator end, unsigned char planeMask);
     /// Assign a light list to a node. Creates new light lists as necessary to handle multiple lights.
     void AddLightToNode(GeometryNode* node, Light* light, LightList* lightList);
     /// Define face selection texture for point light shadows.

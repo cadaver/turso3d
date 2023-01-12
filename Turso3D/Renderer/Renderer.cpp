@@ -492,7 +492,7 @@ void Renderer::CollectVisibleNodes()
     PROFILE(CollectVisibleNodes);
 
     octree->Update(frameNumber);
-    octree->FindNodes(frustum, this, &Renderer::CollectGeometriesAndLights);
+    octree->FindNodesMasked(frustum, this, &Renderer::CollectGeometriesAndLights);
 }
 
 void Renderer::CollectLightInteractions(bool drawShadows)
@@ -1353,13 +1353,13 @@ bool Renderer::AllocateShadowMap(Light* light)
     return false;
 }
 
-void Renderer::CollectGeometriesAndLights(std::vector<OctreeNode*>::const_iterator begin, std::vector<OctreeNode*>::const_iterator end, bool inside)
+void Renderer::CollectGeometriesAndLights(std::vector<OctreeNode*>::const_iterator begin, std::vector<OctreeNode*>::const_iterator end, unsigned char planeMask)
 {
     for (auto it = begin; it != end; ++it)
     {
         OctreeNode* node = *it;
         unsigned short flags = node->Flags();
-        if ((flags & NF_ENABLED) && (flags & (NF_GEOMETRY | NF_LIGHT)) && (node->LayerMask() & viewMask) && (inside || frustum.IsInsideFast(node->WorldBoundingBox())))
+        if ((flags & NF_ENABLED) && (flags & (NF_GEOMETRY | NF_LIGHT)) && (node->LayerMask() & viewMask) && (planeMask == 0x3f || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
         {
             if (flags & NF_GEOMETRY)
             {
