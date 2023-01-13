@@ -537,8 +537,7 @@ void Renderer::CollectLightInteractions(bool drawShadows)
         switch (light->GetLightType())
         {
         case LIGHT_POINT:
-            octree->FindNodes(reinterpret_cast<std::vector<OctreeNode*>&>(litGeometries), light->WorldSphere(), NF_ENABLED |
-                NF_GEOMETRY);
+            octree->FindNodes(reinterpret_cast<std::vector<OctreeNode*>&>(litGeometries), light->WorldSphere(), NF_ENABLED | NF_GEOMETRY);
             for (auto gIt = litGeometries.begin(), gEnd = litGeometries.end(); gIt != gEnd; ++gIt)
             {
                 GeometryNode* node = *gIt;
@@ -552,8 +551,7 @@ void Renderer::CollectLightInteractions(bool drawShadows)
             break;
 
         case LIGHT_SPOT:
-            octree->FindNodes(reinterpret_cast<std::vector<OctreeNode*>&>(litGeometries), light->WorldFrustum(), NF_ENABLED |
-                NF_GEOMETRY);
+            octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(litGeometries), light->WorldFrustum(), NF_ENABLED | NF_GEOMETRY);
             for (auto gIt = litGeometries.begin(), gEnd = litGeometries.end(); gIt != gEnd; ++gIt)
             {
                 GeometryNode* node = *gIt;
@@ -693,8 +691,7 @@ void Renderer::CollectLightInteractions(bool drawShadows)
 
                 // Directional light needs a new frustum query for each split, as the shadow cameras are typically far outside the main view
                 litGeometries.clear();
-                octree->FindNodes(reinterpret_cast<std::vector<OctreeNode*>&>(litGeometries),
-                    view.shadowFrustum, NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS);
+                octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(litGeometries), view.shadowFrustum, NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS);
 
                 shadowMaps[0].shadowViews.push_back(&view);
 

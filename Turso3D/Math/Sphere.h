@@ -143,10 +143,8 @@ public:
     Intersection IsInside(const Vector3& point) const
     {
         float distSquared = (point - center).LengthSquared();
-        if (distSquared < radius * radius)
-            return INSIDE;
-        else
-            return OUTSIDE;
+
+        return distSquared >= radius * radius ? OUTSIDE : INSIDE;
     }
     
     /// Test if another sphere is inside, outside or intersects.
@@ -167,10 +165,7 @@ public:
         float distSquared = (sphere.center - center).LengthSquared();
         float combined = sphere.radius + radius;
         
-        if (distSquared >= combined * combined)
-            return OUTSIDE;
-        else
-            return INSIDE;
+        return distSquared >= combined * combined ? OUTSIDE : INSIDE;
     }
     
     /// Test if a bounding box is inside, outside or intersects.

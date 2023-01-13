@@ -115,13 +115,13 @@ public:
     /// Collect nodes matching flags using a frustum and masked testing.
     void FindNodesMasked(std::vector<OctreeNode*>& result, const Frustum& frustum, unsigned short nodeFlags, unsigned layerMask = LAYERMASK_ALL)
     {
-        CollectNodesMasked(result, &root, frustum, nodeFlags, layerMask, 0);
+        CollectNodesMasked(result, &root, frustum, nodeFlags, layerMask);
     }
 
     /// Collect nodes matching flags using a frustum and masked testing. Invoke a member callback for each octant, with current mask provided.
     template <class T> void FindNodesMasked(const Frustum& frustum, T* object, void (T::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, unsigned char))
     {
-        CollectNodesMaskedMemberCallback(&root, frustum, object, callback, 0);
+        CollectNodesMaskedMemberCallback(&root, frustum, object, callback);
     }
 
 private:
@@ -284,7 +284,7 @@ private:
     }
 
     /// Collect nodes using a frustum and masked testing.
-    void CollectNodesMasked(std::vector<OctreeNode*> result, Octant* octant, const Frustum& frustum, unsigned short nodeFlags, unsigned layerMask, unsigned char planeMask) const
+    void CollectNodesMasked(std::vector<OctreeNode*> result, Octant* octant, const Frustum& frustum, unsigned short nodeFlags, unsigned layerMask, unsigned char planeMask = 0) const
     {
         if (planeMask != 0x3f)
         {
@@ -315,7 +315,8 @@ private:
     }
 
     /// Collect nodes using a frustum and masked testing. Invoke a member function for each octant.
-    template <class T> void CollectNodesMaskedMemberCallback(Octant* octant, const Frustum& frustum, T* object, void (T::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, unsigned char), unsigned char planeMask) const
+    template <class T> void CollectNodesMaskedMemberCallback(Octant* octant, const Frustum& frustum, T* object, void (T::*callback)(std::vector<OctreeNode*>::const_iterator, 
+        std::vector<OctreeNode*>::const_iterator, unsigned char), unsigned char planeMask = 0) const
     {
         if (planeMask != 0x3f)
         {

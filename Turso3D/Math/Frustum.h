@@ -116,15 +116,13 @@ public:
     /// Test if a bounding box is inside, outside or intersects. Updates a bitmask for speeding up further tests of hierarchies. Returns updated plane mask: 0xff if outside, 0x3f if completely inside, otherwise intersecting.
     unsigned char IsInsideMasked(const BoundingBox& box, unsigned char planeMask = 0) const
     {
-        if (planeMask == 0x3f)
-            return 0x3f;
-
         Vector3 center = box.Center();
         Vector3 edge = center - box.min;
 
         for (size_t i = 0; i < NUM_FRUSTUM_PLANES; ++i)
         {
             unsigned char bit = 1 << i;
+
             if (!(planeMask & bit))
             {
                 const Plane& plane = planes[i];
@@ -150,6 +148,7 @@ public:
         for (size_t i = 0; i < NUM_FRUSTUM_PLANES; ++i)
         {
             unsigned char bit = 1 << i;
+
             if (!(planeMask & bit))
             {
                 const Plane& plane = planes[i];
@@ -163,7 +162,6 @@ public:
 
         return INSIDE;
     }
-
     
     /// Test if a bounding box is (partially) inside or outside.
     Intersection IsInsideFast(const BoundingBox& box) const
