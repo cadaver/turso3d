@@ -41,8 +41,6 @@ struct Geometry : public RefCounted
     size_t drawCount;
     /// LOD transition distance.
     float lodDistance;
-    /// Whether uses a combined vertex buffer.
-    bool useCombined;
 
     /// Last sort key for combined distance and state sorting. Used by Renderer.
     std::pair<unsigned short, unsigned short> lastSortKey;

@@ -353,7 +353,6 @@ bool Model::EndLoad()
                 geom->drawCount = geomDesc.drawCount;
                 geom->vertexBuffer = combinedBuffer->GetVertexBuffer();
                 geom->indexBuffer = combinedBuffer->GetIndexBuffer();
-                geom->useCombined = true;
                 geometries[i][j] = geom;
             }
         }

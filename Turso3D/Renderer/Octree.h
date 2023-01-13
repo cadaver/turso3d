@@ -284,7 +284,7 @@ private:
     }
 
     /// Collect nodes using a frustum and masked testing.
-    void CollectNodesMasked(std::vector<OctreeNode*> result, Octant* octant, const Frustum& frustum, unsigned short nodeFlags, unsigned layerMask, unsigned char planeMask = 0) const
+    void CollectNodesMasked(std::vector<OctreeNode*>& result, Octant* octant, const Frustum& frustum, unsigned short nodeFlags, unsigned layerMask, unsigned char planeMask = 0) const
     {
         if (planeMask != 0x3f)
         {
@@ -294,17 +294,19 @@ private:
         }
 
         std::vector<OctreeNode*>& octantNodes = octant->nodes;
-        if (octant->sortDirty)
+        if (octantNodes.size())
         {
-            std::sort(octantNodes.begin(), octantNodes.end());
-            octant->sortDirty = false;
-        }
-
-        for (auto it = octantNodes.begin(); it != octantNodes.end(); ++it)
-        {
-            OctreeNode* node = *it;
-            if ((node->Flags() & nodeFlags) == nodeFlags && (node->LayerMask() & layerMask) && (planeMask == 0x3f || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask) != OUTSIDE))
-                result.push_back(node);
+            if (octant->sortDirty)
+            {
+                std::sort(octantNodes.begin(), octantNodes.end());
+                octant->sortDirty = false;
+            }
+            for (auto it = octantNodes.begin(); it != octantNodes.end(); ++it)
+            {
+                OctreeNode* node = *it;
+                if ((node->Flags() & nodeFlags) == nodeFlags && (node->LayerMask() & layerMask) && (planeMask == 0x3f || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask) != OUTSIDE))
+                    result.push_back(node);
+            }
         }
 
         for (size_t i = 0; i < NUM_OCTANTS; ++i)

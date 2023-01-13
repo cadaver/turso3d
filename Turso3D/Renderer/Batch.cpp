@@ -50,15 +50,8 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortBySta
             unsigned short materialId = it->pass->lastSortKey.second;
             unsigned short geomId = it->geometry->lastSortKey.second;
 
-            // If uses a combined vertex buffer, add its key to light sorting key to further reduce state changes
-            if (it->geometry->useCombined)
-                lightId += it->geometry->vertexBuffer->lastSortKey.second;
-
-            it->sortKey = (((unsigned long long)lightId) << 32) |
-                (((unsigned long long)materialId) << 16) |
-                geomId;
+            it->sortKey = (((unsigned long long)lightId) << 32) | (((unsigned long long)materialId) << 16) | geomId;
         }
-
 
         std::sort(batches.begin(), batches.end(), CompareBatchKeys);
     }
@@ -99,8 +92,8 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortBySta
         {
             size_t count = instanceTransforms.size() - start;
             it->programBits |= GEOM_INSTANCED;
-            it->instanceRange[0] = start;
-            it->instanceRange[1] = count;
+            it->instanceRange[0] = (unsigned)start;
+            it->instanceRange[1] = (unsigned)count;
             batches.erase(it + 1, it + count);
         }
     }

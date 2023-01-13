@@ -916,15 +916,6 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
                 geometry->lastSortKey.first = sortViewNumber;
                 geometry->lastSortKey.second = distance;
             }
-            if (geometry->useCombined)
-            {
-                VertexBuffer* vb = geometry->vertexBuffer.Get();
-                if (vb->lastSortKey.first != sortViewNumber || vb->lastSortKey.second > distance)
-                {
-                    vb->lastSortKey.first = sortViewNumber;
-                    vb->lastSortKey.second = distance;
-                }
-            }
 
             dest.batches.push_back(newBatch);
         }
@@ -988,16 +979,6 @@ void Renderer::CollectNodeBatches()
                 newBatch.programBits += SP_SHADOWDIRLIGHT;
             newBatch.pass = pass;
             newBatch.geometry = geometry;
-
-            if (geometry->useCombined)
-            {
-                VertexBuffer* vb = geometry->vertexBuffer.Get();
-                if (vb->lastSortKey.first != sortViewNumber || vb->lastSortKey.second > distance)
-                {
-                    vb->lastSortKey.first = sortViewNumber;
-                    vb->lastSortKey.second = distance;
-                }
-            }
 
             if (type == PASS_OPAQUE)
             {
