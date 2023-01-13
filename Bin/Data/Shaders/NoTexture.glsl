@@ -33,8 +33,6 @@ void vert()
     vViewNormal = (vec4(vNormal, 0.0) * viewMatrix) * 0.5 + 0.5;
     gl_Position = vec4(vWorldPos.xyz, 1.0) * viewProjMatrix;
     vWorldPos.w = CalculateDepth(gl_Position);
-
-    //vScreenUv = CalculateScreenPos(gl_Position) * 0.5 + 0.5;
 }
 
 void frag()
