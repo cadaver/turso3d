@@ -154,7 +154,8 @@ void Renderer::SetShadowDepthBiasMul(float depthBiasMul_, float slopeScaleBiasMu
 {
     depthBiasMul = depthBiasMul_;
     slopeScaleBiasMul = slopeScaleBiasMul_;
-
+    
+    // Need to rerender all shadow maps with changed bias
     shadowMapsDirty = true;
 }
 
@@ -278,7 +279,7 @@ void Renderer::RenderShadowMaps()
                 if (batchQueue.HasBatches())
                 {
                     SetViewport(view->viewport);
-                    SetDepthBias(view->light->DepthBias(), view->light->SlopeScaleBias());
+                    SetDepthBias(view->light->DepthBias() * depthBiasMul, view->light->SlopeScaleBias() * slopeScaleBiasMul);
                     RenderBatches(view->shadowCamera, batchQueue.batches);
                 }
             }
