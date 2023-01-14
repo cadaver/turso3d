@@ -19,6 +19,14 @@ struct ShadowView;
 
 static const int MAX_LIGHTS_PER_PASS = 4;
 
+/// Sorting modes for batches.
+enum BatchSortMode
+{
+    SORT_STATE = 0,
+    SORT_STATE_AND_DISTANCE,
+    SORT_DISTANCE
+};
+
 /// Lights affecting a draw call.
 struct LightPass
 {
@@ -83,7 +91,7 @@ struct BatchQueue
     /// Clear.
     void Clear();
     /// Sort batches and setup instancing groups.
-    void Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortByState, bool convertToInstanced);
+    void Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode sortMode, bool convertToInstanced);
     /// Return whether has batches added.
     bool HasBatches() const { return batches.size(); }
 

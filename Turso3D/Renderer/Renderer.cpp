@@ -867,8 +867,6 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
         ++shadowMap.freeQueueIdx;
     }
 
-    float farClipMul = 65535.0f / shadowCamera->FarClip();
-
     for (auto it = shadowCasters.begin(); it != shadowCasters.end(); ++it)
     {
         GeometryNode* node = *it;
@@ -882,7 +880,6 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
         BatchQueue& dest = destStatic ? (node->Static() ? *destStatic : *destDynamic) : *destDynamic;
 
         bool staticGeom = node->GetGeometryType() == GEOM_STATIC;
-        unsigned short distance = (unsigned short)(shadowCamera->Distance(node->WorldPosition()) * farClipMul);
         const SourceBatches& batches = node->Batches();
         size_t numGeometries = batches.NumGeometries();
 
@@ -906,27 +903,14 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
             newBatch.geometry = geometry;
             newBatch.programBits = (unsigned char)node->GetGeometryType();
 
-            // Perform distance sort for pass / geometry in addition to state sort
-            if (pass->lastSortKey.first != sortViewNumber || pass->lastSortKey.second > distance)
-            {
-                pass->lastSortKey.first = sortViewNumber;
-                pass->lastSortKey.second = distance;
-            }
-            if (geometry->lastSortKey.first != sortViewNumber || geometry->lastSortKey.second > distance)
-            {
-                geometry->lastSortKey.first = sortViewNumber;
-                geometry->lastSortKey.second = distance;
-            }
-
             dest.batches.push_back(newBatch);
         }
     }
 
-    // Sort immediately so that another view can rewrite the combined distance / state sort keys
     if (destStatic)
-        destStatic->Sort(instanceTransforms, true, hasInstancing);
+        destStatic->Sort(instanceTransforms, SORT_STATE, hasInstancing);
     
-    destDynamic->Sort(instanceTransforms, true, hasInstancing);
+    destDynamic->Sort(instanceTransforms, SORT_STATE, hasInstancing);
 }
 
 void Renderer::CollectNodeBatches()
@@ -1065,9 +1049,9 @@ void Renderer::SortNodeBatches()
 {
     PROFILE(SortNodeBatches);
 
-    opaqueBatches.Sort(instanceTransforms, true, hasInstancing);
-    opaqueAdditiveBatches.Sort(instanceTransforms, true, hasInstancing);
-    alphaBatches.Sort(instanceTransforms, false, hasInstancing);
+    opaqueBatches.Sort(instanceTransforms, SORT_STATE_AND_DISTANCE, hasInstancing);
+    opaqueAdditiveBatches.Sort(instanceTransforms, SORT_STATE_AND_DISTANCE, hasInstancing);
+    alphaBatches.Sort(instanceTransforms, SORT_DISTANCE, hasInstancing);
 }
 
 void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)

@@ -40,24 +40,37 @@ void BatchQueue::Clear()
     batches.clear();
 }
 
-void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, bool sortByState, bool convertToInstanced)
+void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode sortMode, bool convertToInstanced)
 {
-    if (sortByState)
+    switch (sortMode)
     {
+    case SORT_STATE:
+        for (auto it = batches.begin(); it < batches.end(); ++it)
+        {
+            unsigned short lightId = (unsigned short)(size_t)it->lightPass;
+            unsigned short materialId = (unsigned short)(size_t)it->pass;
+            unsigned short geomId = (unsigned short)(size_t)it->geometry;
+
+            it->sortKey = (((unsigned long long)lightId) << 32) | (((unsigned long long)materialId) << 16) | geomId;
+        }
+        std::sort(batches.begin(), batches.end(), CompareBatchKeys);
+        break;
+
+    case SORT_STATE_AND_DISTANCE:
         for (auto it = batches.begin(); it < batches.end(); ++it)
         {
             unsigned short lightId = it->lightPass ? it->lightPass->lastSortKey.second : 0;
             unsigned short materialId = it->pass->lastSortKey.second;
             unsigned short geomId = it->geometry->lastSortKey.second;
-
+                
             it->sortKey = (((unsigned long long)lightId) << 32) | (((unsigned long long)materialId) << 16) | geomId;
         }
-
         std::sort(batches.begin(), batches.end(), CompareBatchKeys);
-    }
-    else
-    {
+        break;
+
+    case SORT_DISTANCE:
         std::sort(batches.begin(), batches.end(), CompareBatchDistance);
+        break;
     }
 
     if (!convertToInstanced || batches.size() < 2)
