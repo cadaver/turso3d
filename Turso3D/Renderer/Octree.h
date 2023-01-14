@@ -44,9 +44,9 @@ struct Octant
     size_t ChildIndex(const Vector3& position) const { size_t ret = position.x < center.x ? 0 : 1; ret += position.y < center.y ? 0 : 2; ret += position.z < center.z ? 0 : 4; return ret; }
     
     /// Nodes contained in the octant.
-    mutable std::vector<OctreeNode*> nodes;
+    std::vector<OctreeNode*> nodes;
     /// Node sorting dirty.
-    mutable bool sortDirty;
+    bool sortDirty;
     /// Expanded (loose) bounding box used for culling the octant and the nodes within it.
     BoundingBox cullingBox;
     /// Actual bounding box of the octant.
@@ -79,7 +79,7 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
     
-    /// Process the queue of nodes to be reinserted.
+    /// Process the queue of nodes to be reinserted. Then sort nodes inside changed octants.
     void Update(unsigned short frameNumber);
     /// Resize octree.
     void Resize(const BoundingBox& boundingBox, int numLevels);
@@ -165,11 +165,6 @@ private:
         else
         {
             std::vector<OctreeNode*>& octantNodes = octant->nodes;
-            if (octant->sortDirty)
-            {
-                std::sort(octantNodes.begin(), octantNodes.end());
-                octant->sortDirty = false;
-            }
 
             for (auto it = octantNodes.begin(); it != octantNodes.end(); ++it)
             {
@@ -191,13 +186,9 @@ private:
     void CollectNodesCallback(Octant* octant, void(*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, bool)) const
     {
         std::vector<OctreeNode*>& octantNodes = octant->nodes;
-        if (octant->sortDirty)
-        {
-            std::sort(octantNodes.begin(), octantNodes.end());
-            octant->sortDirty = false;
-        }
 
-        callback(octantNodes.begin(), octantNodes.end(), true);
+        if (octantNodes.size())
+            callback(octantNodes.begin(), octantNodes.end(), true);
 
         for (size_t i = 0; i < NUM_OCTANTS; ++i)
         {
@@ -219,13 +210,8 @@ private:
         else
         {
             std::vector<OctreeNode*>& octantNodes = octant->nodes;
-            if (octant->sortDirty)
-            {
-                std::sort(octantNodes.begin(), octantNodes.end());
-                octant->sortDirty = false;
-            }
-
-            callback(octantNodes.begin(), octantNodes.end(), false);
+            if (octantNodes.size())
+                callback(octantNodes.begin(), octantNodes.end(), false);
 
             for (size_t i = 0; i < NUM_OCTANTS; ++i)
             {
@@ -239,11 +225,6 @@ private:
     template <class T> void CollectNodesMemberCallback(Octant* octant, T* object, void (T::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, bool)) const
     {
         std::vector<OctreeNode*>& octantNodes = octant->nodes;
-        if (octant->sortDirty)
-        {
-            std::sort(octantNodes.begin(), octantNodes.end());
-            octant->sortDirty = false;
-        }
 
         (object->*callback)(octantNodes.begin(), octantNodes.end(), true);
 
@@ -267,13 +248,9 @@ private:
         else
         {
             std::vector<OctreeNode*>& octantNodes = octant->nodes;
-            if (octant->sortDirty)
-            {
-                std::sort(octantNodes.begin(), octantNodes.end());
-                octant->sortDirty = false;
-            }
 
-            (object->*callback)(octantNodes.begin(), octantNodes.end(), false);
+            if (octantNodes.size())
+                (object->*callback)(octantNodes.begin(), octantNodes.end(), false);
 
             for (size_t i = 0; i < NUM_OCTANTS; ++i)
             {
@@ -294,19 +271,12 @@ private:
         }
 
         std::vector<OctreeNode*>& octantNodes = octant->nodes;
-        if (octantNodes.size())
+     
+        for (auto it = octantNodes.begin(); it != octantNodes.end(); ++it)
         {
-            if (octant->sortDirty)
-            {
-                std::sort(octantNodes.begin(), octantNodes.end());
-                octant->sortDirty = false;
-            }
-            for (auto it = octantNodes.begin(); it != octantNodes.end(); ++it)
-            {
-                OctreeNode* node = *it;
-                if ((node->Flags() & nodeFlags) == nodeFlags && (node->LayerMask() & layerMask) && (planeMask == 0x3f || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask) != OUTSIDE))
-                    result.push_back(node);
-            }
+            OctreeNode* node = *it;
+            if ((node->Flags() & nodeFlags) == nodeFlags && (node->LayerMask() & layerMask) && (planeMask == 0x3f || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask) != OUTSIDE))
+                result.push_back(node);
         }
 
         for (size_t i = 0; i < NUM_OCTANTS; ++i)
@@ -329,14 +299,7 @@ private:
 
         std::vector<OctreeNode*>& octantNodes = octant->nodes;
         if (octantNodes.size())
-        {
-            if (octant->sortDirty)
-            {
-                std::sort(octantNodes.begin(), octantNodes.end());
-                octant->sortDirty = false;
-            }
             (object->*callback)(octantNodes.begin(), octantNodes.end(), planeMask);
-        }
 
         for (size_t i = 0; i < NUM_OCTANTS; ++i)
         {
@@ -347,6 +310,8 @@ private:
 
     /// Queue of nodes to be reinserted.
     std::vector<OctreeNode*> updateQueue;
+    /// Octants which need to have sort order updated.
+    std::vector<Octant*> sortDirtyOctants;
     /// RaycastSingle initial coarse result.
     std::vector<std::pair<OctreeNode*, float> > initialRes;
     /// RaycastSingle final result.

@@ -96,49 +96,56 @@ void Octree::Update(unsigned short frameNumber)
     {
         OctreeNode* node = *it;
         // If node was removed before update could happen, a null pointer will be in its place
-        if (node)
+        if (!node)
+            continue;
+
+        node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
+        node->lastUpdateFrameNumber = frameNumber;
+
+        // Do nothing if still fits the current octant
+        const BoundingBox& box = node->WorldBoundingBox();
+        Vector3 boxSize = box.Size();
+        Octant* oldOctant = node->impl->octant;
+        if (oldOctant && oldOctant->cullingBox.IsInside(box) == INSIDE && oldOctant->FitBoundingBox(box, boxSize))
+            continue;
+
+        // Begin reinsert process. Start from root and check what level child needs to be used
+        Octant* newOctant = &root;
+        Vector3 boxCenter = box.Center();
+
+        for (;;)
         {
-            node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
-            node->lastUpdateFrameNumber = frameNumber;
+            // If node does not fit fully inside root octant, must remain in it
+            bool insertHere = (newOctant == &root) ?
+                (newOctant->cullingBox.IsInside(box) != INSIDE || newOctant->FitBoundingBox(box, boxSize)) :
+                newOctant->FitBoundingBox(box, boxSize);
 
-            // Do nothing if still fits the current octant
-            const BoundingBox& box = node->WorldBoundingBox();
-            Vector3 boxSize = box.Size();
-            Octant* oldOctant = node->impl->octant;
-            if (oldOctant && oldOctant->cullingBox.IsInside(box) == INSIDE && oldOctant->FitBoundingBox(box, boxSize))
-                continue;
-
-            // Begin reinsert process. Start from root and check what level child needs to be used
-            Octant* newOctant = &root;
-            Vector3 boxCenter = box.Center();
-
-            for (;;)
+            if (insertHere)
             {
-                bool insertHere;
-                // If node does not fit fully inside root octant, must remain in it
-                if (newOctant == &root)
-                    insertHere = newOctant->cullingBox.IsInside(box) != INSIDE || newOctant->FitBoundingBox(box, boxSize);
-                else
-                    insertHere = newOctant->FitBoundingBox(box, boxSize);
-
-                if (insertHere)
+                if (newOctant != oldOctant)
                 {
-                    if (newOctant != oldOctant)
-                    {
-                        // Add first, then remove, because node count going to zero deletes the octree branch in question
-                        AddNode(node, newOctant);
-                        if (oldOctant)
-                            RemoveNode(node, oldOctant);
-                    }
-                    break;
+                    // Add first, then remove, because node count going to zero deletes the octree branch in question
+                    AddNode(node, newOctant);
+                    if (oldOctant)
+                        RemoveNode(node, oldOctant);
                 }
-                else
-                    newOctant = CreateChildOctant(newOctant, newOctant->ChildIndex(boxCenter));
+                break;
             }
+            else
+                newOctant = CreateChildOctant(newOctant, newOctant->ChildIndex(boxCenter));
         }
     }
 
     updateQueue.clear();
+
+    for (auto it = sortDirtyOctants.begin(); it != sortDirtyOctants.end(); ++it)
+    {
+        Octant* octant = *it;
+        std::sort(octant->nodes.begin(), octant->nodes.end());
+        octant->sortDirty = false;
+    }
+
+    sortDirtyOctants.clear();
 }
 
 void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
@@ -257,8 +264,13 @@ int Octree::NumLevelsAttr() const
 void Octree::AddNode(OctreeNode* node, Octant* octant)
 {
     octant->nodes.push_back(node);
-    octant->sortDirty = true;
     node->impl->octant = octant;
+
+    if (!octant->sortDirty)
+    {
+        octant->sortDirty = true;
+        sortDirtyOctants.push_back(octant);
+    }
 
     // Increment the node count in the whole parent branch
     while (octant)
@@ -358,12 +370,6 @@ void Octree::DeleteChildOctants(Octant* octant, bool deletingOctree)
 
 void Octree::CollectNodes(std::vector<OctreeNode*>& result, Octant* octant) const
 {
-    if (octant->sortDirty)
-    {
-        std::sort(octant->nodes.begin(), octant->nodes.end());
-        octant->sortDirty = false;
-    }
-
     result.insert(result.end(), octant->nodes.begin(), octant->nodes.end());
 
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
@@ -376,11 +382,6 @@ void Octree::CollectNodes(std::vector<OctreeNode*>& result, Octant* octant) cons
 void Octree::CollectNodes(std::vector<OctreeNode*>& result, Octant* octant, unsigned short nodeFlags, unsigned layerMask) const
 {
     std::vector<OctreeNode*>& octantNodes = octant->nodes;
-    if (octant->sortDirty)
-    {
-        std::sort(octantNodes.begin(), octantNodes.end());
-        octant->sortDirty = false;
-    }
 
     for (auto it = octantNodes.begin(); it != octantNodes.end(); ++it)
     {
@@ -404,11 +405,6 @@ void Octree::CollectNodes(std::vector<RaycastResult>& result, Octant* octant, co
         return;
 
     std::vector<OctreeNode*>& octantNodes = octant->nodes;
-    if (octant->sortDirty)
-    {
-        std::sort(octantNodes.begin(), octantNodes.end());
-        octant->sortDirty = false;
-    }
 
     for (auto it = octantNodes.begin(); it != octantNodes.end(); ++it)
     {
@@ -432,11 +428,6 @@ void Octree::CollectNodes(std::vector<std::pair<OctreeNode*, float> >& result, O
         return;
 
     std::vector<OctreeNode*>& octantNodes = octant->nodes;
-    if (octant->sortDirty)
-    {
-        std::sort(octantNodes.begin(), octantNodes.end());
-        octant->sortDirty = false;
-    }
 
     for (auto it = octantNodes.begin(); it != octantNodes.end(); ++it)
     {
