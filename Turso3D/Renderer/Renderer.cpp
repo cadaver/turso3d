@@ -1338,7 +1338,8 @@ void Renderer::CollectGeometriesAndLights(std::vector<OctreeNode*>::const_iterat
     {
         OctreeNode* node = *it;
         unsigned short flags = node->Flags();
-        if ((flags & NF_ENABLED) && (flags & (NF_GEOMETRY | NF_LIGHT)) && (node->LayerMask() & viewMask) && (planeMask == 0x3f || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
+
+        if ((flags & NF_ENABLED) && (node->LayerMask() & viewMask) && (planeMask == 0x3f || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
         {
             if (flags & NF_GEOMETRY)
             {
@@ -1346,7 +1347,7 @@ void Renderer::CollectGeometriesAndLights(std::vector<OctreeNode*>::const_iterat
                 if (geometry->OnPrepareRender(frameNumber, camera))
                     geometries.push_back(geometry);
             }
-            else
+            else if (flags & NF_LIGHT)
             {
                 Light* light = static_cast<Light*>(node);
                 if (light->OnPrepareRender(frameNumber, camera))

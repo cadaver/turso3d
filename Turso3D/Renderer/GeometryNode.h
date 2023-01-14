@@ -31,6 +31,9 @@ struct Geometry : public RefCounted
     /// Destruct.
     ~Geometry();
 
+    /// Last sort key for combined distance and state sorting. Used by Renderer.
+    std::pair<unsigned short, unsigned short> lastSortKey;
+
     /// %Geometry vertex buffer.
     SharedPtr<VertexBuffer> vertexBuffer;
     /// %Geometry index buffer.
@@ -41,9 +44,6 @@ struct Geometry : public RefCounted
     size_t drawCount;
     /// LOD transition distance.
     float lodDistance;
-
-    /// Last sort key for combined distance and state sorting. Used by Renderer.
-    std::pair<unsigned short, unsigned short> lastSortKey;
 };
 
 /// Draw call source data with optimal memory storage.

@@ -22,14 +22,15 @@ static const int MAX_LIGHTS_PER_PASS = 4;
 /// Lights affecting a draw call.
 struct LightPass
 {
+    /// Last sort key for combined distance and state sorting.
+    std::pair<unsigned short, unsigned short> lastSortKey;
+
     /// Number of lights.
     unsigned char numLights;
     /// %Shader program light bits.
     unsigned char lightBits;
     /// %Light data. Shadowed lights are stored first.
     Vector4 lightData[MAX_LIGHTS_PER_PASS * 9];
-    /// Last sort key for combined distance and state sorting.
-    std::pair<unsigned short, unsigned short> lastSortKey;
 };
 
 /// List of lights for a geometry node.
