@@ -100,12 +100,6 @@ public:
         CollectNodes(result, &root, volume, nodeFlags, layerMask);
     }
 
-    /// Query for nodes using a volume such as frustum or sphere. Invoke a function for each octant.
-    template <class T> void FindNodes(const T& volume, void(*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, bool))
-    {
-        CollectNodesCallback(&root, volume, callback);
-    }
-
     /// Query for nodes using a volume such as frustum or sphere. Invoke a member function for each octant.
     template <class T, class U> void FindNodes(const T& volume, U* object, void (U::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, bool))
     {
@@ -181,52 +175,14 @@ private:
             }
         }
     }
-    
-    /// Collect nodes from octant and child octants. Invoke a function for each octant.
-    void CollectNodesCallback(Octant* octant, void(*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, bool)) const
-    {
-        std::vector<OctreeNode*>& octantNodes = octant->nodes;
-
-        if (octantNodes.size())
-            callback(octantNodes.begin(), octantNodes.end(), true);
-
-        for (size_t i = 0; i < NUM_OCTANTS; ++i)
-        {
-            if (octant->children[i])
-                CollectNodesCallback(octant->children[i], callback);
-        }
-    }
-
-    /// Collect nodes using a volume such as frustum or sphere. Invoke a function for each octant.
-    template <class T> void CollectNodesCallback(Octant* octant, const T& volume, void(*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, bool)) const
-    {
-        Intersection res = volume.IsInside(octant->cullingBox);
-        if (res == OUTSIDE)
-            return;
-
-        // If this octant is completely inside the volume, can include all contained octants and their nodes without further tests
-        if (res == INSIDE)
-            CollectNodesCallback(octant, callback);
-        else
-        {
-            std::vector<OctreeNode*>& octantNodes = octant->nodes;
-            if (octantNodes.size())
-                callback(octantNodes.begin(), octantNodes.end(), false);
-
-            for (size_t i = 0; i < NUM_OCTANTS; ++i)
-            {
-                if (octant->children[i])
-                    CollectNodesCallback(octant->children[i], volume, callback);
-            }
-        }
-    }
 
     /// Collect nodes from octant and child octants. Invoke a member function for each octant.
     template <class T> void CollectNodesMemberCallback(Octant* octant, T* object, void (T::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, bool)) const
     {
         std::vector<OctreeNode*>& octantNodes = octant->nodes;
 
-        (object->*callback)(octantNodes.begin(), octantNodes.end(), true);
+        if (octantNodes.size())
+            (object->*callback)(octantNodes.begin(), octantNodes.end(), true);
 
         for (size_t i = 0; i < NUM_OCTANTS; ++i)
         {
@@ -298,6 +254,7 @@ private:
         }
 
         std::vector<OctreeNode*>& octantNodes = octant->nodes;
+
         if (octantNodes.size())
             (object->*callback)(octantNodes.begin(), octantNodes.end(), planeMask);
 
