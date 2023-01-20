@@ -47,9 +47,9 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode 
     case SORT_STATE:
         for (auto it = batches.begin(); it < batches.end(); ++it)
         {
-            unsigned short lightId = (unsigned short)(size_t)it->lightPass;
-            unsigned short materialId = (unsigned short)(size_t)it->pass;
-            unsigned short geomId = (unsigned short)(size_t)it->geometry;
+            unsigned short lightId = (unsigned short)((size_t)it->lightPass / sizeof(LightPass));
+            unsigned short materialId = (unsigned short)((size_t)it->pass / sizeof(Pass));
+            unsigned short geomId = (unsigned short)((size_t)it->geometry / sizeof(Geometry));
 
             it->sortKey = (((unsigned long long)lightId) << 32) | (((unsigned long long)materialId) << 16) | geomId;
         }
