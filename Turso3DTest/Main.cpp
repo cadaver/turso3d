@@ -180,7 +180,7 @@ int ApplicationMain(std::vector<std::string> arguments)
             ++shadowMode;
             if (shadowMode > 2)
                 shadowMode = 0;
-                    
+            
             float biasMul = shadowMode > 1 ? 1.25f : 1.0f;
             Material::SetGlobalShaderDefines("", shadowMode > 1 ? "HQSHADOW" : "");
             renderer->SetShadowDepthBiasMul(biasMul, biasMul);
@@ -242,8 +242,6 @@ int ApplicationMain(std::vector<std::string> arguments)
 
         renderer->PrepareView(scene, camera, shadowMode > 0);
         
-        graphics->Present();
-
         renderer->RenderShadowMaps();
 
         if (drawSSAO)
@@ -293,6 +291,7 @@ int ApplicationMain(std::vector<std::string> arguments)
         renderer->RenderAlpha();
 
         FrameBuffer::Blit(nullptr, IntRect(0, 0, width, height), viewFbo, IntRect(0, 0, width, height), true, false, FILTER_POINT);
+        graphics->Present();
 
         profiler->EndFrame();
         dt = frameTimer.ElapsedUSec() * 0.000001f;

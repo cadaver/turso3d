@@ -638,11 +638,11 @@ void Renderer::CollectLightInteractions(bool drawShadows)
 
             size_t idx = 0;
 
+            // Put shadowcasting lights first in the light pass
             for (size_t i = 0; i < pass.numLights; ++i)
             {
                 Light* light = list->lights[lightStart + i];
 
-                // Put shadowcasting lights first in the light pass
                 if (light->ShadowMap())
                 {
                     pass.lightBits += SP_LIGHT;
@@ -658,18 +658,22 @@ void Renderer::CollectLightInteractions(bool drawShadows)
                 }
             }
 
-            for (size_t i = 0; i < pass.numLights; ++i)
+            // Loop again for non-shadowcasting lights if any
+            if (pass.numLights > idx)
             {
-                Light* light = list->lights[lightStart + i];
-
-                if (!light->ShadowMap())
+                for (size_t i = 0; i < pass.numLights; ++i)
                 {
-                    float cutoff = light->GetLightType() == LIGHT_SPOT ? cosf(light->Fov() * 0.5f * M_DEGTORAD) : 0.0f;
-                    pass.lightData[idx * 9] = Vector4(light->WorldPosition(), 1.0f);
-                    pass.lightData[idx * 9 + 1] = Vector4(-light->WorldDirection(), 1.0f);
-                    pass.lightData[idx * 9 + 2] = Vector4(1.0f / Max(light->Range(), M_EPSILON), cutoff, 1.0f / (1.0f - cutoff), 0.0f);
-                    pass.lightData[idx * 9 + 3] = light->EffectiveColor().Data();
-                    ++idx;
+                    Light* light = list->lights[lightStart + i];
+
+                    if (!light->ShadowMap())
+                    {
+                        float cutoff = light->GetLightType() == LIGHT_SPOT ? cosf(light->Fov() * 0.5f * M_DEGTORAD) : 0.0f;
+                        pass.lightData[idx * 9] = Vector4(light->WorldPosition(), 1.0f);
+                        pass.lightData[idx * 9 + 1] = Vector4(-light->WorldDirection(), 1.0f);
+                        pass.lightData[idx * 9 + 2] = Vector4(1.0f / Max(light->Range(), M_EPSILON), cutoff, 1.0f / (1.0f - cutoff), 0.0f);
+                        pass.lightData[idx * 9 + 3] = light->EffectiveColor().Data();
+                        ++idx;
+                    }
                 }
             }
         }
@@ -706,7 +710,6 @@ void Renderer::CollectLightInteractions(bool drawShadows)
 void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, const std::vector<GeometryNode*>& potentialShadowCasters, bool checkFrustum, bool checkShadowCaster)
 {
     Light* light = view.light;
-    Camera* shadowCamera = view.shadowCamera;
     const Frustum& shadowFrustum = view.shadowFrustum;
     BoundingBox lightViewFrustumBox(view.lightViewFrustum);
     const Matrix3x4& lightView = view.shadowCamera->ViewMatrix();
