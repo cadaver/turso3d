@@ -30,8 +30,11 @@ void FrameBuffer::Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBu
 {
     Bind(true);
 
+    IntVector2 size = IntVector2::ZERO;
+
     if (colorBuffer)
     {
+        size = colorBuffer->Size();
         glDrawBuffer(GL_COLOR_ATTACHMENT0);
         glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorBuffer->GLBuffer());
     }
@@ -43,6 +46,11 @@ void FrameBuffer::Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBu
 
     if (depthStencilBuffer)
     {
+        if (size != IntVector2::ZERO && size != depthStencilBuffer->Size())
+            LOGWARNING("Framebuffer color and depth dimensions don't match");
+        else
+            size = depthStencilBuffer->Size();
+
         glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthStencilBuffer->GLBuffer());
         glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depthStencilBuffer->Format() == FMT_D24S8 ? depthStencilBuffer->GLBuffer() : 0);
     }
@@ -51,14 +59,19 @@ void FrameBuffer::Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBu
         glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
         glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, 0);
     }
+
+    LOGDEBUGF("Defined framebuffer width %d height %d", size.x, size.y);
 }
 
 void FrameBuffer::Define(Texture* colorTexture, Texture* depthStencilTexture)
 {
     Bind(true);
 
+    IntVector2 size = IntVector2::ZERO;
+
     if (colorTexture && colorTexture->TexType() == TEX_2D)
     {
+        size = colorTexture->Size2D();
         glDrawBuffer(GL_COLOR_ATTACHMENT0);
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture->GLTexture(), 0);
     }
@@ -70,6 +83,11 @@ void FrameBuffer::Define(Texture* colorTexture, Texture* depthStencilTexture)
 
     if (depthStencilTexture)
     {
+        if (size != IntVector2::ZERO && size != depthStencilTexture->Size2D())
+            LOGWARNING("Framebuffer color and depth dimensions don't match");
+        else
+            size = depthStencilTexture->Size2D();
+
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthStencilTexture->GLTexture(), 0);
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthStencilTexture->Format() == FMT_D24S8 ? depthStencilTexture->GLTexture() : 0, 0);
     }
@@ -78,14 +96,19 @@ void FrameBuffer::Define(Texture* colorTexture, Texture* depthStencilTexture)
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
     }
+
+    LOGDEBUGF("Defined framebuffer width %d height %d", size.x, size.y);
 }
 
 void FrameBuffer::Define(Texture* colorTexture, size_t cubeMapFace, Texture* depthStencilTexture)
 {
     Bind(true);
 
+    IntVector2 size = IntVector2::ZERO;
+
     if (colorTexture && colorTexture->TexType() == TEX_CUBE)
     {
+        size = colorTexture->Size2D();
         glDrawBuffer(GL_COLOR_ATTACHMENT0);
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + (GLenum)cubeMapFace, colorTexture->GLTexture(), 0);
     }
@@ -97,6 +120,11 @@ void FrameBuffer::Define(Texture* colorTexture, size_t cubeMapFace, Texture* dep
 
     if (depthStencilTexture)
     {
+        if (size != IntVector2::ZERO && size != depthStencilTexture->Size2D())
+            LOGWARNING("Framebuffer color and depth dimensions don't match");
+        else
+            size = depthStencilTexture->Size2D();
+
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthStencilTexture->GLTexture(), 0);
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthStencilTexture->Format() == FMT_D24S8 ? depthStencilTexture->GLTexture() : 0, 0);
     }
@@ -105,17 +133,26 @@ void FrameBuffer::Define(Texture* colorTexture, size_t cubeMapFace, Texture* dep
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
     }
+
+    LOGDEBUGF("Defined framebuffer width %d height %d from cube texture", size.x, size.y);
 }
 
 void FrameBuffer::Define(const std::vector<Texture*>& colorTextures, Texture* depthStencilTexture)
 {
     Bind(true);
 
+    IntVector2 size = IntVector2::ZERO;
+
     std::vector<GLenum> drawBufferIds;
     for (size_t i = 0; i < colorTextures.size(); ++i)
     {
         if (colorTextures[i] && colorTextures[i]->TexType() == TEX_2D)
         {
+            if (size != IntVector2::ZERO && size != colorTextures[i]->Size2D())
+                LOGWARNING("Framebuffer color dimensions don't match");
+            else
+                size = colorTextures[i]->Size2D();
+
             drawBufferIds.push_back(GL_COLOR_ATTACHMENT0 + (GLenum)i);
             glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + (GLenum)i, GL_TEXTURE_2D, colorTextures[i]->GLTexture(), 0);
         }
@@ -130,6 +167,11 @@ void FrameBuffer::Define(const std::vector<Texture*>& colorTextures, Texture* de
 
     if (depthStencilTexture)
     {
+        if (size != IntVector2::ZERO && size != depthStencilTexture->Size2D())
+            LOGWARNING("Framebuffer color and depth dimensions don't match");
+        else
+            size = depthStencilTexture->Size2D();
+
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthStencilTexture->GLTexture(), 0);
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthStencilTexture->Format() == FMT_D24S8 ? depthStencilTexture->GLTexture() : 0, 0);
     }
@@ -138,6 +180,8 @@ void FrameBuffer::Define(const std::vector<Texture*>& colorTextures, Texture* de
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
     }
+
+    LOGDEBUGF("Defined MRT framebuffer width %d height %d", size.x, size.y);
 }
 
 void FrameBuffer::Bind(bool force)

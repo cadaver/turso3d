@@ -46,13 +46,15 @@ public:
 
     /// Return texture type.
     TextureType TexType() const { return type; }
-    /// Return dimensions.
+    /// Return dimensions in pixels.
     const IntVector3& Size() const { return size; }
-    /// Return width.
+    /// Return 2D dimensions in pixels.
+    IntVector2 Size2D() const { return IntVector2(size.x, size.y); }
+    /// Return width in pixels.
     int Width() const { return size.x; }
-    /// Return height.
+    /// Return height in pixels.
     int Height() const { return size.y; }
-    /// Return depth. For cube maps, returns the number of faces.
+    /// Return depth in pixels. For cube maps, returns the number of faces.
     int Depth() const { return size.z; }
     /// Return image format.
     ImageFormat Format() const { return format; }

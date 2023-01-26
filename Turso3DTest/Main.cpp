@@ -103,19 +103,18 @@ void CreateScene(Scene* scene, int preset)
 
 int ApplicationMain(std::vector<std::string> arguments)
 {
-    Profiler* profiler = new Profiler();
-    Log* log = new Log();
-
-    ResourceCache* cache = new ResourceCache();
+    AutoPtr<Profiler> profiler = new Profiler();
+    AutoPtr<Log> log = new Log();
+    AutoPtr<ResourceCache> cache = new ResourceCache();
     cache->AddResourceDir(ExecutableDir() + "Data");
 
-    Graphics* graphics = new Graphics("Turso3D renderer test", IntVector2(1920, 1080));
+    AutoPtr<Graphics> graphics = new Graphics("Turso3D renderer test", IntVector2(1920, 1080));
     if (!graphics->Initialize())
         return 1;
 
-    Input* input = new Input(graphics->Window());
+    AutoPtr<Input> input = new Input(graphics->Window());
 
-    Renderer* renderer = new Renderer();
+    AutoPtr<Renderer> renderer = new Renderer();
     renderer->SetupShadowMaps(1024, 2048, FMT_D16);
 
     AutoPtr<FrameBuffer> viewFbo = new FrameBuffer();
@@ -298,15 +297,6 @@ int ApplicationMain(std::vector<std::string> arguments)
     }
 
     printf("%s", profilerOutput.c_str());
-
-    scene.Reset();
-
-    delete renderer;
-    delete cache;
-    delete input;
-    delete graphics;
-    delete log;
-    delete profiler;
 
     return 0;
 }

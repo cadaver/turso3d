@@ -66,12 +66,13 @@ int NumberPostfix(const std::string& string)
 }
 
 ShaderProgram::ShaderProgram(const std::string& sourceCode, const std::string& shaderName_, const std::string& vsDefines, const std::string& fsDefines) :
-    shaderName(shaderName_ + " " + vsDefines + " " + fsDefines),
     program(0),
     lastPerViewUniforms(0),
     lastPerLightUniforms(0),
     lastPerMaterialUniforms(0)
 {
+    shaderName = vsDefines.length() ? (shaderName_ + " " + vsDefines + " " + fsDefines) : (shaderName_ + " " + fsDefines);
+
     Create(sourceCode, Split(vsDefines), Split(fsDefines));
 }
 
