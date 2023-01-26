@@ -24,7 +24,7 @@ class Renderer : public Object
     OBJECT(Renderer);
 
 public:
-    /// Construct. Register subsystem and objects.
+    /// Construct. Register subsystem and objects. A valid OpenGL context must exist.
     Renderer();
     /// Destruct.
     ~Renderer();
