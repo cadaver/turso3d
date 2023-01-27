@@ -17,8 +17,8 @@
 #include "Resource/ResourceCache.h"
 #include "Renderer/StaticModel.h"
 #include "Scene/Scene.h"
-#include "Thread/Timer.h"
-#include "Thread/Profiler.h"
+#include "Time/Timer.h"
+#include "Time/Profiler.h"
 
 #include <SDL.h>
 #include <glew.h>

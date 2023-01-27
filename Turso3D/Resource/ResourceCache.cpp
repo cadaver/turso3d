@@ -4,7 +4,7 @@
 #include "../IO/FileSystem.h"
 #include "../IO/Log.h"
 #include "../IO/StringUtils.h"
-#include "../Thread/Profiler.h"
+#include "../Time/Profiler.h"
 #include "Image.h"
 #include "JSONFile.h"
 #include "ResourceCache.h"

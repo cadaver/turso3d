@@ -4,7 +4,7 @@
 
 #include "../Math/Math.h"
 #include "../Object/Object.h"
-#include "../Thread/Timer.h"
+#include "Timer.h"
 
 #include <vector>
 
@@ -14,7 +14,7 @@
 class ProfilerBlock
 {
 public:
-    /// Construct-
+    /// Construct.
     ProfilerBlock(ProfilerBlock* parent, const char* name);
     /// Destruct.
     ~ProfilerBlock();

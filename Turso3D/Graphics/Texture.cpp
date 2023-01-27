@@ -1,7 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
-#include "../Thread/Profiler.h"
+#include "../Time/Profiler.h"
 #include "Graphics.h"
 #include "Texture.h"
 

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "../Math/Frustum.h"
-#include "../Thread/Profiler.h"
+#include "../Time/Profiler.h"
 #include "../Object/Allocator.h"
 #include "OctreeNode.h"
 

@@ -2,7 +2,7 @@
 
 #include "../IO/Log.h"
 #include "../IO/File.h"
-#include "../Thread/Profiler.h"
+#include "../Time/Profiler.h"
 #include "JSONFile.h"
 
 void JSONFile::RegisterObject()

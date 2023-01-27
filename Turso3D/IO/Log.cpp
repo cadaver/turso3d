@@ -2,7 +2,7 @@
 
 #include "../IO/File.h"
 #include "../Thread/Thread.h"
-#include "../Thread/Timer.h"
+#include "../Time/TimeUtils.h"
 #include "Log.h"
 
 #include <cstdio>
@@ -24,6 +24,7 @@ Log::Log() :
     level(LOG_INFO),
 #endif
     timeStamp(false),
+    inWrite(false),
     quiet(false)
 {
     RegisterSubsystem(this);
@@ -118,6 +119,10 @@ void Log::Write(int msgLevel, const std::string& message)
         return;
     }
 
+    // Do not log if message level excluded or if currently sending a log event
+    if (instance->level > msgLevel || instance->inWrite)
+        return;
+
     std::string formattedMessage = logLevelPrefixes[msgLevel];
     formattedMessage += ": " + message;
     instance->lastMessage = message;
@@ -139,6 +144,15 @@ void Log::Write(int msgLevel, const std::string& message)
         instance->logFile->WriteLine(formattedMessage);
         instance->logFile->Flush();
     }
+
+    instance->inWrite = true;
+
+    LogMessageEvent& event = instance->logMessageEvent;
+    event.message = formattedMessage;
+    event.level = msgLevel;
+    instance->SendEvent(event);
+
+    instance->inWrite = false;
 }
 
 void Log::WriteRaw(const std::string& message, bool error)
@@ -155,6 +169,10 @@ void Log::WriteRaw(const std::string& message, bool error)
         return;
     }
     
+    // Prevent recursion during log event
+    if (instance->inWrite)
+        return;
+
     instance->lastMessage = message;
 
     if (instance->quiet)
@@ -171,4 +189,13 @@ void Log::WriteRaw(const std::string& message, bool error)
         instance->logFile->Write(message.c_str(), message.length());
         instance->logFile->Flush();
     }
+
+    instance->inWrite = true;
+
+    LogMessageEvent& event = instance->logMessageEvent;
+    event.message = message;
+    event.level = error ? LOG_ERROR : LOG_INFO;
+    instance->SendEvent(event);
+
+    instance->inWrite = false;
 }

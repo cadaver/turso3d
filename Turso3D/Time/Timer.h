@@ -2,20 +2,18 @@
 
 #pragma once
 
-#include <string>
-
 /// Low-resolution operating system timer.
 class Timer
 {
 public:
     /// Construct. Get the starting clock value.
     Timer();
-    
+
     /// Return elapsed milliseconds.
     unsigned ElapsedMSec();
     /// Reset the timer.
     void Reset();
-    
+
 private:
     /// Starting clock value in milliseconds.
     unsigned startTime;
@@ -27,7 +25,7 @@ class HiresTimer
 public:
     /// Construct. Get the starting high-resolution clock value.
     HiresTimer();
-    
+
     /// Return elapsed microseconds.
     long long ElapsedUSec();
     /// Reset the timer.
@@ -49,8 +47,3 @@ private:
     /// High-resolution timer frequency.
     static long long frequency;
 };
-
-/// Return a date/time stamp as a string.
-std::string TimeStamp();
-/// Return current time as seconds since epoch.
-unsigned CurrentTime();

@@ -50,6 +50,16 @@ struct StoredLogMessage
     bool error;
 };
 
+/// %Log message event.
+class LogMessageEvent : public Event
+{
+public:
+    /// Message.
+    std::string message;
+    /// Message level.
+    int level;
+};
+
 /// Logging subsystem.
 class Log : public Object
 {
@@ -86,6 +96,9 @@ public:
     /// Write raw output to the log.
     static void WriteRaw(const std::string& message, bool error = false);
 
+    /// %Log message event.
+    LogMessageEvent logMessageEvent;
+
 private:
     /// Mutex for threaded operation.
     Mutex logMutex;
@@ -99,6 +112,8 @@ private:
     int level;
     /// Use timestamps flag.
     bool timeStamp;
+    /// In write flag to prevent recursion.
+    bool inWrite;
     /// Quite mode flag.
     bool quiet;
 };

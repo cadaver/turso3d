@@ -4,7 +4,7 @@
 #include "../IO/StringUtils.h"
 #include "../Resource/JSONFile.h"
 #include "../Resource/ResourceCache.h"
-#include "../Thread/Profiler.h"
+#include "../Time/Profiler.h"
 #include "Material.h"
 
 const char* passNames[] = {

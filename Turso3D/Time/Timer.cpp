@@ -1,7 +1,6 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "Timer.h"
-#include "../IO/StringUtils.h"
 
 #include <ctime>
 
@@ -132,18 +131,4 @@ void HiresTimer::Initialize()
     frequency = 1000000;
     supported = true;
     #endif
-}
-
-std::string TimeStamp()
-{
-    time_t sysTime;
-    time(&sysTime);
-
-    std::string ret(ctime(&sysTime));
-    return Replace(ret, "\n", "");
-}
-
-unsigned CurrentTime()
-{
-    return (unsigned)time(NULL);
 }

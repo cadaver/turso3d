@@ -11,7 +11,7 @@
 #include "../Math/Random.h"
 #include "../Resource/ResourceCache.h"
 #include "../Scene/Scene.h"
-#include "../Thread/Profiler.h"
+#include "../Time/Profiler.h"
 #include "Batch.h"
 #include "Camera.h"
 #include "Light.h"

@@ -4,7 +4,7 @@
 #include "../IO/Stream.h"
 #include "../Object/ObjectResolver.h"
 #include "../Resource/JSONFile.h"
-#include "../Thread/Profiler.h"
+#include "../Time/Profiler.h"
 #include "Scene.h"
 #include "SpatialNode.h"
 

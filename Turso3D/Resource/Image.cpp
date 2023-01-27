@@ -3,7 +3,7 @@
 #include "../IO/Log.h"
 #include "../IO/Stream.h"
 #include "../Math/Math.h"
-#include "../Thread/Profiler.h"
+#include "../Time/Profiler.h"
 #include "Decompress.h"
 
 #include <cstdlib>

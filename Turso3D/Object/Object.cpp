@@ -3,9 +3,6 @@
 #include "Object.h"
 #include "../IO/JSONValue.h"
 
-#include <map>
-#include <set>
-
 std::map<StringHash, Object*> Object::subsystems;
 std::map<StringHash, AutoPtr<ObjectFactory> > Object::factories;
 std::set<std::pair<StringHash, StringHash> > Object::derivedTypes;
@@ -13,6 +10,26 @@ std::map<StringHash, StringHash> Object::baseTypes;
 
 ObjectFactory::~ObjectFactory()
 {
+}
+
+void Object::SubscribeToEvent(Event& event, EventHandler* handler)
+{
+    event.Subscribe(handler);
+}
+
+void Object::UnsubscribeFromEvent(Event& event)
+{
+    event.Unsubscribe(this);
+}
+
+void Object::SendEvent(Event& event)
+{
+    event.Send(this);
+}
+
+bool Object::SubscribedToEvent(const Event& event) const
+{
+    return event.HasReceiver(this);
 }
 
 void Object::RegisterSubsystem(Object* subsystem)

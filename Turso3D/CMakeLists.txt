@@ -25,6 +25,7 @@ add_engine_directory (Renderer)
 add_engine_directory (Resource)
 add_engine_directory (Scene)
 add_engine_directory (Thread)
+add_engine_directory (Time)
 
 add_library (${TARGET_NAME} ${SOURCE_FILES})
 

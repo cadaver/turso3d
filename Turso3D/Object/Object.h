@@ -3,8 +3,7 @@
 #pragma once
 
 #include "../IO/StringHash.h"
-#include "AutoPtr.h"
-#include "Ptr.h"
+#include "Event.h"
 
 #include <map>
 #include <set>
@@ -20,6 +19,22 @@ public:
     virtual StringHash Type() const = 0;
     /// Return type name.
     virtual const std::string& TypeName() const = 0;
+
+    /// Subscribe to an event.
+    void SubscribeToEvent(Event& event, EventHandler* handler);
+    /// Unsubscribe from an event.
+    void UnsubscribeFromEvent(Event& event);
+    /// Send an event.
+    void SendEvent(Event& event);
+    
+    /// Subscribe to an event, template version.
+    template <class T, class U> void SubscribeToEvent(U& event, void (T::*handlerFunction)(U&))
+    {
+        SubscribeToEvent(event, new EventHandlerImpl<T, U>(this, handlerFunction)); 
+    }
+
+    /// Return whether is subscribed to an event.
+    bool SubscribedToEvent(const Event& event) const;
     
     /// Register an object as a subsystem that can be accessed globally. Note that the subsystems container does not own the objects.
     static void RegisterSubsystem(Object* subsystem);
