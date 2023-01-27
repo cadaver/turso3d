@@ -924,7 +924,7 @@ void Renderer::CollectNodeBatches()
     if (!sortViewNumber)
         ++sortViewNumber;
 
-    float farClipMul = 65535.0f / camera->FarClip();
+    float farClipMul = 32767.0f / camera->FarClip();
 
     bool hasShadowDirLight = dirLight && dirLight->ShadowMap();
 
