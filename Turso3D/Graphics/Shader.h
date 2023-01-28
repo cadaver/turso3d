@@ -26,7 +26,7 @@ public:
     /// Finish shader loading in the main thread. Return true on success.
     bool EndLoad() override;
 
-    /// Define shader source code. All existing variations are destroyed.
+    /// Define shader from source code. All existing variations are destroyed.
     void Define(const std::string& code);
     /// Create and return a shader program with defines. Existing program is returned if possible. Variations should be cached to avoid repeated query.
     ShaderProgram* CreateProgram(const std::string& vsDefines = JSONValue::emptyString, const std::string& fsDefines = JSONValue::emptyString);

@@ -23,7 +23,7 @@ public:
     /// Initialize rendering context. Return true on success.
     bool Initialize();
     /// Set new window size.
-    void SetWindowSize(const IntVector2& size);
+    void Resize(const IntVector2& size);
     /// Set fullscreen mode.
     void SetFullscreen(bool enable);
     /// Set vertical sync on/off.
@@ -33,7 +33,7 @@ public:
     /// Return whether is initialized.
     bool IsInitialized() const { return context != nullptr; }
     /// Return current window size.
-    IntVector2 WindowSize() const;
+    IntVector2 Size() const;
     /// Return current window width.
     int Width() const;
     /// Return current window height.

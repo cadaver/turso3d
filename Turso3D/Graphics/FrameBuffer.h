@@ -16,7 +16,7 @@ class Texture;
 class FrameBuffer : public RefCounted
 {
 public:
-    /// Construct.
+    /// Construct. %Graphics subsystem must have been initialized.
     FrameBuffer();
     /// Destruct.
     ~FrameBuffer();

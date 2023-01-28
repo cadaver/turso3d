@@ -106,7 +106,7 @@ bool Graphics::Initialize()
     return true;
 }
 
-void Graphics::SetWindowSize(const IntVector2& size)
+void Graphics::Resize(const IntVector2& size)
 {
     SDL_SetWindowSize(window, size.x, size.y);
 }
@@ -132,7 +132,7 @@ void Graphics::Present()
     SDL_GL_SwapWindow(window);
 }
 
-IntVector2 Graphics::WindowSize() const
+IntVector2 Graphics::Size() const
 {
     IntVector2 size;
     SDL_GetWindowSize(window, &size.x, &size.y);
@@ -141,12 +141,12 @@ IntVector2 Graphics::WindowSize() const
 
 int Graphics::Width() const
 {
-    return WindowSize().x;
+    return Size().x;
 }
 
 int Graphics::Height() const
 {
-    return WindowSize().y;
+    return Size().y;
 }
 
 bool Graphics::IsFullscreen() const

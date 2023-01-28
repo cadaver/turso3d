@@ -16,7 +16,7 @@ class Texture : public Resource
     OBJECT(Texture);
 
 public:
-    /// Construct.
+    /// Construct. %Graphics subsystem must have been initialized.
     Texture();
     /// Destruct.
     ~Texture();

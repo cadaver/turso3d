@@ -11,7 +11,7 @@
 class RenderBuffer : public RefCounted
 {
 public:
-    /// Construct.
+    /// Construct. %Graphics subsystem must have been initialized.
     RenderBuffer();
     /// Destruct.
     ~RenderBuffer();

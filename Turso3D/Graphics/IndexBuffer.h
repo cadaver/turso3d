@@ -10,7 +10,7 @@
 class IndexBuffer : public RefCounted
 {
 public:
-    /// Construct.
+    /// Construct. %Graphics subsystem must have been initialized.
     IndexBuffer();
     /// Destruct.
     ~IndexBuffer();
