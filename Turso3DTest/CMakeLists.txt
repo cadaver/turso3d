@@ -4,11 +4,11 @@ set (TARGET_NAME Turso3DTest)
 
 file (GLOB SOURCE_FILES *.h *.cpp)
 
+add_definitions (-DGLEW_STATIC -DSDL_MAIN_HANDLED)
+
 add_executable (${TARGET_NAME} ${SOURCE_FILES})
 
-target_link_libraries (${TARGET_NAME} SDL2-static GLEW Turso3D)
-
-add_definitions (-DGLEW_STATIC -DSDL_MAIN_HANDLED)
+target_link_libraries (${TARGET_NAME} SDL2-static Turso3D GLEW)
 
 if (WIN32)
     target_link_libraries (${TARGET_NAME} winmm imm32 ole32 oleaut32 setupapi version uuid opengl32)
