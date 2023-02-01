@@ -59,6 +59,8 @@ protected:
     void OnSceneSet(Scene* newScene, Scene* oldScene) override;
     /// Handle the transform matrix changing.
     void OnTransformChanged() override;
+    /// Handle the enabled status changing.
+    void OnEnabledChanged(bool newEnabled) override;
     /// Recalculate the world space bounding box.
     virtual void OnWorldBoundingBoxUpdate() const;
 

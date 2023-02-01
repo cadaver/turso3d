@@ -558,11 +558,11 @@ void Renderer::CollectLightInteractions(bool drawShadows)
         switch (light->GetLightType())
         {
         case LIGHT_POINT:
-            octree->FindNodes(reinterpret_cast<std::vector<OctreeNode*>&>(initialShadowCasters), light->WorldSphere(), NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS);
+            octree->FindNodes(reinterpret_cast<std::vector<OctreeNode*>&>(initialShadowCasters), light->WorldSphere(), NF_GEOMETRY | NF_CASTSHADOWS);
             break;
 
         case LIGHT_SPOT:
-            octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(initialShadowCasters), light->WorldFrustum(), NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS);
+            octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(initialShadowCasters), light->WorldFrustum(), NF_GEOMETRY | NF_CASTSHADOWS);
             break;
         }
 
@@ -632,7 +632,7 @@ void Renderer::CollectLightInteractions(bool drawShadows)
 
                 // Directional light needs a new frustum query for each split, as the shadow cameras are typically far outside the main view
                 initialShadowCasters.clear();
-                octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(initialShadowCasters), view.shadowFrustum, NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS);
+                octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(initialShadowCasters), view.shadowFrustum, NF_GEOMETRY | NF_CASTSHADOWS);
 
                 CollectShadowBatches(shadowMaps[0], view, initialShadowCasters, false);
             }
@@ -1253,7 +1253,7 @@ void Renderer::CollectGeometriesAndLights(std::vector<OctreeNode*>::const_iterat
         OctreeNode* node = *it;
         unsigned short flags = node->Flags();
 
-        if ((flags & NF_ENABLED) && (node->LayerMask() & viewMask) && (planeMask == 0x3f || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
+        if ((node->LayerMask() & viewMask) && (planeMask == 0x3f || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
         {
             if (flags & NF_GEOMETRY)
             {

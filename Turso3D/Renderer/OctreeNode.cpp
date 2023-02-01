@@ -82,7 +82,7 @@ void OctreeNode::OnSceneSet(Scene* newScene, Scene*)
         // Octree must be attached to the scene root as a child
         impl->octree = newScene->FindChild<Octree>();
         // Transform may not be final yet. Schedule update but do not insert into octree yet
-        if (impl->octree)
+        if (impl->octree && IsEnabled())
             impl->octree->QueueUpdate(this);
     }
 }
@@ -109,5 +109,16 @@ void OctreeNode::RemoveFromOctree()
     {
         impl->octree->RemoveNode(this);
         impl->octree = nullptr;
+    }
+}
+
+void OctreeNode::OnEnabledChanged(bool newEnabled)
+{
+    if (impl->octree)
+    {
+        if (newEnabled)
+            impl->octree->QueueUpdate(this);
+        else
+            impl->octree->RemoveNode(this);
     }
 }
