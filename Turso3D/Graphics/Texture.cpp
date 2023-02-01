@@ -530,6 +530,7 @@ void Texture::Unbind(size_t unit)
             activeTextureUnit = unit;
         }
         glBindTexture(activeTargets[unit], 0);
+        activeTargets[unit] = 0;
         boundTextures[unit] = nullptr;
     }
 }
