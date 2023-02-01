@@ -1,11 +1,13 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../Graphics/FrameBuffer.h"
+#include "../Graphics/Graphics.h"
 #include "../Graphics/IndexBuffer.h"
 #include "../Graphics/RenderBuffer.h"
 #include "../Graphics/Shader.h"
 #include "../Graphics/ShaderProgram.h"
 #include "../Graphics/Texture.h"
+#include "../Graphics/UniformBuffer.h"
 #include "../Graphics/VertexBuffer.h"
 #include "../IO/Log.h"
 #include "../Math/Random.h"
@@ -84,8 +86,8 @@ inline bool CompareLights(Light* lhs, Light* rhs)
 Renderer::Renderer() :
     frameNumber(0),
     sortViewNumber(0),
+    clusterFrustumsDirty(true),
     lastPerViewUniforms(0),
-    lastPerLightUniforms(0),
     lastPerMaterialUniforms(0),
     lastBlendMode(MAX_BLEND_MODES),
     lastCullMode(MAX_CULL_MODES),
@@ -98,6 +100,8 @@ Renderer::Renderer() :
     depthBiasMul(1.0f),
     slopeScaleBiasMul(1.0f)
 {
+    assert(Object::Subsystem<Graphics>()->IsInitialized());
+
     RegisterSubsystem(this);
     RegisterRendererLibrary();
 
@@ -120,6 +124,13 @@ Renderer::Renderer() :
     }
 
     DefineQuadVertexBuffer();
+
+    clusterTexture = new Texture();
+    clusterTexture->Define(TEX_3D, IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RGBA32U, 1);
+    clusterTexture->DefineSampler(FILTER_POINT, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
+
+    lightDataBuffer = new UniformBuffer();
+    lightDataBuffer->Define(USAGE_DYNAMIC, MAX_LIGHTS * sizeof(LightData));
 }
 
 Renderer::~Renderer()
@@ -184,18 +195,15 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows)
     viewMask = camera->ViewMask();
     geometries.clear();
     lights.clear();
-    lightLists.clear();
     dirLight = nullptr;
 
     opaqueBatches.Clear();
-    opaqueAdditiveBatches.Clear();
     alphaBatches.Clear();
     instanceTransforms.clear();
     instanceTransformsDirty = true;
 
     for (auto it = shadowMaps.begin(); it != shadowMaps.end(); ++it)
         it->Clear();
-    usedLightLists = 0;
 
     CollectVisibleNodes();
     CollectLightInteractions(drawShadows);
@@ -289,9 +297,14 @@ void Renderer::RenderShadowMaps()
     SetDepthBias(0.0f, 0.0f);
 }
 
-void Renderer::RenderOpaque(FrameBuffer* additiveFbo)
+void Renderer::RenderOpaque()
 {
     PROFILE(RenderOpaque);
+
+    // Update light data now
+    ImageLevel clusterLevel(IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RG32U, clusterData);
+    clusterTexture->SetData(0, IntBox(0, 0, 0, NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), clusterLevel);
+    lightDataBuffer->SetData(0, lights.size() * sizeof(LightData), lightData);
 
     if (shadowMaps.size())
     {
@@ -301,10 +314,10 @@ void Renderer::RenderOpaque(FrameBuffer* additiveFbo)
         faceSelectionTexture2->Bind(11);
     }
 
+    clusterTexture->Bind(12);
+    lightDataBuffer->Bind(0);
+
     RenderBatches(camera, opaqueBatches.batches);
-    if (additiveFbo)
-        additiveFbo->Bind();
-    RenderBatches(camera, opaqueAdditiveBatches.batches);
 }
 
 void Renderer::RenderAlpha()
@@ -318,6 +331,9 @@ void Renderer::RenderAlpha()
         faceSelectionTexture1->Bind(10);
         faceSelectionTexture2->Bind(11);
     }
+
+    clusterTexture->Bind(12);
+    lightDataBuffer->Bind(0);
 
     RenderBatches(camera, alphaBatches.batches);
 }
@@ -503,6 +519,10 @@ void Renderer::CollectLightInteractions(bool drawShadows)
     // Sort localized lights by increasing distance
     std::sort(lights.begin(), lights.end(), CompareLights);
 
+    // Clamp to maximum supported
+    if (lights.size() > MAX_LIGHTS)
+        lights.resize(MAX_LIGHTS);
+
     // Pre-step for shadow map caching: reallocate all lights' shadow map rectangles which are non-zero at this point.
     // If shadow maps were dirtied (size or bias change) reset all allocations instead
     for (auto it = lights.begin(); it != lights.end(); ++it)
@@ -515,57 +535,38 @@ void Renderer::CollectLightInteractions(bool drawShadows)
     }
     shadowMapsDirty = false;
 
-    for (auto it = lights.begin(); it != lights.end(); ++it)
+    for (size_t i = 0; i < lights.size(); ++i)
     {
-        Light* light = *it;
+        Light* light = lights[i];
+        float cutoff = light->GetLightType() == LIGHT_SPOT ? cosf(light->Fov() * 0.5f * M_DEGTORAD) : 0.0f;
 
-        litGeometries.clear();
-        bool hasReceivers = false;
+        lightData[i].position = Vector4(light->WorldPosition(), 1.0f);
+        lightData[i].direction = Vector4(-light->WorldDirection(), 0.0f);
+        lightData[i].attenuation = Vector4(1.0f / Max(light->Range(), M_EPSILON), cutoff, 1.0f / (1.0f - cutoff), 1.0f);
+        lightData[i].color = light->EffectiveColor();
+        lightData[i].shadowParameters = Vector4::ONE; // Assume unshadowed
 
-        // Create a light list that contains only this light. It will be used for nodes that have no light interactions so far
-        unsigned long long key = (unsigned long long)light;
-        if (lightListPool.size() <= usedLightLists)
-            lightListPool.push_back(new LightList());
-        LightList* lightList = lightListPool[usedLightLists];
-        lightLists[key] = lightList;
-        ++usedLightLists;
+        if (!drawShadows || light->ShadowStrength() >= 1.0f)
+        {
+            light->SetShadowMap(nullptr);
+            continue;
+        }
 
-        lightList->key = key;
-        lightList->useCount = 0;
-        lightList->lights.resize(1);
-        lightList->lights[0] = light;
+        // Query for shadowcasters. Lit geometries (both opaque & alpha) are handled by frustum grid so need no bookkeeping
+        initialShadowCasters.clear();
 
         switch (light->GetLightType())
         {
         case LIGHT_POINT:
-            octree->FindNodes(reinterpret_cast<std::vector<OctreeNode*>&>(litGeometries), light->WorldSphere(), NF_ENABLED | NF_GEOMETRY);
-            for (auto gIt = litGeometries.begin(), gEnd = litGeometries.end(); gIt != gEnd; ++gIt)
-            {
-                GeometryNode* node = *gIt;
-                // Add light only to nodes which are actually inside the frustum this frame
-                if (node->LastFrameNumber() == frameNumber)
-                {
-                    AddLightToNode(node, light, lightList);
-                    hasReceivers = true;
-                }
-            }
+            octree->FindNodes(reinterpret_cast<std::vector<OctreeNode*>&>(initialShadowCasters), light->WorldSphere(), NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS);
             break;
 
         case LIGHT_SPOT:
-            octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(litGeometries), light->WorldFrustum(), NF_ENABLED | NF_GEOMETRY);
-            for (auto gIt = litGeometries.begin(), gEnd = litGeometries.end(); gIt != gEnd; ++gIt)
-            {
-                GeometryNode* node = *gIt;
-                if (node->LastFrameNumber() == frameNumber)
-                {
-                    AddLightToNode(node, light, lightList);
-                    hasReceivers = true;
-                }
-            }
+            octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(initialShadowCasters), light->WorldFrustum(), NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS);
             break;
         }
 
-        if (!drawShadows || light->ShadowStrength() >= 1.0f || !hasReceivers)
+        if (!initialShadowCasters.size())
         {
             light->SetShadowMap(nullptr);
             continue;
@@ -582,10 +583,12 @@ void Renderer::CollectLightInteractions(bool drawShadows)
         light->SetupShadowViews(camera);
         std::vector<ShadowView>& shadowViews = light->ShadowViews();
 
-        for (size_t i = 0; i < shadowViews.size(); ++i)
-        {
-            ShadowView& view = shadowViews[i];
+        lightData[i].shadowParameters = light->ShadowParameters();
+        lightData[i].shadowMatrix = light->ShadowViews()[0].shadowMatrix;
 
+        for (size_t j = 0; j < shadowViews.size(); ++j)
+        {
+            ShadowView& view = shadowViews[j];
             shadowMaps[1].shadowViews.push_back(&view);
 
             switch (light->GetLightType())
@@ -594,7 +597,7 @@ void Renderer::CollectLightInteractions(bool drawShadows)
                 // Check which lit geometries are shadow casters and inside each shadow frustum. First check whether the shadow frustum is inside the view at all
                 /// \todo Could use a frustum-frustum test for more accuracy
                 if (frustum.IsInsideFast(BoundingBox(view.shadowFrustum)))
-                    CollectShadowBatches(shadowMaps[1], view, litGeometries, true, true);
+                    CollectShadowBatches(shadowMaps[1], view, initialShadowCasters, true);
                 else
                 {
                     // If not inside the view (and thus not rendered), cannot consider it cached for next frame. However shadow map render this frame is a no-op
@@ -604,77 +607,9 @@ void Renderer::CollectLightInteractions(bool drawShadows)
                 break;
 
             case LIGHT_SPOT:
-                // For spot light only need to check which lit geometries are shadow casters
-                CollectShadowBatches(shadowMaps[1], view, litGeometries, false, true);
+                // For spot light need no frustum check
+                CollectShadowBatches(shadowMaps[1], view, initialShadowCasters, false);
                 break;
-            }
-        }
-    }
-
-    // Pre-build data for used lightlists
-    for (auto it = lightLists.begin(); it != lightLists.end(); ++it)
-    {
-        LightList* list = it->second;
-        if (!list->useCount)
-            continue;
-
-        list->lightPasses.resize((list->lights.size() + (MAX_LIGHTS_PER_PASS - 1)) / MAX_LIGHTS_PER_PASS);
-
-        for (size_t pIdx = 0; pIdx < list->lightPasses.size(); ++pIdx)
-        {
-            LightPass& pass = list->lightPasses[pIdx];
-            size_t lightStart = pIdx * MAX_LIGHTS_PER_PASS;
-            pass.numLights = (unsigned char)Min((int)(list->lights.size() - lightStart), MAX_LIGHTS_PER_PASS);
-
-            const unsigned char baseLightBits[] = {
-                0,
-                1 * SP_LIGHT,
-                3 * SP_LIGHT,
-                6 * SP_LIGHT,
-                10 * SP_LIGHT
-            };
-
-            pass.lightBits = baseLightBits[pass.numLights];
-
-            size_t idx = 0;
-
-            // Put shadowcasting lights first in the light pass
-            for (size_t i = 0; i < pass.numLights; ++i)
-            {
-                Light* light = list->lights[lightStart + i];
-
-                if (light->ShadowMap())
-                {
-                    pass.lightBits += SP_LIGHT;
-
-                    float cutoff = light->GetLightType() == LIGHT_SPOT ? cosf(light->Fov() * 0.5f * M_DEGTORAD) : 0.0f;
-                    pass.lightData[idx * 9] = Vector4(light->WorldPosition(), 1.0f);
-                    pass.lightData[idx * 9 + 1] = Vector4(-light->WorldDirection(), 1.0f);
-                    pass.lightData[idx * 9 + 2] = Vector4(1.0f / Max(light->Range(), M_EPSILON), cutoff, 1.0f / (1.0f - cutoff), 0.0f);
-                    pass.lightData[idx * 9 + 3] = light->EffectiveColor().Data();
-                    pass.lightData[idx * 9 + 4] = light->ShadowParameters();
-                    *reinterpret_cast<Matrix4*>(&pass.lightData[idx * 9 + 5]) = light->ShadowViews()[0].shadowMatrix;
-                    ++idx;
-                }
-            }
-
-            // Loop again for non-shadowcasting lights if any
-            if (pass.numLights > idx)
-            {
-                for (size_t i = 0; i < pass.numLights; ++i)
-                {
-                    Light* light = list->lights[lightStart + i];
-
-                    if (!light->ShadowMap())
-                    {
-                        float cutoff = light->GetLightType() == LIGHT_SPOT ? cosf(light->Fov() * 0.5f * M_DEGTORAD) : 0.0f;
-                        pass.lightData[idx * 9] = Vector4(light->WorldPosition(), 1.0f);
-                        pass.lightData[idx * 9 + 1] = Vector4(-light->WorldDirection(), 1.0f);
-                        pass.lightData[idx * 9 + 2] = Vector4(1.0f / Max(light->Range(), M_EPSILON), cutoff, 1.0f / (1.0f - cutoff), 0.0f);
-                        pass.lightData[idx * 9 + 3] = light->EffectiveColor().Data();
-                        ++idx;
-                    }
-                }
             }
         }
     }
@@ -693,21 +628,110 @@ void Renderer::CollectLightInteractions(bool drawShadows)
             for (size_t i = 0; i < shadowViews.size(); ++i)
             {
                 ShadowView& view = shadowViews[i];
-
-                // Directional light needs a new frustum query for each split, as the shadow cameras are typically far outside the main view
-                litGeometries.clear();
-                octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(litGeometries), view.shadowFrustum, NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS);
-
                 shadowMaps[0].shadowViews.push_back(&view);
 
-                CollectShadowBatches(shadowMaps[0], view, litGeometries, false, false);
+                // Directional light needs a new frustum query for each split, as the shadow cameras are typically far outside the main view
+                initialShadowCasters.clear();
+                octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(initialShadowCasters), view.shadowFrustum, NF_ENABLED | NF_GEOMETRY | NF_CASTSHADOWS);
+
+                CollectShadowBatches(shadowMaps[0], view, initialShadowCasters, false);
             }
         }
     }
 
+    // Update cluster frustums and bounding boxes if camera changed
+    DefineClusterFrustums();
+
+    // Clear per-cluster light lists
+    Matrix3x4 cameraView = camera->ViewMatrix();
+    size_t idx = 0;
+
+    for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
+    {
+        for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
+        {
+            for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
+            {
+                clusterLights[idx].clear();
+                ++idx;
+            }
+        }
+    }
+
+    // Cull lights against each cluster frustum.
+    for (size_t i = 0; i < lights.size(); ++i)
+    {
+        Light* light = lights[i];
+
+        if (light->GetLightType() == LIGHT_POINT)
+        {
+            Sphere bounds(cameraView * light->WorldPosition(), light->Range());
+            float minViewZ = bounds.center.z - light->Range();
+            float maxViewZ = bounds.center.z + light->Range();
+
+            for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
+            {
+                idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
+                if (minViewZ > clusterFrustums[idx].vertices[4].z || maxViewZ < clusterFrustums[idx].vertices[0].z || clusterLights[idx].size() >= MAX_LIGHTS_CLUSTER)
+                    continue;
+
+                for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
+                {
+                    for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
+                    {
+                        if (bounds.IsInsideFast(clusterBoundingBoxes[idx]) && clusterFrustums[idx].IsInsideFast(bounds))
+                            clusterLights[idx].push_back((unsigned char)i);
+                        ++idx;
+                    }
+                }
+            }
+        }
+        else if (light->GetLightType() == LIGHT_SPOT)
+        {
+            Frustum bounds(light->WorldFrustum().Transformed(cameraView));
+            BoundingBox boundsBox(bounds);
+            float minViewZ = boundsBox.min.z;
+            float maxViewZ = boundsBox.max.z;
+
+            for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
+            {
+                idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
+                if (minViewZ > clusterFrustums[idx].vertices[4].z || maxViewZ < clusterFrustums[idx].vertices[0].z || clusterLights[idx].size() >= MAX_LIGHTS_CLUSTER)
+                    continue;
+
+                for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
+                {
+                    for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
+                    {
+                        if (bounds.IsInsideFast(clusterBoundingBoxes[idx]) && clusterFrustums[idx].IsInsideFast(boundsBox))
+                            clusterLights[idx].push_back((unsigned char)i);
+                        ++idx;
+                    }
+                }
+            }
+        }
+    }
+
+    // Build cluster texture data for the lighting shader
+    idx = 0;
+    for (int z = 0; z < NUM_CLUSTER_Z; ++z)
+    {
+        for (int y = 0; y < NUM_CLUSTER_Y; ++y)
+        {
+            for (int x = 0; x < NUM_CLUSTER_X; ++x)
+            {
+                unsigned char* dest = &clusterData[MAX_LIGHTS_CLUSTER * idx];
+
+                for (size_t i = 0; i < MAX_LIGHTS_CLUSTER; ++i)
+                    dest[i] = i < clusterLights[idx].size() ? (clusterLights[idx][i] + 1) : 0;
+
+                ++idx;
+            }
+        }
+    }
 }
 
-void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, const std::vector<GeometryNode*>& potentialShadowCasters, bool checkFrustum, bool checkShadowCaster)
+void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, const std::vector<GeometryNode*>& potentialShadowCasters, bool checkFrustum)
 {
     Light* light = view.light;
     const Frustum& shadowFrustum = view.shadowFrustum;
@@ -722,10 +746,7 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
     for (auto it = potentialShadowCasters.begin(); it != potentialShadowCasters.end(); ++it)
     {
         GeometryNode* node = *it;
-        bool dynamicNode = !node->Static();
-        
-        if (checkShadowCaster && !node->CastShadows())
-            continue;
+
         if (checkFrustum && !shadowFrustum.IsInsideFast(node->WorldBoundingBox()))
             continue;
 
@@ -738,6 +759,8 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
             if (!node->OnPrepareRender(0, camera))
                 continue;
         }
+
+        bool dynamicNode = !node->Static();
 
         if (!inView && (dynamicNode || dynamicOrDirLight))
         { 
@@ -870,6 +893,8 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
         ++shadowMap.freeQueueIdx;
     }
 
+    Batch newBatch;
+
     for (auto it = shadowCasters.begin(); it != shadowCasters.end(); ++it)
     {
         GeometryNode* node = *it;
@@ -881,30 +906,23 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
 
         // Avoid unnecessary splitting into dynamic and static objects
         BatchQueue& dest = destStatic ? (node->Static() ? *destStatic : *destDynamic) : *destDynamic;
-
-        bool staticGeom = node->GetGeometryType() == GEOM_STATIC;
         const SourceBatches& batches = node->Batches();
         size_t numGeometries = batches.NumGeometries();
 
         for (size_t i = 0; i < numGeometries; ++i)
         {
-            Geometry* geometry = batches.GetGeometry(i);
             Material* material = batches.GetMaterial(i);
-            Pass* pass = material->GetPass(PASS_SHADOW);
-            if (!pass)
+            newBatch.pass = material->GetPass(PASS_SHADOW);
+            if (!newBatch.pass)
                 continue;
 
-            Batch newBatch;
+            newBatch.geometry = batches.GetGeometry(i);
+            newBatch.programBits = (unsigned char)node->GetGeometryType();
 
-            if (staticGeom)
+            if (!newBatch.programBits)
                 newBatch.worldTransform = &node->WorldTransform();
             else
                 newBatch.node = node;
-
-            newBatch.lightPass = nullptr;
-            newBatch.pass = pass;
-            newBatch.geometry = geometry;
-            newBatch.programBits = (unsigned char)node->GetGeometryType();
 
             dest.batches.push_back(newBatch);
         }
@@ -926,123 +944,54 @@ void Renderer::CollectNodeBatches()
 
     float farClipMul = 32767.0f / camera->FarClip();
 
-    bool hasShadowDirLight = dirLight && dirLight->ShadowMap();
+    Batch newBatch;
 
     for (auto it = geometries.begin(); it != geometries.end(); ++it)
     {
         GeometryNode* node = *it;
-        unsigned char geomType = (unsigned char)node->GetGeometryType();
         unsigned short distance = (unsigned short)(node->Distance() * farClipMul);
         const SourceBatches& batches = node->Batches();
         size_t numGeometries = batches.NumGeometries();
 
         for (size_t i = 0; i < numGeometries; ++i)
         {
-            Geometry* geometry = batches.GetGeometry(i);
             Material* material = batches.GetMaterial(i);
-            bool lit = material->Lit();
-            LightList* lightList = lit ? node->GetLightList() : nullptr;
+            
+            // Assume opaque first
+            newBatch.pass = material->GetPass(PASS_OPAQUE);
+            newBatch.programBits = (unsigned char)node->GetGeometryType();
+            newBatch.geometry = batches.GetGeometry(i);
 
-            PassType type = PASS_OPAQUE;
-            Pass* pass = material->GetPass(type);
-
-            if (!pass)
-            {
-                type = PASS_ALPHA;
-                pass = material->GetPass(type);
-                if (!pass)
-                    continue;
-            }
-
-            Batch newBatch;
-
-            if (!geomType)
+            if (!newBatch.programBits)
                 newBatch.worldTransform = &node->WorldTransform();
             else
                 newBatch.node = node;
 
-            newBatch.lightPass = lightList ? &lightList->lightPasses[0] : nullptr;
-            newBatch.programBits = geomType | (newBatch.lightPass ? newBatch.lightPass->lightBits : 0);
-            if (lit && hasShadowDirLight)
-                newBatch.programBits += SP_SHADOWDIRLIGHT;
-            newBatch.pass = pass;
-            newBatch.geometry = geometry;
-
-            if (type == PASS_OPAQUE)
+            if (newBatch.pass)
             {
-                // Perform distance sort for pass / geometry / lightpass in addition to state sort
-                if (newBatch.lightPass && (newBatch.lightPass->lastSortKey.first != sortViewNumber || newBatch.lightPass->lastSortKey.second > distance))
+                // Perform distance sort in addition to state sort
+                if (newBatch.pass->lastSortKey.first != sortViewNumber || newBatch.pass->lastSortKey.second > distance)
                 {
-                    newBatch.lightPass->lastSortKey.first = sortViewNumber;
-                    newBatch.lightPass->lastSortKey.second = distance;
+                    newBatch.pass->lastSortKey.first = sortViewNumber;
+                    newBatch.pass->lastSortKey.second = distance;
                 }
-                if (pass->lastSortKey.first != sortViewNumber || pass->lastSortKey.second > distance)
+                if (newBatch.geometry->lastSortKey.first != sortViewNumber || newBatch.geometry->lastSortKey.second > distance)
                 {
-                    pass->lastSortKey.first = sortViewNumber;
-                    pass->lastSortKey.second = distance;
-                }
-                if (geometry->lastSortKey.first != sortViewNumber || geometry->lastSortKey.second > distance)
-                {
-                    geometry->lastSortKey.first = sortViewNumber;
-                    geometry->lastSortKey.second = distance;
+                    newBatch.geometry->lastSortKey.first = sortViewNumber;
+                    newBatch.geometry->lastSortKey.second = distance;
                 }
 
                 opaqueBatches.batches.push_back(newBatch);
-
-                // Add additive passes if necessary
-                if (lightList && lightList->lightPasses.size() > 1)
-                {
-                    pass = material->GetPass(PASS_OPAQUEADD);
-
-                    if (pass)
-                    {
-                        if (pass->lastSortKey.first != sortViewNumber || pass->lastSortKey.second > distance)
-                        {
-                            pass->lastSortKey.first = sortViewNumber;
-                            pass->lastSortKey.second = distance;
-                        }
-
-                        for (size_t idx = 1; idx < lightList->lightPasses.size(); ++idx)
-                        {
-                            newBatch.lightPass = &lightList->lightPasses[idx];
-                            newBatch.programBits = geomType | newBatch.lightPass->lightBits;
-                            newBatch.pass = pass;
-
-                            if (newBatch.lightPass->lastSortKey.first != sortViewNumber || newBatch.lightPass->lastSortKey.second > distance)
-                            {
-                                newBatch.lightPass->lastSortKey.first = sortViewNumber;
-                                newBatch.lightPass->lastSortKey.second = distance;
-                            }
-
-                            opaqueAdditiveBatches.batches.push_back(newBatch);
-                        }
-                    }
-                }
             }
             else
             {
+                // If not opaque, try transparent
+                newBatch.pass = material->GetPass(PASS_ALPHA);
+                if (!newBatch.pass)
+                    continue;
+
                 newBatch.distance = node->Distance();
                 alphaBatches.batches.push_back(newBatch);
-
-                // Add additive passes if necessary
-                if (lightList && lightList->lightPasses.size() > 1)
-                {
-                    pass = material->GetPass(PASS_ALPHAADD);
-
-                    if (pass)
-                    {
-                        for (size_t idx = 1; idx < lightList->lightPasses.size(); ++idx)
-                        {
-                            newBatch.programBits = geomType | newBatch.lightPass->lightBits;
-                            newBatch.lightPass = &lightList->lightPasses[idx];
-                            newBatch.pass = pass;
-                            // Each successive additive batch a little closer for correct order
-                            newBatch.distance -= 0.00001f;
-
-                            alphaBatches.batches.push_back(newBatch);
-                        }
-                    }
-                }
             }
         }
     }
@@ -1053,14 +1002,12 @@ void Renderer::SortNodeBatches()
     PROFILE(SortNodeBatches);
 
     opaqueBatches.Sort(instanceTransforms, SORT_STATE_AND_DISTANCE, hasInstancing);
-    opaqueAdditiveBatches.Sort(instanceTransforms, SORT_STATE_AND_DISTANCE, hasInstancing);
     alphaBatches.Sort(instanceTransforms, SORT_DISTANCE, hasInstancing);
 }
 
 void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
 {
     lastCamera = nullptr;
-    lastLightPass = nullptr;
     lastMaterial = nullptr;
     lastPass = nullptr;
 
@@ -1126,13 +1073,13 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
                 {
                     dirLightData[0] = Vector4::ZERO;
                     dirLightData[1] = Vector4::ZERO;
-                    glUniform4fv(location, 2, dirLightData[0].Data());
+                    dirLightData[3] = Vector4::ONE;
                 }
                 else
                 {
                     dirLightData[0] = Vector4(-dirLight->WorldDirection(), 0.0f);
                     dirLightData[1] = dirLight->GetColor().Data();
-                    
+
                     if (dirLight->ShadowMap())
                     {
                         float farClip = camera->FarClip();
@@ -1146,35 +1093,15 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
                             *reinterpret_cast<Matrix4*>(&dirLightData[4]) = dirLight->ShadowViews()[0].shadowMatrix;;
                             *reinterpret_cast<Matrix4*>(&dirLightData[8]) = dirLight->ShadowViews()[1].shadowMatrix;;
                         }
-                        
-                        glUniform4fv(location, 12, dirLightData[0].Data());
                     }
                     else
-                        glUniform4fv(location, 2, dirLightData[0].Data());
+                        dirLightData[3] = Vector4::ONE;
                 }
+
+                glUniform4fv(location, 12, dirLightData[0].Data());
             }
 
             program->lastPerViewUniforms = lastPerViewUniforms;
-        }
-
-        if (batch.lightPass)
-        {
-            if (batch.lightPass != lastLightPass)
-            {
-                lastLightPass = batch.lightPass;
-                ++lastPerLightUniforms;
-                if (!lastPerLightUniforms)
-                    ++lastPerLightUniforms;
-            }
-
-            if (program->lastPerLightUniforms != lastPerLightUniforms)
-            {
-                int location = program->Uniform(U_LIGHTDATA);
-                if (location >= 0)
-                    glUniform4fv(location, batch.lightPass->numLights * 9, batch.lightPass->lightData[0].Data());
-
-                program->lastPerLightUniforms = lastPerLightUniforms;
-            }
         }
 
         Material* material = batch.pass->Parent();
@@ -1238,9 +1165,9 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
             const size_t instanceVertexSize = sizeof(Matrix3x4);
             
             instanceVertexBuffer->Bind(0);
-            glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(batch.instanceRange[0] * instanceVertexSize));
-            glVertexAttribPointer(8, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(batch.instanceRange[0] * instanceVertexSize + sizeof(Vector4)));
-            glVertexAttribPointer(9, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(batch.instanceRange[0] * instanceVertexSize + 2 * sizeof(Vector4)));
+            glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(batch.instanceStart * instanceVertexSize));
+            glVertexAttribPointer(8, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(batch.instanceStart * instanceVertexSize + sizeof(Vector4)));
+            glVertexAttribPointer(9, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(batch.instanceStart * instanceVertexSize + 2 * sizeof(Vector4)));
 
             VertexBuffer* vb = geometry->vertexBuffer;
             IndexBuffer* ib = geometry->indexBuffer;
@@ -1249,7 +1176,7 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
                 ib->Bind();
 
             glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)geometry->drawCount, ib->IndexSize() == sizeof(unsigned short) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, 
-                (const void*)(geometry->drawStart* ib->IndexSize()), batch.instanceRange[1]);
+                (const void*)(geometry->drawStart* ib->IndexSize()), batch.instanceCount);
         }
         else
         {
@@ -1349,46 +1276,6 @@ void Renderer::CollectGeometriesAndLights(std::vector<OctreeNode*>::const_iterat
     }
 }
 
-void Renderer::AddLightToNode(GeometryNode* node, Light* light, LightList* lightList)
-{
-    LightList* oldList = node->GetLightList();
-
-    if (!oldList)
-    {
-        // First light assigned on this frame
-        node->SetLightList(lightList);
-        ++lightList->useCount;
-    }
-    else
-    {
-        // Create new light list based on the node's existing one
-        --oldList->useCount;
-        unsigned long long newListKey = oldList->key;
-        newListKey += (unsigned long long)light << ((oldList->lights.size() & 3) * 16);
-        auto it = lightLists.find(newListKey);
-        if (it != lightLists.end())
-        {
-            LightList* newList = it->second;
-            ++newList->useCount;
-            node->SetLightList(newList);
-        }
-        else
-        {
-            if (lightListPool.size() <= usedLightLists)
-                lightListPool.push_back(new LightList());
-            LightList* newList = lightListPool[usedLightLists];
-            lightLists[newListKey] = newList;
-            ++usedLightLists;
-
-            newList->key = newListKey;
-            newList->useCount = 1;
-            newList->lights = oldList->lights;
-            newList->lights.push_back(light);
-            node->SetLightList(newList);
-        }
-    }
-}
-
 void Renderer::DefineFaceSelectionTextures()
 {
     if (faceSelectionTexture1 && faceSelectionTexture2)
@@ -1449,6 +1336,57 @@ void Renderer::DefineQuadVertexBuffer()
     vertexDeclaration.push_back(VertexElement(ELEM_VECTOR3, SEM_POSITION));
     quadVertexBuffer = new VertexBuffer();
     quadVertexBuffer->Define(USAGE_DEFAULT, 6, vertexDeclaration, quadVertexData);
+}
+
+void Renderer::DefineClusterFrustums()
+{
+    frustum = camera->WorldFrustum();
+    Matrix4 cameraProj = camera->ProjectionMatrix(false);
+    if (lastClusterFrustumProj != cameraProj)
+        clusterFrustumsDirty = true;
+
+    if (clusterFrustumsDirty)
+    {
+        PROFILE(DefineClusterFrustums);
+
+        Matrix4 cameraProjInverse = cameraProj.Inverse();
+        float cameraNearClip = camera->NearClip();
+        float cameraFarClip = camera->FarClip();
+        size_t idx = 0;
+
+        float xStep = 2.0f / NUM_CLUSTER_X;
+        float yStep = 2.0f / NUM_CLUSTER_Y;
+        float zStep = 1.0f / NUM_CLUSTER_Z;
+
+        for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
+        {
+            Vector4 nearVec = cameraProj * Vector4(0.0f, 0.0f, z > 0 ? powf(z * zStep, 2.0f) * cameraFarClip : cameraNearClip, 1.0f);
+            Vector4 farVec = cameraProj * Vector4(0.0f, 0.0f, powf((z + 1) * zStep, 2.0f) * cameraFarClip, 1.0f);
+            float near = nearVec.z / nearVec.w;
+            float far = farVec.z / farVec.w;
+
+            for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
+            {
+                for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
+                {
+                    clusterFrustums[idx].vertices[0] = cameraProjInverse * Vector3(-1.0f + xStep * (x + 1), 1.0f - yStep * y, near);
+                    clusterFrustums[idx].vertices[1] = cameraProjInverse * Vector3(-1.0f + xStep * (x + 1), 1.0f - yStep * (y + 1), near);
+                    clusterFrustums[idx].vertices[2] = cameraProjInverse * Vector3(-1.0f + xStep * x, 1.0f - yStep * (y + 1), near);
+                    clusterFrustums[idx].vertices[3] = cameraProjInverse * Vector3(-1.0f + xStep * x, 1.0f - yStep * y, near);
+                    clusterFrustums[idx].vertices[4] = cameraProjInverse * Vector3(-1.0f + xStep * (x + 1), 1.0f - yStep * y, far);
+                    clusterFrustums[idx].vertices[5] = cameraProjInverse * Vector3(-1.0f + xStep * (x + 1), 1.0f - yStep * (y + 1), far);
+                    clusterFrustums[idx].vertices[6] = cameraProjInverse * Vector3(-1.0f + xStep * x, 1.0f - yStep * (y + 1), far);
+                    clusterFrustums[idx].vertices[7] = cameraProjInverse * Vector3(-1.0f + xStep * x, 1.0f - yStep * y, far);
+                    clusterFrustums[idx].UpdatePlanes();
+                    clusterBoundingBoxes[idx].Define(clusterFrustums[idx]);
+                    ++idx;
+                }
+            }
+        }
+
+        lastClusterFrustumProj = cameraProj;
+        clusterFrustumsDirty = false;
+    }
 }
 
 void RegisterRendererLibrary()

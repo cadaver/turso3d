@@ -24,31 +24,6 @@ const char* geometryDefines[] = {
     nullptr
 };
 
-const char* lightDefines[] = {
-    "",
-    "NUMLIGHTS=1 NUMSHADOWLIGHTS=0 ",
-    "NUMLIGHTS=1 NUMSHADOWLIGHTS=1 ",
-    "NUMLIGHTS=2 NUMSHADOWLIGHTS=0 ",
-    "NUMLIGHTS=2 NUMSHADOWLIGHTS=1 ",
-    "NUMLIGHTS=2 NUMSHADOWLIGHTS=2 ",
-    "NUMLIGHTS=3 NUMSHADOWLIGHTS=0 ",
-    "NUMLIGHTS=3 NUMSHADOWLIGHTS=1 ",
-    "NUMLIGHTS=3 NUMSHADOWLIGHTS=2 ",
-    "NUMLIGHTS=3 NUMSHADOWLIGHTS=3 ",
-    "NUMLIGHTS=4 NUMSHADOWLIGHTS=0 ",
-    "NUMLIGHTS=4 NUMSHADOWLIGHTS=1 ",
-    "NUMLIGHTS=4 NUMSHADOWLIGHTS=2 ",
-    "NUMLIGHTS=4 NUMSHADOWLIGHTS=3 ",
-    "NUMLIGHTS=4 NUMSHADOWLIGHTS=4 ",
-    nullptr
-};
-
-const char* dirLightDefines[] = {
-    "",
-    "SHADOWDIRLIGHT ",
-    nullptr
-};
-
 std::set<Material*> Material::allMaterials;
 SharedPtr<Material> Material::defaultMaterial;
 std::string Material::globalVSDefines;
@@ -109,8 +84,7 @@ void Pass::ResetShaderPrograms()
 }
 
 Material::Material() :
-    cullMode(CULL_BACK),
-    lit(true)
+    cullMode(CULL_BACK)
 {
     allMaterials.insert(this);
 }
@@ -151,9 +125,6 @@ bool Material::BeginLoad(Stream& source)
         cullMode = (CullMode)ListIndex(root["cullMode"].GetString(), cullModeNames, CULL_BACK);
     else
         cullMode = CULL_BACK;
-
-    if (root.Contains("lit"))
-        lit = root["lit"].GetBool();
 
     return true;
 }
@@ -269,11 +240,6 @@ void Material::SetCullMode(CullMode mode)
     cullMode = mode;
 }
 
-void Material::SetLit(bool lit_)
-{
-    lit = lit_;
-}
-
 Material* Material::DefaultMaterial()
 {
     ResourceCache* cache = Subsystem<ResourceCache>();
@@ -289,12 +255,8 @@ Material* Material::DefaultMaterial()
         pass->SetRenderState(BLEND_REPLACE, CMP_LESS, false, true);
 
         pass = defaultMaterial->CreatePass(PASS_OPAQUE);
-        pass->SetShader(cache->LoadResource<Shader>("Shaders/NoTexture.glsl"), "", "AMBIENT");
+        pass->SetShader(cache->LoadResource<Shader>("Shaders/NoTexture.glsl"), "", "");
         pass->SetRenderState(BLEND_REPLACE, CMP_LESS, true, true);
-
-        pass = defaultMaterial->CreatePass(PASS_OPAQUEADD);
-        pass->SetShader(cache->LoadResource<Shader>("Shaders/NoTexture.glsl"));
-        pass->SetRenderState(BLEND_ADD, CMP_EQUAL, true, false);
     }
 
     return defaultMaterial.Get();

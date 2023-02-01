@@ -5,14 +5,7 @@
       "colorWrite": false
     },
     "opaque": {
-      "shader": "Shaders/Diffuse.glsl",
-      "fsDefines": "AMBIENT"
-    },
-    "opaqueadd": {
-      "shader": "Shaders/Diffuse.glsl",
-      "blendMode": "add",
-      "depthTest": "equal",
-      "depthWrite": false
+      "shader": "Shaders/Diffuse.glsl"
     }
   },
   "textures": {

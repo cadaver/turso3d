@@ -33,7 +33,6 @@ void StaticModel::RegisterObject()
 bool StaticModel::OnPrepareRender(unsigned short frameNumber, Camera* camera)
 {
     distance = camera->Distance(WorldBoundingBox().Center());
-    lightList = nullptr;
 
     if (maxDistance > 0.0f && distance > maxDistance)
         return false;

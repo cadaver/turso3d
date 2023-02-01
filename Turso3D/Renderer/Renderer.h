@@ -16,7 +16,14 @@ class Material;
 class Octree;
 class RenderBuffer;
 class Scene;
+class UniformBuffer;
 class VertexBuffer;
+
+static const size_t NUM_CLUSTER_X = 16;
+static const size_t NUM_CLUSTER_Y = 8;
+static const size_t NUM_CLUSTER_Z = 8;
+static const size_t MAX_LIGHTS = 255;
+static const size_t MAX_LIGHTS_CLUSTER = 16;
 
 /// High-level rendering subsystem. Performs rendering of 3D scenes.
 class Renderer : public Object
@@ -37,8 +44,8 @@ public:
     void PrepareView(Scene* scene, Camera* camera, bool drawShadows);
     /// Render shadowmaps before rendering the view. Last shadow framebuffer will be left bound.
     void RenderShadowMaps();
-    /// Render opaque objects into currently set framebuffer and viewport. Additive batches can be optionally rendered into a different framebuffer.
-    void RenderOpaque(FrameBuffer* additiveFbo);
+    /// Render opaque objects into currently set framebuffer and viewport. 
+    void RenderOpaque();
     /// Render transparent objects into currently set framebuffer and viewport.
     void RenderAlpha();
 
@@ -70,7 +77,7 @@ private:
     /// Check which lights affect which objects.
     void CollectLightInteractions(bool drawShadows);
     /// Collect (unlit) shadow batches from geometry nodes and sort them.
-    void CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, const std::vector<GeometryNode*>& potentialShadowCasters, bool checkFrustum, bool checkShadowCaster);
+    void CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, const std::vector<GeometryNode*>& potentialShadowCasters, bool checkFrustum);
     /// Collect batches from visible objects.
     void CollectNodeBatches();
     /// Sort batches from visible objects.
@@ -81,12 +88,12 @@ private:
     bool AllocateShadowMap(Light* light);
     /// %Octree callback for collecting lights and geometries.
     void CollectGeometriesAndLights(std::vector<OctreeNode*>::const_iterator begin, std::vector<OctreeNode*>::const_iterator end, unsigned char planeMask);
-    /// Assign a light list to a node. Creates new light lists as necessary to handle multiple lights.
-    void AddLightToNode(GeometryNode* node, Light* light, LightList* lightList);
     /// Define face selection texture for point light shadows.
     void DefineFaceSelectionTextures();
     /// Define vertex data for rendering full-screen quads.
     void DefineQuadVertexBuffer();
+    /// Setup light cluster frustums and bounding boxes if necessary.
+    void DefineClusterFrustums();
 
     /// Current scene.
     Scene* scene;
@@ -102,26 +109,34 @@ private:
     Light* dirLight;
     /// Point and spot lights in frustum.
     std::vector<Light*> lights;
-    /// Intermediate lit geometries list for processing.
-    std::vector<GeometryNode*> litGeometries;
+    /// Initial shadowcaster list for processing shadowed lights.
+    std::vector<GeometryNode*> initialShadowCasters;
     /// Intermediate filtered shadowcaster list for processing.
     std::vector<GeometryNode*> shadowCasters;
-    /// Light lists.
-    std::map<unsigned long long, LightList*> lightLists;
-    /// Light list allocation pool.
-    std::vector<AutoPtr<LightList> > lightListPool;
     /// Shadow maps.
     std::vector<ShadowMap> shadowMaps;
-    /// Used light lists so far.
-    size_t usedLightLists;
     /// Face selection UV indirection texture 1.
     AutoPtr<Texture> faceSelectionTexture1;
     /// Face selection UV indirection texture 2.
     AutoPtr<Texture> faceSelectionTexture2;
+    /// Cluster lookup 3D texture.
+    AutoPtr<Texture> clusterTexture;
+    /// Light data uniform buffer.
+    AutoPtr<UniformBuffer> lightDataBuffer;
+    /// Cluster frustums for lights.
+    Frustum clusterFrustums[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
+    /// Cluster bounding boxes.
+    BoundingBox clusterBoundingBoxes[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
+    /// Light lists per cluster.
+    std::vector<unsigned char> clusterLights[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
+    /// Cluster data CPU copy.
+    unsigned char clusterData[MAX_LIGHTS_CLUSTER * NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
+    /// Light constantbuffer data CPU copy
+    LightData lightData[MAX_LIGHTS + 1];
+    /// Last projection matrix used to initialize cluster frustums.
+    Matrix4 lastClusterFrustumProj;
     /// Opaque batches.
     BatchQueue opaqueBatches;
-    /// Opaque additive batches.
-    BatchQueue opaqueAdditiveBatches;
     /// Transparent batches.
     BatchQueue alphaBatches;
     /// Instancing world transforms.
@@ -142,6 +157,8 @@ private:
     bool instanceTransformsDirty;
     /// Shadow maps globally dirty flag. All cached shadow content should be reset.
     bool shadowMapsDirty;
+    /// Cluster frustums init flag.
+    bool clusterFrustumsDirty;
     /// Vertex elements for the instancing buffer.
     std::vector<VertexElement> instanceVertexElements;
     /// Camera view mask.
@@ -154,10 +171,6 @@ private:
     Camera* lastCamera;
     /// Last camera uniforms assignment number.
     unsigned lastPerViewUniforms;
-    /// Last light pass used for rendering batches.
-    LightPass* lastLightPass;
-    /// Last lightlist uniforms assignment number.
-    unsigned lastPerLightUniforms;
     /// Last material pass used for rendering.
     Pass* lastPass;
     /// Last material used for rendering.

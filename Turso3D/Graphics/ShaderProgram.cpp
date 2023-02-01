@@ -71,6 +71,8 @@ ShaderProgram::ShaderProgram(const std::string& sourceCode, const std::string& s
     lastPerLightUniforms(0),
     lastPerMaterialUniforms(0)
 {
+    assert(Object::Subsystem<Graphics>()->IsInitialized());
+
     shaderName = vsDefines.length() ? (shaderName_ + " " + vsDefines + " " + fsDefines) : (shaderName_ + " " + fsDefines);
 
     Create(sourceCode, Split(vsDefines), Split(fsDefines));
@@ -215,7 +217,7 @@ void ShaderProgram::Create(const std::string& sourceCode, const std::vector<std:
     }
 
     char nameBuffer[MAX_NAME_LENGTH];
-    int numAttributes, numUniforms,  nameLength, numElements;
+    int numAttributes, numUniforms,  nameLength, numElements, numUniformBlocks;
     GLenum type;
 
     attributes = 0;
@@ -274,6 +276,21 @@ void ShaderProgram::Create(const std::string& sourceCode, const std::vector<std:
         }
     }
     
+    glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &numUniformBlocks);
+    for (int i = 0; i < numUniformBlocks; ++i)
+    {
+        glGetActiveUniformBlockName(program, i, MAX_NAME_LENGTH, &nameLength, nameBuffer);
+        std::string name(nameBuffer, nameLength);
+
+        int blockIndex = glGetUniformBlockIndex(program, name.c_str());
+        int bindingIndex = NumberPostfix(name);
+        // If no number postfix in the name, use the block index
+        if (bindingIndex < 0)
+            bindingIndex = blockIndex;
+            
+        glUniformBlockBinding(program, blockIndex, bindingIndex);
+    }
+
     LOGDEBUGF("Linked shader program %s", shaderName.c_str());
 }
 

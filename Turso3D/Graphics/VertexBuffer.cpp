@@ -49,6 +49,7 @@ VertexBuffer::VertexBuffer() :
     attributes(0),
     usage(USAGE_DEFAULT)
 {
+    assert(Object::Subsystem<Graphics>()->IsInitialized());
 }
 
 VertexBuffer::~VertexBuffer()

@@ -18,5 +18,8 @@ float CalculateDepth(vec4 outPos)
 
 vec2 CalculateScreenPos(vec4 outPos)
 {
-    return outPos.xy / outPos.w;
+    return vec2(
+        outPos.x / outPos.w * 0.5 + 0.5,
+        -outPos.y / outPos.w * 0.5 + 0.5
+    );
 }

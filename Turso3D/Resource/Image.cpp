@@ -42,12 +42,12 @@ const int Image::components[] =
     0,      // FMT_RG32F
     0,      // FMT_RGB32F
     0,      // FMT_RGBA32F
+    0,      // FMT_R32U,
+    0,      // FMT_RG32U
+    0,      // FMT_RGBA32U
     0,      // FMT_D16
     0,      // FMT_D32
     0,      // FMT_D24S8
-    0,      // FMT_R32U,
-    0,      // FMT_RG32U,
-    0,      // FMT_RGBA32U
     0,      // FMT_DXT1
     0,      // FMT_DXT3
     0,      // FMT_DXT5
@@ -75,12 +75,12 @@ const size_t Image::pixelByteSizes[] =
     8,      // FMT_RG32F
     12,     // FMT_RGB32F
     16,     // FMT_RGBA32F
-    2,      // FMT_D16
-    4,      // FMT_D32
-    4,      // FMT_D24S8
     4,      // FMT_R32U,
     8,      // FMT_RG32U,
     16,     // FMT_RGBA32U
+    2,      // FMT_D16
+    4,      // FMT_D32
+    4,      // FMT_D24S8
     0,      // FMT_DXT1
     0,      // FMT_DXT3
     0,      // FMT_DXT5

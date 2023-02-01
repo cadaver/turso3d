@@ -24,6 +24,9 @@ static const GLenum glInternalFormats[] =
     GL_RG32F,
     GL_RGB32F,
     GL_RGBA32F,
+    GL_R32UI,
+    GL_RG32UI,
+    GL_RGBA32UI,
     GL_DEPTH_COMPONENT16,
     GL_DEPTH_COMPONENT32,
     GL_DEPTH24_STENCIL8,
@@ -44,6 +47,7 @@ RenderBuffer::RenderBuffer() :
     format(FMT_NONE),
     multisample(0)
 {
+    assert(Object::Subsystem<Graphics>()->IsInitialized());
 }
 
 RenderBuffer::~RenderBuffer()

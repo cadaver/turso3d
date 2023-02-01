@@ -145,7 +145,7 @@ int ApplicationMain(std::vector<std::string> arguments)
     AutoPtr<Scene> scene = new Scene();
     CreateScene(scene, 0);
 
-    Camera* camera = new Camera();
+    AutoPtr<Camera> camera = new Camera();
     camera->SetPosition(Vector3(0.0f, 20.0f, -75.0f));
 
     float yaw = 0.0f, pitch = 20.0f;
@@ -250,7 +250,7 @@ int ApplicationMain(std::vector<std::string> arguments)
 
         renderer->SetViewport(IntRect(0, 0, width, height));
         renderer->Clear(true, true, IntRect::ZERO, Color::BLACK);
-        renderer->RenderOpaque(viewFbo);
+        renderer->RenderOpaque();
 
         if (drawSSAO)
         {

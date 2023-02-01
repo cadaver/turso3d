@@ -47,11 +47,10 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode 
     case SORT_STATE:
         for (auto it = batches.begin(); it < batches.end(); ++it)
         {
-            unsigned short lightId = (unsigned short)((size_t)it->lightPass / sizeof(LightPass));
             unsigned short materialId = (unsigned short)((size_t)it->pass / sizeof(Pass));
             unsigned short geomId = (unsigned short)((size_t)it->geometry / sizeof(Geometry));
 
-            it->sortKey = (((unsigned long long)lightId) << 32) | (((unsigned long long)materialId) << 16) | geomId;
+            it->sortKey = (((unsigned)materialId) << 16) | geomId;
         }
         std::sort(batches.begin(), batches.end(), CompareBatchKeys);
         break;
@@ -59,11 +58,10 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode 
     case SORT_STATE_AND_DISTANCE:
         for (auto it = batches.begin(); it < batches.end(); ++it)
         {
-            unsigned short lightId = it->lightPass ? it->lightPass->lastSortKey.second : 0;
             unsigned short materialId = it->pass->lastSortKey.second;
             unsigned short geomId = it->geometry->lastSortKey.second;
-                
-            it->sortKey = (((unsigned long long)lightId) << 32) | (((unsigned long long)materialId) << 16) | geomId;
+            
+            it->sortKey = (((unsigned)materialId) << 16) | geomId;
         }
         std::sort(batches.begin(), batches.end(), CompareBatchKeys);
         break;
@@ -87,7 +85,7 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode 
 
         for (auto next = it + 1; next < batches.end(); ++next)
         {
-            if (next->programBits == it->programBits && next->lightPass == it->lightPass && next->pass == it->pass && next->geometry == it->geometry)
+            if (next->programBits == it->programBits && next->pass == it->pass && next->geometry == it->geometry)
             {
                 if (!hasInstances)
                 {
@@ -105,8 +103,8 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode 
         {
             size_t count = instanceTransforms.size() - start;
             it->programBits |= GEOM_INSTANCED;
-            it->instanceRange[0] = (unsigned)start;
-            it->instanceRange[1] = (unsigned)count;
+            it->instanceStart = (unsigned)start;
+            it->instanceCount = (unsigned)count;
             batches.erase(it + 1, it + count);
         }
     }

@@ -97,8 +97,7 @@ Geometry::~Geometry()
 {
 }
 
-GeometryNode::GeometryNode() :
-    lightList(nullptr)
+GeometryNode::GeometryNode()
 {
     SetFlag(NF_GEOMETRY, true);
 }
@@ -119,7 +118,6 @@ void GeometryNode::RegisterObject()
 bool GeometryNode::OnPrepareRender(unsigned short frameNumber, Camera* camera)
 {
     distance = camera->Distance(WorldPosition());
-    lightList = nullptr;
 
     if (maxDistance > 0.0f && distance > maxDistance)
         return false;

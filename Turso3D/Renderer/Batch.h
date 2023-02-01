@@ -27,48 +27,19 @@ enum BatchSortMode
     SORT_DISTANCE
 };
 
-/// Lights affecting a draw call.
-struct LightPass
-{
-    /// Last sort key for combined distance and state sorting.
-    std::pair<unsigned short, unsigned short> lastSortKey;
-
-    /// Number of lights.
-    unsigned char numLights;
-    /// %Shader program light bits.
-    unsigned char lightBits;
-    /// %Light data. Shadowed lights are stored first.
-    Vector4 lightData[MAX_LIGHTS_PER_PASS * 9];
-};
-
-/// List of lights for a geometry node.
-struct LightList
-{
-    /// Lookup key. Used to calculate key for light list based on this one.
-    unsigned long long key;
-    /// Use count
-    size_t useCount;
-    /// Lights.
-    std::vector<Light*> lights;
-    /// %Light rendering passes.
-    std::vector<LightPass> lightPasses;
-};
-
 /// Stored draw call.
 struct Batch
 {
     union
     {
         /// State sorting key.
-        unsigned long long sortKey;
+        unsigned sortKey;
         /// Distance for alpha batches.
         float distance;
-        /// Instancing start position in the instance vertex buffer and instance count.
-        unsigned instanceRange[2];
+        /// Start position in the instance vertex buffer if instanced.
+        unsigned instanceStart;
     };
 
-    /// %Light pass, or null if not lit.
-    LightPass* lightPass;
     /// %Material pass.
     Pass* pass;
     /// %Geometry.
@@ -82,6 +53,8 @@ struct Batch
         GeometryNode* node;
         /// Pointer to world transform matrix for static geometry rendering.
         const Matrix3x4* worldTransform;
+        /// Instance count if instanced.
+        unsigned instanceCount;
     };
 };
 
@@ -122,4 +95,21 @@ struct ShadowMap
     std::vector<BatchQueue> shadowBatches;
     /// Next free batch queue.
     size_t freeQueueIdx;
+};
+
+/// Light data for cluster light shader.
+struct LightData
+{
+    /// %Light position.
+    Vector4 position;
+    /// %Light direction.
+    Vector4 direction;
+    /// %Light attenuation parameters.
+    Vector4 attenuation;
+    /// %Light color.
+    Color color;
+    /// Shadow parameters.
+    Vector4 shadowParameters;
+    /// Shadow matrix. For point lights, contains extra parameters.
+    Matrix4 shadowMatrix;
 };

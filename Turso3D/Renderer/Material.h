@@ -19,9 +19,7 @@ enum PassType
 {
     PASS_SHADOW = 0,
     PASS_OPAQUE,
-    PASS_OPAQUEADD,
     PASS_ALPHA,
-    PASS_ALPHAADD,
     MAX_PASS_TYPES
 };
 
@@ -31,12 +29,8 @@ static const unsigned SP_INSTANCED = 0x1;
 static const unsigned SP_SKINNED = 0x2;
 static const unsigned SP_CUSTOMGEOM = 0x3;
 static const unsigned SP_GEOMETRYBITS = 0x3;
-static const unsigned SP_LIGHT = 0x4;
-static const unsigned SP_LIGHTBITS = 0x3c;
-static const unsigned SP_DIRLIGHTBITS = 0x40;
-static const unsigned SP_SHADOWDIRLIGHT = 0x40;
 
-static const size_t MAX_SHADER_VARIATIONS = 4 * 16 * 2;
+static const size_t MAX_SHADER_VARIATIONS = 4;
 
 /// Render pass, which defines render state and shaders. A material may define several of these.
 class Pass : public RefCounted
@@ -128,8 +122,6 @@ public:
     void SetUniform(PresetUniform uniform, const Vector4& value);
     /// Set culling mode, shared by all passes.
     void SetCullMode(CullMode mode);
-    /// Set lit flag.
-    void SetLit(bool lit);
 
     /// Return pass by index or null if not found.
     Pass* GetPass(PassType type) const { return passes[type]; }
@@ -143,8 +135,6 @@ public:
     const std::map<PresetUniform, Vector4>& UniformValues() const { return uniformValues; }
     /// Return culling mode.
     CullMode GetCullMode() const { return cullMode; }
-    /// Return whether is lit.
-    bool Lit() const { return lit; }
 
     /// Set global (lighting-related) shader defines. Resets all loaded pass shaders.
     static void SetGlobalShaderDefines(const std::string& vsDefines, const std::string& fsDefines);
@@ -156,8 +146,6 @@ public:
     static const std::string& GlobalFSDefines() { return globalFSDefines; }
 
 private:
-    /// Lit flag.
-    bool lit;
     /// Culling mode.
     CullMode cullMode;
     /// Passes.
@@ -197,12 +185,10 @@ inline ShaderProgram* Pass::GetShaderProgram(unsigned char programBits)
             return nullptr;
 
         unsigned char geomBits = programBits & SP_GEOMETRYBITS;
-        unsigned char lightBits = (programBits & SP_LIGHTBITS) >> 2;
-        unsigned char dirLightBits = (programBits & SP_DIRLIGHTBITS) >> 6;
 
         ShaderProgram* newShaderProgram = shader->CreateProgram(
             Material::GlobalVSDefines() + parent->VSDefines() + vsDefines + geometryDefines[geomBits],
-            Material::GlobalFSDefines() + parent->FSDefines() + fsDefines + lightDefines[lightBits] + dirLightDefines[dirLightBits]
+            Material::GlobalFSDefines() + parent->FSDefines() + fsDefines
         );
 
         shaderPrograms[programBits] = newShaderProgram;

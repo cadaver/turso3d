@@ -12,7 +12,6 @@ class Material;
 class Pass;
 class VertexBuffer;
 class Light;
-struct LightList;
 
 /// Geometry types.
 enum GeometryType
@@ -120,7 +119,7 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
 
-    /// Prepare object for rendering. Reset framenumber and light list and calculate distance from camera. Called by Renderer. Return false if should not render.
+    /// Prepare object for rendering. Reset framenumber and calculate distance from camera. Called by Renderer. Return false if should not render.
     bool OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
 
     /// Set number of geometries.
@@ -131,8 +130,6 @@ public:
     void SetMaterial(Material* material);
     /// Set material at geometry index.
     void SetMaterial(size_t index, Material* material);
-    /// Set light list. Called by Renderer.
-    void SetLightList(LightList* list) { lightList = list; }
 
     /// Return geometry type.
     virtual GeometryType GetGeometryType() const { return GEOM_STATIC; }
@@ -142,8 +139,6 @@ public:
     Geometry* GetGeometry(size_t index) const { return batches.GetGeometry(index); }
     /// Return material by geometry index.
     Material* GetMaterial(size_t index) const { return batches.GetMaterial(index); }
-    /// Return current light list, null if not lit by any lights.
-    LightList* GetLightList() const { return lightList; }
     /// Return the draw call source data for direct access
     const SourceBatches& Batches() const { return batches; }
 
@@ -153,8 +148,6 @@ protected:
     /// Return materials list. Used in serialization.
     ResourceRefList MaterialsAttr() const;
 
-    /// Light list;
-    LightList* lightList;
     /// Draw call source data.
     SourceBatches batches;
 };
