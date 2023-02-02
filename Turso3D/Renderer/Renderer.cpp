@@ -1068,6 +1068,7 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
             if (location >= 0)
             {
                 Vector4 dirLightData[12];
+                bool hasShadow = false;
 
                 if (!dirLight)
                 {
@@ -1082,6 +1083,8 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
 
                     if (dirLight->ShadowMap())
                     {
+                        hasShadow = true;
+
                         float farClip = camera->FarClip();
                         float firstSplit = dirLight->ShadowSplit(0) / farClip;
                         float secondSplit = dirLight->ShadowSplit(1) / farClip;
@@ -1098,7 +1101,7 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
                         dirLightData[3] = Vector4::ONE;
                 }
 
-                glUniform4fv(location, 12, dirLightData[0].Data());
+                glUniform4fv(location, hasShadow ? 12 : 4, dirLightData[0].Data());
             }
 
             program->lastPerViewUniforms = lastPerViewUniforms;
