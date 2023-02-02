@@ -196,6 +196,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows)
     geometries.clear();
     lights.clear();
     dirLight = nullptr;
+    lastCamera = nullptr;
 
     opaqueBatches.Clear();
     alphaBatches.Clear();
@@ -1007,7 +1008,6 @@ void Renderer::SortNodeBatches()
 
 void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
 {
-    lastCamera = nullptr;
     lastMaterial = nullptr;
     lastPass = nullptr;
 

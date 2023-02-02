@@ -33,7 +33,6 @@ const char* presetUniformNames[] =
     "viewProjMatrix",
     "depthParameters",
     "dirLightData",
-    "lightData",
     "matDiffColor",
     nullptr
 };

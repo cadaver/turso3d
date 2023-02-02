@@ -6,7 +6,7 @@
 #include "../Object/Ptr.h"
 #include "GraphicsDefs.h"
 
-/// GPU buffer for shader program uniform ata.
+/// GPU buffer for shader program uniform data. Note: because of poor performance when constantly updating, is used only for special case large data (forward+ lights).
 class UniformBuffer : public RefCounted
 {
 public:

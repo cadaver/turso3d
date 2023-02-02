@@ -35,7 +35,7 @@ bool UniformBuffer::Define(ResourceUsage usage_, size_t size_, const void* data)
 
     if (!size_)
     {
-        LOGERROR("Can not define empty constant buffer");
+        LOGERROR("Can not define empty uniform buffer");
         return false;
     }
 
@@ -69,12 +69,12 @@ bool UniformBuffer::SetData(size_t offset, size_t numBytes, const void* data, bo
 
     if (!data)
     {
-        LOGERROR("Null source data for updating constant buffer");
+        LOGERROR("Null source data for updating uniform buffer");
         return false;
     }
     if (offset + numBytes > size)
     {
-        LOGERROR("Out of bounds range for updating constant buffer");
+        LOGERROR("Out of bounds range for updating uniform buffer");
         return false;
     }
 
@@ -100,7 +100,7 @@ bool UniformBuffer::Create(const void* data)
     glGenBuffers(1, &buffer);
     if (!buffer)
     {
-        LOGERROR("Failed to create index buffer");
+        LOGERROR("Failed to create uniform buffer");
         return false;
     }
 
@@ -118,4 +118,13 @@ void UniformBuffer::Bind(size_t index, bool force)
 
     glBindBufferRange(GL_UNIFORM_BUFFER, index, buffer, 0, size);
     boundUniformBuffers[index] = this;
+}
+
+void UniformBuffer::Unbind(size_t index)
+{
+    if (boundUniformBuffers[index])
+    {
+        glBindBufferRange(GL_UNIFORM_BUFFER, index, 0, 0, 0);
+        boundUniformBuffers[index] = nullptr;
+    }
 }

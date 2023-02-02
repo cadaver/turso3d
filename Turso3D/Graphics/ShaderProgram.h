@@ -39,8 +39,6 @@ public:
 
     /// Last per-view / per-frame uniform assignment. Used by Renderer.
     unsigned lastPerViewUniforms;
-    /// Last per-light uniform assignment. Used by Renderer.
-    unsigned lastPerLightUniforms;
     /// Last per-material uniform assignment. Used by Renderer.
     unsigned lastPerMaterialUniforms;
 
