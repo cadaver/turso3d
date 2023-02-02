@@ -147,15 +147,29 @@ vec3 CalculateLighting(vec4 worldPos, vec3 normal, vec2 screenPos)
     vec3 clusterPos = CalculateClusterPos(screenPos, worldPos.w);
     uvec4 lightClusterData = texture(clusterTex12, clusterPos);
 
-    uint lightArray[4] = uint[](lightClusterData.x, lightClusterData.y, lightClusterData.z, lightClusterData.w);
-
-    for (uint i = 0U; i < 16U; ++i)
+    while (lightClusterData.x > 0U)
     {
-        uint index = (lightArray[i >> 2U] >> ((i & 3U) * 8U)) & 0xffU;
-        if (index > 0U)
-            CalculateLight(index - 1U, worldPos, normal, accumulatedLight);
-        else
-            break;
+        uint index = lightClusterData.x & 0xffU;
+        CalculateLight(index - 1U, worldPos, normal, accumulatedLight);
+        lightClusterData.x >>= 8U;
+    }
+    while (lightClusterData.y > 0U)
+    {
+        uint index = lightClusterData.y & 0xffU;
+        CalculateLight(index - 1U, worldPos, normal, accumulatedLight);
+        lightClusterData.y >>= 8U;
+    }
+    while (lightClusterData.z > 0U)
+    {
+        uint index = lightClusterData.z & 0xffU;
+        CalculateLight(index - 1U, worldPos, normal, accumulatedLight);
+        lightClusterData.z >>= 8U;
+    }
+    while (lightClusterData.w > 0U)
+    {
+        uint index = lightClusterData.w & 0xffU;
+        CalculateLight(index - 1U, worldPos, normal, accumulatedLight);
+        lightClusterData.w >>= 8U;
     }
 
     return accumulatedLight;
