@@ -1093,8 +1093,8 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
                         dirLightData[3] = dirLight->ShadowParameters();
                         if (dirLight->ShadowViews().size() >= 2)
                         {
-                            *reinterpret_cast<Matrix4*>(&dirLightData[4]) = dirLight->ShadowViews()[0].shadowMatrix;;
-                            *reinterpret_cast<Matrix4*>(&dirLightData[8]) = dirLight->ShadowViews()[1].shadowMatrix;;
+                            *reinterpret_cast<Matrix4*>(&dirLightData[4]) = dirLight->ShadowViews()[0].shadowMatrix;
+                            *reinterpret_cast<Matrix4*>(&dirLightData[8]) = dirLight->ShadowViews()[1].shadowMatrix;
                         }
                     }
                     else
