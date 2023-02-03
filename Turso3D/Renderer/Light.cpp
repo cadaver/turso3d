@@ -80,7 +80,7 @@ bool Light::OnPrepareRender(unsigned short frameNumber, Camera* camera)
         break;
 
     case LIGHT_SPOT:
-        distance = WorldFrustum().Distance(camera->WorldPosition());
+        distance = camera->Distance(WorldPosition() + 0.5f * range * WorldDirection());
         break;
 
     case LIGHT_POINT:
