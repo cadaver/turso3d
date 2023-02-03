@@ -219,13 +219,14 @@ void Node::AddChild(Node* child)
     if (!child || child->parent == this)
         return;
     
+#ifdef _DEBUG
+    // Check for possible illegal or cyclic parent assignment
     if (child == this)
     {
         LOGERROR("Attempted parenting node to self");
         return;
     }
 
-    // Check for possible cyclic parent assignment
     Node* current = parent;
     while (current)
     {
@@ -236,13 +237,14 @@ void Node::AddChild(Node* child)
         }
         current = current->parent;
     }
+#endif
 
     Node* oldParent = child->parent;
     if (oldParent)
     {
         for (auto it = oldParent->impl->children.begin(); it != oldParent->impl->children.end(); ++it)
         {
-            if (*it = child)
+            if (*it == child)
             {
                 oldParent->impl->children.erase(it);
                 break;

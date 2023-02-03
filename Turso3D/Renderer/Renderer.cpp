@@ -715,11 +715,11 @@ void Renderer::CollectLightInteractions(bool drawShadows)
 
     // Build cluster texture data for the lighting shader
     idx = 0;
-    for (int z = 0; z < NUM_CLUSTER_Z; ++z)
+    for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
     {
-        for (int y = 0; y < NUM_CLUSTER_Y; ++y)
+        for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
         {
-            for (int x = 0; x < NUM_CLUSTER_X; ++x)
+            for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
             {
                 unsigned char* dest = &clusterData[MAX_LIGHTS_CLUSTER * idx];
 

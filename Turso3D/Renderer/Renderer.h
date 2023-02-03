@@ -177,10 +177,10 @@ private:
     Material* lastMaterial;
     /// Last material uniforms assignment number.
     unsigned lastPerMaterialUniforms;
-    /// Last cull mode.
-    CullMode lastCullMode;
     /// Last blend mode.
     BlendMode lastBlendMode;
+    /// Last cull mode.
+    CullMode lastCullMode;
     /// Last depth test.
     CompareMode lastDepthTest;
     /// Last color write.

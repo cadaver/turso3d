@@ -158,7 +158,7 @@ void ResourceCache::UnloadResources(const std::string& partialName, bool force)
         {
             auto current = it++;
             Resource* resource = current->second;
-            if (StartsWith(resource->Name(), partialName) && (!resource->Refs() == 1 || force))
+            if (StartsWith(resource->Name(), partialName) && (resource->Refs() == 1 || force))
             {
                 resources.erase(current);
                 ++unloaded;
