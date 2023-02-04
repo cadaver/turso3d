@@ -1036,7 +1036,7 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
         ShaderProgram* program = batch.pass->GetShaderProgram(batch.programBits);
         if (!program->Bind())
         {
-            it += (geometryBits & GEOM_INSTANCED) ? batch.instanceCount : 1;
+            it += (geometryBits == GEOM_INSTANCED) ? batch.instanceCount : 1;
             continue;
         }
 
