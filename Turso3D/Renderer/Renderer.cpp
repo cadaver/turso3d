@@ -1028,13 +1028,19 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
             ++lastPerViewUniforms;
     }
 
-    for (auto it = batches.begin(); it != batches.end(); ++it)
+    for (auto it = batches.begin(); it != batches.end();)
     {
         const Batch& batch = *it;
+        unsigned char geometryBits = batch.programBits & SP_GEOMETRYBITS;
 
         ShaderProgram* program = batch.pass->GetShaderProgram(batch.programBits);
         if (!program->Bind())
-            continue;
+        {
+            if (geometryBits & GEOM_INSTANCED)
+                it += batch.instanceCount;
+            else
+                ++it;
+        }
 
         if (program->lastPerViewUniforms != lastPerViewUniforms)
         {
@@ -1153,7 +1159,6 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
         }
 
         Geometry* geometry = batch.geometry;
-        unsigned char geometryBits = batch.programBits & SP_GEOMETRYBITS;
 
         if (geometryBits == GEOM_INSTANCED)
         {
@@ -1180,6 +1185,8 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
 
             glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)geometry->drawCount, ib->IndexSize() == sizeof(unsigned short) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, 
                 (const void*)(geometry->drawStart* ib->IndexSize()), batch.instanceCount);
+
+            it += batch.instanceCount;
         }
         else
         {
@@ -1206,6 +1213,8 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
             else
                 glDrawElements(GL_TRIANGLES, (GLsizei)geometry->drawCount, ib->IndexSize() == sizeof(unsigned short) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, 
                     (const void*)(geometry->drawStart * ib->IndexSize()));
+
+            ++it;
         }
     }
 }

@@ -74,7 +74,7 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode 
     if (!convertToInstanced || batches.size() < 2)
         return;
 
-    for (auto it = batches.begin(); it < batches.end() - 1; ++it)
+    for (auto it = batches.begin(); it < batches.end() - 1;)
     {
         // Check if batch can be converted (static geometry)
         if (it->programBits & SP_GEOMETRYBITS)
@@ -105,7 +105,9 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode 
             it->programBits |= GEOM_INSTANCED;
             it->instanceStart = (unsigned)start;
             it->instanceCount = (unsigned)count;
-            batches.erase(it + 1, it + count);
+            it += count;
         }
+        else
+            ++it;
     }
 }
