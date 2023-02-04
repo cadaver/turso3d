@@ -106,6 +106,8 @@ class Camera : public SpatialNode
     Frustum ViewSpaceSplitFrustum(float nearClip, float farClip) const;
     /// Return view matrix.
     const Matrix3x4& ViewMatrix() const;
+    /// Return forward direction in world space.
+    Vector3 WorldDirection() const { if (worldDirectionDirty) { worldDirection = SpatialNode::WorldDirection(); worldDirectionDirty = false; } return worldDirection; }
     /// Return either API-specific or API-independent (D3D convention) projection matrix.
     Matrix4 ProjectionMatrix(bool apiSpecific = true) const;
     /// Return frustum near and far sizes.
@@ -145,8 +147,12 @@ private:
 
     /// Cached view matrix.
     mutable Matrix3x4 viewMatrix;
+    /// Cached world forward direction.
+    mutable Vector3 worldDirection;
     /// View matrix dirty flag.
     mutable bool viewMatrixDirty;
+    /// World forward direction dirty flag.
+    mutable bool worldDirectionDirty;
     /// Orthographic mode flag.
     bool orthographic;
     /// Flip vertical flag.

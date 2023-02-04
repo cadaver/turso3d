@@ -17,7 +17,9 @@ static const Matrix4 flipMatrix(
 
 Camera::Camera() :
     viewMatrix(Matrix3x4::IDENTITY),
+    worldDirection(Vector3::FORWARD),
     viewMatrixDirty(false),
+    worldDirectionDirty(false),
     orthographic(false),
     flipVertical(false),
     nearClip(DEFAULT_NEARCLIP),
@@ -432,6 +434,7 @@ void Camera::OnTransformChanged()
     SpatialNode::OnTransformChanged();
 
     viewMatrixDirty = true;
+    worldDirectionDirty = true;
 }
 
 void Camera::SetReflectionPlaneAttr(const Vector4& value)
