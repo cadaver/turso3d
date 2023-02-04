@@ -1036,10 +1036,8 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
         ShaderProgram* program = batch.pass->GetShaderProgram(batch.programBits);
         if (!program->Bind())
         {
-            if (geometryBits & GEOM_INSTANCED)
-                it += batch.instanceCount;
-            else
-                ++it;
+            it += (geometryBits & GEOM_INSTANCED) ? batch.instanceCount : 1;
+            continue;
         }
 
         if (program->lastPerViewUniforms != lastPerViewUniforms)
