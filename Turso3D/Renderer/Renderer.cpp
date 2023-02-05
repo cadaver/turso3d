@@ -1035,14 +1035,14 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
             location = program->Uniform(U_DEPTHPARAMETERS);
             if (location >= 0)
             {
-                Vector4 depthParameters(camera->NearClip(), camera->FarClip(), 0.0f, 0.0f);
+                Vector4 depthParameters(camera_->NearClip(), camera_->FarClip(), 0.0f, 0.0f);
                 if (camera_->IsOrthographic())
                 {
                     depthParameters.z = 0.5f;
                     depthParameters.w = 0.5f;
                 }
                 else
-                    depthParameters.w = 1.0f / camera->FarClip();
+                    depthParameters.w = 1.0f / camera_->FarClip();
 
                 glUniform4fv(location, 1, depthParameters.Data());
             }
@@ -1328,7 +1328,6 @@ void Renderer::DefineQuadVertexBuffer()
 
 void Renderer::DefineClusterFrustums()
 {
-    frustum = camera->WorldFrustum();
     Matrix4 cameraProj = camera->ProjectionMatrix(false);
     if (lastClusterFrustumProj != cameraProj)
         clusterFrustumsDirty = true;
