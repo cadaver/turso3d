@@ -643,23 +643,13 @@ void Renderer::CollectLightInteractions(bool drawShadows)
     // Update cluster frustums and bounding boxes if camera changed
     DefineClusterFrustums();
 
-    // Clear per-cluster light lists
-    Matrix3x4 cameraView = camera->ViewMatrix();
-    size_t idx = 0;
-
-    for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
-    {
-        for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
-        {
-            for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
-            {
-                clusterLights[idx].clear();
-                ++idx;
-            }
-        }
-    }
+    // Clear per-cluster light data
+    memset(numClusterLights, 0, sizeof numClusterLights);
+    memset(clusterData, 0, sizeof clusterData);
 
     // Cull lights against each cluster frustum.
+    Matrix3x4 cameraView = camera->ViewMatrix();
+
     for (size_t i = 0; i < lights.size(); ++i)
     {
         Light* light = lights[i];
@@ -672,8 +662,8 @@ void Renderer::CollectLightInteractions(bool drawShadows)
 
             for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
             {
-                idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
-                if (minViewZ > clusterFrustums[idx].vertices[4].z || maxViewZ < clusterFrustums[idx].vertices[0].z || clusterLights[idx].size() >= MAX_LIGHTS_CLUSTER)
+                size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
+                if (minViewZ > clusterFrustums[idx].vertices[4].z || maxViewZ < clusterFrustums[idx].vertices[0].z || numClusterLights[idx] >= MAX_LIGHTS_CLUSTER)
                     continue;
 
                 for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
@@ -681,7 +671,10 @@ void Renderer::CollectLightInteractions(bool drawShadows)
                     for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
                     {
                         if (bounds.IsInsideFast(clusterBoundingBoxes[idx]) && clusterFrustums[idx].IsInsideFast(bounds))
-                            clusterLights[idx].push_back((unsigned char)i);
+                        {
+                            clusterData[idx * MAX_LIGHTS_CLUSTER + numClusterLights[idx]] = (unsigned char)(i + 1);
+                            ++numClusterLights[idx];
+                        }
                         ++idx;
                     }
                 }
@@ -690,14 +683,14 @@ void Renderer::CollectLightInteractions(bool drawShadows)
         else if (light->GetLightType() == LIGHT_SPOT)
         {
             Frustum bounds(light->WorldFrustum().Transformed(cameraView));
-            BoundingBox boundsBox(bounds);
+            BoundingBox boundsBox(bounds); 
             float minViewZ = boundsBox.min.z;
             float maxViewZ = boundsBox.max.z;
 
             for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
             {
-                idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
-                if (minViewZ > clusterFrustums[idx].vertices[4].z || maxViewZ < clusterFrustums[idx].vertices[0].z || clusterLights[idx].size() >= MAX_LIGHTS_CLUSTER)
+                size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
+                if (minViewZ > clusterFrustums[idx].vertices[4].z || maxViewZ < clusterFrustums[idx].vertices[0].z || numClusterLights[idx] >= MAX_LIGHTS_CLUSTER)
                     continue;
 
                 for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
@@ -705,28 +698,13 @@ void Renderer::CollectLightInteractions(bool drawShadows)
                     for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
                     {
                         if (bounds.IsInsideFast(clusterBoundingBoxes[idx]) && clusterFrustums[idx].IsInsideFast(boundsBox))
-                            clusterLights[idx].push_back((unsigned char)i);
+                        {
+                            clusterData[idx * MAX_LIGHTS_CLUSTER + numClusterLights[idx]] = (unsigned char)(i + 1);
+                            ++numClusterLights[idx];
+                        }
                         ++idx;
                     }
                 }
-            }
-        }
-    }
-
-    // Build cluster texture data for the lighting shader
-    idx = 0;
-    for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
-    {
-        for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
-        {
-            for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
-            {
-                unsigned char* dest = &clusterData[MAX_LIGHTS_CLUSTER * idx];
-
-                for (size_t i = 0; i < MAX_LIGHTS_CLUSTER; ++i)
-                    dest[i] = i < clusterLights[idx].size() ? (clusterLights[idx][i] + 1) : 0;
-
-                ++idx;
             }
         }
     }

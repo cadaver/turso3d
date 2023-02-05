@@ -139,14 +139,11 @@ IntVector2 Graphics::Size() const
     return size;
 }
 
-int Graphics::Width() const
+IntVector2 Graphics::RenderSize() const
 {
-    return Size().x;
-}
-
-int Graphics::Height() const
-{
-    return Size().y;
+    IntVector2 size;
+    SDL_GL_GetDrawableSize(window, &size.x, &size.y);
+    return size;
 }
 
 bool Graphics::IsFullscreen() const

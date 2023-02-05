@@ -211,8 +211,8 @@ int ApplicationMain(std::vector<std::string> arguments)
         if (input->KeyDown(SDLK_d))
             camera->Translate(Vector3::RIGHT * dt * moveSpeed);
 
-        int width = graphics->Width();
-        int height = graphics->Height();
+        int width = graphics->RenderWidth();
+        int height = graphics->RenderHeight();
 
         if (colorBuffer->Width() != width || colorBuffer->Height() != height)
         {

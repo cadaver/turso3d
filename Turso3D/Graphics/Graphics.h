@@ -35,9 +35,15 @@ public:
     /// Return current window size.
     IntVector2 Size() const;
     /// Return current window width.
-    int Width() const;
+    int Width() const { return Size().x; }
     /// Return current window height.
-    int Height() const;
+    int Height() const { return Size().y; }
+    /// Return window render size, which can be different if the OS is doing resolution scaling.
+    IntVector2 RenderSize() const;
+    /// Return window render width.
+    int RenderWidth() const { return RenderSize().x; }
+    /// Return window render height.
+    int RenderHeight() const { return RenderSize().y; }
     /// Return whether is fullscreen.
     bool IsFullscreen() const;
     /// Return whether is using vertical sync.
