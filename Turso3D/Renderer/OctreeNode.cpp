@@ -91,8 +91,7 @@ void OctreeNode::OnTransformChanged()
 {
     SpatialNode::OnTransformChanged();
     SetFlag(NF_BOUNDING_BOX_DIRTY, true);
-
-    if (!TestFlag(NF_OCTREE_UPDATE_QUEUED) && Parent() && impl->octree)
+    if (impl->octree && !TestFlag(NF_OCTREE_UPDATE_QUEUED) && IsEnabled())
         impl->octree->QueueUpdate(this);
 }
 

@@ -165,6 +165,7 @@ void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
 void Octree::RemoveNode(OctreeNode* node)
 {
     assert(node);
+
     RemoveNode(node, node->impl->octant);
     if (node->TestFlag(NF_OCTREE_UPDATE_QUEUED))
         CancelUpdate(node);
@@ -174,6 +175,7 @@ void Octree::RemoveNode(OctreeNode* node)
 void Octree::QueueUpdate(OctreeNode* node)
 {
     assert(node);
+
     updateQueue.push_back(node);
     node->SetFlag(NF_OCTREE_UPDATE_QUEUED, true);
 }
