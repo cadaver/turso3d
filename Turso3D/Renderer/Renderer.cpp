@@ -1237,7 +1237,7 @@ void Renderer::CollectGeometriesAndLights(std::vector<OctreeNode*>::const_iterat
         OctreeNode* node = *it;
         unsigned short flags = node->Flags();
 
-        if ((node->LayerMask() & viewMask) && (planeMask == 0x3f || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
+        if ((node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
         {
             if (flags & NF_GEOMETRY)
             {

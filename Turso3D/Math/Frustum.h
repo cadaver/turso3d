@@ -113,8 +113,8 @@ public:
         return allInside ? INSIDE : INTERSECTS;
     }
 
-    /// Test if a bounding box is inside, outside or intersects. Updates a bitmask for speeding up further tests of hierarchies. Returns updated plane mask: 0xff if outside, 0x3f if completely inside, otherwise intersecting.
-    unsigned char IsInsideMasked(const BoundingBox& box, unsigned char planeMask = 0) const
+    /// Test if a bounding box is inside, outside or intersects. Updates a bitmask for speeding up further tests of hierarchies. Returns updated plane mask: 0xff if outside, 0x00 if completely inside, otherwise intersecting.
+    unsigned char IsInsideMasked(const BoundingBox& box, unsigned char planeMask = 0x3f) const
     {
         Vector3 center = box.Center();
         Vector3 edge = center - box.min;
@@ -123,7 +123,7 @@ public:
         {
             unsigned char bit = 1 << i;
 
-            if (!(planeMask & bit))
+            if (planeMask & bit)
             {
                 const Plane& plane = planes[i];
                 float dist = plane.normal.DotProduct(center) + plane.d;
@@ -132,7 +132,7 @@ public:
                 if (dist < -absDist)
                     return 0xff;
                 else if (dist >= absDist)
-                    planeMask |= bit;
+                    planeMask &= ~bit;
             }
         }
 
@@ -140,7 +140,7 @@ public:
     }
 
     /// Test if a bounding box is inside, using a mask to skip unnecessary planes.
-    Intersection IsInsideMaskedFast(const BoundingBox& box, unsigned char planeMask = 0) const
+    Intersection IsInsideMaskedFast(const BoundingBox& box, unsigned char planeMask = 0x3f) const
     {
         Vector3 center = box.Center();
         Vector3 edge = center - box.min;
@@ -149,7 +149,7 @@ public:
         {
             unsigned char bit = 1 << i;
 
-            if (!(planeMask & bit))
+            if (planeMask & bit)
             {
                 const Plane& plane = planes[i];
                 float dist = plane.normal.DotProduct(center) + plane.d;

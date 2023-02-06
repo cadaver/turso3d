@@ -217,9 +217,9 @@ private:
     }
 
     /// Collect nodes using a frustum and masked testing.
-    void CollectNodesMasked(std::vector<OctreeNode*>& result, Octant* octant, const Frustum& frustum, unsigned short nodeFlags, unsigned layerMask, unsigned char planeMask = 0) const
+    void CollectNodesMasked(std::vector<OctreeNode*>& result, Octant* octant, const Frustum& frustum, unsigned short nodeFlags, unsigned layerMask, unsigned char planeMask = 0x3f) const
     {
-        if (planeMask != 0x3f)
+        if (planeMask)
         {
             planeMask = frustum.IsInsideMasked(octant->cullingBox, planeMask);
             if (planeMask == 0xff)
@@ -231,7 +231,7 @@ private:
         for (auto it = octantNodes.begin(); it != octantNodes.end(); ++it)
         {
             OctreeNode* node = *it;
-            if ((node->Flags() & nodeFlags) == nodeFlags && (node->LayerMask() & layerMask) && (planeMask == 0x3f || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask) != OUTSIDE))
+            if ((node->Flags() & nodeFlags) == nodeFlags && (node->LayerMask() & layerMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask) != OUTSIDE))
                 result.push_back(node);
         }
 
@@ -244,9 +244,9 @@ private:
 
     /// Collect nodes using a frustum and masked testing. Invoke a member function for each octant.
     template <class T> void CollectNodesMaskedMemberCallback(Octant* octant, const Frustum& frustum, T* object, void (T::*callback)(std::vector<OctreeNode*>::const_iterator, 
-        std::vector<OctreeNode*>::const_iterator, unsigned char), unsigned char planeMask = 0) const
+        std::vector<OctreeNode*>::const_iterator, unsigned char), unsigned char planeMask = 0x3f) const
     {
-        if (planeMask != 0x3f)
+        if (planeMask)
         {
             planeMask = frustum.IsInsideMasked(octant->cullingBox, planeMask);
             if (planeMask == 0xff)
