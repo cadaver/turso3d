@@ -671,10 +671,8 @@ void Renderer::CollectLightInteractions(bool drawShadows)
                     for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
                     {
                         if (bounds.IsInsideFast(clusterBoundingBoxes[idx]) && clusterFrustums[idx].IsInsideFast(bounds))
-                        {
-                            clusterData[idx * MAX_LIGHTS_CLUSTER + numClusterLights[idx]] = (unsigned char)(i + 1);
-                            ++numClusterLights[idx];
-                        }
+                            clusterData[(idx << 4) + numClusterLights[idx]++] = (unsigned char)(i + 1);
+
                         ++idx;
                     }
                 }
@@ -698,10 +696,8 @@ void Renderer::CollectLightInteractions(bool drawShadows)
                     for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
                     {
                         if (bounds.IsInsideFast(clusterBoundingBoxes[idx]) && clusterFrustums[idx].IsInsideFast(boundsBox))
-                        {
-                            clusterData[idx * MAX_LIGHTS_CLUSTER + numClusterLights[idx]] = (unsigned char)(i + 1);
-                            ++numClusterLights[idx];
-                        }
+                            clusterData[(idx << 4) + numClusterLights[idx]++] = (unsigned char)(i + 1);
+
                         ++idx;
                     }
                 }

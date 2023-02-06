@@ -180,20 +180,26 @@ void SpatialNode::Rotate(const Quaternion& delta, TransformSpace space)
     switch (space)
     {
     case TS_LOCAL:
-        impl->rotation = (impl->rotation * delta).Normalized();
+        impl->rotation = (impl->rotation * delta);
+        impl->rotation.Normalize();
         break;
 
     case TS_PARENT:
-        impl->rotation = (delta * impl->rotation).Normalized();
+        impl->rotation = (delta * impl->rotation);
+        impl->rotation.Normalize();
         break;
 
     case TS_WORLD:
         if (!TestFlag(NF_SPATIAL_PARENT))
-            impl->rotation = (delta * impl->rotation).Normalized();
+        {
+            impl->rotation = (delta * impl->rotation);
+            impl->rotation.Normalize();
+        }
         else
         {
             Quaternion worldRotation = WorldRotation();
             impl->rotation = impl->rotation * worldRotation.Inverse() * delta * worldRotation;
+            impl->rotation.Normalize();
         }
         break;
     }
@@ -211,25 +217,29 @@ void SpatialNode::RotateAround(const Vector3& point, const Quaternion& delta, Tr
     {
     case TS_LOCAL:
         parentSpacePoint = Transform() * point;
-        impl->rotation = (impl->rotation * delta).Normalized();
+        impl->rotation = (impl->rotation * delta);
+        impl->rotation.Normalize();
         break;
 
     case TS_PARENT:
         parentSpacePoint = point;
-        impl->rotation = (delta * impl->rotation).Normalized();
+        impl->rotation = (delta * impl->rotation);
+        impl->rotation.Normalize();
         break;
 
     case TS_WORLD:
         if (!parentNode)
         {
             parentSpacePoint = point;
-            impl->rotation = (delta * impl->rotation).Normalized();
+            impl->rotation = (delta * impl->rotation);
+            impl->rotation.Normalize();
         }
         else
         {
             parentSpacePoint = parentNode->WorldTransform().Inverse() * point;
             Quaternion worldRotation = WorldRotation();
             impl->rotation = impl->rotation * worldRotation.Inverse() * delta * worldRotation;
+            impl->rotation.Normalize();
         }
         break;
     }
