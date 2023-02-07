@@ -310,13 +310,38 @@ void SpatialNode::OnParentSet(Node* newParent, Node*)
 
 void SpatialNode::OnTransformChanged()
 {
-    SetFlag(NF_WORLD_TRANSFORM_DIRTY, true);
+    SpatialNode* cur = this;
 
-    for (auto it = impl->children.begin(); it != impl->children.end(); ++it)
+    for (;;)
     {
-        Node* child = *it;
-        if (child->TestFlag(NF_SPATIAL))
-            static_cast<SpatialNode*>(child)->OnTransformChanged();
+        // Precondition:
+        // a) whenever a node is marked dirty, all its children are marked dirty as well.
+        // b) whenever a node is cleared from being dirty, all its parents must have been cleared as well.
+        // Therefore if we are recursing here to mark this node dirty, and it already was, then all children of this node must also be already dirty,
+        // and we don't need to reflag them again.
+        if (cur->TestFlag(NF_WORLD_TRANSFORM_DIRTY))
+            return;
+        cur->SetFlag(NF_WORLD_TRANSFORM_DIRTY, true);
+
+        // Tail call optimization: Don't recurse to mark the first child dirty, but instead process it in the context of the current function. 
+        // If there are more than one child, then recurse to the excess children.
+        auto it = cur->impl->children.begin();
+        if (it != cur->impl->children.end())
+        {
+            Node* next = *it;
+            for (++it; it != cur->impl->children.end(); ++it)
+            {
+                Node* child = *it;
+                if (child->TestFlag(NF_SPATIAL))
+                    static_cast<SpatialNode*>(child)->OnTransformChanged();
+            }
+            if (next->TestFlag(NF_SPATIAL))
+                cur = static_cast<SpatialNode*>(next);
+            else
+                return;
+        }
+        else
+            return;
     }
 }
 
