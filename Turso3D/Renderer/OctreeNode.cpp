@@ -34,10 +34,8 @@ void OctreeNode::SetCastShadows(bool enable)
     if (TestFlag(NF_CASTSHADOWS) != enable)
     {
         SetFlag(NF_CASTSHADOWS, enable);
-
         // Reinsert into octree so that cached shadow map invalidation is handled
-        if (!TestFlag(NF_OCTREE_UPDATE_QUEUED) && impl->octree)
-            impl->octree->QueueUpdate(this);
+        OnTransformChanged();
     }
 }
 

@@ -87,8 +87,6 @@ public:
     void RemoveNode(OctreeNode* node);
     /// Queue a reinsertion for a node.
     void QueueUpdate(OctreeNode* node);
-    /// Cancel a pending reinsertion.
-    void CancelUpdate(OctreeNode* node);
     /// Query for nodes with a raycast and return all results.
     void Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL);
     /// Query for nodes with a raycast and return the closest result.

@@ -168,7 +168,19 @@ void Octree::RemoveNode(OctreeNode* node)
 
     RemoveNode(node, node->impl->octant);
     if (node->TestFlag(NF_OCTREE_UPDATE_QUEUED))
-        CancelUpdate(node);
+    {
+        for (auto it = updateQueue.begin(); it != updateQueue.end(); ++it)
+        {
+            if ((*it) == node)
+            {
+                *it = nullptr;
+                break;
+            }
+        }
+
+        node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
+    }
+
     node->impl->octant = nullptr;
 }
 
@@ -178,22 +190,6 @@ void Octree::QueueUpdate(OctreeNode* node)
 
     updateQueue.push_back(node);
     node->SetFlag(NF_OCTREE_UPDATE_QUEUED, true);
-}
-
-void Octree::CancelUpdate(OctreeNode* node)
-{
-    assert(node);
-    
-    for (auto it = updateQueue.begin(); it != updateQueue.end(); ++it)
-    {
-        if ((*it) == node)
-        {
-            *it = nullptr;
-            break;
-        }
-    }
-
-    node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
 }
 
 void Octree::Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask)
@@ -287,7 +283,7 @@ void Octree::RemoveNode(OctreeNode* node, Octant* octant)
     if (!octant)
         return;
 
-    // Do not set the node's octant pointer to zero, as the node may already be added into another octant
+    // Do not set the node's octant pointer to zero, as the node may already be added into another octant. Just remove from octant
     for (auto it = octant->nodes.begin(); it != octant->nodes.end(); ++it)
     {
         if ((*it) == node)
