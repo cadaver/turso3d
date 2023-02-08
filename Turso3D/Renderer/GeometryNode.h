@@ -132,7 +132,7 @@ public:
     void SetMaterial(size_t index, Material* material);
 
     /// Return geometry type.
-    virtual GeometryType GetGeometryType() const { return GEOM_STATIC; }
+    GeometryType GetGeometryType() const { return (GeometryType)(Flags() >> 12); }
     /// Return number of geometries / batches.
     size_t NumGeometries() const { return batches.NumGeometries(); }
     /// Return geometry by index.
