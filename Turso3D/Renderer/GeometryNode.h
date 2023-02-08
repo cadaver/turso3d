@@ -82,25 +82,25 @@ public:
     Geometry* GetGeometry(size_t index) const
     {
         if (numGeometries < 2)
-            return reinterpret_cast<SharedPtr<Geometry>*>(&geomPtr)->Get();
+            return reinterpret_cast<const SharedPtr<Geometry>*>(&geomPtr)->Get();
         else
-            return reinterpret_cast<SharedPtr<Geometry>*>(geomPtr + index * 2)->Get();
+            return reinterpret_cast<const SharedPtr<Geometry>*>(geomPtr + index * 2)->Get();
     }
 
     /// Get material at index.
     Material* GetMaterial(size_t index) const
     {
         if (numGeometries < 2)
-            return reinterpret_cast<SharedPtr<Material>*>(&matPtr)->Get();
+            return reinterpret_cast<const SharedPtr<Material>*>(&matPtr)->Get();
         else
-            return reinterpret_cast<SharedPtr<Material>*>(geomPtr + index * 2 + 1)->Get();
+            return reinterpret_cast<const SharedPtr<Material>*>(geomPtr + index * 2 + 1)->Get();
     }
 
 private:
     /// Geometry pointer or dynamic storage.
-    mutable size_t* geomPtr;
+    size_t* geomPtr;
     /// Material pointer.
-    mutable size_t* matPtr;
+    size_t* matPtr;
     /// Number of geometries.
     size_t numGeometries;
 };
