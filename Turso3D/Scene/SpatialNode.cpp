@@ -344,12 +344,3 @@ void SpatialNode::OnTransformChanged()
             return;
     }
 }
-
-void SpatialNode::UpdateWorldTransform() const
-{
-    if (TestFlag(NF_SPATIAL_PARENT))
-        worldTransform = static_cast<SpatialNode*>(Parent())->WorldTransform() * Matrix3x4(impl->position, impl->rotation, impl->scale);
-    else
-        worldTransform = Matrix3x4(impl->position, impl->rotation, impl->scale);
-    SetFlag(NF_WORLD_TRANSFORM_DIRTY, false);
-}

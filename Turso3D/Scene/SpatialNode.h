@@ -98,8 +98,21 @@ public:
     Vector3 WorldDirection() const { return WorldRotation() * Vector3::FORWARD; }
     /// Return scale in world space. As it is calculated from the world transform matrix, it may not be meaningful or accurate in all cases.
     Vector3 WorldScale() const { return WorldTransform().Scale(); }
+    
     /// Return world transform matrix.
-    const Matrix3x4& WorldTransform() const { if (TestFlag(NF_WORLD_TRANSFORM_DIRTY)) UpdateWorldTransform(); return worldTransform; }
+    const Matrix3x4& WorldTransform() const 
+    { 
+        if (TestFlag(NF_WORLD_TRANSFORM_DIRTY))
+        {
+            if (TestFlag(NF_SPATIAL_PARENT))
+                worldTransform = static_cast<SpatialNode*>(Parent())->WorldTransform() * Matrix3x4(impl->position, impl->rotation, impl->scale);
+            else
+                worldTransform = Matrix3x4(impl->position, impl->rotation, impl->scale);
+            SetFlag(NF_WORLD_TRANSFORM_DIRTY, false);
+        }
+        return worldTransform; 
+    }
+
     /// Convert a local space position to world space.
     Vector3 LocalToWorld(const Vector3& point) const { return WorldTransform() * point; }
     /// Convert a local space vector (either position or direction) to world space.
@@ -118,9 +131,6 @@ protected:
     virtual void OnTransformChanged();
 
 private:
-    /// Update world transform matrix from spatial parent chain.
-    void UpdateWorldTransform() const;
-
     /// World transform matrix.
     mutable Matrix3x4 worldTransform;
 };
