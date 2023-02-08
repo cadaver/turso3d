@@ -37,7 +37,7 @@ struct Octant
     Octant();
    
     /// Initialize parent and bounds.
-    void Initialize(Octant* parent, const BoundingBox& boundingBox, int level);
+    void Initialize(Octant* parent, const BoundingBox& boundingBox, unsigned char level);
     /// Test if a node should be inserted in this octant or if a smaller child octant should be created.
     bool FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) const;
     /// Return child octant index based on position.
@@ -45,8 +45,6 @@ struct Octant
     
     /// Nodes contained in the octant.
     std::vector<OctreeNode*> nodes;
-    /// Node sorting dirty.
-    bool sortDirty;
     /// Expanded (loose) bounding box used for culling the octant and the nodes within it.
     BoundingBox cullingBox;
     /// Actual bounding box of the octant.
@@ -56,7 +54,9 @@ struct Octant
     /// Bounding box half size.
     Vector3 halfSize;
     /// Subdivision level.
-    int level;
+    unsigned char level;
+    /// Node sorting dirty.
+    bool sortDirty;
     /// Child octants.
     Octant* children[NUM_OCTANTS];
     /// Parent octant.

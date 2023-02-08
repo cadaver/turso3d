@@ -9,7 +9,7 @@
 
 static const float DEFAULT_OCTREE_SIZE = 1000.0f;
 static const int DEFAULT_OCTREE_LEVELS = 8;
-static const int MAX_OCTREE_LEVELS = 256;
+static const int MAX_OCTREE_LEVELS = 255;
 
 bool CompareRaycastResults(const RaycastResult& lhs, const RaycastResult& rhs)
 {
@@ -30,7 +30,7 @@ Octant::Octant() :
         children[i] = nullptr;
 }
 
-void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, int level_)
+void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigned char level_)
 {
     worldBoundingBox = boundingBox;
     center = worldBoundingBox.Center();
@@ -48,9 +48,10 @@ bool Octant::FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) cons
     // Also check if the box can not fit inside a child octant's culling box, in that case size OK (must insert here)
     else
     {
-        if (box.min.x <= worldBoundingBox.min.x - 0.5f * halfSize.x || box.min.y <= worldBoundingBox.min.y - 0.5f * halfSize.y ||
-            box.min.z <= worldBoundingBox.min.z - 0.5f * halfSize.z || box.max.x >= worldBoundingBox.max.x + 0.5f * halfSize.x ||
-            box.max.y >= worldBoundingBox.max.y + 0.5f * halfSize.y || box.max.z >= worldBoundingBox.max.z + 0.5f * halfSize.z)
+        Vector3 quarterSize = 0.5f * halfSize;
+        if (box.min.x <= worldBoundingBox.min.x - quarterSize.x || box.max.x >= worldBoundingBox.max.x + quarterSize.x ||
+            box.min.y <= worldBoundingBox.min.y - quarterSize.y || box.max.y >= worldBoundingBox.max.y + quarterSize.y ||
+            box.max.z <= worldBoundingBox.min.z - quarterSize.z || box.max.z >= worldBoundingBox.max.z + quarterSize.z)
             return true;
     }
 
@@ -104,14 +105,13 @@ void Octree::Update(unsigned short frameNumber)
 
         // Do nothing if still fits the current octant
         const BoundingBox& box = node->WorldBoundingBox();
-        Vector3 boxSize = box.Size();
         Octant* oldOctant = node->impl->octant;
-        if (oldOctant && oldOctant->cullingBox.IsInside(box) == INSIDE && oldOctant->FitBoundingBox(box, boxSize))
+        if (oldOctant && oldOctant->cullingBox.IsInside(box) == INSIDE)
             continue;
 
         // Begin reinsert process. Start from root and check what level child needs to be used
         Octant* newOctant = &root;
-        Vector3 boxCenter = box.Center();
+        Vector3 boxSize = box.Size();
 
         for (;;)
         {
@@ -132,7 +132,7 @@ void Octree::Update(unsigned short frameNumber)
                 break;
             }
             else
-                newOctant = CreateChildOctant(newOctant, newOctant->ChildIndex(boxCenter));
+                newOctant = CreateChildOctant(newOctant, newOctant->ChildIndex(box.Center()));
         }
     }
 
@@ -157,7 +157,7 @@ void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
     CollectNodes(updateQueue, &root);
     DeleteChildOctants(&root, false);
     allocator.Reset();
-    root.Initialize(nullptr, boundingBox, Clamp(numLevels, 1, MAX_OCTREE_LEVELS));
+    root.Initialize(nullptr, boundingBox, (unsigned char)Clamp(numLevels, 1, MAX_OCTREE_LEVELS));
 
     // Nodes will be reinserted on next update
 }
