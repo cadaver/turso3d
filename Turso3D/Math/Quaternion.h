@@ -244,15 +244,15 @@ public:
     Matrix3 Quaternion::ScaledRotationMatrix(float scale) const
     {
         return Matrix3(
-            1.0f - 2.0f * y * y - 2.0f * z * z * scale,
-            2.0f * x * y - 2.0f * w * z * scale,
-            2.0f * x * z + 2.0f * w * y * scale,
-            2.0f * x * y + 2.0f * w * z * scale,
-            1.0f - 2.0f * x * x - 2.0f * z * z * scale,
-            2.0f * y * z - 2.0f * w * x * scale,
-            2.0f * x * z - 2.0f * w * y * scale,
-            2.0f * y * z + 2.0f * w * x * scale,
-            1.0f - 2.0f * x * x - 2.0f * y * y * scale
+            (1.0f - 2.0f * y * y - 2.0f * z * z) * scale,
+            (2.0f * x * y - 2.0f * w * z) * scale,
+            (2.0f * x * z + 2.0f * w * y) * scale,
+            (2.0f * x * y + 2.0f * w * z) * scale,
+            (1.0f - 2.0f * x * x - 2.0f * z * z) * scale,
+            (2.0f * y * z - 2.0f * w * x) * scale,
+            (2.0f * x * z - 2.0f * w * y) * scale,
+            (2.0f * y * z + 2.0f * w * x) * scale,
+            (1.0f - 2.0f * x * x - 2.0f * y * y) * scale
         );
     }
 
@@ -260,15 +260,15 @@ public:
     Matrix3 Quaternion::ScaledRotationMatrix(const Vector3& scale) const
     {
         return Matrix3(
-            1.0f - 2.0f * y * y - 2.0f * z * z * scale.x,
-            2.0f * x * y - 2.0f * w * z * scale.y,
-            2.0f * x * z + 2.0f * w * y * scale.z,
-            2.0f * x * y + 2.0f * w * z * scale.x,
-            1.0f - 2.0f * x * x - 2.0f * z * z * scale.y,
-            2.0f * y * z - 2.0f * w * x * scale.z,
-            2.0f * x * z - 2.0f * w * y * scale.x,
-            2.0f * y * z + 2.0f * w * x * scale.y,
-            1.0f - 2.0f * x * x - 2.0f * y * y * scale.z
+            (1.0f - 2.0f * y * y - 2.0f * z * z) * scale.x,
+            (2.0f * x * y - 2.0f * w * z) * scale.y,
+            (2.0f * x * z + 2.0f * w * y) * scale.z,
+            (2.0f * x * y + 2.0f * w * z) * scale.x,
+            (1.0f - 2.0f * x * x - 2.0f * z * z) * scale.y,
+            (2.0f * y * z - 2.0f * w * x) * scale.z,
+            (2.0f * x * z - 2.0f * w * y) * scale.x,
+            (2.0f * y * z + 2.0f * w * x) * scale.y,
+            (1.0f - 2.0f * x * x - 2.0f * y * y) * scale.z
         );
     }
 
