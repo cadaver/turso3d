@@ -8,6 +8,7 @@
 
 OctreeNode::OctreeNode() :
     lastFrameNumber(0),
+    lastUpdateFrameNumber(0),
     distance(0.0f),
     maxDistance(0.0f)
 {

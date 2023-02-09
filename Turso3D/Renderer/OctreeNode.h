@@ -66,14 +66,14 @@ protected:
 
     /// World space bounding box.
     mutable BoundingBox worldBoundingBox;
-    /// Distance from camera in the current view.
-    float distance;
-    /// Max distance for rendering.
-    float maxDistance;
     /// Last frame number when was visible.
     unsigned short lastFrameNumber;
     /// Last frame number when was reinserted to octree or other change (LOD etc.) happened
     unsigned short lastUpdateFrameNumber;
+    /// Distance from camera in the current view.
+    float distance;
+    /// Max distance for rendering.
+    float maxDistance;
 
 private:
     /// Remove from the current octree.
