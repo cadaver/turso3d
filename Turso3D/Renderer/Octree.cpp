@@ -21,23 +21,19 @@ bool CompareNodeDistances(const std::pair<OctreeNode*, float>& lhs, const std::p
     return lhs.second < rhs.second;
 }
 
-Octant::Octant() :
-    parent(nullptr),
-    numNodes(0),
-    sortDirty(false)
-{
-    for (size_t i = 0; i < NUM_OCTANTS; ++i)
-        children[i] = nullptr;
-}
-
 void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigned char level_)
 {
     worldBoundingBox = boundingBox;
-    center = worldBoundingBox.Center();
     halfSize = worldBoundingBox.HalfSize();
     cullingBox = BoundingBox(worldBoundingBox.min - halfSize, worldBoundingBox.max + halfSize);
+    center = worldBoundingBox.Center();
     level = level_;
+    sortDirty = false;
     parent = parent_;
+    numNodes = 0;
+
+    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        children[i] = nullptr;
 }
 
 bool Octant::FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) const

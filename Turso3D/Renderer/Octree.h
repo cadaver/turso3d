@@ -33,9 +33,6 @@ struct RaycastResult
 /// %Octree cell, contains up to 8 child octants.
 struct Octant
 {
-    /// Construct.
-    Octant();
-   
     /// Initialize parent and bounds.
     void Initialize(Octant* parent, const BoundingBox& boundingBox, unsigned char level);
     /// Test if a node should be inserted in this octant or if a smaller child octant should be created.
