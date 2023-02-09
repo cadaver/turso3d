@@ -107,7 +107,10 @@ public:
             if (TestFlag(NF_SPATIAL_PARENT))
                 worldTransform = static_cast<SpatialNode*>(Parent())->WorldTransform() * Matrix3x4(impl->position, impl->rotation, impl->scale);
             else
-                worldTransform = Matrix3x4(impl->position, impl->rotation, impl->scale);
+            {
+                worldTransform.SetRotation(impl->rotation.RotationMatrix().Scaled(impl->scale));
+                worldTransform.SetTranslation(impl->position);
+            }
             SetFlag(NF_WORLD_TRANSFORM_DIRTY, false);
         }
         return worldTransform; 

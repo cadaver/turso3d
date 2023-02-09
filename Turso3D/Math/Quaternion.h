@@ -223,8 +223,55 @@ public:
     float PitchAngle() const;
     /// Return roll angle in degrees.
     float RollAngle() const;
+
     /// Return the rotation matrix that corresponds to this quaternion.
-    Matrix3 RotationMatrix() const;
+    Matrix3 Quaternion::RotationMatrix() const
+    {
+        return Matrix3(
+            1.0f - 2.0f * y * y - 2.0f * z * z,
+            2.0f * x * y - 2.0f * w * z,
+            2.0f * x * z + 2.0f * w * y,
+            2.0f * x * y + 2.0f * w * z,
+            1.0f - 2.0f * x * x - 2.0f * z * z,
+            2.0f * y * z - 2.0f * w * x,
+            2.0f * x * z - 2.0f * w * y,
+            2.0f * y * z + 2.0f * w * x,
+            1.0f - 2.0f * x * x - 2.0f * y * y
+        );
+    }
+
+    /// Return a uniformly scaled rotation matrix used in defining a node transform.
+    Matrix3 Quaternion::ScaledRotationMatrix(float scale) const
+    {
+        return Matrix3(
+            1.0f - 2.0f * y * y - 2.0f * z * z * scale,
+            2.0f * x * y - 2.0f * w * z * scale,
+            2.0f * x * z + 2.0f * w * y * scale,
+            2.0f * x * y + 2.0f * w * z * scale,
+            1.0f - 2.0f * x * x - 2.0f * z * z * scale,
+            2.0f * y * z - 2.0f * w * x * scale,
+            2.0f * x * z - 2.0f * w * y * scale,
+            2.0f * y * z + 2.0f * w * x * scale,
+            1.0f - 2.0f * x * x - 2.0f * y * y * scale
+        );
+    }
+
+    /// Return a scaled rotation matrix used in defining a node transform.
+    Matrix3 Quaternion::ScaledRotationMatrix(const Vector3& scale) const
+    {
+        return Matrix3(
+            1.0f - 2.0f * y * y - 2.0f * z * z * scale.x,
+            2.0f * x * y - 2.0f * w * z * scale.y,
+            2.0f * x * z + 2.0f * w * y * scale.z,
+            2.0f * x * y + 2.0f * w * z * scale.x,
+            1.0f - 2.0f * x * x - 2.0f * z * z * scale.y,
+            2.0f * y * z - 2.0f * w * x * scale.z,
+            2.0f * x * z - 2.0f * w * y * scale.x,
+            2.0f * y * z + 2.0f * w * x * scale.y,
+            1.0f - 2.0f * x * x - 2.0f * y * y * scale.z
+        );
+    }
+
     /// Spherical interpolation with another quaternion.
     Quaternion Slerp(Quaternion rhs, float t) const;
     /// Normalized linear interpolation with another quaternion.
