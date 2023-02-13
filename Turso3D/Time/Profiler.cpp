@@ -1,6 +1,6 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
-#include "../Thread/Thread.h"
+#include "../Thread/ThreadUtils.h"
 #include "Profiler.h"
 
 #include <cstdio>
@@ -114,7 +114,7 @@ Profiler::~Profiler()
 void Profiler::BeginBlock(const char* name)
 {
     // Currently profiling is a no-op if attempted from outside main thread
-    if (!Thread::IsMainThread())
+    if (!IsMainThread())
         return;
     
     current = current->FindOrCreateChild(name);
@@ -123,7 +123,7 @@ void Profiler::BeginBlock(const char* name)
 
 void Profiler::EndBlock()
 {
-    if (!Thread::IsMainThread())
+    if (!IsMainThread())
         return;
     
     if (current != root)

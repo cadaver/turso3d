@@ -2,6 +2,7 @@
 
 #include "../IO/Log.h"
 #include "../Math/Ray.h"
+#include "../Time/Profiler.h"
 #include "Octree.h"
 
 #include <cassert>
@@ -55,9 +56,21 @@ bool Octant::FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) cons
     return false;
 }
 
-Octree::Octree()
+Octree::Octree() :
+    frameNumber(0),
+    workQueue(Subsystem<WorkQueue>())
 {
+    assert(workQueue);
+
     root.Initialize(nullptr, BoundingBox(-DEFAULT_OCTREE_SIZE, DEFAULT_OCTREE_SIZE), DEFAULT_OCTREE_LEVELS);
+
+    // Threaded operation for checking reinsert of octree nodes
+    reinsertQueues.resize(workQueue->NumThreads() + 1);
+    for (size_t i = 0; i < reinsertQueues.size(); ++i)
+    {
+        AutoPtr<Task> task = new MemberFunctionTask<Octree>(this, &Octree::CheckReinsertWork);
+        reinsertTasks.push_back(task);
+    }
 }
 
 Octree::~Octree()
@@ -72,7 +85,6 @@ Octree::~Octree()
             node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
         }
     }
-    updateQueue.clear();
 
     DeleteChildOctants(&root, true);
 }
@@ -85,54 +97,31 @@ void Octree::RegisterObject()
     RegisterAttribute("numLevels", &Octree::NumLevelsAttr, &Octree::SetNumLevelsAttr);
 }
 
-void Octree::Update(unsigned short frameNumber)
+void Octree::Update(unsigned short frameNumber_)
 {
     PROFILE(UpdateOctree);
 
-    for (auto it = updateQueue.begin(); it != updateQueue.end(); ++it)
+    frameNumber = frameNumber_;
+
+    if (updateQueue.size())
     {
-        OctreeNode* node = *it;
-        // If node was removed before update could happen, a null pointer will be in its place
-        if (!node)
-            continue;
+        size_t nodesPerThread = updateQueue.size() / reinsertTasks.size();
 
-        node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
-        node->lastUpdateFrameNumber = frameNumber;
-
-        // Do nothing if still fits the current octant
-        const BoundingBox& box = node->WorldBoundingBox();
-        Octant* oldOctant = node->impl->octant;
-        if (oldOctant && oldOctant->cullingBox.IsInside(box) == INSIDE)
-            continue;
-
-        // Begin reinsert process. Start from root and check what level child needs to be used
-        Octant* newOctant = &root;
-        Vector3 boxSize = box.Size();
-
-        for (;;)
+        for (size_t i = 0; i < reinsertTasks.size(); ++i)
         {
-            // If node does not fit fully inside root octant, must remain in it
-            bool insertHere = (newOctant == &root) ?
-                (newOctant->cullingBox.IsInside(box) != INSIDE || newOctant->FitBoundingBox(box, boxSize)) :
-                newOctant->FitBoundingBox(box, boxSize);
-
-            if (insertHere)
-            {
-                if (newOctant != oldOctant)
-                {
-                    // Add first, then remove, because node count going to zero deletes the octree branch in question
-                    AddNode(node, newOctant);
-                    if (oldOctant)
-                        RemoveNode(node, oldOctant);
-                }
-                break;
-            }
-            else
-                newOctant = CreateChildOctant(newOctant, newOctant->ChildIndex(box.Center()));
+            Task* task = reinsertTasks[i].Get();
+            task->start = &(*(updateQueue.begin() + i * nodesPerThread));
+            task->end = (i == reinsertTasks.size() - 1) ? &(*updateQueue.end()) : &(*(updateQueue.begin() + (i + 1) * nodesPerThread));
         }
-    }
 
-    updateQueue.clear();
+        workQueue->QueueTasks(reinsertTasks);
+        workQueue->Complete();
+
+        for (auto it = reinsertQueues.begin(); it != reinsertQueues.end(); ++it)
+            ReinsertNodes(*it);
+
+        updateQueue.clear();
+    }
 
     for (auto it = sortDirtyOctants.begin(); it != sortDirtyOctants.end(); ++it)
     {
@@ -156,36 +145,6 @@ void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
     root.Initialize(nullptr, boundingBox, (unsigned char)Clamp(numLevels, 1, MAX_OCTREE_LEVELS));
 
     // Nodes will be reinserted on next update
-}
-
-void Octree::RemoveNode(OctreeNode* node)
-{
-    assert(node);
-
-    RemoveNode(node, node->impl->octant);
-    if (node->TestFlag(NF_OCTREE_UPDATE_QUEUED))
-    {
-        for (auto it = updateQueue.begin(); it != updateQueue.end(); ++it)
-        {
-            if ((*it) == node)
-            {
-                *it = nullptr;
-                break;
-            }
-        }
-
-        node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
-    }
-
-    node->impl->octant = nullptr;
-}
-
-void Octree::QueueUpdate(OctreeNode* node)
-{
-    assert(node);
-
-    updateQueue.push_back(node);
-    node->SetFlag(NF_OCTREE_UPDATE_QUEUED, true);
 }
 
 void Octree::Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask)
@@ -255,48 +214,40 @@ int Octree::NumLevelsAttr() const
     return root.level;
 }
 
-void Octree::AddNode(OctreeNode* node, Octant* octant)
+void Octree::ReinsertNodes(std::vector<OctreeNode*>& nodes)
 {
-    octant->nodes.push_back(node);
-    node->impl->octant = octant;
-
-    if (!octant->sortDirty)
+    for (auto it = nodes.begin(); it != nodes.end(); ++it)
     {
-        octant->sortDirty = true;
-        sortDirtyOctants.push_back(octant);
-    }
+        OctreeNode* node = *it;
+        const BoundingBox& box = node->WorldBoundingBox();
+        Octant* oldOctant = node->impl->octant;
+        Octant* newOctant = &root;
+        Vector3 boxSize = box.Size();
 
-    // Increment the node count in the whole parent branch
-    while (octant)
-    {
-        ++octant->numNodes;
-        octant = octant->parent;
-    }
-}
-
-void Octree::RemoveNode(OctreeNode* node, Octant* octant)
-{
-    if (!octant)
-        return;
-
-    // Do not set the node's octant pointer to zero, as the node may already be added into another octant. Just remove from octant
-    for (auto it = octant->nodes.begin(); it != octant->nodes.end(); ++it)
-    {
-        if ((*it) == node)
+        for (;;)
         {
-            octant->nodes.erase(it);
-            // Decrement the node count in the whole parent branch and erase empty octants as necessary
-            while (octant)
+            // If node does not fit fully inside root octant, must remain in it
+            bool insertHere = (newOctant == &root) ?
+                (newOctant->cullingBox.IsInside(box) != INSIDE || newOctant->FitBoundingBox(box, boxSize)) :
+                newOctant->FitBoundingBox(box, boxSize);
+
+            if (insertHere)
             {
-                --octant->numNodes;
-                Octant* next = octant->parent;
-                if (!octant->numNodes && next)
-                    DeleteChildOctant(next, next->ChildIndex(octant->center));
-                octant = next;
+                if (newOctant != oldOctant)
+                {
+                    // Add first, then remove, because node count going to zero deletes the octree branch in question
+                    AddNode(node, newOctant);
+                    if (oldOctant)
+                        RemoveNode(node, oldOctant);
+                }
+                break;
             }
-            return;
+            else
+                newOctant = CreateChildOctant(newOctant, newOctant->ChildIndex(box.Center()));
         }
     }
+
+    nodes.clear();
 }
 
 Octant* Octree::CreateChildOctant(Octant* octant, size_t index)
@@ -438,5 +389,29 @@ void Octree::CollectNodes(std::vector<std::pair<OctreeNode*, float> >& result, O
     {
         if (octant->children[i])
             CollectNodes(result, octant->children[i], ray, nodeFlags, maxDistance, layerMask);
+    }
+}
+
+void Octree::CheckReinsertWork(Task* task, unsigned threadIndex)
+{
+    OctreeNode** start = reinterpret_cast<OctreeNode**>(task->start);
+    OctreeNode** end = reinterpret_cast<OctreeNode**>(task->end);
+    std::vector<OctreeNode*>& reinsertQueue = reinsertQueues[threadIndex];
+
+    for (; start != end; ++start)
+    {
+        // If node was removed before update could happen, a null pointer will be in its place
+        OctreeNode* node = *start;
+        if (!node)
+            continue;
+
+        node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
+        node->lastUpdateFrameNumber = frameNumber;
+
+        // Do nothing if still fits the current octant
+        const BoundingBox& box = node->WorldBoundingBox();
+        Octant* oldOctant = node->impl->octant;
+        if (!oldOctant || oldOctant->cullingBox.IsInside(box) != INSIDE)
+            reinsertQueue.push_back(node);
     }
 }

@@ -1,8 +1,8 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/File.h"
-#include "../Thread/Thread.h"
 #include "../Time/TimeUtils.h"
+#include "../Thread/ThreadUtils.h"
 #include "Log.h"
 
 #include <cstdio>
@@ -87,7 +87,7 @@ void Log::SetQuiet(bool enable)
 
 void Log::EndFrame()
 {
-    MutexLock lock(logMutex);
+    std::lock_guard<std::mutex> lock(logMutex);
 
     // Process messages accumulated from other threads (if any)
     while (!threadMessages.empty())
@@ -112,9 +112,9 @@ void Log::Write(int msgLevel, const std::string& message)
         return;
 
     // If not in the main thread, store message for later processing
-    if (!Thread::IsMainThread())
+    if (!IsMainThread())
     {
-        MutexLock lock(instance->logMutex);
+        std::lock_guard<std::mutex> lock(instance->logMutex);
         instance->threadMessages.push_back(StoredLogMessage(message, msgLevel, false));
         return;
     }
@@ -162,9 +162,9 @@ void Log::WriteRaw(const std::string& message, bool error)
         return;
 
     // If not in the main thread, store message for later processing
-    if (!Thread::IsMainThread())
+    if (!IsMainThread())
     {
-        MutexLock lock(instance->logMutex);
+        std::lock_guard<std::mutex> lock(instance->logMutex);
         instance->threadMessages.push_back(StoredLogMessage(message, LOG_RAW, error));
         return;
     }

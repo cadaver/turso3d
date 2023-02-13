@@ -1,7 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
-#include "../Thread/Thread.h"
+#include "../Thread/ThreadUtils.h"
 #include "Event.h"
 
 EventHandler::EventHandler(RefCounted* receiver_) :
@@ -23,11 +23,13 @@ Event::~Event()
 
 void Event::Send(RefCounted* sender)
 {
-    if (!Thread::IsMainThread())
+#ifdef _DEBUG
+    if (!IsMainThread())
     {
         LOGERROR("Attempted to send an event from outside the main thread");
         return;
     }
+#endif
 
     // Retain a weak pointer to the sender on the stack for safety, in case it is destroyed
     // as a result of event handling, in which case the current event may also be destroyed

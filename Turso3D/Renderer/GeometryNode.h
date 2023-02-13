@@ -61,10 +61,10 @@ public:
     void SetGeometry(size_t index, Geometry* geometry)
     {
         if (numGeometries < 2)
-            *reinterpret_cast<SharedPtr<Geometry>*>(&geomPtr) = geometry;
+            *(reinterpret_cast<Geometry**>(&geomPtr)) = geometry;
         else
-            *reinterpret_cast<SharedPtr<Geometry>*>(geomPtr + index * 2) = geometry;
-    }
+            *(reinterpret_cast<Geometry**>(geomPtr + index * 2)) = geometry;
+    } 
 
     /// Set material at index.
     void SetMaterial(size_t index, Material* material)
@@ -82,9 +82,9 @@ public:
     Geometry* GetGeometry(size_t index) const
     {
         if (numGeometries < 2)
-            return reinterpret_cast<const SharedPtr<Geometry>*>(&geomPtr)->Get();
+            return reinterpret_cast<Geometry*>(geomPtr);
         else
-            return reinterpret_cast<const SharedPtr<Geometry>*>(geomPtr + index * 2)->Get();
+            return *(reinterpret_cast<Geometry**>(geomPtr + index * 2));
     }
 
     /// Get material at index.

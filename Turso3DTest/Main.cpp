@@ -19,9 +19,13 @@
 #include "Scene/Scene.h"
 #include "Time/Timer.h"
 #include "Time/Profiler.h"
+#include "Thread/ThreadUtils.h"
+#include "Thread/WorkQueue.h"
 
 #include <SDL.h>
 #include <glew.h>
+
+std::vector<SpatialNode*> movingObjects;
 
 void CreateScene(Scene* scene, int preset)
 {
@@ -29,6 +33,7 @@ void CreateScene(Scene* scene, int preset)
 
     scene->Clear();
     scene->CreateChild<Octree>();
+    movingObjects.clear();
 
     if (preset == 0)
     {
@@ -84,10 +89,11 @@ void CreateScene(Scene* scene, int preset)
             for (int x = -125; x <= 125; ++x)
             {
                 StaticModel* object = scene->CreateChild<StaticModel>();
-                object->SetStatic(true);
+                //object->SetStatic(true);
                 object->SetPosition(Vector3(x * 0.3f, 0.0f, y * 0.3f));
                 object->SetScale(0.25f);
                 object->SetModel(cache->LoadResource<Model>("Box.mdl"));
+                movingObjects.push_back(object);
             }
         }
 
@@ -101,8 +107,15 @@ void CreateScene(Scene* scene, int preset)
     }
 }
 
-int ApplicationMain(std::vector<std::string> arguments)
+int ApplicationMain(const std::vector<std::string>& arguments)
 {
+    bool useThreads = true;
+
+    if (arguments.size() > 1 && arguments[1].find("nothreads") != std::string::npos)
+        useThreads = false;
+
+    AutoPtr<WorkQueue> workQueue = new WorkQueue(useThreads ? CPUCount() / 2 - 1 : 0);
+
     AutoPtr<Profiler> profiler = new Profiler();
     AutoPtr<Log> log = new Log();
     AutoPtr<ResourceCache> cache = new ResourceCache();
@@ -157,6 +170,8 @@ int ApplicationMain(std::vector<std::string> arguments)
 
     std::string profilerOutput;
 
+    float angle = 0.0f;
+
     while (!input->ShouldExit() && !input->KeyPressed(27))
     {
         frameTimer.Reset();
@@ -210,6 +225,16 @@ int ApplicationMain(std::vector<std::string> arguments)
             camera->Translate(Vector3::LEFT * dt * moveSpeed);
         if (input->KeyDown(SDLK_d))
             camera->Translate(Vector3::RIGHT * dt * moveSpeed);
+
+        if (input->KeyDown(SDLK_SPACE))
+        {
+            PROFILE(MoveObjects);
+        
+            angle += 100.0f * dt;
+            Quaternion rotQuat(angle, Vector3::ONE);
+            for (auto it = movingObjects.begin(); it != movingObjects.end(); ++it)
+                (*it)->SetRotation(rotQuat);
+        }
 
         int width = graphics->RenderWidth();
         int height = graphics->RenderHeight();

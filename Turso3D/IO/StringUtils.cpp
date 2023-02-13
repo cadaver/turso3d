@@ -161,7 +161,7 @@ bool StartsWith(const std::string& string, const std::string& substring)
 
 bool EndsWith(const std::string& string, const std::string& substring)
 {
-    return string.find(substring) == string.length() - substring.length();
+    return string.rfind(substring) == string.length() - substring.length();
 }
 
 std::vector<std::string> Split(const std::string& string, char separator)

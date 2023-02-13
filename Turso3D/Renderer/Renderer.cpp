@@ -84,6 +84,7 @@ inline bool CompareLights(Light* lhs, Light* rhs)
 }
 
 Renderer::Renderer() :
+    workQueue(Subsystem<WorkQueue>()),
     frameNumber(0),
     sortViewNumber(0),
     clusterFrustumsDirty(true),
@@ -100,6 +101,7 @@ Renderer::Renderer() :
     depthBiasMul(1.0f),
     slopeScaleBiasMul(1.0f)
 {
+    assert(workQueue);
     assert(Object::Subsystem<Graphics>()->IsInitialized());
 
     RegisterSubsystem(this);
@@ -131,6 +133,20 @@ Renderer::Renderer() :
 
     lightDataBuffer = new UniformBuffer();
     lightDataBuffer->Define(USAGE_DYNAMIC, MAX_LIGHTS * sizeof(LightData));
+
+    geometries.resize(workQueue->NumThreads() + 1);
+    initialLights.resize(workQueue->NumThreads() + 1);
+
+    for (size_t i = 0; i < geometries.size(); ++i)
+    {
+        AutoPtr<Task> task = new MemberFunctionTask<Renderer>(this, &Renderer::CollectNodesWork);
+        collectNodeTasks.push_back(task);
+    }
+
+    shadowLightTask = new MemberFunctionTask<Renderer>(this, &Renderer::ProcessShadowLightsWork);
+    shadowDirLightTask = new MemberFunctionTask<Renderer>(this, &Renderer::ProcessShadowDirLightWork);
+    cullLightsTask = new MemberFunctionTask<Renderer>(this, &Renderer::CullLightsToFrustumWork);
+    nodeBatchesTask = new MemberFunctionTask<Renderer>(this, &Renderer::CollectNodeBatchesWork);
 }
 
 Renderer::~Renderer()
@@ -170,7 +186,7 @@ void Renderer::SetShadowDepthBiasMul(float depthBiasMul_, float slopeScaleBiasMu
     shadowMapsDirty = true;
 }
 
-void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows)
+void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
 {
     PROFILE(PrepareView);
 
@@ -183,8 +199,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows)
     if (!octree)
         return;
 
-    if (!shadowMaps.size())
-        drawShadows = false;
+    drawShadows = shadowMaps.size() ? drawShadows_ : false;
 
     // Framenumber is never 0
     ++frameNumber;
@@ -193,23 +208,23 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows)
 
     frustum = camera->WorldFrustum();
     viewMask = camera->ViewMask();
-    geometries.clear();
+
+    for (size_t i = 0; i < geometries.size(); ++i)
+        geometries[i].clear();
+    for (size_t i = 0; i < initialLights.size(); ++i)
+        initialLights[i].clear();
     lights.clear();
     dirLight = nullptr;
     lastCamera = nullptr;
 
     opaqueBatches.Clear();
     alphaBatches.Clear();
-    instanceTransforms.clear();
-    instanceTransformsDirty = true;
 
     for (auto it = shadowMaps.begin(); it != shadowMaps.end(); ++it)
         it->Clear();
 
     CollectVisibleNodes();
-    CollectLightInteractions(drawShadows);
-    CollectNodeBatches();
-    SortNodeBatches();
+    CollectNodeBatchesAndLights();
 }
 
 void Renderer::RenderShadowMaps()
@@ -242,7 +257,7 @@ void Renderer::RenderShadowMaps()
                 {
                     SetViewport(view->viewport);
                     SetDepthBias(view->light->DepthBias() * depthBiasMul, view->light->SlopeScaleBias() * slopeScaleBiasMul);
-                    RenderBatches(view->shadowCamera, batchQueue.batches);
+                    RenderBatches(view->shadowCamera, batchQueue);
                 }
             }
         }
@@ -289,7 +304,7 @@ void Renderer::RenderShadowMaps()
                 {
                     SetViewport(view->viewport);
                     SetDepthBias(view->light->DepthBias() * depthBiasMul, view->light->SlopeScaleBias() * slopeScaleBiasMul);
-                    RenderBatches(view->shadowCamera, batchQueue.batches);
+                    RenderBatches(view->shadowCamera, batchQueue);
                 }
             }
         }
@@ -318,7 +333,7 @@ void Renderer::RenderOpaque()
     clusterTexture->Bind(12);
     lightDataBuffer->Bind(0);
 
-    RenderBatches(camera, opaqueBatches.batches);
+    RenderBatches(camera, opaqueBatches);
 }
 
 void Renderer::RenderAlpha()
@@ -336,7 +351,7 @@ void Renderer::RenderAlpha()
     clusterTexture->Bind(12);
     lightDataBuffer->Bind(0);
 
-    RenderBatches(camera, alphaBatches.batches);
+    RenderBatches(camera, alphaBatches);
 }
 
 void Renderer::SetRenderState(BlendMode blendMode, CullMode cullMode, CompareMode depthTest, bool colorWrite, bool depthWrite)
@@ -510,12 +525,37 @@ void Renderer::CollectVisibleNodes()
     PROFILE(CollectVisibleNodes);
 
     octree->Update(frameNumber);
-    octree->FindNodesMasked(frustum, this, &Renderer::CollectGeometriesAndLights);
+
+    octants.clear();
+    octree->FindOctantsMasked(octants, frustum);
+
+    size_t octantsPerThread = octants.size() / collectNodeTasks.size();
+
+    for (size_t i = 0; i < collectNodeTasks.size(); ++i)
+    {
+        collectNodeTasks[i]->start = &(*(octants.begin() + i * octantsPerThread));
+        collectNodeTasks[i]->end = (i == collectNodeTasks.size() - 1) ? &(*octants.end()) : &(*(octants.begin() + (i + 1) * octantsPerThread));
+    }
+
+    workQueue->QueueTasks(collectNodeTasks);
+    workQueue->Complete();
+
+    for (size_t i = 0; i < initialLights.size(); ++i)
+    {
+        for (auto it = initialLights[i].begin(); it != initialLights[i].end(); ++it)
+        {
+            Light* light = *it;
+            if (light->GetLightType() != LIGHT_DIRECTIONAL)
+                lights.push_back(light);
+            else if (dirLight == nullptr || light->GetColor().Average() > dirLight->GetColor().Average())
+                dirLight = light;
+        }
+    }
 }
 
-void Renderer::CollectLightInteractions(bool drawShadows)
+void Renderer::CollectNodeBatchesAndLights()
 {
-    PROFILE(CollectLightInteractions);
+    PROFILE(CollectNodeBatchesAndLights);
 
     // Sort localized lights by increasing distance
     std::sort(lights.begin(), lights.end(), CompareLights);
@@ -524,186 +564,23 @@ void Renderer::CollectLightInteractions(bool drawShadows)
     if (lights.size() > MAX_LIGHTS)
         lights.resize(MAX_LIGHTS);
 
-    // Pre-step for shadow map caching: reallocate all lights' shadow map rectangles which are non-zero at this point.
-    // If shadow maps were dirtied (size or bias change) reset all allocations instead
-    for (auto it = lights.begin(); it != lights.end(); ++it)
-    {
-        Light* light = *it;
-        if (shadowMapsDirty)
-            light->SetShadowMap(nullptr);
-        else if (drawShadows && light->ShadowStrength() < 1.0f && light->ShadowRect() != IntRect::ZERO)
-            AllocateShadowMap(light);
-    }
-    shadowMapsDirty = false;
-
-    for (size_t i = 0; i < lights.size(); ++i)
-    {
-        Light* light = lights[i];
-        float cutoff = light->GetLightType() == LIGHT_SPOT ? cosf(light->Fov() * 0.5f * M_DEGTORAD) : 0.0f;
-
-        lightData[i].position = Vector4(light->WorldPosition(), 1.0f);
-        lightData[i].direction = Vector4(-light->WorldDirection(), 0.0f);
-        lightData[i].attenuation = Vector4(1.0f / Max(light->Range(), M_EPSILON), cutoff, 1.0f / (1.0f - cutoff), 1.0f);
-        lightData[i].color = light->EffectiveColor();
-        lightData[i].shadowParameters = Vector4::ONE; // Assume unshadowed
-
-        if (!drawShadows || light->ShadowStrength() >= 1.0f)
-        {
-            light->SetShadowMap(nullptr);
-            continue;
-        }
-
-        // Query for shadowcasters. Lit geometries (both opaque & alpha) are handled by frustum grid so need no bookkeeping
-        initialShadowCasters.clear();
-
-        switch (light->GetLightType())
-        {
-        case LIGHT_POINT:
-            octree->FindNodes(reinterpret_cast<std::vector<OctreeNode*>&>(initialShadowCasters), light->WorldSphere(), NF_GEOMETRY | NF_CASTSHADOWS);
-            break;
-
-        case LIGHT_SPOT:
-            octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(initialShadowCasters), light->WorldFrustum(), NF_GEOMETRY | NF_CASTSHADOWS);
-            break;
-        }
-
-        if (!initialShadowCasters.size())
-        {
-            light->SetShadowMap(nullptr);
-            continue;
-        }
-
-        // Now retry shadow map allocation if necessary. If it's a new allocation, must rerender the shadow map
-        if (!light->ShadowMap())
-        {
-            if (!AllocateShadowMap(light))
-                continue;
-        }
-
-        // Setup shadow cameras & find shadow casters
-        light->SetupShadowViews(camera);
-        std::vector<ShadowView>& shadowViews = light->ShadowViews();
-
-        lightData[i].shadowParameters = light->ShadowParameters();
-        lightData[i].shadowMatrix = light->ShadowViews()[0].shadowMatrix;
-
-        for (size_t j = 0; j < shadowViews.size(); ++j)
-        {
-            ShadowView& view = shadowViews[j];
-            shadowMaps[1].shadowViews.push_back(&view);
-
-            switch (light->GetLightType())
-            {
-            case LIGHT_POINT:
-                // Check which lit geometries are shadow casters and inside each shadow frustum. First check whether the shadow frustum is inside the view at all
-                /// \todo Could use a frustum-frustum test for more accuracy
-                if (frustum.IsInsideFast(BoundingBox(view.shadowFrustum)))
-                    CollectShadowBatches(shadowMaps[1], view, initialShadowCasters, true);
-                else
-                {
-                    // If not inside the view (and thus not rendered), cannot consider it cached for next frame. However shadow map render this frame is a no-op
-                    view.lastViewport = IntRect::ZERO;
-                    view.renderMode = RENDER_STATIC_LIGHT_CACHED;
-                }
-                break;
-
-            case LIGHT_SPOT:
-                // For spot light need no frustum check
-                CollectShadowBatches(shadowMaps[1], view, initialShadowCasters, false);
-                break;
-            }
-        }
-    }
-
-    // Directional light
+    // Check if directional light needs shadows
     if (dirLight)
     {
         if (!drawShadows || dirLight->ShadowStrength() >= 1.0f || !AllocateShadowMap(dirLight))
             dirLight->SetShadowMap(nullptr);
         else
-        {
-            dirLight->SetupShadowViews(camera);
-
-            std::vector<ShadowView>& shadowViews = dirLight->ShadowViews();
-
-            for (size_t i = 0; i < shadowViews.size(); ++i)
-            {
-                ShadowView& view = shadowViews[i];
-                shadowMaps[0].shadowViews.push_back(&view);
-
-                // Directional light needs a new frustum query for each split, as the shadow cameras are typically far outside the main view
-                initialShadowCasters.clear();
-                octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(initialShadowCasters), view.shadowFrustum, NF_GEOMETRY | NF_CASTSHADOWS);
-
-                CollectShadowBatches(shadowMaps[0], view, initialShadowCasters, false);
-            }
-        }
+            workQueue->QueueTask(shadowDirLightTask);
     }
 
-    // Update cluster frustums and bounding boxes if camera changed
-    DefineClusterFrustums();
+    workQueue->QueueTask(shadowLightTask);
+    workQueue->QueueTask(cullLightsTask);
+    workQueue->QueueTask(nodeBatchesTask);
 
-    // Clear per-cluster light data
-    memset(numClusterLights, 0, sizeof numClusterLights);
-    memset(clusterData, 0, sizeof clusterData);
+    workQueue->Complete();
 
-    // Cull lights against each cluster frustum.
-    Matrix3x4 cameraView = camera->ViewMatrix();
-
-    for (size_t i = 0; i < lights.size(); ++i)
-    {
-        Light* light = lights[i];
-
-        if (light->GetLightType() == LIGHT_POINT)
-        {
-            Sphere bounds(cameraView * light->WorldPosition(), light->Range());
-            float minViewZ = bounds.center.z - light->Range();
-            float maxViewZ = bounds.center.z + light->Range();
-
-            for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
-            {
-                size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
-                if (minViewZ > clusterFrustums[idx].vertices[4].z || maxViewZ < clusterFrustums[idx].vertices[0].z || numClusterLights[idx] >= MAX_LIGHTS_CLUSTER)
-                    continue;
-
-                for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
-                {
-                    for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
-                    {
-                        if (bounds.IsInsideFast(clusterBoundingBoxes[idx]) && clusterFrustums[idx].IsInsideFast(bounds))
-                            clusterData[(idx << 4) + numClusterLights[idx]++] = (unsigned char)(i + 1);
-
-                        ++idx;
-                    }
-                }
-            }
-        }
-        else if (light->GetLightType() == LIGHT_SPOT)
-        {
-            Frustum bounds(light->WorldFrustum().Transformed(cameraView));
-            BoundingBox boundsBox(bounds); 
-            float minViewZ = boundsBox.min.z;
-            float maxViewZ = boundsBox.max.z;
-
-            for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
-            {
-                size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
-                if (minViewZ > clusterFrustums[idx].vertices[4].z || maxViewZ < clusterFrustums[idx].vertices[0].z || numClusterLights[idx] >= MAX_LIGHTS_CLUSTER)
-                    continue;
-
-                for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
-                {
-                    for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
-                    {
-                        if (bounds.IsInsideFast(clusterBoundingBoxes[idx]) && clusterFrustums[idx].IsInsideFast(boundsBox))
-                            clusterData[(idx << 4) + numClusterLights[idx]++] = (unsigned char)(i + 1);
-
-                        ++idx;
-                    }
-                }
-            }
-        }
-    }
+    opaqueBatches.Sort(SORT_STATE_AND_DISTANCE, hasInstancing);
+    alphaBatches.Sort(SORT_DISTANCE, hasInstancing);
 }
 
 void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, const std::vector<GeometryNode*>& potentialShadowCasters, bool checkFrustum)
@@ -830,10 +707,6 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
         return;
     }
 
-    ++sortViewNumber;
-    if (!sortViewNumber)
-        ++sortViewNumber;
-
     view.lastDynamicCasters = hasDynamicCasters;
     view.lastViewport = view.viewport;
     view.lastNumGeometries = shadowCasters.size();
@@ -904,94 +777,22 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
     }
 
     if (destStatic)
-        destStatic->Sort(instanceTransforms, SORT_STATE, hasInstancing);
+        destStatic->Sort(SORT_STATE, hasInstancing);
     
-    destDynamic->Sort(instanceTransforms, SORT_STATE, hasInstancing);
+    destDynamic->Sort(SORT_STATE, hasInstancing);
 }
 
-void Renderer::CollectNodeBatches()
-{
-    PROFILE(CollectNodeBatches);
-
-    ++sortViewNumber;
-    if (!sortViewNumber)
-        ++sortViewNumber;
-
-    float farClipMul = 32767.0f / camera->FarClip();
-
-    Batch newBatch;
-
-    for (auto it = geometries.begin(); it != geometries.end(); ++it)
-    {
-        GeometryNode* node = *it;
-        unsigned short distance = (unsigned short)(node->Distance() * farClipMul);
-        const SourceBatches& batches = node->Batches();
-        size_t numGeometries = batches.NumGeometries();
-
-        for (size_t i = 0; i < numGeometries; ++i)
-        {
-            Material* material = batches.GetMaterial(i);
-            
-            // Assume opaque first
-            newBatch.pass = material->GetPass(PASS_OPAQUE);
-            newBatch.programBits = (unsigned char)node->GetGeometryType();
-            newBatch.geometry = batches.GetGeometry(i);
-
-            if (!newBatch.programBits)
-                newBatch.worldTransform = &node->WorldTransform();
-            else
-                newBatch.node = node;
-
-            if (newBatch.pass)
-            {
-                // Perform distance sort in addition to state sort
-                if (newBatch.pass->lastSortKey.first != sortViewNumber || newBatch.pass->lastSortKey.second > distance)
-                {
-                    newBatch.pass->lastSortKey.first = sortViewNumber;
-                    newBatch.pass->lastSortKey.second = distance;
-                }
-                if (newBatch.geometry->lastSortKey.first != sortViewNumber || newBatch.geometry->lastSortKey.second > distance)
-                {
-                    newBatch.geometry->lastSortKey.first = sortViewNumber;
-                    newBatch.geometry->lastSortKey.second = distance;
-                }
-
-                opaqueBatches.batches.push_back(newBatch);
-            }
-            else
-            {
-                // If not opaque, try transparent
-                newBatch.pass = material->GetPass(PASS_ALPHA);
-                if (!newBatch.pass)
-                    continue;
-
-                newBatch.distance = node->Distance();
-                alphaBatches.batches.push_back(newBatch);
-            }
-        }
-    }
-}
-
-void Renderer::SortNodeBatches()
-{
-    PROFILE(SortNodeBatches);
-
-    opaqueBatches.Sort(instanceTransforms, SORT_STATE_AND_DISTANCE, hasInstancing);
-    alphaBatches.Sort(instanceTransforms, SORT_DISTANCE, hasInstancing);
-}
-
-void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
+void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
 {
     lastMaterial = nullptr;
     lastPass = nullptr;
 
-    if (hasInstancing && instanceTransformsDirty && instanceTransforms.size())
+    if (hasInstancing && queue.instanceTransforms.size())
     {
-        if (instanceVertexBuffer->NumVertices() < instanceTransforms.size())
-            instanceVertexBuffer->Define(USAGE_DYNAMIC, instanceTransforms.size(), instanceVertexElements, &instanceTransforms[0]);
+        if (instanceVertexBuffer->NumVertices() < queue.instanceTransforms.size())
+            instanceVertexBuffer->Define(USAGE_DYNAMIC, queue.instanceTransforms.size(), instanceVertexElements, &queue.instanceTransforms[0]);
         else
-            instanceVertexBuffer->SetData(0, instanceTransforms.size(), &instanceTransforms[0]);
-        instanceTransformsDirty = false;
+            instanceVertexBuffer->SetData(0, queue.instanceTransforms.size(), &queue.instanceTransforms[0]);
     }
 
     if (camera_ != lastCamera)
@@ -1002,7 +803,7 @@ void Renderer::RenderBatches(Camera* camera_, const std::vector<Batch>& batches)
             ++lastPerViewUniforms;
     }
 
-    for (auto it = batches.begin(); it != batches.end();)
+    for (auto it = queue.batches.begin(); it != queue.batches.end();)
     {
         const Batch& batch = *it;
         unsigned char geometryBits = batch.programBits & SP_GEOMETRYBITS;
@@ -1230,36 +1031,6 @@ bool Renderer::AllocateShadowMap(Light* light)
     return false;
 }
 
-void Renderer::CollectGeometriesAndLights(std::vector<OctreeNode*>::const_iterator begin, std::vector<OctreeNode*>::const_iterator end, unsigned char planeMask)
-{
-    for (auto it = begin; it != end; ++it)
-    {
-        OctreeNode* node = *it;
-        unsigned short flags = node->Flags();
-
-        if ((node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
-        {
-            if (flags & NF_GEOMETRY)
-            {
-                GeometryNode* geometry = static_cast<GeometryNode*>(node);
-                if (geometry->OnPrepareRender(frameNumber, camera))
-                    geometries.push_back(geometry);
-            }
-            else if (flags & NF_LIGHT)
-            {
-                Light* light = static_cast<Light*>(node);
-                if (light->OnPrepareRender(frameNumber, camera))
-                {
-                    if (light->GetLightType() != LIGHT_DIRECTIONAL)
-                        lights.push_back(light);
-                    else if (!dirLight || light->GetColor().Average() > dirLight->GetColor().Average())
-                        dirLight = light;
-                }
-            }
-        }
-    }
-}
-
 void Renderer::DefineFaceSelectionTextures()
 {
     if (faceSelectionTexture1 && faceSelectionTexture2)
@@ -1369,6 +1140,287 @@ void Renderer::DefineClusterFrustums()
 
         lastClusterFrustumProj = cameraProj;
         clusterFrustumsDirty = false;
+    }
+}
+
+void Renderer::CollectNodesWork(Task* task, unsigned threadIndex)
+{
+    std::pair<Octant*, unsigned char>* start = reinterpret_cast<std::pair<Octant*, unsigned char>*>(task->start);
+    std::pair<Octant*, unsigned char>* end = reinterpret_cast<std::pair<Octant*, unsigned char>*>(task->end);
+    std::vector<GeometryNode*>& geometryQueue = geometries[threadIndex];
+    std::vector<Light*>& lightQueue = initialLights[threadIndex];
+
+    for (; start != end; ++start)
+    {
+        Octant* octant = start->first;
+        unsigned char planeMask = start->second;
+        std::vector<OctreeNode*>& nodes = octant->nodes;
+
+        for (auto it = nodes.begin(); it != nodes.end(); ++it)
+        {
+            OctreeNode* node = *it;
+            unsigned short flags = node->Flags();
+
+            if ((node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
+            {
+                if (flags & NF_GEOMETRY)
+                {
+                    GeometryNode* geometry = static_cast<GeometryNode*>(node);
+                    if (geometry->OnPrepareRender(frameNumber, camera))
+                        geometryQueue.push_back(geometry);
+                }
+                else if (flags & NF_LIGHT)
+                {
+                    Light* light = static_cast<Light*>(node);
+                    if (light->OnPrepareRender(frameNumber, camera))
+                        lightQueue.push_back(light);
+                }
+            }
+        }
+    }
+}
+
+void Renderer::ProcessShadowLightsWork(Task*, unsigned)
+{
+    // Pre-step for shadow map caching: reallocate all lights' shadow map rectangles which are non-zero at this point.
+    // If shadow maps were dirtied (size or bias change) reset all allocations instead
+    for (auto it = lights.begin(); it != lights.end(); ++it)
+    {
+        Light* light = *it;
+        if (shadowMapsDirty)
+            light->SetShadowMap(nullptr);
+        else if (drawShadows && light->ShadowStrength() < 1.0f && light->ShadowRect() != IntRect::ZERO)
+            AllocateShadowMap(light);
+    }
+    shadowMapsDirty = false;
+
+    for (size_t i = 0; i < lights.size(); ++i)
+    {
+        Light* light = lights[i];
+        float cutoff = light->GetLightType() == LIGHT_SPOT ? cosf(light->Fov() * 0.5f * M_DEGTORAD) : 0.0f;
+
+        lightData[i].position = Vector4(light->WorldPosition(), 1.0f);
+        lightData[i].direction = Vector4(-light->WorldDirection(), 0.0f);
+        lightData[i].attenuation = Vector4(1.0f / Max(light->Range(), M_EPSILON), cutoff, 1.0f / (1.0f - cutoff), 1.0f);
+        lightData[i].color = light->EffectiveColor();
+        lightData[i].shadowParameters = Vector4::ONE; // Assume unshadowed
+
+        if (!drawShadows || light->ShadowStrength() >= 1.0f)
+        {
+            light->SetShadowMap(nullptr);
+            continue;
+        }
+
+        // Query for shadowcasters. Lit geometries (both opaque & alpha) are handled by frustum grid so need no bookkeeping
+        pointSpotShadowCasters.clear();
+
+        switch (light->GetLightType())
+        {
+        case LIGHT_POINT:
+            octree->FindNodes(reinterpret_cast<std::vector<OctreeNode*>&>(pointSpotShadowCasters), light->WorldSphere(), NF_GEOMETRY | NF_CASTSHADOWS);
+            break;
+
+        case LIGHT_SPOT:
+            octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(pointSpotShadowCasters), light->WorldFrustum(), NF_GEOMETRY | NF_CASTSHADOWS);
+            break;
+        }
+
+        if (!pointSpotShadowCasters.size())
+        {
+            light->SetShadowMap(nullptr);
+            continue;
+        }
+
+        // Now retry shadow map allocation if necessary. If it's a new allocation, must rerender the shadow map
+        if (!light->ShadowMap())
+        {
+            if (!AllocateShadowMap(light))
+                continue;
+        }
+
+        // Setup shadow cameras & find shadow casters
+        light->SetupShadowViews(camera);
+        std::vector<ShadowView>& shadowViews = light->ShadowViews();
+
+        lightData[i].shadowParameters = light->ShadowParameters();
+        lightData[i].shadowMatrix = light->ShadowViews()[0].shadowMatrix;
+
+        for (size_t j = 0; j < shadowViews.size(); ++j)
+        {
+            ShadowView& view = shadowViews[j];
+            shadowMaps[1].shadowViews.push_back(&view);
+
+            switch (light->GetLightType())
+            {
+            case LIGHT_POINT:
+                // Check which lit geometries are shadow casters and inside each shadow frustum. First check whether the shadow frustum is inside the view at all
+                /// \todo Could use a frustum-frustum test for more accuracy
+                if (frustum.IsInsideFast(BoundingBox(view.shadowFrustum)))
+                    CollectShadowBatches(shadowMaps[1], view, pointSpotShadowCasters, true);
+                else
+                {
+                    // If not inside the view (and thus not rendered), cannot consider it cached for next frame. However shadow map render this frame is a no-op
+                    view.lastViewport = IntRect::ZERO;
+                    view.renderMode = RENDER_STATIC_LIGHT_CACHED;
+                }
+                break;
+
+            case LIGHT_SPOT:
+                // For spot light need no frustum check
+                CollectShadowBatches(shadowMaps[1], view, pointSpotShadowCasters, false);
+                break;
+            }
+        }
+    }
+}
+
+void Renderer::ProcessShadowDirLightWork(Task*, unsigned)
+{
+    dirLight->SetupShadowViews(camera);
+    std::vector<ShadowView>& shadowViews = dirLight->ShadowViews();
+
+    for (size_t i = 0; i < shadowViews.size(); ++i)
+    {
+        ShadowView& view = shadowViews[i];
+        shadowMaps[0].shadowViews.push_back(&view);
+
+        // Directional light needs a new frustum query for each split, as the shadow cameras are typically far outside the main view
+        directionalShadowCasters.clear();
+        octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(directionalShadowCasters), view.shadowFrustum, NF_GEOMETRY | NF_CASTSHADOWS);
+
+        CollectShadowBatches(shadowMaps[0], view, directionalShadowCasters, false);
+    }
+}
+
+void Renderer::CullLightsToFrustumWork(Task*, unsigned)
+{
+    // Update cluster frustums and bounding boxes if camera changed
+    DefineClusterFrustums();
+
+    // Clear per-cluster light data
+    memset(numClusterLights, 0, sizeof numClusterLights);
+    memset(clusterData, 0, sizeof clusterData);
+
+    // Cull lights against each cluster frustum.
+    Matrix3x4 cameraView = camera->ViewMatrix();
+
+    for (size_t i = 0; i < lights.size(); ++i)
+    {
+        Light* light = lights[i];
+
+        if (light->GetLightType() == LIGHT_POINT)
+        {
+            Sphere bounds(cameraView * light->WorldPosition(), light->Range());
+            float minViewZ = bounds.center.z - light->Range();
+            float maxViewZ = bounds.center.z + light->Range();
+
+            for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
+            {
+                size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
+                if (minViewZ > clusterFrustums[idx].vertices[4].z || maxViewZ < clusterFrustums[idx].vertices[0].z || numClusterLights[idx] >= MAX_LIGHTS_CLUSTER)
+                    continue;
+
+                for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
+                {
+                    for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
+                    {
+                        if (bounds.IsInsideFast(clusterBoundingBoxes[idx]) && clusterFrustums[idx].IsInsideFast(bounds))
+                            clusterData[(idx << 4) + numClusterLights[idx]++] = (unsigned char)(i + 1);
+
+                        ++idx;
+                    }
+                }
+            }
+        }
+        else if (light->GetLightType() == LIGHT_SPOT)
+        {
+            Frustum bounds(light->WorldFrustum().Transformed(cameraView));
+            BoundingBox boundsBox(bounds);
+            float minViewZ = boundsBox.min.z;
+            float maxViewZ = boundsBox.max.z;
+
+            for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
+            {
+                size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
+                if (minViewZ > clusterFrustums[idx].vertices[4].z || maxViewZ < clusterFrustums[idx].vertices[0].z || numClusterLights[idx] >= MAX_LIGHTS_CLUSTER)
+                    continue;
+
+                for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
+                {
+                    for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
+                    {
+                        if (bounds.IsInsideFast(clusterBoundingBoxes[idx]) && clusterFrustums[idx].IsInsideFast(boundsBox))
+                            clusterData[(idx << 4) + numClusterLights[idx]++] = (unsigned char)(i + 1);
+
+                        ++idx;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void Renderer::CollectNodeBatchesWork(Task*, unsigned)
+{
+    ++sortViewNumber;
+    if (!sortViewNumber)
+        ++sortViewNumber;
+
+    float farClipMul = 32767.0f / camera->FarClip();
+
+    Batch newBatch;
+
+    for (size_t i = 0; i < geometries.size(); ++i)
+    {
+        for (auto it = geometries[i].begin(); it != geometries[i].end(); ++it)
+        {
+            GeometryNode* node = *it;
+            unsigned short distance = (unsigned short)(node->Distance() * farClipMul);
+            const SourceBatches& batches = node->Batches();
+            size_t numGeometries = batches.NumGeometries();
+
+            for (size_t j = 0; j < numGeometries; ++j)
+            {
+                Material* material = batches.GetMaterial(j);
+
+                // Assume opaque first
+                newBatch.pass = material->GetPass(PASS_OPAQUE);
+                newBatch.programBits = (unsigned char)node->GetGeometryType();
+                newBatch.geometry = batches.GetGeometry(j);
+
+                if (!newBatch.programBits)
+                    newBatch.worldTransform = &node->WorldTransform();
+                else
+                    newBatch.node = node;
+
+                if (newBatch.pass)
+                {
+                    // Perform distance sort in addition to state sort
+                    if (newBatch.pass->lastSortKey.first != sortViewNumber || newBatch.pass->lastSortKey.second > distance)
+                    {
+                        newBatch.pass->lastSortKey.first = sortViewNumber;
+                        newBatch.pass->lastSortKey.second = distance;
+                    }
+                    if (newBatch.geometry->lastSortKey.first != sortViewNumber || newBatch.geometry->lastSortKey.second > distance)
+                    {
+                        newBatch.geometry->lastSortKey.first = sortViewNumber;
+                        newBatch.geometry->lastSortKey.second = distance;
+                    }
+
+                    opaqueBatches.batches.push_back(newBatch);
+                }
+                else
+                {
+                    // If not opaque, try transparent
+                    newBatch.pass = material->GetPass(PASS_ALPHA);
+                    if (!newBatch.pass)
+                        continue;
+
+                    newBatch.distance = node->Distance();
+                    alphaBatches.batches.push_back(newBatch);
+                }
+            }
+        }
     }
 }
 

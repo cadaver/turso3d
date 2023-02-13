@@ -3,8 +3,8 @@
 #pragma once
 
 #include "../Math/Frustum.h"
-#include "../Time/Profiler.h"
 #include "../Object/Allocator.h"
+#include "../Thread/WorkQueue.h"
 #include "OctreeNode.h"
 
 #include <algorithm>
@@ -14,6 +14,8 @@ static const size_t NUM_OCTANTS = 8;
 class Octree;
 class OctreeNode;
 class Ray;
+class WorkQueue;
+struct Task;
 
 /// Structure for raycast query results.
 struct RaycastResult
@@ -80,14 +82,42 @@ public:
     void Update(unsigned short frameNumber);
     /// Resize octree.
     void Resize(const BoundingBox& boundingBox, int numLevels);
-    /// Remove a node from the octree.
-    void RemoveNode(OctreeNode* node);
-    /// Queue a reinsertion for a node.
-    void QueueUpdate(OctreeNode* node);
     /// Query for nodes with a raycast and return all results.
     void Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL);
     /// Query for nodes with a raycast and return the closest result.
     RaycastResult RaycastSingle(const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL);
+
+    /// Queue a reinsertion for a node.
+    void QueueUpdate(OctreeNode* node)
+    {
+        assert(node);
+
+        updateQueue.push_back(node);
+        node->SetFlag(NF_OCTREE_UPDATE_QUEUED, true);
+    }
+
+    /// Remove a node from the octree.
+    void RemoveNode(OctreeNode* node)
+    {
+        assert(node);
+
+        RemoveNode(node, node->impl->octant);
+        if (node->TestFlag(NF_OCTREE_UPDATE_QUEUED))
+        {
+            for (auto it = updateQueue.begin(); it != updateQueue.end(); ++it)
+            {
+                if ((*it) == node)
+                {
+                    *it = nullptr;
+                    break;
+                }
+            }
+
+            node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
+        }
+
+        node->impl->octant = nullptr;
+    }
 
     /// Query for nodes using a volume such as frustum or sphere.
     template <class T> void FindNodes(std::vector<OctreeNode*>& result, const T& volume, unsigned short nodeFlags, unsigned layerMask = LAYERMASK_ALL)
@@ -113,6 +143,12 @@ public:
         CollectNodesMaskedMemberCallback(&root, frustum, object, callback);
     }
 
+    /// Collect octants and their masks using a frustum and masked testing. Their nodes are to be processed later threaded.
+    void FindOctantsMasked(std::vector<std::pair<Octant*, unsigned char> >& result, const Frustum& frustum)
+    {
+        CollectOctantsMasked(result, &root, frustum);
+    }
+
 private:
     /// Set bounding box. Used in serialization.
     void SetBoundingBoxAttr(const BoundingBox& boundingBox);
@@ -122,10 +158,55 @@ private:
     void SetNumLevelsAttr(int numLevels);
     /// Return number of levels. Used in serialization.
     int NumLevelsAttr() const;
+    /// Process a list of nodes to be reinserted. Clear the list afterward.
+    void ReinsertNodes(std::vector<OctreeNode*>& nodes);
+    
     /// Add node to a specific octant.
-    void AddNode(OctreeNode* node, Octant* octant);
+    void AddNode(OctreeNode* node, Octant* octant)
+    {
+        octant->nodes.push_back(node);
+        node->impl->octant = octant;
+
+        if (!octant->sortDirty)
+        {
+            octant->sortDirty = true;
+            sortDirtyOctants.push_back(octant);
+        }
+
+        // Increment the node count in the whole parent branch
+        while (octant)
+        {
+            ++octant->numNodes;
+            octant = octant->parent;
+        }
+    }
+
     /// Remove node from an octant.
-    void RemoveNode(OctreeNode* node, Octant* octant);
+    void RemoveNode(OctreeNode* node, Octant* octant)
+    {
+        if (!octant)
+            return;
+
+        // Do not set the node's octant pointer to zero, as the node may already be added into another octant. Just remove from octant
+        for (auto it = octant->nodes.begin(); it != octant->nodes.end(); ++it)
+        {
+            if ((*it) == node)
+            {
+                octant->nodes.erase(it);
+                // Decrement the node count in the whole parent branch and erase empty octants as necessary
+                while (octant)
+                {
+                    --octant->numNodes;
+                    Octant* next = octant->parent;
+                    if (!octant->numNodes && next)
+                        DeleteChildOctant(next, next->ChildIndex(octant->center));
+                    octant = next;
+                }
+                return;
+            }
+        }
+    }
+
     /// Create a new child octant.
     Octant* CreateChildOctant(Octant* octant, size_t index);
     /// Delete one child octant.
@@ -140,6 +221,8 @@ private:
     void CollectNodes(std::vector<RaycastResult>& result, Octant* octant, const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask) const;
     /// Get all visible nodes matching flags that could be potential raycast hits.
     void CollectNodes(std::vector<std::pair<OctreeNode*, float> >& result, Octant* octant, const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask) const;
+    /// Work function to check reinsertion of nodes.
+    void CheckReinsertWork(Task* task, unsigned threadIndex);
 
     /// Collect nodes matching flags using a volume such as frustum or sphere.
     template <class T> void CollectNodes(std::vector<OctreeNode*>& result, Octant* octant, const T& volume, unsigned short nodeFlags, unsigned layerMask) const
@@ -260,10 +343,36 @@ private:
         }
     }
 
+    /// Collect octants and their masks using a frustum and masked testing. Their nodes are to be processed later threaded.
+    void CollectOctantsMasked(std::vector<std::pair<Octant*, unsigned char> >& result, Octant* octant, const Frustum& frustum, unsigned char planeMask = 0x3f)
+    {
+        if (planeMask)
+        {
+            planeMask = frustum.IsInsideMasked(octant->cullingBox, planeMask);
+            if (planeMask == 0xff)
+                return;
+        }
+
+        if (octant->nodes.size())
+            result.push_back(std::make_pair(octant, planeMask));
+
+        for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        {
+            if (octant->children[i])
+                CollectOctantsMasked(result, octant->children[i], frustum, planeMask);
+        }
+    }
+
     /// Queue of nodes to be reinserted.
     std::vector<OctreeNode*> updateQueue;
     /// Octants which need to have sort order updated.
     std::vector<Octant*> sortDirtyOctants;
+    /// Intermediate reinsert queues for threaded execution.
+    std::vector<std::vector<OctreeNode*> > reinsertQueues;
+    /// Tasks for threaded reinsert execution.
+    std::vector<AutoPtr<Task> > reinsertTasks;
+    /// Current framenumber.
+    unsigned short frameNumber;
     /// RaycastSingle initial coarse result.
     std::vector<std::pair<OctreeNode*, float> > initialRes;
     /// RaycastSingle final result.
@@ -272,4 +381,6 @@ private:
     Allocator<Octant> allocator;
     /// Root octant.
     Octant root;
+    /// Cached %WorkQueue subsystem.
+    WorkQueue* workQueue;
 };

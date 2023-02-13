@@ -1,0 +1,115 @@
+// For conditions of distribution and use, see copyright notice in License.txt
+
+#pragma once
+
+#include "../Object/Object.h"
+
+#include <atomic>
+#include <mutex>
+#include <queue>
+#include <thread>
+
+/// Task for execution by worker threads.
+struct Task
+{
+    /// Execute the task. Thread index 0 is the main thread.
+    virtual void Invoke(Task* task, unsigned threadIndex) = 0;
+    /// Destruct.
+    virtual ~Task();
+
+    /// Data start pointer, task-specific meaning.
+    void* start;
+    /// Data end pointer, task-specific meaning.
+    void* end;
+};
+
+/// Free function task.
+struct FunctionTask : public Task
+{
+    typedef void (*WorkFunctionPtr)(Task*, unsigned);
+
+    /// Construct.
+    FunctionTask(WorkFunctionPtr function_, void* start_ = nullptr, void* end_ = nullptr) :
+        function(function_)
+    {
+        start = start_;
+        end = end_;
+    }
+
+    /// Execute the task. Thread index 0 is the main thread.
+    void Invoke(Task* task, unsigned threadIndex) override
+    {
+        function(task, threadIndex);
+    }
+
+    /// Task function.
+    WorkFunctionPtr function;
+};
+
+/// Member function task.
+template<class T> struct MemberFunctionTask : public Task
+{
+    typedef void (T::* MemberWorkFunctionPtr)(Task*, unsigned);
+
+    /// Construct.
+    MemberFunctionTask(T* object_, MemberWorkFunctionPtr function_, void* start_ = nullptr, void* end_ = nullptr) :
+        object(object_),
+        function(function_)
+    {
+        start = start_;
+        end = end_;
+    }
+
+
+    /// Execute the task. Thread index 0 is the main thread.
+    void Invoke(Task* task, unsigned threadIndex) override
+    {
+        (object->*function)(task, threadIndex);
+    }
+
+    /// Object instance.
+    T* object;
+    /// Task member function.
+    MemberWorkFunctionPtr function;
+};
+
+/// Worker thread subsystem for dividing tasks between CPU cores.
+class WorkQueue : public Object
+{
+    OBJECT(WorkQueue);
+
+public:
+    /// Create with specified amount of worker threads (or 0 for no threading).
+    WorkQueue(unsigned numThreads);
+    /// Destruct. Stop worker threads.
+    ~WorkQueue();
+
+    /// Queue a task for execution. If no threads, completes immediately in the main thread.
+    void QueueTask(Task* task);
+    /// Queue multiple tasks for execution in one go. If no threads, complete immediately in the main thread.
+    void QueueTasks(const std::vector<Task*>& tasks);
+    /// Queue multiple tasks for execution in one go. If no threads, complete immediately in the main thread.
+    void QueueTasks(const std::vector<AutoPtr<Task> >& tasks);
+    /// Complete all currently queued tasks. To be called only from the main thread.
+    void Complete();
+
+    /// Return number of worker threads.
+    unsigned NumThreads() const { return (unsigned)threads.size(); }
+
+private:
+    /// Worker thread function.
+    void WorkerLoop(unsigned threadIndex);
+
+    /// Mutex for the work queue.
+    std::mutex queueMutex;
+    /// Condition variable to wake up workers.
+    std::condition_variable signal;
+    /// Exit flag.
+    bool shouldExit;
+    /// Task queue.
+    std::queue<Task*> tasks;
+    /// Worker threads.
+    std::vector<std::thread> threads;
+    /// Amount of queued tasks. Used to check for completion.
+    std::atomic<int> numPendingTasks;
+};

@@ -64,12 +64,14 @@ struct BatchQueue
     /// Clear.
     void Clear();
     /// Sort batches and setup instancing groups.
-    void Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode sortMode, bool convertToInstanced);
+    void Sort(BatchSortMode sortMode, bool convertToInstanced);
     /// Return whether has batches added.
     bool HasBatches() const { return batches.size(); }
 
-    /// Unsorted batches.
+    /// Batches.
     std::vector<Batch> batches;
+    /// Instance transforms
+    std::vector<Matrix3x4> instanceTransforms;
 };
 
 /// Shadow map data structure. May be shared by several lights.

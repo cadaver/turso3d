@@ -13,7 +13,7 @@ SourceBatches::SourceBatches()
 {
     numGeometries = 0;
 
-    new (&geomPtr) SharedPtr<Geometry>();
+    geomPtr = nullptr;
     new (&matPtr) SharedPtr<Material>();
 }
 
@@ -21,16 +21,12 @@ SourceBatches::~SourceBatches()
 {
     if (numGeometries < 2)
     {
-        reinterpret_cast<SharedPtr<Geometry>*>(&geomPtr)->~SharedPtr<Geometry>();
         reinterpret_cast<SharedPtr<Material>*>(&matPtr)->~SharedPtr<Material>();
     }
     else
     {
         for (size_t i = 0; i < numGeometries; ++i)
-        {
-            reinterpret_cast<SharedPtr<Geometry>*>(geomPtr + i * 2)->~SharedPtr<Geometry>();
             reinterpret_cast<SharedPtr<Material>*>(geomPtr + i * 2 + 1)->~SharedPtr<Material>();
-        }
 
         delete[] geomPtr;
     }
@@ -50,17 +46,11 @@ void SourceBatches::SetNumGeometries(size_t num)
     }
 
     if (numGeometries < 2)
-    {
-        reinterpret_cast<SharedPtr<Geometry>*>(&geomPtr)->~SharedPtr<Geometry>();
         reinterpret_cast<SharedPtr<Material>*>(&matPtr)->~SharedPtr<Material>();
-    }
     else
     {
         for (size_t i = 0; i < numGeometries; ++i)
-        {
-            reinterpret_cast<SharedPtr<Geometry>*>(geomPtr + i * 2)->~SharedPtr<Geometry>();
             reinterpret_cast<SharedPtr<Material>*>(geomPtr + i * 2 + 1)->~SharedPtr<Material>();
-        }
 
         delete[] geomPtr;
     }
@@ -69,7 +59,7 @@ void SourceBatches::SetNumGeometries(size_t num)
 
     if (numGeometries < 2)
     {
-        new (&geomPtr) SharedPtr<Geometry>();
+        geomPtr = nullptr;
         new (&matPtr) SharedPtr<Material>();
     }
     else
@@ -77,7 +67,7 @@ void SourceBatches::SetNumGeometries(size_t num)
         geomPtr = new size_t[numGeometries * 2];
         for (size_t i = 0; i < numGeometries; ++i)
         {
-            new (geomPtr + i * 2) SharedPtr<Geometry>();
+            *(reinterpret_cast<Geometry**>(geomPtr + i * 2)) = nullptr;
             new (geomPtr + i * 2 + 1) SharedPtr<Material>();
         }
     }

@@ -1,3 +1,5 @@
+// For conditions of distribution and use, see copyright notice in License.txt
+
 #include "../Graphics/FrameBuffer.h"
 #include "../Graphics/Texture.h"
 #include "../Graphics/VertexBuffer.h"
@@ -38,9 +40,10 @@ void ShadowMap::Clear()
 void BatchQueue::Clear()
 {
     batches.clear();
+    instanceTransforms.clear();
 }
 
-void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode sortMode, bool convertToInstanced)
+void BatchQueue::Sort(BatchSortMode sortMode, bool convertToInstanced)
 {
     switch (sortMode)
     {

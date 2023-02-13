@@ -2,12 +2,12 @@
 
 #pragma once
 
-#include "../Thread/Mutex.h"
 #include "../Object/AutoPtr.h"
 #include "../Object/Object.h"
 #include "StringUtils.h"
 
 #include <list>
+#include <mutex>
 
 #define USE_LOG
 
@@ -101,7 +101,7 @@ public:
 
 private:
     /// Mutex for threaded operation.
-    Mutex logMutex;
+    std::mutex logMutex;
     /// %Log messages from other threads.
     std::list<StoredLogMessage> threadMessages;
     /// %Log file.
