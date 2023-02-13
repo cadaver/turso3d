@@ -1,5 +1,6 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
+#include "ThreadUtils.h"
 #include "WorkQueue.h"
 
 Task::~Task()
@@ -13,7 +14,15 @@ WorkQueue::WorkQueue(unsigned numThreads) :
 
     numPendingTasks.store(0);
 
-    for (unsigned  i = 0; i < numThreads; ++i)
+    if (numThreads == 0)
+    {
+        numThreads = CPUCount();
+        // If have excess cores, try to leave some free e.g. for the graphics driver
+        if (numThreads >= 8)
+            numThreads /= 2;
+    }
+
+    for (unsigned  i = 0; i < numThreads - 1; ++i)
         threads.push_back(std::thread(&WorkQueue::WorkerLoop, this, i + 1));
 }
 
@@ -69,9 +78,7 @@ void WorkQueue::QueueTasks(const std::vector<Task*>& tasks_)
     {
         // If no threads, execute directly
         for (auto it = tasks_.begin(); it != tasks_.end(); ++it)
-        {
             (*it)->Invoke(*it, 0);
-        }
     }
 }
 
@@ -95,9 +102,7 @@ void WorkQueue::QueueTasks(const std::vector<AutoPtr<Task> >& tasks_)
     {
         // If no threads, execute directly
         for (auto it = tasks_.begin(); it != tasks_.end(); ++it)
-        {
             it->Get()->Invoke(*it, 0);
-        }
     }
 }
 

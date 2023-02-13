@@ -79,7 +79,7 @@ class WorkQueue : public Object
     OBJECT(WorkQueue);
 
 public:
-    /// Create with specified amount of worker threads (or 0 for no threading).
+    /// Create with specified amount of threads including the main thread. 1 to use just the main thread. 0 to guess a suitable amount of threads from CPU core count.
     WorkQueue(unsigned numThreads);
     /// Destruct. Stop worker threads.
     ~WorkQueue();
@@ -93,8 +93,8 @@ public:
     /// Complete all currently queued tasks. To be called only from the main thread.
     void Complete();
 
-    /// Return number of worker threads.
-    unsigned NumThreads() const { return (unsigned)threads.size(); }
+    /// Return number of execution threads including the main thread.
+    unsigned NumThreads() const { return (unsigned)threads.size() + 1; }
 
 private:
     /// Worker thread function.
@@ -105,7 +105,7 @@ private:
     /// Condition variable to wake up workers.
     std::condition_variable signal;
     /// Exit flag.
-    bool shouldExit;
+    volatile bool shouldExit;
     /// Task queue.
     std::queue<Task*> tasks;
     /// Worker threads.

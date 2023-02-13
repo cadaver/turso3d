@@ -20,7 +20,6 @@
 #include "Time/Timer.h"
 #include "Time/Profiler.h"
 #include "Thread/ThreadUtils.h"
-#include "Thread/WorkQueue.h"
 
 #include <SDL.h>
 #include <glew.h>
@@ -114,7 +113,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     if (arguments.size() > 1 && arguments[1].find("nothreads") != std::string::npos)
         useThreads = false;
 
-    AutoPtr<WorkQueue> workQueue = new WorkQueue(useThreads ? CPUCount() / 2 - 1 : 0);
+    AutoPtr<WorkQueue> workQueue = new WorkQueue(useThreads ? 0 : 1);
 
     AutoPtr<Profiler> profiler = new Profiler();
     AutoPtr<Log> log = new Log();

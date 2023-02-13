@@ -134,10 +134,10 @@ Renderer::Renderer() :
     lightDataBuffer = new UniformBuffer();
     lightDataBuffer->Define(USAGE_DYNAMIC, MAX_LIGHTS * sizeof(LightData));
 
-    geometries.resize(workQueue->NumThreads() + 1);
-    initialLights.resize(workQueue->NumThreads() + 1);
+    geometries.resize(workQueue->NumThreads());
+    initialLights.resize(workQueue->NumThreads());
 
-    for (size_t i = 0; i < geometries.size(); ++i)
+    for (size_t i = 0; i < geometries.size() * 2; ++i)
     {
         AutoPtr<Task> task = new MemberFunctionTask<Renderer>(this, &Renderer::CollectNodesWork);
         collectNodeTasks.push_back(task);
@@ -529,12 +529,12 @@ void Renderer::CollectVisibleNodes()
     octants.clear();
     octree->FindOctantsMasked(octants, frustum);
 
-    size_t octantsPerThread = octants.size() / collectNodeTasks.size();
+    size_t octantsPerTask = octants.size() / collectNodeTasks.size();
 
     for (size_t i = 0; i < collectNodeTasks.size(); ++i)
     {
-        collectNodeTasks[i]->start = &(*(octants.begin() + i * octantsPerThread));
-        collectNodeTasks[i]->end = (i == collectNodeTasks.size() - 1) ? &(*octants.end()) : &(*(octants.begin() + (i + 1) * octantsPerThread));
+        collectNodeTasks[i]->start = &(*(octants.begin() + i * octantsPerTask));
+        collectNodeTasks[i]->end = (i == collectNodeTasks.size() - 1) ? &(*octants.end()) : &(*(octants.begin() + (i + 1) * octantsPerTask));
     }
 
     workQueue->QueueTasks(collectNodeTasks);

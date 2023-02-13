@@ -65,8 +65,8 @@ Octree::Octree() :
     root.Initialize(nullptr, BoundingBox(-DEFAULT_OCTREE_SIZE, DEFAULT_OCTREE_SIZE), DEFAULT_OCTREE_LEVELS);
 
     // Threaded operation for checking reinsert of octree nodes
-    reinsertQueues.resize(workQueue->NumThreads() + 1);
-    for (size_t i = 0; i < reinsertQueues.size(); ++i)
+    reinsertQueues.resize(workQueue->NumThreads());
+    for (size_t i = 0; i < reinsertQueues.size() * 2; ++i)
     {
         AutoPtr<Task> task = new MemberFunctionTask<Octree>(this, &Octree::CheckReinsertWork);
         reinsertTasks.push_back(task);
@@ -105,13 +105,13 @@ void Octree::Update(unsigned short frameNumber_)
 
     if (updateQueue.size())
     {
-        size_t nodesPerThread = updateQueue.size() / reinsertTasks.size();
+        size_t nodesPerTask = updateQueue.size() / reinsertTasks.size();
 
         for (size_t i = 0; i < reinsertTasks.size(); ++i)
         {
             Task* task = reinsertTasks[i].Get();
-            task->start = &(*(updateQueue.begin() + i * nodesPerThread));
-            task->end = (i == reinsertTasks.size() - 1) ? &(*updateQueue.end()) : &(*(updateQueue.begin() + (i + 1) * nodesPerThread));
+            task->start = &(*(updateQueue.begin() + i * nodesPerTask));
+            task->end = (i == reinsertTasks.size() - 1) ? &(*updateQueue.end()) : &(*(updateQueue.begin() + (i + 1) * nodesPerTask));
         }
 
         workQueue->QueueTasks(reinsertTasks);
