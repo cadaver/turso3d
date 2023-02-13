@@ -79,7 +79,7 @@ private:
     /// Collect batches from visible objects and cull lights / shadows.
     void CollectNodeBatchesAndLights();
     /// Collect (unlit) shadow batches from geometry nodes and sort them.
-    void CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, const std::vector<GeometryNode*>& potentialShadowCasters, bool checkFrustum);
+    void CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, bool checkFrustum);
     /// Sort batches from visible objects.
     void SortNodeBatches();
     /// Render a batch queue.
@@ -121,14 +121,8 @@ private:
     std::vector<std::vector<Light*> > initialLights;
     /// Brightest directional light in frustum.
     Light* dirLight;
-    /// Total point and spot lights in frustum.
+    /// Accepted point and spot lights in frustum.
     std::vector<Light*> lights;
-    /// Initial shadowcaster list for processing shadowed point and spot lights.
-    std::vector<GeometryNode*> pointSpotShadowCasters;
-    /// Initial shadowcaster list for processing shadowed directional lights.
-    std::vector<GeometryNode*> directionalShadowCasters;
-    /// Intermediate filtered shadowcaster list for processing.
-    std::vector<GeometryNode*> shadowCasters;
     /// Shadow maps.
     std::vector<ShadowMap> shadowMaps;
     /// Face selection UV indirection texture 1.

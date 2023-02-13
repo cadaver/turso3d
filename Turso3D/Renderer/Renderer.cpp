@@ -564,14 +564,30 @@ void Renderer::CollectNodeBatchesAndLights()
     if (lights.size() > MAX_LIGHTS)
         lights.resize(MAX_LIGHTS);
 
+    // Pre-step for shadow map caching: reallocate all lights' shadow map rectangles which are non-zero at this point.
+    // If shadow maps were dirtied (size or bias change) reset all allocations instead
+    for (auto it = lights.begin(); it != lights.end(); ++it)
+    {
+        Light* light = *it;
+        if (shadowMapsDirty)
+            light->SetShadowMap(nullptr);
+        else if (drawShadows && light->ShadowStrength() < 1.0f && light->ShadowRect() != IntRect::ZERO)
+            AllocateShadowMap(light);
+    }
+
     // Check if directional light needs shadows
     if (dirLight)
     {
+        if (shadowMapsDirty)
+            dirLight->SetShadowMap(nullptr);
+
         if (!drawShadows || dirLight->ShadowStrength() >= 1.0f || !AllocateShadowMap(dirLight))
             dirLight->SetShadowMap(nullptr);
         else
             workQueue->QueueTask(shadowDirLightTask);
     }
+
+    shadowMapsDirty = false;
 
     workQueue->QueueTask(shadowLightTask);
     workQueue->QueueTask(cullLightsTask);
@@ -583,7 +599,7 @@ void Renderer::CollectNodeBatchesAndLights()
     alphaBatches.Sort(SORT_DISTANCE, hasInstancing);
 }
 
-void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, const std::vector<GeometryNode*>& potentialShadowCasters, bool checkFrustum)
+void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, bool checkFrustum)
 {
     Light* light = view.light;
     const Frustum& shadowFrustum = view.shadowFrustum;
@@ -593,9 +609,9 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
     bool dynamicOrDirLight = light->GetLightType() == LIGHT_DIRECTIONAL || !light->Static();
     bool hasDynamicCasters = false;
 
-    shadowCasters.clear();
+    shadowMap.shadowCasters.clear();
 
-    for (auto it = potentialShadowCasters.begin(); it != potentialShadowCasters.end(); ++it)
+    for (auto it = shadowMap.initialShadowCasters.begin(); it != shadowMap.initialShadowCasters.end(); ++it)
     {
         GeometryNode* node = *it;
 
@@ -644,7 +660,7 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
                 continue;
         }
 
-        shadowCasters.push_back(node);
+        shadowMap.shadowCasters.push_back(node);
 
         if (dynamicNode)
             hasDynamicCasters = true;
@@ -655,7 +671,7 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
     if (dynamicOrDirLight)
     {
         // If light atlas allocation changed, light moved, or amount of objects in view changed, render an optimized shadow map
-        if (view.lastViewport != view.viewport || !view.lastShadowMatrix.Equals(view.shadowMatrix, 0.0001f) || view.lastNumGeometries != shadowCasters.size())
+        if (view.lastViewport != view.viewport || !view.lastShadowMatrix.Equals(view.shadowMatrix, 0.0001f) || view.lastNumGeometries != shadowMap.shadowCasters.size())
             view.renderMode = RENDER_DYNAMIC_LIGHT;
         else
         {
@@ -663,7 +679,7 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
             view.renderMode = RENDER_STATIC_LIGHT_CACHED;
 
             // If any of the objects moved this frame, same as above
-            for (auto it = shadowCasters.begin(); it != shadowCasters.end(); ++it)
+            for (auto it = shadowMap.shadowCasters.begin(); it != shadowMap.shadowCasters.end(); ++it)
             {
                 GeometryNode* node = *it;
                 if (node->LastUpdateFrameNumber() == frameNumber)
@@ -686,7 +702,7 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
             view.renderMode = (view.lastDynamicCasters || hasDynamicCasters) ? RENDER_STATIC_LIGHT_RESTORE_STATIC : RENDER_STATIC_LIGHT_CACHED;
 
             // If static shadowcasters updated themselves (e.g. LOD change), render shadow map fully
-            for (auto it = shadowCasters.begin(); it != shadowCasters.end(); ++it)
+            for (auto it = shadowMap.shadowCasters.begin(); it != shadowMap.shadowCasters.end(); ++it)
             {
                 GeometryNode* node = *it;
                 
@@ -709,7 +725,7 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
 
     view.lastDynamicCasters = hasDynamicCasters;
     view.lastViewport = view.viewport;
-    view.lastNumGeometries = shadowCasters.size();
+    view.lastNumGeometries = shadowMap.shadowCasters.size();
     view.lastShadowMatrix = view.shadowMatrix;
 
     // Determine batch queues to use
@@ -743,7 +759,7 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, cons
 
     Batch newBatch;
 
-    for (auto it = shadowCasters.begin(); it != shadowCasters.end(); ++it)
+    for (auto it = shadowMap.shadowCasters.begin(); it != shadowMap.shadowCasters.end(); ++it)
     {
         GeometryNode* node = *it;
         bool dynamicNode = !node->Static();
@@ -1182,17 +1198,7 @@ void Renderer::CollectNodesWork(Task* task, unsigned threadIndex)
 
 void Renderer::ProcessShadowLightsWork(Task*, unsigned)
 {
-    // Pre-step for shadow map caching: reallocate all lights' shadow map rectangles which are non-zero at this point.
-    // If shadow maps were dirtied (size or bias change) reset all allocations instead
-    for (auto it = lights.begin(); it != lights.end(); ++it)
-    {
-        Light* light = *it;
-        if (shadowMapsDirty)
-            light->SetShadowMap(nullptr);
-        else if (drawShadows && light->ShadowStrength() < 1.0f && light->ShadowRect() != IntRect::ZERO)
-            AllocateShadowMap(light);
-    }
-    shadowMapsDirty = false;
+    ShadowMap& shadowMap = shadowMaps[1];
 
     for (size_t i = 0; i < lights.size(); ++i)
     {
@@ -1212,20 +1218,20 @@ void Renderer::ProcessShadowLightsWork(Task*, unsigned)
         }
 
         // Query for shadowcasters. Lit geometries (both opaque & alpha) are handled by frustum grid so need no bookkeeping
-        pointSpotShadowCasters.clear();
+        shadowMap.initialShadowCasters.clear();
 
         switch (light->GetLightType())
         {
         case LIGHT_POINT:
-            octree->FindNodes(reinterpret_cast<std::vector<OctreeNode*>&>(pointSpotShadowCasters), light->WorldSphere(), NF_GEOMETRY | NF_CASTSHADOWS);
+            octree->FindNodes(reinterpret_cast<std::vector<OctreeNode*>&>(shadowMap.initialShadowCasters), light->WorldSphere(), NF_GEOMETRY | NF_CASTSHADOWS);
             break;
 
         case LIGHT_SPOT:
-            octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(pointSpotShadowCasters), light->WorldFrustum(), NF_GEOMETRY | NF_CASTSHADOWS);
+            octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(shadowMap.initialShadowCasters), light->WorldFrustum(), NF_GEOMETRY | NF_CASTSHADOWS);
             break;
         }
 
-        if (!pointSpotShadowCasters.size())
+        if (!shadowMap.initialShadowCasters.size())
         {
             light->SetShadowMap(nullptr);
             continue;
@@ -1248,7 +1254,7 @@ void Renderer::ProcessShadowLightsWork(Task*, unsigned)
         for (size_t j = 0; j < shadowViews.size(); ++j)
         {
             ShadowView& view = shadowViews[j];
-            shadowMaps[1].shadowViews.push_back(&view);
+            shadowMap.shadowViews.push_back(&view);
 
             switch (light->GetLightType())
             {
@@ -1256,7 +1262,7 @@ void Renderer::ProcessShadowLightsWork(Task*, unsigned)
                 // Check which lit geometries are shadow casters and inside each shadow frustum. First check whether the shadow frustum is inside the view at all
                 /// \todo Could use a frustum-frustum test for more accuracy
                 if (frustum.IsInsideFast(BoundingBox(view.shadowFrustum)))
-                    CollectShadowBatches(shadowMaps[1], view, pointSpotShadowCasters, true);
+                    CollectShadowBatches(shadowMap, view, true);
                 else
                 {
                     // If not inside the view (and thus not rendered), cannot consider it cached for next frame. However shadow map render this frame is a no-op
@@ -1267,7 +1273,7 @@ void Renderer::ProcessShadowLightsWork(Task*, unsigned)
 
             case LIGHT_SPOT:
                 // For spot light need no frustum check
-                CollectShadowBatches(shadowMaps[1], view, pointSpotShadowCasters, false);
+                CollectShadowBatches(shadowMap, view, false);
                 break;
             }
         }
@@ -1276,19 +1282,20 @@ void Renderer::ProcessShadowLightsWork(Task*, unsigned)
 
 void Renderer::ProcessShadowDirLightWork(Task*, unsigned)
 {
+    ShadowMap& shadowMap = shadowMaps[0];
+
     dirLight->SetupShadowViews(camera);
     std::vector<ShadowView>& shadowViews = dirLight->ShadowViews();
 
     for (size_t i = 0; i < shadowViews.size(); ++i)
     {
         ShadowView& view = shadowViews[i];
-        shadowMaps[0].shadowViews.push_back(&view);
+        shadowMap.shadowViews.push_back(&view);
 
         // Directional light needs a new frustum query for each split, as the shadow cameras are typically far outside the main view
-        directionalShadowCasters.clear();
-        octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(directionalShadowCasters), view.shadowFrustum, NF_GEOMETRY | NF_CASTSHADOWS);
-
-        CollectShadowBatches(shadowMaps[0], view, directionalShadowCasters, false);
+        shadowMap.initialShadowCasters.clear();
+        octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(shadowMap.initialShadowCasters), view.shadowFrustum, NF_GEOMETRY | NF_CASTSHADOWS);
+        CollectShadowBatches(shadowMap, view, false);
     }
 }
 

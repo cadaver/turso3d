@@ -95,6 +95,10 @@ struct ShadowMap
     std::vector<ShadowView*> shadowViews;
     /// Shadow batch queues used by the shadow views.
     std::vector<BatchQueue> shadowBatches;
+    /// Initial shadowcaster list from octree query.
+    std::vector<GeometryNode*> initialShadowCasters;
+    /// Intermediate filtered shadowcaster list for processing.
+    std::vector<GeometryNode*> shadowCasters;
     /// Next free batch queue.
     size_t freeQueueIdx;
 };
