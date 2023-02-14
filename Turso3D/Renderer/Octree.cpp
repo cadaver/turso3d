@@ -12,6 +12,8 @@ static const float DEFAULT_OCTREE_SIZE = 1000.0f;
 static const int DEFAULT_OCTREE_LEVELS = 8;
 static const int MAX_OCTREE_LEVELS = 255;
 
+thread_local size_t Octree::threadIndex = 0;
+
 bool CompareRaycastResults(const RaycastResult& lhs, const RaycastResult& rhs)
 {
     return lhs.distance < rhs.distance;
@@ -57,6 +59,7 @@ bool Octant::FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) cons
 }
 
 Octree::Octree() :
+    threadedUpdate(false),
     frameNumber(0),
     workQueue(Subsystem<WorkQueue>())
 {
@@ -105,6 +108,8 @@ void Octree::Update(unsigned short frameNumber_)
 
     if (updateQueue.size())
     {
+        threadedUpdate = true;
+
         size_t nodesPerTask = updateQueue.size() / reinsertTasks.size();
 
         for (size_t i = 0; i < reinsertTasks.size(); ++i)
@@ -121,6 +126,8 @@ void Octree::Update(unsigned short frameNumber_)
             ReinsertNodes(*it);
 
         updateQueue.clear();
+
+        threadedUpdate = false;
     }
 
     for (auto it = sortDirtyOctants.begin(); it != sortDirtyOctants.end(); ++it)
@@ -392,11 +399,12 @@ void Octree::CollectNodes(std::vector<std::pair<OctreeNode*, float> >& result, O
     }
 }
 
-void Octree::CheckReinsertWork(Task* task, unsigned threadIndex)
+void Octree::CheckReinsertWork(Task* task, unsigned threadIndex_)
 {
     OctreeNode** start = reinterpret_cast<OctreeNode**>(task->start);
     OctreeNode** end = reinterpret_cast<OctreeNode**>(task->end);
-    std::vector<OctreeNode*>& reinsertQueue = reinsertQueues[threadIndex];
+    std::vector<OctreeNode*>& reinsertQueue = reinsertQueues[threadIndex_];
+    threadIndex = threadIndex_;
 
     for (; start != end; ++start)
     {

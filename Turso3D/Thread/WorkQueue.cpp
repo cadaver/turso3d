@@ -114,7 +114,7 @@ void WorkQueue::Complete()
 
     for (;;)
     {
-        size_t tasksLeft = numPendingTasks.load();
+        int tasksLeft = numPendingTasks.load();
         if (!tasksLeft)
             break;
 

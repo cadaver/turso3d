@@ -92,8 +92,21 @@ public:
     {
         assert(node);
 
-        updateQueue.push_back(node);
-        node->SetFlag(NF_OCTREE_UPDATE_QUEUED, true);
+        if (!threadedUpdate)
+        {
+            updateQueue.push_back(node);
+            node->SetFlag(NF_OCTREE_UPDATE_QUEUED, true);
+        }
+        else
+        {
+            node->lastUpdateFrameNumber = frameNumber;
+
+            // Do nothing if still fits the current octant
+            const BoundingBox& box = node->WorldBoundingBox();
+            Octant* oldOctant = node->impl->octant;
+            if (!oldOctant || oldOctant->cullingBox.IsInside(box) != INSIDE)
+                reinsertQueues[threadIndex].push_back(node);
+        }
     }
 
     /// Remove a node from the octree.
@@ -363,6 +376,8 @@ private:
         }
     }
 
+    /// Threaded update flag. During threaded update moved OctreeNodes should go directly to thread-specific reinsert queues.
+    volatile bool threadedUpdate;
     /// Queue of nodes to be reinserted.
     std::vector<OctreeNode*> updateQueue;
     /// Octants which need to have sort order updated.
@@ -383,4 +398,7 @@ private:
     Octant root;
     /// Cached %WorkQueue subsystem.
     WorkQueue* workQueue;
+
+    /// Thread index for reinsertions during threaded update.
+    static thread_local size_t threadIndex;
 };
