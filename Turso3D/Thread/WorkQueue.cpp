@@ -118,7 +118,7 @@ void WorkQueue::Complete()
         if (!tasksLeft)
             break;
 
-        Task* task = nullptr;
+        Task* task;
 
         {
             std::lock_guard<std::mutex> lock(queueMutex);
@@ -129,11 +129,8 @@ void WorkQueue::Complete()
             tasks.pop();
         }
 
-        if (task)
-        { 
-            task->Invoke(task, 0);
-            numPendingTasks.fetch_add(-1);
-        }
+        task->Invoke(task, 0);
+        numPendingTasks.fetch_add(-1);
     }
 }
 
@@ -141,7 +138,7 @@ void WorkQueue::WorkerLoop(unsigned threadIndex)
 {
     for (;;)
     {
-        Task* task = nullptr;;
+        Task* task;
 
         {
             std::unique_lock<std::mutex> lock(queueMutex);
@@ -157,10 +154,7 @@ void WorkQueue::WorkerLoop(unsigned threadIndex)
             tasks.pop();
         }
 
-        if (task)
-        {
-            task->Invoke(task, threadIndex);
-            numPendingTasks.fetch_add(-1);
-        }
+        task->Invoke(task, threadIndex);
+        numPendingTasks.fetch_add(-1);
     }
 }
