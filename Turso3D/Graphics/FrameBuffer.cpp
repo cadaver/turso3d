@@ -30,6 +30,8 @@ FrameBuffer::~FrameBuffer()
 
 void FrameBuffer::Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBuffer)
 {
+    PROFILE(DefineFrameBuffer);
+
     Bind(true);
 
     IntVector2 size = IntVector2::ZERO;
@@ -67,6 +69,8 @@ void FrameBuffer::Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBu
 
 void FrameBuffer::Define(Texture* colorTexture, Texture* depthStencilTexture)
 {
+    PROFILE(DefineFrameBuffer);
+
     Bind(true);
 
     IntVector2 size = IntVector2::ZERO;
@@ -104,6 +108,8 @@ void FrameBuffer::Define(Texture* colorTexture, Texture* depthStencilTexture)
 
 void FrameBuffer::Define(Texture* colorTexture, size_t cubeMapFace, Texture* depthStencilTexture)
 {
+    PROFILE(DefineFrameBuffer);
+
     Bind(true);
 
     IntVector2 size = IntVector2::ZERO;
@@ -141,6 +147,8 @@ void FrameBuffer::Define(Texture* colorTexture, size_t cubeMapFace, Texture* dep
 
 void FrameBuffer::Define(const std::vector<Texture*>& colorTextures, Texture* depthStencilTexture)
 {
+    PROFILE(DefineFrameBuffer);
+
     Bind(true);
 
     IntVector2 size = IntVector2::ZERO;
@@ -197,6 +205,8 @@ void FrameBuffer::Bind(bool force)
 
 void FrameBuffer::Blit(FrameBuffer* dest, const IntRect& destRect, FrameBuffer* src, const IntRect& srcRect, bool blitColor, bool blitDepth, TextureFilterMode filter)
 {
+    PROFILE(BlitFrameBuffer);
+
     GLenum glBlitBits = 0;
     if (blitColor)
         glBlitBits |= GL_COLOR_BUFFER_BIT;
@@ -213,6 +223,7 @@ void FrameBuffer::Blit(FrameBuffer* dest, const IntRect& destRect, FrameBuffer* 
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dest ? dest->buffer : 0);
         boundDrawBuffer = dest;
     }
+
     glBlitFramebuffer(srcRect.left, srcRect.top, srcRect.right, srcRect.bottom, destRect.left, destRect.top, destRect.right, destRect.bottom, glBlitBits, filter == FILTER_POINT ? GL_NEAREST : GL_LINEAR);
 }
 

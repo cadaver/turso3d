@@ -608,6 +608,7 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, bool
 
     bool dynamicOrDirLight = light->GetLightType() == LIGHT_DIRECTIONAL || !light->Static();
     bool hasDynamicCasters = false;
+    bool hasStaticCasters = false;
 
     shadowMap.shadowCasters.clear();
 
@@ -664,6 +665,8 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, bool
 
         if (dynamicNode)
             hasDynamicCasters = true;
+        else
+            hasStaticCasters = true;
     }
 
     // Now determine which kind of caching can be used for the shadow map, and if we need to go further
@@ -699,8 +702,10 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, bool
         else
         {
             // If has dynamic casters now or last frame, restore static shadow map
-            view.renderMode = (view.lastDynamicCasters || hasDynamicCasters) ? RENDER_STATIC_LIGHT_RESTORE_STATIC : RENDER_STATIC_LIGHT_CACHED;
-
+            view.renderMode = RENDER_STATIC_LIGHT_CACHED;
+            if (view.lastDynamicCasters || hasDynamicCasters)
+                view.renderMode = hasStaticCasters ? RENDER_STATIC_LIGHT_RESTORE_STATIC : RENDER_DYNAMIC_LIGHT;
+            
             // If static shadowcasters updated themselves (e.g. LOD change), render shadow map fully
             for (auto it = shadowMap.shadowCasters.begin(); it != shadowMap.shadowCasters.end(); ++it)
             {

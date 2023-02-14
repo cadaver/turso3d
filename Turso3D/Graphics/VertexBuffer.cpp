@@ -63,13 +63,15 @@ VertexBuffer::~VertexBuffer()
 
 bool VertexBuffer::Define(ResourceUsage usage_, size_t numVertices_, const std::vector<VertexElement>& elements_, const void* data)
 {
+    PROFILE(DefineVertexBuffer);
+
+    Release();
+
     if (!numVertices_ || !elements_.size())
     {
         LOGERROR("Can not define vertex buffer with no vertices or no elements");
         return false;
     }
-
-    Release();
 
     numVertices = numVertices_;
     usage = usage_;

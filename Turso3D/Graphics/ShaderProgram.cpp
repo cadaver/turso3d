@@ -100,7 +100,7 @@ void ShaderProgram::Release()
 
 void ShaderProgram::Create(const std::string& sourceCode, const std::vector<std::string>& vsDefines, const std::vector<std::string>& fsDefines)
 {
-    PROFILE(CreateShaderProgram);
+    PROFILE(CompileAndLinkShader);
 
     std::string vsSourceCode;
     vsSourceCode += "#version 150\n";
