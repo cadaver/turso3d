@@ -86,7 +86,6 @@ inline bool CompareLights(Light* lhs, Light* rhs)
 Renderer::Renderer() :
     workQueue(Subsystem<WorkQueue>()),
     frameNumber(0),
-    sortViewNumber(0),
     clusterFrustumsDirty(true),
     lastPerViewUniforms(0),
     lastPerMaterialUniforms(0),
@@ -199,29 +198,28 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
     if (!octree)
         return;
 
-    drawShadows = shadowMaps.size() ? drawShadows_ : false;
-
     // Framenumber is never 0
     ++frameNumber;
     if (!frameNumber)
         ++frameNumber;
 
+    drawShadows = shadowMaps.size() ? drawShadows_ : false;
     frustum = camera->WorldFrustum();
     viewMask = camera->ViewMask();
+    dirLight = nullptr;
+    lastCamera = nullptr;
 
     for (size_t i = 0; i < geometries.size(); ++i)
         geometries[i].clear();
     for (size_t i = 0; i < initialLights.size(); ++i)
         initialLights[i].clear();
-    lights.clear();
-    dirLight = nullptr;
-    lastCamera = nullptr;
-
-    opaqueBatches.Clear();
-    alphaBatches.Clear();
-
     for (auto it = shadowMaps.begin(); it != shadowMaps.end(); ++it)
         it->Clear();
+
+    lights.clear();
+    opaqueBatches.Clear();
+    alphaBatches.Clear();
+    instanceTransforms.clear();
 
     CollectVisibleNodes();
     CollectNodeBatchesAndLights();
@@ -239,6 +237,8 @@ void Renderer::RenderShadowMaps()
         ShadowMap& shadowMap = shadowMaps[i];
         if (shadowMap.shadowViews.empty())
             continue;
+
+        UpdateInstanceTransforms(shadowMap.instanceTransforms);
 
         shadowMap.fbo->Bind();
 
@@ -317,7 +317,8 @@ void Renderer::RenderOpaque()
 {
     PROFILE(RenderOpaque);
 
-    // Update light data now
+    // Update main batches' instance transforms & light data
+    UpdateInstanceTransforms(instanceTransforms);
     ImageLevel clusterLevel(IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RG32U, clusterData);
     clusterTexture->SetData(0, IntBox(0, 0, 0, NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), clusterLevel);
     lightDataBuffer->SetData(0, lights.size() * sizeof(LightData), lightData);
@@ -595,8 +596,8 @@ void Renderer::CollectNodeBatchesAndLights()
 
     workQueue->Complete();
 
-    opaqueBatches.Sort(SORT_STATE_AND_DISTANCE, hasInstancing);
-    alphaBatches.Sort(SORT_DISTANCE, hasInstancing);
+    opaqueBatches.Sort(instanceTransforms, SORT_STATE_AND_DISTANCE, hasInstancing);
+    alphaBatches.Sort(instanceTransforms, SORT_DISTANCE, hasInstancing);
 }
 
 void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, bool checkFrustum)
@@ -798,23 +799,26 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, bool
     }
 
     if (destStatic)
-        destStatic->Sort(SORT_STATE, hasInstancing);
+        destStatic->Sort(shadowMap.instanceTransforms, SORT_STATE, hasInstancing);
     
-    destDynamic->Sort(SORT_STATE, hasInstancing);
+    destDynamic->Sort(shadowMap.instanceTransforms, SORT_STATE, hasInstancing);
+}
+
+void Renderer::UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms)
+{
+    if (hasInstancing && transforms.size())
+    {
+        if (instanceVertexBuffer->NumVertices() < transforms.size())
+            instanceVertexBuffer->Define(USAGE_DYNAMIC, transforms.size(), instanceVertexElements, &transforms[0]);
+        else
+            instanceVertexBuffer->SetData(0, transforms.size(), &transforms[0]);
+    }
 }
 
 void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
 {
     lastMaterial = nullptr;
     lastPass = nullptr;
-
-    if (hasInstancing && queue.instanceTransforms.size())
-    {
-        if (instanceVertexBuffer->NumVertices() < queue.instanceTransforms.size())
-            instanceVertexBuffer->Define(USAGE_DYNAMIC, queue.instanceTransforms.size(), instanceVertexElements, &queue.instanceTransforms[0]);
-        else
-            instanceVertexBuffer->SetData(0, queue.instanceTransforms.size(), &queue.instanceTransforms[0]);
-    }
 
     if (camera_ != lastCamera)
     {
@@ -1374,10 +1378,6 @@ void Renderer::CullLightsToFrustumWork(Task*, unsigned)
 
 void Renderer::CollectNodeBatchesWork(Task*, unsigned)
 {
-    ++sortViewNumber;
-    if (!sortViewNumber)
-        ++sortViewNumber;
-
     float farClipMul = 32767.0f / camera->FarClip();
 
     Batch newBatch;
@@ -1408,14 +1408,14 @@ void Renderer::CollectNodeBatchesWork(Task*, unsigned)
                 if (newBatch.pass)
                 {
                     // Perform distance sort in addition to state sort
-                    if (newBatch.pass->lastSortKey.first != sortViewNumber || newBatch.pass->lastSortKey.second > distance)
+                    if (newBatch.pass->lastSortKey.first != frameNumber || newBatch.pass->lastSortKey.second > distance)
                     {
-                        newBatch.pass->lastSortKey.first = sortViewNumber;
+                        newBatch.pass->lastSortKey.first = frameNumber;
                         newBatch.pass->lastSortKey.second = distance;
                     }
-                    if (newBatch.geometry->lastSortKey.first != sortViewNumber || newBatch.geometry->lastSortKey.second > distance)
+                    if (newBatch.geometry->lastSortKey.first != frameNumber || newBatch.geometry->lastSortKey.second > distance)
                     {
-                        newBatch.geometry->lastSortKey.first = sortViewNumber;
+                        newBatch.geometry->lastSortKey.first = frameNumber;
                         newBatch.geometry->lastSortKey.second = distance;
                     }
 

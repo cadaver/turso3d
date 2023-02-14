@@ -34,16 +34,16 @@ void ShadowMap::Clear()
 {
     allocator.Reset(texture->Width(), texture->Height(), 0, 0, false);
     shadowViews.clear();
+    instanceTransforms.clear();
     freeQueueIdx = 0;
 }
 
 void BatchQueue::Clear()
 {
     batches.clear();
-    instanceTransforms.clear();
 }
 
-void BatchQueue::Sort(BatchSortMode sortMode, bool convertToInstanced)
+void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode sortMode, bool convertToInstanced)
 {
     switch (sortMode)
     {

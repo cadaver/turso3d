@@ -82,6 +82,8 @@ private:
     void CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, bool checkFrustum);
     /// Sort batches from visible objects.
     void SortNodeBatches();
+    /// Upload instance transforms before rendering.
+    void UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms);
     /// Render a batch queue.
     void RenderBatches(Camera* camera, const BatchQueue& queue);
     /// Allocate shadow map for light. Return true on success.
@@ -157,6 +159,10 @@ private:
     AutoPtr<RenderBuffer> staticObjectShadowBuffer;
     /// Cached static object shadow framebuffer.
     AutoPtr<FrameBuffer> staticObjectShadowFbo;
+    /// Vertex elements for the instancing buffer.
+    std::vector<VertexElement> instanceVertexElements;
+    /// Instance transforms for opaque and alpha batches.
+    std::vector<Matrix3x4> instanceTransforms;
     /// Shadow use flag.
     bool drawShadows;
     /// Instancing supported flag.
@@ -167,8 +173,6 @@ private:
     bool shadowMapsDirty;
     /// Cluster frustums init flag.
     bool clusterFrustumsDirty;
-    /// Vertex elements for the instancing buffer.
-    std::vector<VertexElement> instanceVertexElements;
     /// Camera view mask.
     unsigned viewMask;
     /// Framenumber.
