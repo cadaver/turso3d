@@ -225,7 +225,7 @@ public:
     float RollAngle() const;
 
     /// Return the rotation matrix that corresponds to this quaternion.
-    Matrix3 Quaternion::RotationMatrix() const
+    Matrix3 RotationMatrix() const
     {
         return Matrix3(
             1.0f - 2.0f * y * y - 2.0f * z * z,
@@ -241,7 +241,7 @@ public:
     }
 
     /// Return a uniformly scaled rotation matrix used in defining a node transform.
-    Matrix3 Quaternion::ScaledRotationMatrix(float scale) const
+    Matrix3 ScaledRotationMatrix(float scale) const
     {
         return Matrix3(
             (1.0f - 2.0f * y * y - 2.0f * z * z) * scale,
@@ -257,7 +257,7 @@ public:
     }
 
     /// Return a scaled rotation matrix used in defining a node transform.
-    Matrix3 Quaternion::ScaledRotationMatrix(const Vector3& scale) const
+    Matrix3 ScaledRotationMatrix(const Vector3& scale) const
     {
         return Matrix3(
             (1.0f - 2.0f * y * y - 2.0f * z * z) * scale.x,

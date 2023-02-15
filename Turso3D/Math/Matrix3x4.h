@@ -63,14 +63,14 @@ public:
     }
     
     /// Construct from translation, rotation and uniform scale.
-    Matrix3x4::Matrix3x4(const Vector3& translation, const Quaternion& rotation, float scale)
+    Matrix3x4(const Vector3& translation, const Quaternion& rotation, float scale)
     {
         SetRotation(rotation.ScaledRotationMatrix(scale));
         SetTranslation(translation);
     }
 
     /// Construct from translation, rotation and nonuniform scale.
-    Matrix3x4::Matrix3x4(const Vector3& translation, const Quaternion& rotation, const Vector3& scale)
+    Matrix3x4(const Vector3& translation, const Quaternion& rotation, const Vector3& scale)
     {
         SetRotation(rotation.ScaledRotationMatrix(scale));
         SetTranslation(translation);

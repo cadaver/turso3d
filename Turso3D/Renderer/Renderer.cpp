@@ -24,8 +24,8 @@
 #include "StaticModel.h"
 
 #include <glew.h>
-
 #include <algorithm>
+#include <cstring>
 
 static const GLenum glCompareFuncs[] =
 {
