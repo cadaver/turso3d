@@ -1408,10 +1408,10 @@ void Renderer::CollectNodeBatchesWork(Task*, unsigned)
                         newBatch.pass->lastSortKey.first = frameNumber;
                         newBatch.pass->lastSortKey.second = distance;
                     }
-                    if (newBatch.geometry->lastSortKey.first != frameNumber || newBatch.geometry->lastSortKey.second > distance)
+                    if (newBatch.geometry->lastSortKey.first != frameNumber || newBatch.geometry->lastSortKey.second > distance + (unsigned short)j)
                     {
                         newBatch.geometry->lastSortKey.first = frameNumber;
-                        newBatch.geometry->lastSortKey.second = distance;
+                        newBatch.geometry->lastSortKey.second = distance + (unsigned short)j;
                     }
 
                     opaqueBatches.batches.push_back(newBatch);
