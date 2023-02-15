@@ -623,10 +623,10 @@ void Renderer::CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, bool
         // If shadowcaster is not visible in the main view frustum, check whether its elongated bounding box is
         // This is done only for dynamic objects or dynamic lights' shadows; cached static shadowmap needs to render everything
         bool inView = node->LastFrameNumber() == frameNumber;
-        // If not in view, let the node prepare itself for render now. Note: is called for each light the object casts shadows from
+        // If not in view, let the node prepare itself for render now
         if (!inView)
         {
-            if (!node->OnPrepareRender(0, camera))
+            if (!node->OnPrepareRender(frameNumber, camera))
                 continue;
         }
 
@@ -1188,17 +1188,12 @@ void Renderer::CollectNodesWork(Task* task, unsigned threadIndex)
 
             if ((node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
             {
-                if (flags & NF_GEOMETRY)
+                if (node->OnPrepareRender(frameNumber, camera))
                 {
-                    GeometryNode* geometry = static_cast<GeometryNode*>(node);
-                    if (geometry->OnPrepareRender(frameNumber, camera))
-                        geometryQueue.push_back(geometry);
-                }
-                else if (flags & NF_LIGHT)
-                {
-                    Light* light = static_cast<Light*>(node);
-                    if (light->OnPrepareRender(frameNumber, camera))
-                        lightQueue.push_back(light);
+                    if (flags & NF_GEOMETRY)
+                        geometryQueue.push_back(static_cast<GeometryNode*>(node));
+                    else if (flags & NF_LIGHT)
+                        lightQueue.push_back(static_cast<Light*>(node));
                 }
             }
         }
