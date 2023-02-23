@@ -46,6 +46,8 @@ struct Batch
     Geometry* geometry;
     /// %Shader variation bits.
     unsigned char programBits;
+    /// Geometry index.
+    unsigned char geomIndex;
 
     union
     {
@@ -61,7 +63,7 @@ struct Batch
 /// Collection of draw calls with sorting and instancing functionality.
 struct BatchQueue
 {
-    /// Clear.
+    /// Clear for the next frame.
     void Clear();
     /// Sort batches and setup instancing groups.
     void Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode sortMode, bool convertToInstanced);
@@ -93,14 +95,14 @@ struct ShadowMap
     std::vector<ShadowView*> shadowViews;
     /// Shadow batch queues used by the shadow views.
     std::vector<BatchQueue> shadowBatches;
-    /// Initial shadowcaster list from octree query.
-    std::vector<GeometryNode*> initialShadowCasters;
-    /// Intermediate filtered shadowcaster list for processing.
-    std::vector<GeometryNode*> shadowCasters;
+    /// Intermediate shadowcaster lists for processing.
+    std::vector<std::vector<GeometryNode*> > shadowCasters;
     /// Instancing transforms for shadowcasters.
     std::vector<Matrix3x4> instanceTransforms;
     /// Next free batch queue.
     size_t freeQueueIdx;
+    /// Next free shadowcaster list index.
+    size_t freeCasterListIdx;
 };
 
 /// Light data for cluster light shader.

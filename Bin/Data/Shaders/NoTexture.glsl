@@ -25,12 +25,10 @@ uniform vec4 matDiffColor;
 
 void vert()
 {
-#ifdef INSTANCED
-    mat3x4 worldMatrix = mat3x4(texCoord3, texCoord4, texCoord5);
-#endif
+    mat3x4 modelMatrix = GetWorldMatrix();
 
-    vWorldPos.xyz = vec4(position, 1.0) * worldMatrix;
-    vNormal = normalize((vec4(normal, 0.0) * worldMatrix));
+    vWorldPos.xyz = vec4(position, 1.0) * modelMatrix;
+    vNormal = normalize((vec4(normal, 0.0) * modelMatrix));
     vViewNormal = (vec4(vNormal, 0.0) * viewMatrix) * 0.5 + 0.5;
     gl_Position = vec4(vWorldPos.xyz, 1.0) * viewProjMatrix;
     vWorldPos.w = CalculateDepth(gl_Position);

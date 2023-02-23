@@ -98,7 +98,7 @@ public:
         Reset();
         ptr = rhs;
         if (ptr)
-            ptr->AddRef();
+            reinterpret_cast<RefCounted*>(ptr)->AddRef();
         return *this;
     }
     
@@ -111,7 +111,7 @@ public:
         Reset();
         ptr = rhs.ptr;
         if (ptr)
-            ptr->AddRef();
+            reinterpret_cast<RefCounted*>(ptr)->AddRef();
         return *this;
     }
     
@@ -120,7 +120,7 @@ public:
     {
         if (ptr)
         {
-            ptr->ReleaseRef();
+            reinterpret_cast<RefCounted*>(ptr)->ReleaseRef();
             ptr = nullptr;
         }
     }

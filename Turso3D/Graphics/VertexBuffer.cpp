@@ -83,7 +83,7 @@ bool VertexBuffer::Define(ResourceUsage usage_, size_t numVertices_, const std::
     {
         elements[i] = elements_[i];
         elements[i].offset = vertexSize;
-        vertexSize += elementSizes[elements[i].type];
+        vertexSize += VertexElementSize(elements[i]);
     }
 
     attributes = CalculateAttributeMask(elements);
@@ -107,7 +107,7 @@ void VertexBuffer::Release()
 
 bool VertexBuffer::SetData(size_t firstVertex, size_t numVertices_, const void* data, bool discard)
 {
-    PROFILE(UpdateVertexBuffer);
+    //PROFILE(UpdateVertexBuffer);
 
     if (!data)
     {
@@ -232,4 +232,9 @@ unsigned VertexBuffer::CalculateAttributeMask(const std::vector<VertexElement>& 
     }
 
     return attributes;
+}
+
+size_t VertexBuffer::VertexElementSize(const VertexElement& element)
+{
+    return elementSizes[element.type];
 }

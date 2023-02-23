@@ -71,7 +71,7 @@ void Node::Save(Stream& dest)
     Serializable::Save(dest);
     dest.WriteVLE(NumPersistentChildren());
 
-    for (auto it = impl->children.begin(); it != impl->children.end(); ++it)
+    for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
         if (!child->IsTemporary())
@@ -111,7 +111,7 @@ void Node::SaveJSON(JSONValue& dest)
     if (NumPersistentChildren())
     {
         dest["children"].SetEmptyArray();
-        for (auto it = impl->children.begin(); it != impl->children.end(); ++it)
+        for (auto it = children.begin(); it != children.end(); ++it)
         {
             Node* child = *it;
             if (!child->IsTemporary())
@@ -134,11 +134,13 @@ bool Node::SaveJSON(Stream& dest)
 void Node::SetName(const std::string& newName)
 {
     impl->name = newName;
+    impl->nameHash = StringHash(newName);
 }
 
 void Node::SetName(const char* newName)
 {
     impl->name = newName;
+    impl->nameHash = StringHash(newName);
 }
 
 void Node::SetLayer(unsigned char newLayer)
@@ -161,7 +163,7 @@ void Node::SetEnabled(bool enable)
 void Node::SetEnabledRecursive(bool enable)
 {
     SetEnabled(enable);
-    for (auto it = impl->children.begin(); it != impl->children.end(); ++it)
+    for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
         child->SetEnabledRecursive(enable);
@@ -242,17 +244,17 @@ void Node::AddChild(Node* child)
     Node* oldParent = child->parent;
     if (oldParent)
     {
-        for (auto it = oldParent->impl->children.begin(); it != oldParent->impl->children.end(); ++it)
+        for (auto it = oldParent->children.begin(); it != oldParent->children.end(); ++it)
         {
             if (*it == child)
             {
-                oldParent->impl->children.erase(it);
+                oldParent->children.erase(it);
                 break;
             }
         }
     }
 
-    impl->children.push_back(child);
+    children.push_back(child);
     child->parent = this;
     child->OnParentSet(this, oldParent);
     if (impl->scene)
@@ -264,9 +266,9 @@ void Node::RemoveChild(Node* child)
     if (!child || child->parent != this)
         return;
 
-    for (size_t i = 0; i < impl->children.size(); ++i)
+    for (size_t i = 0; i < children.size(); ++i)
     {
-        if (impl->children[i] == child)
+        if (children[i] == child)
         {
             RemoveChild(i);
             break;
@@ -276,21 +278,21 @@ void Node::RemoveChild(Node* child)
 
 void Node::RemoveChild(size_t index)
 {
-    if (index >= impl->children.size())
+    if (index >= children.size())
         return;
 
-    Node* child = impl->children[index];
+    Node* child = children[index];
     // Detach from both the parent and the scene (removes id assignment)
     child->parent = nullptr;
     child->OnParentSet(nullptr, this);
     if (impl->scene)
         impl->scene->RemoveNode(child);
-    impl->children.erase(impl->children.begin() + index);
+    children.erase(children.begin() + index);
 }
 
 void Node::RemoveAllChildren()
 {
-    for (auto it = impl->children.begin(); it != impl->children.end(); ++it)
+    for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
         child->parent = nullptr;
@@ -300,7 +302,7 @@ void Node::RemoveAllChildren()
         it->Reset();
     }
 
-    impl->children.clear();
+    children.clear();
 }
 
 void Node::RemoveSelf()
@@ -315,7 +317,7 @@ size_t Node::NumPersistentChildren() const
 {
     size_t ret = 0;
 
-    for (auto it = impl->children.begin(); it != impl->children.end(); ++it)
+    for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
         if (!child->IsTemporary())
@@ -327,7 +329,7 @@ size_t Node::NumPersistentChildren() const
 
 void Node::FindAllChildren(std::vector<Node*>& result) const
 {
-    for (auto it = impl->children.begin(); it != impl->children.end(); ++it)
+    for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
         result.push_back(child);
@@ -342,12 +344,12 @@ Node* Node::FindChild(const std::string& childName, bool recursive) const
 
 Node* Node::FindChild(const char* childName, bool recursive) const
 {
-    for (auto it = impl->children.begin(); it != impl->children.end(); ++it)
+    for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
         if (child->impl->name == childName)
             return child;
-        else if (recursive && child->impl->children.size())
+        else if (recursive && child->children.size())
         {
             Node* childResult = child->FindChild(childName, recursive);
             if (childResult)
@@ -358,14 +360,32 @@ Node* Node::FindChild(const char* childName, bool recursive) const
     return nullptr;
 }
 
-Node* Node::FindChild(StringHash childType, bool recursive) const
+Node* Node::FindChild(StringHash childNameHash, bool recursive) const
 {
-    for (auto it = impl->children.begin(); it != impl->children.end(); ++it)
+    for (auto it = children.begin(); it != children.end(); ++it)
+    {
+        Node* child = *it;
+        if (child->impl->nameHash == childNameHash)
+            return child;
+        else if (recursive && child->children.size())
+        {
+            Node* childResult = child->FindChild(childNameHash, recursive);
+            if (childResult)
+                return childResult;
+        }
+    }
+
+    return nullptr;
+}
+
+Node* Node::FindChildOfType(StringHash childType, bool recursive) const
+{
+    for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
         if (child->Type() == childType || DerivedFrom(child->Type(), childType))
             return child;
-        else if (recursive && child->impl->children.size())
+        else if (recursive && child->children.size())
         {
             Node* childResult = child->FindChild(childType, recursive);
             if (childResult)
@@ -376,21 +396,21 @@ Node* Node::FindChild(StringHash childType, bool recursive) const
     return nullptr;
 }
 
-Node* Node::FindChild(StringHash childType, const std::string& childName, bool recursive) const
+Node* Node::FindChildOfType(StringHash childType, const std::string& childName, bool recursive) const
 {
-    return FindChild(childType, childName.c_str(), recursive);
+    return FindChildOfType(childType, childName.c_str(), recursive);
 }
 
-Node* Node::FindChild(StringHash childType, const char* childName, bool recursive) const
+Node* Node::FindChildOfType(StringHash childType, const char* childName, bool recursive) const
 {
-    for (auto it = impl->children.begin(); it != impl->children.end(); ++it)
+    for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
         if ((child->Type() == childType || DerivedFrom(child->Type(), childType)) && child->impl->name == childName)
             return child;
-        else if (recursive && child->impl->children.size())
+        else if (recursive && child->children.size())
         {
-            Node* childResult = child->FindChild(childType, childName, recursive);
+            Node* childResult = child->FindChildOfType(childType, childName, recursive);
             if (childResult)
                 return childResult;
         }
@@ -399,14 +419,31 @@ Node* Node::FindChild(StringHash childType, const char* childName, bool recursiv
     return nullptr;
 }
 
+Node* Node::FindChildOfType(StringHash childType, StringHash childNameHash, bool recursive) const
+{
+    for (auto it = children.begin(); it != children.end(); ++it)
+    {
+        Node* child = *it;
+        if ((child->Type() == childType || DerivedFrom(child->Type(), childType)) && child->impl->nameHash == childNameHash)
+            return child;
+        else if (recursive && child->children.size())
+        {
+            Node* childResult = child->FindChildOfType(childType, childNameHash, recursive);
+            if (childResult)
+                return childResult;
+        }
+    }
+
+    return nullptr;
+}
 Node* Node::FindChildByLayer(unsigned layerMask, bool recursive) const
 {
-    for (auto it = impl->children.begin(); it != impl->children.end(); ++it)
+    for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
         if (child->LayerMask() && layerMask)
             return child;
-        else if (recursive && child->impl->children.size())
+        else if (recursive && child->children.size())
         {
             Node* childResult = child->FindChildByLayer(layerMask, recursive);
             if (childResult)
@@ -419,24 +456,24 @@ Node* Node::FindChildByLayer(unsigned layerMask, bool recursive) const
 
 void Node::FindChildren(std::vector<Node*>& result, StringHash childType, bool recursive) const
 {
-    for (auto it = impl->children.begin(); it != impl->children.end(); ++it)
+    for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
         if (child->Type() == childType || DerivedFrom(child->Type(), childType))
             result.push_back(child);
-        if (recursive && child->impl->children.size())
+        if (recursive && child->children.size())
             child->FindChildren(result, childType, recursive);
     }
 }
 
 void Node::FindChildrenByLayer(std::vector<Node*>& result, unsigned layerMask, bool recursive) const
 {
-    for (auto it = impl->children.begin(); it != impl->children.end(); ++it)
+    for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
         if (child->LayerMask() & layerMask)
             result.push_back(child);
-        if (recursive && child->impl->children.size())
+        if (recursive && child->children.size())
             child->FindChildrenByLayer(result, layerMask, recursive);
     }
 }
@@ -476,4 +513,10 @@ void Node::OnSceneSet(Scene*, Scene*)
 
 void Node::OnEnabledChanged(bool)
 {
+}
+
+void Node::OnLoadFinished()
+{
+    for (auto it = children.begin(); it != children.end(); ++it)
+        (*it)->OnLoadFinished();
 }

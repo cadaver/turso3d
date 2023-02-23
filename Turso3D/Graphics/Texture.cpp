@@ -429,7 +429,7 @@ bool Texture::SetData(size_t level, const IntRect& rect, const ImageLevel& data)
 
 bool Texture::SetData(size_t level, const IntBox& box, const ImageLevel& data)
 {
-    PROFILE(UpdateTextureLevel);
+    //PROFILE(UpdateTextureLevel);
 
     if (!texture)
         return true;

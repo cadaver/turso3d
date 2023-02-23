@@ -62,7 +62,7 @@ void UniformBuffer::Release()
 
 bool UniformBuffer::SetData(size_t offset, size_t numBytes, const void* data, bool discard)
 {
-    PROFILE(UpdateUniformBuffer);
+    //PROFILE(UpdateUniformBuffer);
 
     if (!numBytes)
         return true;
@@ -116,7 +116,7 @@ void UniformBuffer::Bind(size_t index, bool force)
     if (!buffer || (boundUniformBuffers[index] == this && !force))
         return;
 
-    glBindBufferRange(GL_UNIFORM_BUFFER, index, buffer, 0, size);
+    glBindBufferRange(GL_UNIFORM_BUFFER, (GLuint)index, buffer, 0, size);
     boundUniformBuffers[index] = this;
 }
 
@@ -124,7 +124,7 @@ void UniformBuffer::Unbind(size_t index)
 {
     if (boundUniformBuffers[index])
     {
-        glBindBufferRange(GL_UNIFORM_BUFFER, index, 0, 0, 0);
+        glBindBufferRange(GL_UNIFORM_BUFFER, (GLuint)index, 0, 0, 0);
         boundUniformBuffers[index] = nullptr;
     }
 }

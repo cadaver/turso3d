@@ -44,6 +44,8 @@ public:
 
     /// Calculate a vertex attribute mask from elements.
     static unsigned CalculateAttributeMask(const std::vector<VertexElement>& elements);
+    /// Return size of vertex element.
+    static size_t VertexElementSize(const VertexElement& element);
 
     /// Last sort key for combined distance and state sorting. Used by Renderer.
     std::pair<unsigned short, unsigned short> lastSortKey;

@@ -12,8 +12,6 @@ static const float DEFAULT_OCTREE_SIZE = 1000.0f;
 static const int DEFAULT_OCTREE_LEVELS = 8;
 static const int MAX_OCTREE_LEVELS = 255;
 
-thread_local size_t Octree::threadIndex = 0;
-
 bool CompareRaycastResults(const RaycastResult& lhs, const RaycastResult& rhs)
 {
     return lhs.distance < rhs.distance;
@@ -67,25 +65,22 @@ Octree::Octree() :
 
     root.Initialize(nullptr, BoundingBox(-DEFAULT_OCTREE_SIZE, DEFAULT_OCTREE_SIZE), DEFAULT_OCTREE_LEVELS);
 
-    // Threaded operation for checking reinsert of octree nodes
+    // Have at least 1 task for reinsert processing
+    reinsertTasks.push_back(new MemberFunctionTask<Octree>(this, &Octree::CheckReinsertWork));
     reinsertQueues.resize(workQueue->NumThreads());
-    for (size_t i = 0; i < reinsertQueues.size() * 2; ++i)
-    {
-        AutoPtr<Task> task = new MemberFunctionTask<Octree>(this, &Octree::CheckReinsertWork);
-        reinsertTasks.push_back(task);
-    }
 }
 
 Octree::~Octree()
 {
     // Clear octree association from nodes that were never inserted
+    // Note: the threaded queues cannot have nodes that were never inserted, only nodes that should be moved
     for (auto it = updateQueue.begin(); it != updateQueue.end(); ++it)
     {
         OctreeNode* node = *it;
-        if (node && node->impl->octree == this && !node->impl->octant)
+        if (node && node->octree == this && !node->octant)
         {
-            node->impl->octree = nullptr;
-            node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
+            node->octree = nullptr;
+            node->SetFlag(NF_OCTREE_REINSERT_QUEUED, false);
         }
     }
 
@@ -106,29 +101,47 @@ void Octree::Update(unsigned short frameNumber_)
 
     frameNumber = frameNumber_;
 
-    if (updateQueue.size())
+    // Try to create more than one task per worker thread in case some nodes are slower to update (animation)
+    const size_t nodesPerTask = Max(128, (int)updateQueue.size() / workQueue->NumThreads() / 4);
+
+    if (updateQueue.size() >= nodesPerTask)
     {
-        threadedUpdate = true;
+        SetThreadedUpdate(true);
 
-        size_t nodesPerTask = updateQueue.size() / reinsertTasks.size();
+        size_t taskIdx = 0;
 
-        for (size_t i = 0; i < reinsertTasks.size(); ++i)
+        for (size_t start = 0; start < updateQueue.size(); start += nodesPerTask)
         {
-            Task* task = reinsertTasks[i].Get();
-            task->start = &(*(updateQueue.begin() + i * nodesPerTask));
-            task->end = (i == reinsertTasks.size() - 1) ? &(*updateQueue.end()) : &(*(updateQueue.begin() + (i + 1) * nodesPerTask));
+            size_t end = start + nodesPerTask;
+            if (end > updateQueue.size())
+                end = updateQueue.size();
+
+            if (reinsertTasks.size() <= taskIdx)
+                reinsertTasks.push_back(new MemberFunctionTask<Octree>(this, &Octree::CheckReinsertWork));
+            reinsertTasks[taskIdx]->start = &updateQueue[0] + start;
+            reinsertTasks[taskIdx]->end = &updateQueue[0] + end;
+            workQueue->QueueTask(reinsertTasks[taskIdx]);
+            ++taskIdx;
         }
 
-        workQueue->QueueTasks(reinsertTasks);
         workQueue->Complete();
+
+        SetThreadedUpdate(false);
 
         for (auto it = reinsertQueues.begin(); it != reinsertQueues.end(); ++it)
             ReinsertNodes(*it);
 
-        updateQueue.clear();
-
-        threadedUpdate = false;
     }
+    else if (updateQueue.size())
+    {
+        // Avoid overhead of threaded update if only a small number of objects to update / reinsert
+        reinsertTasks[0]->start = &updateQueue[0];
+        reinsertTasks[0]->end = &updateQueue[0] + updateQueue.size();
+        reinsertTasks[0]->Invoke(reinsertTasks[0], 0);
+        ReinsertNodes(reinsertQueues[0]);
+    }
+
+    updateQueue.clear();
 
     for (auto it = sortDirtyOctants.begin(); it != sortDirtyOctants.end(); ++it)
     {
@@ -154,18 +167,23 @@ void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
     // Nodes will be reinserted on next update
 }
 
-void Octree::Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask)
+void Octree::SetThreadedUpdate(bool enable)
+{
+    threadedUpdate = enable;
+}
+
+void Octree::Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask) const
 {
     result.clear();
-    CollectNodes(result, &root, ray, nodeFlags, maxDistance, layerMask);
+    CollectNodes(result, const_cast<Octant*>(&root), ray, nodeFlags, maxDistance, layerMask);
     std::sort(result.begin(), result.end(), CompareRaycastResults);
 }
 
-RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask)
+RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask) const
 {
     // Get first the potential hits
     initialRes.clear();
-    CollectNodes(initialRes, &root, ray, nodeFlags, maxDistance, layerMask);
+    CollectNodes(initialRes, const_cast<Octant*>(&root), ray, nodeFlags, maxDistance, layerMask);
     std::sort(initialRes.begin(), initialRes.end(), CompareNodeDistances);
 
     // Then perform actual per-node ray tests and early-out when possible
@@ -200,9 +218,28 @@ RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, fl
     }
 }
 
-void Octree::SetBoundingBoxAttr(const BoundingBox& boundingBox)
+void Octree::RemoveNode(OctreeNode* node)
 {
-    root.worldBoundingBox = boundingBox;
+    assert(node);
+
+    RemoveNode(node, node->octant);
+    if (node->TestFlag(NF_OCTREE_REINSERT_QUEUED))
+    {
+        RemoveNodeFromQueue(node, updateQueue);
+
+        // Remove also from threaded queues if was left over before next update
+        for (size_t i = 0; i < reinsertQueues.size(); ++i)
+            RemoveNodeFromQueue(node, reinsertQueues[i]);
+
+        node->SetFlag(NF_OCTREE_REINSERT_QUEUED, false);
+    }
+
+    node->octant = nullptr;
+}
+
+void Octree::SetBoundingBoxAttr(const BoundingBox& value)
+{
+    root.worldBoundingBox = value;
 }
 
 const BoundingBox& Octree::BoundingBoxAttr() const
@@ -226,8 +263,9 @@ void Octree::ReinsertNodes(std::vector<OctreeNode*>& nodes)
     for (auto it = nodes.begin(); it != nodes.end(); ++it)
     {
         OctreeNode* node = *it;
+
         const BoundingBox& box = node->WorldBoundingBox();
-        Octant* oldOctant = node->impl->octant;
+        Octant* oldOctant = node->octant;
         Octant* newOctant = &root;
         Vector3 boxSize = box.Size();
 
@@ -252,9 +290,23 @@ void Octree::ReinsertNodes(std::vector<OctreeNode*>& nodes)
             else
                 newOctant = CreateChildOctant(newOctant, newOctant->ChildIndex(box.Center()));
         }
+
+        node->SetFlag(NF_OCTREE_REINSERT_QUEUED, false);
     }
 
     nodes.clear();
+}
+
+void Octree::RemoveNodeFromQueue(OctreeNode* node, std::vector<OctreeNode*>& nodes)
+{
+    for (auto it = nodes.begin(); it != nodes.end(); ++it)
+    {
+        if ((*it) == node)
+        {
+            *it = nullptr;
+            break;
+        }
+    }
 }
 
 Octant* Octree::CreateChildOctant(Octant* octant, size_t index)
@@ -299,10 +351,10 @@ void Octree::DeleteChildOctants(Octant* octant, bool deletingOctree)
     for (auto it = octant->nodes.begin(); it != octant->nodes.end(); ++it)
     {
         OctreeNode* node = *it;
-        node->impl->octant = nullptr;
-        node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
+        node->octant = nullptr;
+        node->SetFlag(NF_OCTREE_REINSERT_QUEUED, false);
         if (deletingOctree)
-            node->impl->octree = nullptr;
+            node->octree = nullptr;
     }
     octant->nodes.clear();
     octant->numNodes = 0;
@@ -404,7 +456,6 @@ void Octree::CheckReinsertWork(Task* task, unsigned threadIndex_)
     OctreeNode** start = reinterpret_cast<OctreeNode**>(task->start);
     OctreeNode** end = reinterpret_cast<OctreeNode**>(task->end);
     std::vector<OctreeNode*>& reinsertQueue = reinsertQueues[threadIndex_];
-    threadIndex = threadIndex_;
 
     for (; start != end; ++start)
     {
@@ -413,13 +464,17 @@ void Octree::CheckReinsertWork(Task* task, unsigned threadIndex_)
         if (!node)
             continue;
 
-        node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
+        if (node->TestFlag(NF_OCTREE_UPDATE_CALL))
+            node->OnOctreeUpdate(frameNumber);
+
         node->lastUpdateFrameNumber = frameNumber;
 
         // Do nothing if still fits the current octant
         const BoundingBox& box = node->WorldBoundingBox();
-        Octant* oldOctant = node->impl->octant;
+        Octant* oldOctant = node->octant;
         if (!oldOctant || oldOctant->cullingBox.IsInside(box) != INSIDE)
             reinsertQueue.push_back(node);
+        else
+            node->SetFlag(NF_OCTREE_REINSERT_QUEUED, false);
     }
 }

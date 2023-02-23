@@ -435,6 +435,21 @@ template<> AttributeType AttributeImpl<BoundingBox>::Type() const
     return ATTR_BOUNDINGBOX;
 }
 
+template<> AttributeType AttributeImpl<Matrix3>::Type() const
+{
+    return ATTR_MATRIX3;
+}
+
+template<> AttributeType AttributeImpl<Matrix3x4>::Type() const
+{
+    return ATTR_MATRIX3X4;
+}
+
+template<> AttributeType AttributeImpl<Matrix4>::Type() const
+{
+    return ATTR_MATRIX4;
+}
+
 template<> AttributeType AttributeImpl<ResourceRef>::Type() const
 {
     return ATTR_RESOURCEREF;

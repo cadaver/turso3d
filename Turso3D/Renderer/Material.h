@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "../Math/Vector4.h"
 #include "../Object/AutoPtr.h"
 #include "../Graphics/GraphicsDefs.h"
 #include "../Graphics/Shader.h"
@@ -25,8 +26,8 @@ enum PassType
 
 /// Shader program bits
 static const unsigned SP_STATIC = 0x0;
-static const unsigned SP_INSTANCED = 0x1;
-static const unsigned SP_SKINNED = 0x2;
+static const unsigned SP_SKINNED = 0x1;
+static const unsigned SP_INSTANCED = 0x2;
 static const unsigned SP_CUSTOMGEOM = 0x3;
 static const unsigned SP_GEOMETRYBITS = 0x3;
 

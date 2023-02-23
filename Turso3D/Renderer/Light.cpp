@@ -92,10 +92,7 @@ bool Light::OnPrepareRender(unsigned short frameNumber, Camera* camera)
         return false;
 
     // If there was a discontinuity in rendering the light, assume cached shadow map content lost
-    unsigned previousFrameNumber = frameNumber - 1;
-    if (!previousFrameNumber)
-        --previousFrameNumber;
-    if (lastFrameNumber != previousFrameNumber)
+    if (!WasInView(frameNumber))
         SetShadowMap(nullptr);
 
     lastFrameNumber = frameNumber;
@@ -331,20 +328,20 @@ void Light::SetupShadowViews(Camera* mainCamera)
                 topLeft.x += actualShadowMapSize;
             view.viewport = IntRect(topLeft.x, topLeft.y, topLeft.x + actualShadowMapSize, topLeft.y + actualShadowMapSize);
 
-            float splitStart = Max(mainCamera->NearClip(), (i == 0) ? 0.0f : ShadowSplit(i - 1));
-            float splitEnd = Min(mainCamera->FarClip(), ShadowSplit(i));
+            view.splitStart = Max(mainCamera->NearClip(), (i == 0) ? 0.0f : ShadowSplit(i - 1));
+            view.splitEnd = Min(mainCamera->FarClip(), ShadowSplit(i));
             float extrusionDistance = mainCamera->FarClip();
 
             // Calculate initial position & rotation
             shadowCamera->SetTransform(mainCamera->WorldPosition() - extrusionDistance * WorldDirection(), WorldRotation());
 
             // Calculate main camera shadowed frustum in light's view space
-            Frustum splitFrustum = mainCamera->WorldSplitFrustum(splitStart, splitEnd);
-            view.lightViewFrustum = splitFrustum.Transformed(shadowCamera->ViewMatrix());
+            Frustum splitFrustum = mainCamera->WorldSplitFrustum(view.splitStart, view.splitEnd);
+            Frustum lightViewFrustum = splitFrustum.Transformed(shadowCamera->ViewMatrix());
 
             // Fit the frustum inside a bounding box
             BoundingBox shadowBox;
-            shadowBox.Define(view.lightViewFrustum);
+            shadowBox.Define(lightViewFrustum);
 
             // If shadow camera is far away from the frustum, can bring it closer for better depth precision
             /// \todo The minimum distance is somewhat arbitrary
@@ -415,7 +412,6 @@ void Light::SetupShadowViews(Camera* mainCamera)
             shadowCamera->SetOrthographic(false);
             shadowCamera->SetAspectRatio(1.0f);
             view.shadowFrustum = shadowCamera->WorldFrustum();
-            view.lightViewFrustum = mainCamera->WorldFrustum().Transformed(shadowCamera->ViewMatrix());
         }
         break;
 
@@ -429,7 +425,6 @@ void Light::SetupShadowViews(Camera* mainCamera)
             shadowCamera->SetOrthographic(false);
             shadowCamera->SetAspectRatio(1.0f);
             view.shadowFrustum = shadowCamera->WorldFrustum();
-            view.lightViewFrustum = mainCamera->WorldFrustum().Transformed(shadowCamera->ViewMatrix());
             break;
         }
     }

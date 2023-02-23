@@ -87,15 +87,14 @@ public:
 
     /// Queue a task for execution. If no threads, completes immediately in the main thread.
     void QueueTask(Task* task);
-    /// Queue multiple tasks for execution in one go. If no threads, complete immediately in the main thread.
-    void QueueTasks(const std::vector<Task*>& tasks);
-    /// Queue multiple tasks for execution in one go. If no threads, complete immediately in the main thread.
-    void QueueTasks(const std::vector<AutoPtr<Task> >& tasks);
     /// Complete all currently queued tasks. To be called only from the main thread.
     void Complete();
 
     /// Return number of execution threads including the main thread.
     unsigned NumThreads() const { return (unsigned)threads.size() + 1; }
+
+    /// Return thread index when outside of a work function.
+    static unsigned ThreadIndex() { return threadIndex; }
 
 private:
     /// Worker thread function.
@@ -113,4 +112,7 @@ private:
     std::vector<std::thread> threads;
     /// Amount of queued tasks. Used to check for completion.
     std::atomic<int> numPendingTasks;
+
+    /// Thread index for queries outside the work functions.
+    static thread_local unsigned threadIndex;
 };

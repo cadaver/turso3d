@@ -27,12 +27,12 @@ const char* elementSemanticNames[] =
 
 const char* presetUniformNames[] = 
 {
-    "worldMatrix",
     "viewMatrix",
     "projectionMatrix",
     "viewProjMatrix",
     "depthParameters",
     "dirLightData",
+    "worldMatrix",
     "matDiffColor",
     nullptr
 };

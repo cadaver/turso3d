@@ -12,11 +12,9 @@ out vec4 fragColor;
 
 void vert()
 {
-#ifdef INSTANCED
-    mat3x4 worldMatrix = mat3x4(texCoord3, texCoord4, texCoord5);
-#endif
+    mat3x4 modelMatrix = GetWorldMatrix();
 
-    vec3 worldPos = vec4(position, 1.0) * worldMatrix;
+    vec3 worldPos = vec4(position, 1.0) * modelMatrix;
     gl_Position = vec4(worldPos, 1.0) * viewProjMatrix;
 }
 

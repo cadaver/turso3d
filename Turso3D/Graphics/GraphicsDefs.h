@@ -35,7 +35,7 @@ enum ElementSemantic
     SEM_TANGENT,
     SEM_COLOR,
     SEM_TEXCOORD,
-    SEM_BLENDWEIGHT,
+    SEM_BLENDWEIGHTS,
     SEM_BLENDINDICES,
     MAX_ELEMENT_SEMANTICS
 };
@@ -119,14 +119,30 @@ enum TextureAddressMode
 /// Preset uniforms.
 enum PresetUniform
 {
-    U_WORLDMATRIX = 0,
-    U_VIEWMATRIX,
+    U_VIEWMATRIX = 0,
     U_PROJECTIONMATRIX,
     U_VIEWPROJMATRIX,
     U_DEPTHPARAMETERS,
     U_DIRLIGHTDATA,
+    U_WORLDMATRIX,
     U_MATDIFFCOLOR,
     MAX_PRESET_UNIFORMS
+};
+
+/// Uniform buffer binding points.
+enum UniformBufferBindings
+{
+    UB_LIGHTDATA = 0,
+    UB_SKINMATRICES
+};
+
+/// Geometry types for vertex shader.
+enum GeometryType
+{
+    GEOM_STATIC = 0,
+    GEOM_SKINNED,
+    GEOM_INSTANCED,
+    GEOM_CUSTOM
 };
 
 /// Description of an element in a vertex declaration.

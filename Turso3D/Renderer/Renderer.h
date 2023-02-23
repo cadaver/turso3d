@@ -27,6 +27,22 @@ static const size_t NUM_CLUSTER_Z = 8;
 static const size_t MAX_LIGHTS = 255;
 static const size_t MAX_LIGHTS_CLUSTER = 16;
 
+/// Per-thread results from scene geometry processing.
+struct ThreadGeometryResult
+{
+    /// Clear for the next frame.
+    void Clear();
+
+    /// Minimum geometry Z value.
+    float minZ;
+    /// Maximum geometry Z value.
+    float maxZ;
+    /// Initial opaque batches.
+    std::vector<Batch> opaqueBatches;
+    /// Initial alpha batches.
+    std::vector<Batch> alphaBatches;
+};
+
 /// High-level rendering subsystem. Performs rendering of 3D scenes.
 class Renderer : public Object
 {
@@ -75,35 +91,35 @@ public:
 
 private:
     /// Find visible objects within frustum.
-    void CollectVisibleNodes();
-    /// Collect batches from visible objects and cull lights / shadows.
-    void CollectNodeBatchesAndLights();
-    /// Collect (unlit) shadow batches from geometry nodes and sort them.
-    void CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view, bool checkFrustum);
-    /// Sort batches from visible objects.
-    void SortNodeBatches();
+    void CollectGeometriesAndLights();
+    /// Join the per-thread batch results and sort.
+    void JoinAndSortBatches();
     /// Upload instance transforms before rendering.
     void UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms);
     /// Render a batch queue.
     void RenderBatches(Camera* camera, const BatchQueue& queue);
     /// Allocate shadow map for light. Return true on success.
     bool AllocateShadowMap(Light* light);
+    /// Collect (unlit) shadow batches from geometry nodes and sort them.
+    void CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view);
     /// Define face selection texture for point light shadows.
     void DefineFaceSelectionTextures();
     /// Define vertex data for rendering full-screen quads.
     void DefineQuadVertexBuffer();
     /// Setup light cluster frustums and bounding boxes if necessary.
     void DefineClusterFrustums();
-    /// Work function to collect nodes from octants.
-    void CollectNodesWork(Task* task, unsigned threadIndex);
-    /// Work function to handle shadowcasting point and spot lights.
-    void ProcessShadowLightsWork(Task* task, unsigned threadIndex);
+    /// Non-threaded version of collecting geometries and lights
+    void CollectGeometriesAndLightsNonThreaded();
+    /// Work function to collect geometries from octants.
+    void CollectGeometriesWork(Task* task, unsigned threadIndex);
+    /// Work function to collect lights and handle shadowcasting point and spot lights.
+    void ProcessLightsWork(Task* task, unsigned threadIndex);
     /// Work function to handle shadowcasting directional light.
     void ProcessShadowDirLightWork(Task* task, unsigned threadIndex);
+    /// Work function to collect shadowcaster batches after main view batches have been processed.
+    void CollectShadowBatchesWork(Task* task, unsigned threadIndex);
     /// Work function to cull lights to the frustum grid.
     void CullLightsToFrustumWork(Task* task, unsigned threadIndex);
-    /// Work function to collect main renderable batches.
-    void CollectNodeBatchesWork(Task* task, unsigned threadIndex);
 
     /// Current scene.
     Scene* scene;
@@ -117,16 +133,14 @@ private:
     WorkQueue* workQueue;
     /// Octants with plane masks in frustum.
     std::vector<std::pair<Octant*, unsigned char> > octants;
-    /// Geometries in frustum per thread.
-    std::vector<std::vector<GeometryNode*> > geometries;
-    /// Lights in frustum per thread.
-    std::vector<std::vector<Light*> > initialLights;
     /// Brightest directional light in frustum.
     Light* dirLight;
     /// Accepted point and spot lights in frustum.
     std::vector<Light*> lights;
     /// Shadow maps.
     std::vector<ShadowMap> shadowMaps;
+    /// Final shadow casters during shadow view processing.
+    std::vector<GeometryNode*> shadowCasters;
     /// Face selection UV indirection texture 1.
     AutoPtr<Texture> faceSelectionTexture1;
     /// Face selection UV indirection texture 2.
@@ -147,6 +161,12 @@ private:
     LightData lightData[MAX_LIGHTS + 1];
     /// Last projection matrix used to initialize cluster frustums.
     Matrix4 lastClusterFrustumProj;
+    /// Per-worker thread scene geometry collection results.
+    std::vector<ThreadGeometryResult> geometryResults;
+    /// Minimum Z value for all geometries in frustum.
+    float minZ;
+    /// Maximum Z value for all geometries in frustum.
+    float maxZ;
     /// Opaque batches.
     BatchQueue opaqueBatches;
     /// Transparent batches.
@@ -205,16 +225,16 @@ private:
     float depthBiasMul;
     /// Slope-scaled depth bias multiplier.
     float slopeScaleBiasMul;
-    /// Tasks for octree node collection.
-    std::vector<AutoPtr<Task> > collectNodeTasks;
-    /// Task for shadow light processing.
-    AutoPtr<Task> shadowLightTask;
-    /// Task for shadow directional light processing.
+    /// Tasks for octree geometry and batch collection.
+    std::vector<AutoPtr<Task> > collectGeometriesTasks;
+    /// Task for light processing.
+    AutoPtr<Task> lightTask;
+    /// Task for shadowed directional light processing.
     AutoPtr<Task> shadowDirLightTask;
     /// Task for light grid culling.
     AutoPtr<Task> cullLightsTask;
-    /// Task for node batch collection.
-    AutoPtr<Task> nodeBatchesTask;
+    /// Task for shadow batches collecting.
+    AutoPtr<Task> shadowBatchesTask;
 };
 
 /// Register Renderer related object factories and attributes.

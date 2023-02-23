@@ -4,6 +4,8 @@
 
 #include "GeometryNode.h"
 
+class Model;
+
 /// %Scene node that renders an unanimated model.
 class StaticModel : public GeometryNode
 {
@@ -18,7 +20,7 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
 
-    /// Prepare object for rendering. Reset framenumber and calculate distance from camera, and check for LOD level changes. Called by Renderer. Return false if should not render.
+    /// Prepare object for rendering. Reset framenumber and calculate distance from camera, and check for LOD level changes. Called by Renderer in worker threads. Return false if should not render.
     bool OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
 
     /// Set the model resource.
@@ -34,15 +36,13 @@ public:
 protected:
     /// Recalculate the world space bounding box.
     void OnWorldBoundingBoxUpdate() const override;
-
-private:
     /// Set model attribute. Used in serialization.
-    void SetModelAttr(const ResourceRef& model);
+    void SetModelAttr(const ResourceRef& value);
     /// Return model attribute. Used in serialization.
     ResourceRef ModelAttr() const;
 
-    /// LOD bias value.
-    float lodBias;
     /// Current model resource.
     SharedPtr<Model> model;
+    /// LOD bias value.
+    float lodBias;
 };

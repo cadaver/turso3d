@@ -81,15 +81,15 @@ public:
     /// Return the parent spatial node, or null if it is not spatial.
     SpatialNode* SpatialParent() const { return TestFlag(NF_SPATIAL_PARENT) ? static_cast<SpatialNode*>(Parent()) : nullptr; }
     /// Return position in parent space.
-    const Vector3& Position() const { return impl->position; }
+    const Vector3& Position() const { return position; }
     /// Return rotation in parent space.
-    const Quaternion& Rotation() const { return impl->rotation; }
+    const Quaternion& Rotation() const { return rotation; }
     /// Return forward direction in parent space.
-    Vector3 Direction() const { return impl->rotation * Vector3::FORWARD; }
+    Vector3 Direction() const { return rotation * Vector3::FORWARD; }
     /// Return scale in parent space.
-    const Vector3& Scale() const { return impl->scale; }
+    const Vector3& Scale() const { return scale; }
     /// Return transform matrix in parent space.
-    Matrix3x4 Transform() const { return Matrix3x4(impl->position, impl->rotation, impl->scale); }
+    Matrix3x4 Transform() const { return Matrix3x4(position, rotation, scale); }
     /// Return position in world space.
     Vector3 WorldPosition() const { return WorldTransform().Translation(); }
     /// Return rotation in world space.
@@ -105,11 +105,11 @@ public:
         if (TestFlag(NF_WORLD_TRANSFORM_DIRTY))
         {
             if (TestFlag(NF_SPATIAL_PARENT))
-                worldTransform = static_cast<SpatialNode*>(Parent())->WorldTransform() * Matrix3x4(impl->position, impl->rotation, impl->scale);
+                worldTransform = static_cast<SpatialNode*>(Parent())->WorldTransform() * Matrix3x4(position, rotation, scale);
             else
             {
-                worldTransform.SetRotation(impl->rotation.RotationMatrix().Scaled(impl->scale));
-                worldTransform.SetTranslation(impl->position);
+                worldTransform.SetRotation(rotation.RotationMatrix().Scaled(scale));
+                worldTransform.SetTranslation(position);
             }
             SetFlag(NF_WORLD_TRANSFORM_DIRTY, false);
         }
@@ -132,6 +132,13 @@ protected:
     void OnParentSet(Node* newParent, Node* oldParent) override;
     /// Handle the transform matrix changing.
     virtual void OnTransformChanged();
+
+    /// Parent space position.
+    Vector3 position;
+    /// Parent space rotation.
+    Quaternion rotation;
+    /// Parent space scale.
+    Vector3 scale;
 
 private:
     /// World transform matrix.

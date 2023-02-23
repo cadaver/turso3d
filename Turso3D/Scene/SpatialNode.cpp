@@ -5,9 +5,9 @@
 SpatialNode::SpatialNode() :
     worldTransform(Matrix3x4::IDENTITY)
 {
-    impl->position = Vector3::ZERO;
-    impl->rotation = Quaternion::IDENTITY;
-    impl->scale = Vector3::ONE;
+    position = Vector3::ZERO;
+    rotation = Quaternion::IDENTITY;
+    scale = Vector3::ONE;
     SetFlag(NF_SPATIAL, true);
 
 }
@@ -25,32 +25,32 @@ void SpatialNode::RegisterObject()
 
 void SpatialNode::SetPosition(const Vector3& newPosition)
 {
-    impl->position = newPosition;
+    position = newPosition;
     OnTransformChanged();
 }
 
 void SpatialNode::SetRotation(const Quaternion& newRotation)
 {
-    impl->rotation = newRotation;
+    rotation = newRotation;
     OnTransformChanged();
 }
 
 void SpatialNode::SetDirection(const Vector3& newDirection)
 {
-    impl->rotation = Quaternion(Vector3::FORWARD, newDirection);
+    rotation = Quaternion(Vector3::FORWARD, newDirection);
     OnTransformChanged();
 }
 
 void SpatialNode::SetScale(const Vector3& newScale)
 {
-    impl->scale = newScale;
+    scale = newScale;
     // Make sure scale components never go to exactly zero, to prevent problems with decomposing the world matrix
-    if (impl->scale.x == 0.0f)
-        impl->scale.x = M_EPSILON;
-    if (impl->scale.y == 0.0f)
-        impl->scale.y = M_EPSILON;
-    if (impl->scale.z == 0.0f)
-        impl->scale.z = M_EPSILON;
+    if (scale.x == 0.0f)
+        scale.x = M_EPSILON;
+    if (scale.y == 0.0f)
+        scale.y = M_EPSILON;
+    if (scale.z == 0.0f)
+        scale.z = M_EPSILON;
 
     OnTransformChanged();
 }
@@ -62,16 +62,16 @@ void SpatialNode::SetScale(float newScale)
 
 void SpatialNode::SetTransform(const Vector3& newPosition, const Quaternion& newRotation)
 {
-    impl->position = newPosition;
-    impl->rotation = newRotation;
+    position = newPosition;
+    rotation = newRotation;
     OnTransformChanged();
 }
 
 void SpatialNode::SetTransform(const Vector3& newPosition, const Quaternion& newRotation, const Vector3& newScale)
 {
-    impl->position = newPosition;
-    impl->rotation = newRotation;
-    impl->scale = newScale;
+    position = newPosition;
+    rotation = newRotation;
+    scale = newScale;
     OnTransformChanged();
 }
 
@@ -157,18 +157,18 @@ void SpatialNode::Translate(const Vector3& delta, TransformSpace space)
     {
     case TS_LOCAL:
         // Note: local space translation disregards local scale for scale-independent movement speed
-        impl->position += impl->rotation * delta;
+        position += rotation * delta;
         break;
 
     case TS_PARENT:
-        impl->position += delta;
+        position += delta;
         break;
 
     case TS_WORLD:
         if (!TestFlag(NF_SPATIAL_PARENT))
-            impl->position += delta;
+            position += delta;
         else
-            impl->position += SpatialParent()->WorldTransform().Inverse() * Vector4(delta, 0.0f);
+            position += SpatialParent()->WorldTransform().Inverse() * Vector4(delta, 0.0f);
         break;
     }
 
@@ -180,27 +180,27 @@ void SpatialNode::Rotate(const Quaternion& delta, TransformSpace space)
     switch (space)
     {
     case TS_LOCAL:
-        impl->rotation = (impl->rotation * delta);
+        rotation = (rotation * delta);
         break;
 
     case TS_PARENT:
-        impl->rotation = (delta * impl->rotation);
+        rotation = (delta * rotation);
         break;
 
     case TS_WORLD:
         if (!TestFlag(NF_SPATIAL_PARENT))
         {
-            impl->rotation = (delta * impl->rotation);
+            rotation = (delta * rotation);
         }
         else
         {
             Quaternion worldRotation = WorldRotation();
-            impl->rotation = impl->rotation * worldRotation.Inverse() * delta * worldRotation;
+            rotation = rotation * worldRotation.Inverse() * delta * worldRotation;
         }
         break;
     }
 
-    impl->rotation.Normalize();
+    rotation.Normalize();
     OnTransformChanged();
 }
 
@@ -208,38 +208,38 @@ void SpatialNode::RotateAround(const Vector3& point, const Quaternion& delta, Tr
 {
     SpatialNode* parentNode = SpatialParent();
     Vector3 parentSpacePoint;
-    Quaternion oldRotation = impl->rotation;
+    Quaternion oldRotation = rotation;
 
     switch (space)
     {
     case TS_LOCAL:
         parentSpacePoint = Transform() * point;
-        impl->rotation = (impl->rotation * delta);
+        rotation = (rotation * delta);
         break;
 
     case TS_PARENT:
         parentSpacePoint = point;
-        impl->rotation = (delta * impl->rotation);
+        rotation = (delta * rotation);
         break;
 
     case TS_WORLD:
         if (!parentNode)
         {
             parentSpacePoint = point;
-            impl->rotation = (delta * impl->rotation);
+            rotation = (delta * rotation);
         }
         else
         {
             parentSpacePoint = parentNode->WorldTransform().Inverse() * point;
             Quaternion worldRotation = WorldRotation();
-            impl->rotation = impl->rotation * worldRotation.Inverse() * delta * worldRotation;
+            rotation = rotation * worldRotation.Inverse() * delta * worldRotation;
         }
         break;
     }
 
-    Vector3 oldRelativePos = oldRotation.Inverse() * (impl->position - parentSpacePoint);
-    impl->rotation.Normalize();
-    impl->position = impl->rotation * oldRelativePos + parentSpacePoint;
+    Vector3 oldRelativePos = oldRotation.Inverse() * (position - parentSpacePoint);
+    rotation.Normalize();
+    position = rotation * oldRelativePos + parentSpacePoint;
     OnTransformChanged();
 }
 
@@ -298,19 +298,19 @@ void SpatialNode::ApplyScale(float delta)
 
 void SpatialNode::ApplyScale(const Vector3& delta)
 {
-    impl->scale *= delta;
+    scale *= delta;
     OnTransformChanged();
 }
 
 void SpatialNode::OnParentSet(Node* newParent, Node*)
 {
-    SetFlag(NF_SPATIAL_PARENT, dynamic_cast<SpatialNode*>(newParent) != 0);
+    SetFlag(NF_SPATIAL_PARENT, dynamic_cast<SpatialNode*>(newParent) != nullptr);
     OnTransformChanged();
 }
 
 void SpatialNode::OnTransformChanged()
 {
-    SpatialNode* cur = this;
+    SpatialNode* curr = this;
 
     for (;;)
     {
@@ -319,24 +319,24 @@ void SpatialNode::OnTransformChanged()
         // b) whenever a node is cleared from being dirty, all its parents must have been cleared as well.
         // Therefore if we are recursing here to mark this node dirty, and it already was, then all children of this node must also be already dirty,
         // and we don't need to reflag them again.
-        if (cur->TestFlag(NF_WORLD_TRANSFORM_DIRTY))
+        if (curr->TestFlag(NF_WORLD_TRANSFORM_DIRTY))
             return;
-        cur->SetFlag(NF_WORLD_TRANSFORM_DIRTY, true);
+        curr->SetFlag(NF_WORLD_TRANSFORM_DIRTY, true);
 
         // Tail call optimization: Don't recurse to mark the first child dirty, but instead process it in the context of the current function. 
         // If there are more than one child, then recurse to the excess children.
-        auto it = cur->impl->children.begin();
-        if (it != cur->impl->children.end())
+        auto it = curr->children.begin();
+        if (it != curr->children.end())
         {
             Node* next = *it;
-            for (++it; it != cur->impl->children.end(); ++it)
+            for (++it; it != curr->children.end(); ++it)
             {
                 Node* child = *it;
                 if (child->TestFlag(NF_SPATIAL))
                     static_cast<SpatialNode*>(child)->OnTransformChanged();
             }
             if (next->TestFlag(NF_SPATIAL))
-                cur = static_cast<SpatialNode*>(next);
+                curr = static_cast<SpatialNode*>(next);
             else
                 return;
         }

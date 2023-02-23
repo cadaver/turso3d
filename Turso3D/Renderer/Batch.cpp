@@ -35,7 +35,14 @@ void ShadowMap::Clear()
     allocator.Reset(texture->Width(), texture->Height(), 0, 0, false);
     shadowViews.clear();
     instanceTransforms.clear();
+
+    for (auto it = shadowBatches.begin(); it != shadowBatches.end(); ++it)
+        it->Clear();
+    for (auto it = shadowCasters.begin(); it != shadowCasters.end(); ++it)
+        it->clear();
+
     freeQueueIdx = 0;
+    freeCasterListIdx = 0;
 }
 
 void BatchQueue::Clear()
@@ -77,9 +84,9 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode 
     if (!convertToInstanced || batches.size() < 2)
         return;
 
-    for (auto it = batches.begin(); it < batches.end() - 1;)
+    for (auto it = batches.begin(); it < batches.end() - 1; ++it)
     {
-        // Check if batch can be converted (static geometry)
+        // Check if batch is static geometry and can be converted to instanced
         if (it->programBits & SP_GEOMETRYBITS)
             continue;
 
@@ -105,12 +112,10 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode 
         if (hasInstances)
         {
             size_t count = instanceTransforms.size() - start;
-            it->programBits |= GEOM_INSTANCED;
+            it->programBits |= SP_INSTANCED;
             it->instanceStart = (unsigned)start;
             it->instanceCount = (unsigned)count;
-            it += count;
+            it += count - 1;
         }
-        else
-            ++it;
     }
 }

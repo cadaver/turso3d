@@ -66,7 +66,7 @@ void IndexBuffer::Release()
 
 bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* data, bool discard)
 {
-    PROFILE(UpdateIndexBuffer);
+    //PROFILE(UpdateIndexBuffer);
 
     if (!data)
     {

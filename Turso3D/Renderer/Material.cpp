@@ -18,8 +18,8 @@ const char* passNames[] = {
 
 const char* geometryDefines[] = {
     "",
-    "INSTANCED ",
     "SKINNED ",
+    "INSTANCED ",
     "",
     nullptr
 };

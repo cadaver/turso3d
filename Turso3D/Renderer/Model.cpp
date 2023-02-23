@@ -88,19 +88,18 @@ CombinedBuffer* CombinedBuffer::Allocate(const std::vector<VertexElement>& eleme
     return buffer;
 }
 
-Bone::Bone() :
+ModelBone::ModelBone() :
     initialPosition(Vector3::ZERO),
     initialRotation(Quaternion::IDENTITY),
     initialScale(Vector3::ONE),
     offsetMatrix(Matrix3x4::IDENTITY),
     radius(0.0f),
     boundingBox(0.0f, 0.0f),
-    parentIndex(0),
-    animated(true)
+    parentIndex(0)
 {
 }
 
-Bone::~Bone()
+ModelBone::~ModelBone()
 {
 }
 
@@ -184,7 +183,7 @@ bool Model::BeginLoad(Stream& source)
         }
         if (elementMask & 256)
         {
-            vbDesc.vertexElements.push_back(VertexElement(ELEM_VECTOR4, SEM_BLENDWEIGHT));
+            vbDesc.vertexElements.push_back(VertexElement(ELEM_VECTOR4, SEM_BLENDWEIGHTS));
             vertexSize += sizeof(Vector4);
         }
         if (elementMask & 512)
@@ -193,6 +192,7 @@ bool Model::BeginLoad(Stream& source)
             vertexSize += 4;
         }
 
+        vbDesc.vertexSize = vertexSize;
         vbDesc.vertexData = new unsigned char[vbDesc.numVertices * vertexSize];
         source.Read(&vbDesc.vertexData[0], vbDesc.numVertices * vertexSize);
     }
@@ -212,15 +212,18 @@ bool Model::BeginLoad(Stream& source)
     size_t numGeometries = source.Read<unsigned>();
 
     geomDescs.resize(numGeometries);
+
+    std::vector<std::vector<unsigned> > boneMappings;
+    std::set<std::pair<unsigned, unsigned> > processedVertices;
     boneMappings.resize(numGeometries);
+
     for (size_t i = 0; i < numGeometries; ++i)
     {
         // Read bone mappings
         size_t boneMappingCount = source.Read<unsigned>();
         boneMappings[i].resize(boneMappingCount);
-        /// \todo Should read as a batch
-        for (size_t j = 0; j < boneMappingCount; ++j)
-            boneMappings[i][j] = source.Read<unsigned>();
+        if (boneMappingCount)
+            source.Read(&boneMappings[i][0], boneMappingCount * sizeof(unsigned));
 
         size_t numLodLevels = source.Read<unsigned>();
         geomDescs[i].resize(numLodLevels);
@@ -235,6 +238,10 @@ bool Model::BeginLoad(Stream& source)
             geomDesc.ibRef = source.Read<unsigned>();
             geomDesc.drawStart = source.Read<unsigned>();
             geomDesc.drawCount = source.Read<unsigned>();
+
+            // Apply bone mappings to geometry
+            if (boneMappingCount)
+                ApplyBoneMappings(geomDesc, boneMappings[i], processedVertices);
         }
     }
 
@@ -251,8 +258,9 @@ bool Model::BeginLoad(Stream& source)
     bones.resize(numBones);
     for (size_t i = 0; i < numBones; ++i)
     {
-        Bone& bone = bones[i];
+        ModelBone& bone = bones[i];
         bone.name = source.Read<std::string>();
+        bone.nameHash = StringHash(bone.name);
         bone.parentIndex = source.Read<unsigned>();
         bone.initialPosition = source.Read<Vector3>();
         bone.initialRotation = source.Read<Quaternion>();
@@ -264,15 +272,73 @@ bool Model::BeginLoad(Stream& source)
             bone.radius = source.Read<float>();
         if (boneCollisionType & 2)
             bone.boundingBox = source.Read<BoundingBox>();
-
-        if (bone.parentIndex == i)
-            rootBoneIndex = i;
     }
 
     // Read bounding box
     boundingBox = source.Read<BoundingBox>();
 
     return true;
+}
+
+void Model::ApplyBoneMappings(const GeometryDesc& geomDesc, const std::vector<unsigned>& boneMappings, std::set<std::pair<unsigned, unsigned> >& processedVertices)
+{
+    size_t blendIndicesOffset = 0;
+    bool blendIndicesFound = false;
+    const VertexBufferDesc& vbDesc = vbDescs[geomDesc.vbRef];
+    for (size_t i = 0; i < vbDesc.vertexElements.size(); ++i)
+    {
+        if (vbDesc.vertexElements[i].semantic == SEM_BLENDINDICES)
+        {
+            blendIndicesFound = true;
+            break;
+        }
+        else
+            blendIndicesOffset += VertexBuffer::VertexElementSize(vbDesc.vertexElements[i]);
+    }
+
+    if (!blendIndicesFound)
+        return;
+
+    unsigned char* blendIndicesData = vbDesc.vertexData.Get() + blendIndicesOffset;
+
+    const IndexBufferDesc& ibDesc = ibDescs[geomDesc.ibRef];
+
+    if (ibDesc.indexSize == sizeof(unsigned short))
+    {
+        unsigned short* indexData = (unsigned short*)ibDesc.indexData.Get();
+        indexData += geomDesc.drawStart;
+        
+        unsigned drawCount = geomDesc.drawCount;
+        while (drawCount--)
+        {
+            unsigned short vIndex = *indexData++;
+            std::pair<unsigned, unsigned> vRef = std::make_pair(geomDesc.vbRef, vIndex);
+            if (processedVertices.find(vRef) != processedVertices.end())
+                continue;
+            
+            for (size_t i = 0; i < 4; ++i)
+                blendIndicesData[vIndex * vbDesc.vertexSize + i] = (unsigned char)boneMappings[blendIndicesData[vIndex * vbDesc.vertexSize + i]];
+            
+            processedVertices.insert(vRef);
+        }
+    }
+    else if (ibDesc.indexSize == sizeof(unsigned))
+    {
+        unsigned* indexData = (unsigned*)ibDesc.indexData.Get();
+        indexData += geomDesc.drawStart;
+
+        unsigned drawCount = geomDesc.drawCount;
+        while (drawCount--)
+        {
+            unsigned vIndex = *indexData++;
+            std::pair<unsigned, unsigned> vRef = std::make_pair(geomDesc.vbRef, vIndex);
+            if (processedVertices.find(vRef) != processedVertices.end())
+                continue;
+            for (size_t i = 0; i < 4; ++i)
+                blendIndicesData[vIndex * vbDesc.vertexSize + i] = (unsigned char)boneMappings[blendIndicesData[vIndex * vbDesc.vertexSize + i]];
+            processedVertices.insert(vRef);
+        }
+    }
 }
 
 bool Model::EndLoad()
@@ -292,7 +358,7 @@ bool Model::EndLoad()
     {
         for (auto vIt = it->vertexElements.begin(); vIt != it->vertexElements.end(); ++vIt)
         {
-            if (vIt->semantic == SEM_BLENDWEIGHT || vIt->semantic == SEM_BLENDINDICES)
+            if (vIt->semantic == SEM_BLENDWEIGHTS || vIt->semantic == SEM_BLENDINDICES)
             {
                 hasWeights = true;
                 break;
@@ -452,15 +518,9 @@ void Model::SetLocalBoundingBox(const BoundingBox& box)
     boundingBox = box;
 }
 
-void Model::SetBones(const std::vector<Bone>& bones_, size_t rootBoneIndex_)
+void Model::SetBones(const std::vector<ModelBone>& bones_)
 {
     bones = bones_;
-    rootBoneIndex = rootBoneIndex_;
-}
-
-void Model::SetBoneMappings(const std::vector<std::vector<size_t> >& boneMappings_)
-{
-    boneMappings = boneMappings_;
 }
 
 size_t Model::NumLodLevels(size_t index) const

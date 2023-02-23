@@ -17,6 +17,8 @@ struct VertexBufferDesc
     std::vector<VertexElement> vertexElements;
     /// Number of vertices.
     size_t numVertices;
+    /// Size of one vertex.
+    size_t vertexSize;
     /// Vertex data.
     SharedArrayPtr<unsigned char> vertexData;
 };
@@ -48,15 +50,17 @@ struct GeometryDesc
 };
 
 /// %Model's bone description.
-struct Bone
+struct ModelBone
 {
     /// Default-construct.
-    Bone();
+    ModelBone();
     /// Destruct.
-    ~Bone();
+    ~ModelBone();
 
     /// Name.
     std::string name;
+    /// Name hash.
+    StringHash nameHash;
     /// Reset position.
     Vector3 initialPosition;
     /// Reset rotation.
@@ -69,12 +73,8 @@ struct Bone
     float radius;
     /// Collision bounding box.
     BoundingBox boundingBox;
-    /// Parent bone index.
+    /// Parent bone index. If points to self, is the root bone.
     size_t parentIndex;
-    /// Associated scene node.
-    WeakPtr<Node> node;
-    /// Animated flag.
-    bool animated;
 };
 
 /// Combined vertex and index buffers for static models.
@@ -140,11 +140,9 @@ public:
     void SetNumLodLevels(size_t index, size_t num);
     /// Set local space bounding box.
     void SetLocalBoundingBox(const BoundingBox& box);
-    /// Set bones.
-    void SetBones(const std::vector<Bone>& bones, size_t rootBoneIndex);
-    /// Set per-geometry bone mappings.
-    void SetBoneMappings(const std::vector<std::vector<size_t> >& boneMappings);
-    
+    /// Set bone descriptions.
+    void SetBones(const std::vector<ModelBone>& bones);
+
     /// Return number of geometries.
     size_t NumGeometries() const { return geometries.size(); }
     /// Return number of LOD levels in a geometry.
@@ -155,24 +153,19 @@ public:
     const std::vector<SharedPtr<Geometry> >& LodGeometries(size_t index) const { return geometries[index]; }
     /// Return the local space bounding box.
     const BoundingBox& LocalBoundingBox() const { return boundingBox; }
-    /// Return the model's bones.
-    const std::vector<Bone>& Bones() const { return bones; }
-    /// Return the root bone index.
-    size_t RootBoneIndex() const { return rootBoneIndex; }
-    /// Return per-geometry bone mapping.
-    const std::vector<std::vector<size_t> > BoneMappings() const { return boneMappings; }
+    /// Return the model's bone descriptions.
+    const std::vector<ModelBone>& Bones() const { return bones; }
 
 private:
-    /// Geometry LOD levels.
-    std::vector<std::vector<SharedPtr<Geometry> > > geometries;
+    /// Apply per-geometry bone mappings (legacy feature, not needed anymore.)
+    void ApplyBoneMappings(const GeometryDesc& geomDesc, const std::vector<unsigned>& boneMappings, std::set<std::pair<unsigned, unsigned> >& processedVertices);
+
     /// Local space bounding box.
     BoundingBox boundingBox;
-    /// %Model's bones.
-    std::vector<Bone> bones;
-    /// Root bone index.
-    size_t rootBoneIndex;
-    /// Per-geometry bone mappings.
-    std::vector<std::vector<size_t> > boneMappings;
+    /// %Model's bone descriptions.
+    std::vector<ModelBone> bones;
+    /// Geometry LOD levels.
+    std::vector<std::vector<SharedPtr<Geometry> > > geometries;
     /// Combined buffer if in use.
     SharedPtr<CombinedBuffer> combinedBuffer;
     /// Vertex buffer data for loading.

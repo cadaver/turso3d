@@ -116,6 +116,10 @@ bool GeometryNode::OnPrepareRender(unsigned short frameNumber, Camera* camera)
     return true;
 }
 
+void GeometryNode::OnRender(size_t, ShaderProgram*)
+{
+}
+
 void GeometryNode::SetNumGeometries(size_t num)
 {
     batches.SetNumGeometries(num);
@@ -151,11 +155,11 @@ void GeometryNode::SetMaterial(size_t index, Material* material)
         batches.SetMaterial(index, material);
 }
 
-void GeometryNode::SetMaterialsAttr(const ResourceRefList& materials)
+void GeometryNode::SetMaterialsAttr(const ResourceRefList& value)
 {
     ResourceCache* cache = Subsystem<ResourceCache>();
-    for (size_t i = 0; i < materials.names.size(); ++i)
-        SetMaterial(i, cache->LoadResource<Material>(materials.names[i]));
+    for (size_t i = 0; i < value.names.size(); ++i)
+        SetMaterial(i, cache->LoadResource<Material>(value.names[i]));
 }
 
 ResourceRefList GeometryNode::MaterialsAttr() const
@@ -163,7 +167,7 @@ ResourceRefList GeometryNode::MaterialsAttr() const
     ResourceRefList ret(Material::TypeStatic());
     
     for (size_t i = 0; i < batches.NumGeometries(); ++i)
-        ret.names[i] = ResourceName(GetMaterial(i));
+        ret.names.push_back(ResourceName(GetMaterial(i)));
 
     return ret;
 }

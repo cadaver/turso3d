@@ -3,7 +3,6 @@
 #include "../IO/Log.h"
 #include "../Resource/ResourceCache.h"
 #include "Camera.h"
-#include "Material.h"
 #include "Model.h"
 #include "StaticModel.h"
 
@@ -44,7 +43,7 @@ bool StaticModel::OnPrepareRender(unsigned short frameNumber, Camera* camera)
         lastUpdateFrameNumber = 0;
 
     // Find out the new LOD level if model has LODs
-    if (Flags() & NF_HASLODLEVELS)
+    if (Flags() & NF_HAS_LOD_LEVELS)
     {
         float lodDistance = camera->LodDistance(distance, WorldScale().DotProduct(DOT_SCALE), lodBias);
         size_t numGeometries = batches.NumGeometries();
@@ -75,7 +74,7 @@ bool StaticModel::OnPrepareRender(unsigned short frameNumber, Camera* camera)
 void StaticModel::SetModel(Model* model_)
 {
     model = model_;
-    SetFlag(NF_HASLODLEVELS, false);
+    SetFlag(NF_HAS_LOD_LEVELS, false);
 
     if (model)
     {
@@ -85,7 +84,7 @@ void StaticModel::SetModel(Model* model_)
         {
             SetGeometry(i, model->GetGeometry(i, 0));
             if (model->NumLodLevels(i) > 1)
-                SetFlag(NF_HASLODLEVELS, true);
+                SetFlag(NF_HAS_LOD_LEVELS, true);
         }
     }
     else
@@ -93,6 +92,7 @@ void StaticModel::SetModel(Model* model_)
         SetNumGeometries(0);
     }
 
+    // Mark bounding box changed
     OnTransformChanged();
 }
 
@@ -117,10 +117,10 @@ void StaticModel::OnWorldBoundingBoxUpdate() const
         OctreeNode::OnWorldBoundingBoxUpdate();
 }
 
-void StaticModel::SetModelAttr(const ResourceRef& model_)
+void StaticModel::SetModelAttr(const ResourceRef& value)
 {
     ResourceCache* cache = Subsystem<ResourceCache>();
-    SetModel(cache->LoadResource<Model>(model_.name));
+    SetModel(cache->LoadResource<Model>(value.name));
 }
 
 ResourceRef StaticModel::ModelAttr() const

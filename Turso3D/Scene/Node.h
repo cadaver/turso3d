@@ -18,35 +18,30 @@ static const unsigned short NF_SPATIAL_PARENT = 0x8;
 static const unsigned short NF_STATIC = 0x10;
 static const unsigned short NF_WORLD_TRANSFORM_DIRTY = 0x20;
 static const unsigned short NF_BOUNDING_BOX_DIRTY = 0x40;
-static const unsigned short NF_OCTREE_UPDATE_QUEUED = 0x80;
-static const unsigned short NF_GEOMETRY = 0x100;
-static const unsigned short NF_LIGHT = 0x200;
-static const unsigned short NF_CASTSHADOWS = 0x400;
-static const unsigned short NF_HASLODLEVELS = 0x800;
+static const unsigned short NF_OCTREE_REINSERT_QUEUED = 0x80;
+static const unsigned short NF_OCTREE_UPDATE_CALL = 0x100;
+static const unsigned short NF_GEOMETRY = 0x200;
+static const unsigned short NF_LIGHT = 0x400;
+static const unsigned short NF_CAST_SHADOWS = 0x800;
+static const unsigned short NF_HAS_LOD_LEVELS = 0x1000;
+static const unsigned short NF_STATIC_GEOMETRY = 0x0000;
+static const unsigned short NF_SKINNED_GEOMETRY = 0x4000;
+static const unsigned short NF_INSTANCED_GEOMETRY = 0x8000;
+static const unsigned short NF_CUSTOM_GEOMETRY = 0xc000;
 static const unsigned char LAYER_DEFAULT = 0x0;
 static const unsigned LAYERMASK_ALL = 0xffffffff;
 
 /// Less time-critical implementation part to speed up linear processing of renderable nodes.
 struct NodeImpl
 {
-    /// Parent space position.
-    Vector3 position;
-    /// Parent space rotation.
-    Quaternion rotation;
-    /// Parent space scale.
-    Vector3 scale;
-    /// Child nodes.
-    std::vector<SharedPtr<Node> > children;
-    /// Current octant in octree for octree nodes.
-    Octant* octant;
-    /// Current octree for octree nodes.
-    Octree* octree;
     /// Parent scene.
     Scene* scene;
     /// Id within the scene.
     unsigned id;
     /// %Node name.
     std::string name;
+    /// &Node name hash.
+    StringHash nameHash;
 };
 
 /// Base class for scene nodes.
@@ -115,6 +110,8 @@ public:
 
     /// Return name.
     const std::string& Name() const { return impl->name; }
+    /// Return hash of name.
+    const StringHash& NameHash() const { return impl->nameHash; }
     /// Return layer.
     unsigned char Layer() const { return layer; }
     /// Return bitmask corresponding to layer.
@@ -128,25 +125,29 @@ public:
     /// Return the scene that the node belongs to.
     Scene* ParentScene() const { return impl->scene; }
     /// Return number of immediate child nodes.
-    size_t NumChildren() const { return impl->children.size(); }
+    size_t NumChildren() const { return children.size(); }
     /// Return number of immediate child nodes that are not temporary.
     size_t NumPersistentChildren() const;
     /// Return immediate child node by index.
-    Node* Child(size_t index) const { return index < impl->children.size() ? impl->children[index].Get() : nullptr; }
+    Node* Child(size_t index) const { return index < children.size() ? children[index].Get() : nullptr; }
     /// Return all immediate child nodes.
-    const std::vector<SharedPtr<Node> >& Children() const { return impl->children; }
+    const std::vector<SharedPtr<Node> >& Children() const { return children; }
     /// Return child nodes recursively.
     void FindAllChildren(std::vector<Node*>& result) const;
     /// Return first child node that matches name.
     Node* FindChild(const std::string& childName, bool recursive = false) const;
     /// Return first child node that matches name.
     Node* FindChild(const char* childName, bool recursive = false) const;
+    /// Return first child node that matches name hash.
+    Node* FindChild(StringHash nameHash, bool recursive = false) const;
     /// Return first child node of specified type.
-    Node* FindChild(StringHash childType, bool recursive = false) const;
+    Node* FindChildOfType(StringHash childType, bool recursive = false) const;
     /// Return first child node that matches type and name.
-    Node* FindChild(StringHash childType, const std::string& childName, bool recursive = false) const;
+    Node* FindChildOfType(StringHash childType, const std::string& childName, bool recursive = false) const;
     /// Return first child node that matches type and name.
-    Node* FindChild(StringHash childType, const char* childName, bool recursive = false) const;
+    Node* FindChildOfType(StringHash childType, const char* childName, bool recursive = false) const;
+    /// Return first child node that matches type and name.
+    Node* FindChildOfType(StringHash childType, StringHash childNameHash, bool recursive = false) const;
     /// Return first child node that matches layer mask.
     Node* FindChildByLayer(unsigned layerMask, bool recursive = false) const;
     /// Find child nodes of specified type.
@@ -154,11 +155,13 @@ public:
     /// Find child nodes that match layer mask.
     void FindChildrenByLayer(std::vector<Node*>& result, unsigned layerMask, bool recursive = false) const;
     /// Return first child node of specified type, template version.
-    template <class T> T* FindChild(bool recursive = false) const { return static_cast<T*>(FindChild(T::TypeStatic(), recursive)); }
+    template <class T> T* FindChild(bool recursive = false) const { return static_cast<T*>(FindChildOfType(T::TypeStatic(), recursive)); }
     /// Return first child node that matches type and name, template version.
-    template <class T> T* FindChild(const std::string& childName, bool recursive = false) const { return static_cast<T*>(FindChild(T::TypeStatic(), childName, recursive)); }
+    template <class T> T* FindChild(const std::string& childName, bool recursive = false) const { return static_cast<T*>(FindChildOfType(T::TypeStatic(), childName, recursive)); }
     /// Return first child node that matches type and name, template version.
-    template <class T> T* FindChild(const char* childName, bool recursive = false) const { return static_cast<T*>(FindChild(T::TypeStatic(), childName, recursive)); }
+    template <class T> T* FindChild(const char* childName, bool recursive = false) const { return static_cast<T*>(FindChildOfType(T::TypeStatic(), childName, recursive)); }
+    /// Return first child node that matches type and name hash, template version.
+    template <class T> T* FindChild(StringHash childNameHash, bool recursive = false) const { return static_cast<T*>(FindChildOfType(T::TypeStatic(), childNameHash, recursive)); }
     /// Find child nodes of specified type, template version.
     template <class T> void FindChildren(std::vector<T*>& result, bool recursive = false) const { return FindChildren(reinterpret_cast<std::vector<Node*>&>(result), T::TypeStatic(), recursive); }
     
@@ -183,16 +186,21 @@ protected:
     virtual void OnSceneSet(Scene* newScene, Scene* oldScene);
     /// Handle the enabled status changing.
     virtual void OnEnabledChanged(bool newEnabled);
-
-    /// Node implementation.
-    NodeImpl* impl;
+    /// Handle load finishing. Should propagate to child nodes.
+    virtual void OnLoadFinished();
 
 private:
+    /// Node implementation.
+    NodeImpl* impl;
     /// Parent node.
     Node* parent;
     /// %Node flags. Used to hold several boolean values (some subclass-specific) to reduce memory use.
     mutable unsigned short flags;
     /// Layer number.
     unsigned char layer;
+
+protected:
+    /// Child nodes.
+    std::vector<SharedPtr<Node> > children;
 };
 

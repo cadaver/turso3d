@@ -10,22 +10,13 @@ class GeometryNode;
 class IndexBuffer;
 class Material;
 class Pass;
+class ShaderProgram;
 class VertexBuffer;
-class Light;
-
-/// Geometry types.
-enum GeometryType
-{
-    GEOM_STATIC = 0,
-    GEOM_INSTANCED,
-    GEOM_SKINNED,
-    GEOM_CUSTOM
-};
 
 /// Description of geometry to be rendered. %Scene nodes that render the same object can share these to reduce memory load and allow instancing.
 struct Geometry : public RefCounted
 {
-    /// Default-construct.
+    /// Construct.
     Geometry();
     /// Destruct.
     ~Geometry();
@@ -119,8 +110,10 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
 
-    /// Prepare object for rendering. Reset framenumber and calculate distance from camera. Called by Renderer. Return false if should not render.
+    /// Prepare object for rendering. Reset framenumber and calculate distance from camera. Called by Renderer in worker threads. Return false if should not render.
     bool OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
+    /// Update GPU resources and set uniforms for rendering. Called by Renderer when geometry type is not static.
+    virtual void OnRender(size_t geomIndex, ShaderProgram* program);
 
     /// Set number of geometries.
     void SetNumGeometries(size_t num);
@@ -132,7 +125,7 @@ public:
     void SetMaterial(size_t index, Material* material);
 
     /// Return geometry type.
-    GeometryType GetGeometryType() const { return (GeometryType)(Flags() >> 12); }
+    GeometryType GetGeometryType() const { return (GeometryType)(Flags() >> 14); }
     /// Return number of geometries / batches.
     size_t NumGeometries() const { return batches.NumGeometries(); }
     /// Return geometry by index.
@@ -144,7 +137,7 @@ public:
 
 protected:
     /// Set materials list. Used in serialization.
-    void SetMaterialsAttr(const ResourceRefList& materials);
+    void SetMaterialsAttr(const ResourceRefList& value);
     /// Return materials list. Used in serialization.
     ResourceRefList MaterialsAttr() const;
 

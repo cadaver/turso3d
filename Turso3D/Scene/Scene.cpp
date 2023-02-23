@@ -68,6 +68,7 @@ bool Scene::Load(Stream& source)
     resolver.StoreObject(ownId, this);
     Node::Load(source, resolver);
     resolver.Resolve();
+    OnLoadFinished();
 
     return true;
 }
@@ -91,6 +92,7 @@ bool Scene::LoadJSON(const JSONValue& source)
     resolver.StoreObject(ownId, this);
     Node::LoadJSON(source, resolver);
     resolver.Resolve();
+    OnLoadFinished();
 
     return true;
 }

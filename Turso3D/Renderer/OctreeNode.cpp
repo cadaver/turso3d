@@ -12,8 +12,8 @@ OctreeNode::OctreeNode() :
     distance(0.0f),
     maxDistance(0.0f)
 {
-    impl->octree = nullptr;
-    impl->octant = nullptr;
+    octree = nullptr;
+    octant = nullptr;
     SetFlag(NF_BOUNDING_BOX_DIRTY, true);
 }
 
@@ -32,9 +32,9 @@ void OctreeNode::RegisterObject()
 
 void OctreeNode::SetCastShadows(bool enable)
 {
-    if (TestFlag(NF_CASTSHADOWS) != enable)
+    if (TestFlag(NF_CAST_SHADOWS) != enable)
     {
-        SetFlag(NF_CASTSHADOWS, enable);
+        SetFlag(NF_CAST_SHADOWS, enable);
         // Reinsert into octree so that cached shadow map invalidation is handled
         OnTransformChanged();
     }
@@ -43,6 +43,10 @@ void OctreeNode::SetCastShadows(bool enable)
 void OctreeNode::SetMaxDistance(float distance_)
 {
     maxDistance = Max(distance_, 0.0f);
+}
+
+void OctreeNode::OnOctreeUpdate(unsigned short)
+{
 }
 
 bool OctreeNode::OnPrepareRender(unsigned short frameNumber, Camera* camera)
@@ -79,10 +83,10 @@ void OctreeNode::OnSceneSet(Scene* newScene, Scene*)
     if (newScene)
     {
         // Octree must be attached to the scene root as a child
-        impl->octree = newScene->FindChild<Octree>();
+        octree = newScene->FindChild<Octree>();
         // Transform may not be final yet. Schedule update but do not insert into octree yet
-        if (impl->octree && IsEnabled())
-            impl->octree->QueueUpdate(this);
+        if (octree && IsEnabled())
+            octree->QueueUpdate(this);
     }
 }
 
@@ -90,8 +94,8 @@ void OctreeNode::OnTransformChanged()
 {
     SpatialNode::OnTransformChanged();
     SetFlag(NF_BOUNDING_BOX_DIRTY, true);
-    if (impl->octree && (Flags() & (NF_OCTREE_UPDATE_QUEUED | NF_ENABLED)) == NF_ENABLED)
-        impl->octree->QueueUpdate(this);
+    if (octree && (Flags() & (NF_OCTREE_REINSERT_QUEUED | NF_ENABLED)) == NF_ENABLED)
+        octree->QueueUpdate(this);
 }
 
 void OctreeNode::OnWorldBoundingBoxUpdate() const
@@ -103,20 +107,20 @@ void OctreeNode::OnWorldBoundingBoxUpdate() const
 
 void OctreeNode::RemoveFromOctree()
 {
-    if (impl->octree)
+    if (octree)
     {
-        impl->octree->RemoveNode(this);
-        impl->octree = nullptr;
+        octree->RemoveNode(this);
+        octree = nullptr;
     }
 }
 
 void OctreeNode::OnEnabledChanged(bool newEnabled)
 {
-    if (impl->octree)
+    if (octree)
     {
         if (newEnabled)
-            impl->octree->QueueUpdate(this);
+            octree->QueueUpdate(this);
         else
-            impl->octree->RemoveNode(this);
+            octree->RemoveNode(this);
     }
 }

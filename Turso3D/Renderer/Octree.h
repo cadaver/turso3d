@@ -7,8 +7,6 @@
 #include "../Thread/WorkQueue.h"
 #include "OctreeNode.h"
 
-#include <algorithm>
-
 static const size_t NUM_OCTANTS = 8;
 
 class Octree;
@@ -78,16 +76,12 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
     
-    /// Process the queue of nodes to be reinserted. Then sort nodes inside changed octants.
+    /// Process the queue of nodes to be reinserted. Then sort nodes inside changed octants. This will utilize worker threads
     void Update(unsigned short frameNumber);
     /// Resize octree.
     void Resize(const BoundingBox& boundingBox, int numLevels);
-    /// Query for nodes with a raycast and return all results.
-    void Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL);
-    /// Query for nodes with a raycast and return the closest result.
-    RaycastResult RaycastSingle(const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL);
 
-    /// Queue a reinsertion for a node.
+    /// Queue octree reinsertion for a node.
     void QueueUpdate(OctreeNode* node)
     {
         assert(node);
@@ -95,7 +89,7 @@ public:
         if (!threadedUpdate)
         {
             updateQueue.push_back(node);
-            node->SetFlag(NF_OCTREE_UPDATE_QUEUED, true);
+            node->SetFlag(NF_OCTREE_REINSERT_QUEUED, true);
         }
         else
         {
@@ -103,68 +97,61 @@ public:
 
             // Do nothing if still fits the current octant
             const BoundingBox& box = node->WorldBoundingBox();
-            Octant* oldOctant = node->impl->octant;
+            Octant* oldOctant = node->octant;
             if (!oldOctant || oldOctant->cullingBox.IsInside(box) != INSIDE)
-                reinsertQueues[threadIndex].push_back(node);
+            {
+                reinsertQueues[WorkQueue::ThreadIndex()].push_back(node);
+                node->SetFlag(NF_OCTREE_REINSERT_QUEUED, true);
+            }
         }
     }
 
     /// Remove a node from the octree.
-    void RemoveNode(OctreeNode* node)
-    {
-        assert(node);
+    void RemoveNode(OctreeNode* node);
+    /// Enable or disable threaded update mode. In threaded mode reinsertions go to per-thread queues.
+    void SetThreadedUpdate(bool enable);
 
-        RemoveNode(node, node->impl->octant);
-        if (node->TestFlag(NF_OCTREE_UPDATE_QUEUED))
-        {
-            for (auto it = updateQueue.begin(); it != updateQueue.end(); ++it)
-            {
-                if ((*it) == node)
-                {
-                    *it = nullptr;
-                    break;
-                }
-            }
-
-            node->SetFlag(NF_OCTREE_UPDATE_QUEUED, false);
-        }
-
-        node->impl->octant = nullptr;
-    }
+    /// Query for nodes with a raycast and return all results.
+    void Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL) const;
+    /// Query for nodes with a raycast and return the closest result.
+    RaycastResult RaycastSingle(const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL) const;
 
     /// Query for nodes using a volume such as frustum or sphere.
-    template <class T> void FindNodes(std::vector<OctreeNode*>& result, const T& volume, unsigned short nodeFlags, unsigned layerMask = LAYERMASK_ALL)
+    template <class T> void FindNodes(std::vector<OctreeNode*>& result, const T& volume, unsigned short nodeFlags, unsigned layerMask = LAYERMASK_ALL) const
     {
-        CollectNodes(result, &root, volume, nodeFlags, layerMask);
+        CollectNodes(result, const_cast<Octant*>(&root), volume, nodeFlags, layerMask);
     }
 
     /// Query for nodes using a volume such as frustum or sphere. Invoke a member function for each octant.
-    template <class T, class U> void FindNodes(const T& volume, U* object, void (U::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, bool))
+    template <class T, class U> void FindNodes(const T& volume, U* object, void (U::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, bool)) const
     {
-        CollectNodesMemberCallback(&root, volume, object, callback);
+        CollectNodesMemberCallback(const_cast<Octant*>(&root), volume, object, callback);
     }
 
     /// Collect nodes matching flags using a frustum and masked testing.
-    void FindNodesMasked(std::vector<OctreeNode*>& result, const Frustum& frustum, unsigned short nodeFlags, unsigned layerMask = LAYERMASK_ALL)
+    void FindNodesMasked(std::vector<OctreeNode*>& result, const Frustum& frustum, unsigned short nodeFlags, unsigned layerMask = LAYERMASK_ALL) const
     {
-        CollectNodesMasked(result, &root, frustum, nodeFlags, layerMask);
+        CollectNodesMasked(result, const_cast<Octant*>(&root), frustum, nodeFlags, layerMask);
     }
 
     /// Collect nodes matching flags using a frustum and masked testing. Invoke a member callback for each octant, with current mask provided.
-    template <class T> void FindNodesMasked(const Frustum& frustum, T* object, void (T::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, unsigned char))
+    template <class T> void FindNodesMasked(const Frustum& frustum, T* object, void (T::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, unsigned char)) const
     {
         CollectNodesMaskedMemberCallback(&root, frustum, object, callback);
     }
 
     /// Collect octants and their masks using a frustum and masked testing. Their nodes are to be processed later threaded.
-    void FindOctantsMasked(std::vector<std::pair<Octant*, unsigned char> >& result, const Frustum& frustum)
+    void FindOctantsMasked(std::vector<std::pair<Octant*, unsigned char> >& result, const Frustum& frustum) const
     {
-        CollectOctantsMasked(result, &root, frustum);
+        CollectOctantsMasked(result, const_cast<Octant*>(&root), frustum);
     }
+
+    /// Return whether threaded update is enabled.
+    bool ThreadedUpdate() const { return threadedUpdate; }
 
 private:
     /// Set bounding box. Used in serialization.
-    void SetBoundingBoxAttr(const BoundingBox& boundingBox);
+    void SetBoundingBoxAttr(const BoundingBox& value);
     /// Return bounding box. Used in serialization.
     const BoundingBox& BoundingBoxAttr() const;
     /// Set number of levels. Used in serialization.
@@ -173,12 +160,14 @@ private:
     int NumLevelsAttr() const;
     /// Process a list of nodes to be reinserted. Clear the list afterward.
     void ReinsertNodes(std::vector<OctreeNode*>& nodes);
+    /// Remove a node from a reinsert queue.
+    void RemoveNodeFromQueue(OctreeNode* node, std::vector<OctreeNode*>& nodes);
     
     /// Add node to a specific octant.
     void AddNode(OctreeNode* node, Octant* octant)
     {
         octant->nodes.push_back(node);
-        node->impl->octant = octant;
+        node->octant = octant;
 
         if (!octant->sortDirty)
         {
@@ -357,7 +346,7 @@ private:
     }
 
     /// Collect octants and their masks using a frustum and masked testing. Their nodes are to be processed later threaded.
-    void CollectOctantsMasked(std::vector<std::pair<Octant*, unsigned char> >& result, Octant* octant, const Frustum& frustum, unsigned char planeMask = 0x3f)
+    void CollectOctantsMasked(std::vector<std::pair<Octant*, unsigned char> >& result, Octant* octant, const Frustum& frustum, unsigned char planeMask = 0x3f) const
     {
         if (planeMask)
         {
@@ -389,16 +378,13 @@ private:
     /// Current framenumber.
     unsigned short frameNumber;
     /// RaycastSingle initial coarse result.
-    std::vector<std::pair<OctreeNode*, float> > initialRes;
+    mutable std::vector<std::pair<OctreeNode*, float> > initialRes;
     /// RaycastSingle final result.
-    std::vector<RaycastResult> finalRes;
+    mutable std::vector<RaycastResult> finalRes;
     /// Allocator for child octants.
     Allocator<Octant> allocator;
     /// Root octant.
     Octant root;
     /// Cached %WorkQueue subsystem.
     WorkQueue* workQueue;
-
-    /// Thread index for reinsertions during threaded update.
-    static thread_local size_t threadIndex;
 };

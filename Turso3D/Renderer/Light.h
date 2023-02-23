@@ -49,16 +49,20 @@ struct ShadowView
     AutoPtr<Camera> shadowCamera;
     /// Shadow camera frustum.
     Frustum shadowFrustum;
-    /// Main camera frustum in light's view space for shadowcaster visibility optimization.
-    Frustum lightViewFrustum;
     /// Current shadow projection matrix.
     Matrix4 shadowMatrix;
     /// Shadow render mode to use.
     ShadowRenderMode renderMode;
+    /// Directional light split near Z.
+    float splitStart;
+    /// Directional light split far Z.
+    float splitEnd;
     /// Static object batch queue index in the shadowmap.
     size_t staticQueueIdx;
     /// Dynamic object batch queue index in the shadowmap.
     size_t dynamicQueueIdx;
+    /// Shadow caster list index in the shadowmap.
+    size_t casterListIdx;
     /// Whether last render had dynamic shadowcasters.
     bool lastDynamicCasters;
     /// Last viewport used in shadow map render.
@@ -83,7 +87,7 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
 
-    /// Prepare object for rendering. Reset framenumber and calculate distance from camera. Called by Renderer. Return false if should not render.
+    /// Prepare object for rendering. Reset framenumber and calculate distance from camera. Called by Renderer in worker threads. Return false if should not render.
     bool OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
     /// Perform ray test on self and add possible hit to the result vector.
     void OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance) override;
