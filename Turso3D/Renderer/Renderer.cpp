@@ -539,34 +539,27 @@ void Renderer::CollectGeometriesAndLights()
     octants.clear();
     octree->FindOctantsMasked(octants, frustum);
 
-    if (workQueue->NumThreads() > 1)
-    {
-        const size_t nodesPerTask = 128;
-        size_t start = 0;
-        size_t nodeAcc = 0;
-        size_t taskIdx = 0;
+    const size_t nodesPerTask = 128;
+    size_t start = 0;
+    size_t nodeAcc = 0;
+    size_t taskIdx = 0;
+    bool threaded = workQueue->NumThreads() > 1;
 
-        for (size_t i = 0; i < octants.size(); ++i)
+    for (size_t i = 0; i < octants.size(); ++i)
+    {
+        nodeAcc += octants[i].first->nodes.size();
+        if ((threaded && nodeAcc >= nodesPerTask) || i == octants.size() - 1)
         {
-            nodeAcc += octants[i].first->nodes.size();
-            if (nodeAcc >= nodesPerTask || i == octants.size() - 1)
-            {
-                if (collectGeometriesTasks.size() <= taskIdx)
-                    collectGeometriesTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectGeometriesWork));
-                collectGeometriesTasks[taskIdx]->start = &octants[0] + start;
-                collectGeometriesTasks[taskIdx]->end = &octants[0] + (i + 1);
-                workQueue->QueueTask(collectGeometriesTasks[taskIdx]);
+            if (collectGeometriesTasks.size() <= taskIdx)
+                collectGeometriesTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectGeometriesWork));
+            collectGeometriesTasks[taskIdx]->start = &octants[0] + start;
+            collectGeometriesTasks[taskIdx]->end = &octants[0] + (i + 1);
+            workQueue->QueueTask(collectGeometriesTasks[taskIdx]);
 
-                start = i + 1;
-                nodeAcc = 0;
-                ++taskIdx;
-            }
+            start = i + 1;
+            nodeAcc = 0;
+            ++taskIdx;
         }
-    }
-    else
-    {
-        // If no worker threads, get both geometries and lights in one go to avoid double octant traversal
-        CollectGeometriesAndLightsNonThreaded();
     }
 
     // The light task will queue further tasks as needed. Actual shadow batches collection is deferred to ensure no overlapping geometry updates
@@ -1203,114 +1196,16 @@ void Renderer::DefineClusterFrustums()
     }
 }
 
-void Renderer::CollectGeometriesAndLightsNonThreaded()
-{
-    float farClipMul = 32767.0f / camera->FarClip();
-    const Matrix3x4& viewMatrix = camera->ViewMatrix();
-    Vector3 viewZ = Vector3(viewMatrix.m20, viewMatrix.m21, viewMatrix.m22);
-    Vector3 absViewZ = viewZ.Abs();
-
-    for (auto it = octants.begin(); it != octants.end(); ++it)
-    {
-        Octant* octant = it->first;
-        unsigned char planeMask = it->second;
-        for (auto nIt = octant->nodes.begin(); nIt != octant->nodes.end(); ++nIt)
-        {
-            OctreeNode* node = *nIt;
-            unsigned short flags = node->Flags();
-            
-            if (flags & NF_GEOMETRY)
-            {
-                if ((node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
-                {
-                    if (node->OnPrepareRender(frameNumber, camera))
-                    {
-                        const BoundingBox& geomBox = node->WorldBoundingBox();
-                        Vector3 center = geomBox.Center();
-                        Vector3 edge = geomBox.Size() * 0.5f;
-
-                        float viewCenterZ = viewZ.DotProduct(center) + viewMatrix.m23;
-                        float viewEdgeZ = absViewZ.DotProduct(edge);
-                        minZ = Min(minZ, viewCenterZ - viewEdgeZ);
-                        maxZ = Max(maxZ, viewCenterZ + viewEdgeZ);
-
-                        GeometryNode* geometryNode = static_cast<GeometryNode*>(node);
-                        Batch newBatch;
-
-                        unsigned short distance = (unsigned short)(node->Distance() * farClipMul);
-                        const SourceBatches& batches = geometryNode->Batches();
-                        size_t numGeometries = batches.NumGeometries();
-
-                        for (size_t j = 0; j < numGeometries; ++j)
-                        {
-                            Material* material = batches.GetMaterial(j);
-
-                            // Assume opaque first
-                            newBatch.pass = material->GetPass(PASS_OPAQUE);
-                            newBatch.geometry = batches.GetGeometry(j);
-                            newBatch.programBits = (unsigned char)geometryNode->GetGeometryType();
-                            newBatch.geomIndex = (unsigned char)j;
-
-                            if (!newBatch.programBits)
-                                newBatch.worldTransform = &node->WorldTransform();
-                            else
-                                newBatch.node = geometryNode;
-
-                            if (newBatch.pass)
-                            {
-                                // Perform distance sort in addition to state sort
-                                if (newBatch.pass->lastSortKey.first != frameNumber || newBatch.pass->lastSortKey.second > distance)
-                                {
-                                    newBatch.pass->lastSortKey.first = frameNumber;
-                                    newBatch.pass->lastSortKey.second = distance;
-                                }
-                                if (newBatch.geometry->lastSortKey.first != frameNumber || newBatch.geometry->lastSortKey.second > distance + (unsigned short)j)
-                                {
-                                    newBatch.geometry->lastSortKey.first = frameNumber;
-                                    newBatch.geometry->lastSortKey.second = distance + (unsigned short)j;
-                                }
-
-                                opaqueBatches.batches.push_back(newBatch);
-                            }
-                            else
-                            {
-                                // If not opaque, try transparent
-                                newBatch.pass = material->GetPass(PASS_ALPHA);
-                                if (!newBatch.pass)
-                                    continue;
-
-                                newBatch.distance = geometryNode->Distance();
-                                alphaBatches.batches.push_back(newBatch);
-                            }
-                        }
-                    }
-                }
-            }
-            else if (flags & NF_LIGHT)
-            {
-                if ((node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
-                {
-                    if (node->OnPrepareRender(frameNumber, camera))
-                    {
-                        Light* light = static_cast<Light*>(node);
-                        if (light->GetLightType() != LIGHT_DIRECTIONAL)
-                            lights.push_back(light);
-                        else if (dirLight == nullptr || light->GetColor().Average() > dirLight->GetColor().Average())
-                            dirLight = light;
-                    }
-                }
-            }
-        }
-    }
-}
-
 void Renderer::CollectGeometriesWork(Task* task, unsigned threadIndex)
 {
+    bool threaded = workQueue->NumThreads() > 1;
+
     std::pair<Octant*, unsigned char>* start = reinterpret_cast<std::pair<Octant*, unsigned char>*>(task->start);
     std::pair<Octant*, unsigned char>* end = reinterpret_cast<std::pair<Octant*, unsigned char>*>(task->end);
+
     ThreadGeometryResult& result = geometryResults[threadIndex];
-    std::vector<Batch>& opaqueQueue = result.opaqueBatches;
-    std::vector<Batch>& alphaQueue = result.alphaBatches;
+    std::vector<Batch>& opaqueQueue = threaded ? result.opaqueBatches : opaqueBatches.batches;
+    std::vector<Batch>& alphaQueue = threaded ? result.alphaBatches : alphaBatches.batches;
 
     float farClipMul = 32767.0f / camera->FarClip();
     const Matrix3x4& viewMatrix = camera->ViewMatrix();
@@ -1396,6 +1291,21 @@ void Renderer::CollectGeometriesWork(Task* task, unsigned threadIndex)
                     }
                 }
             }
+            // If not threaded, collect lights at the same time
+            if (!threaded && (flags & NF_LIGHT))
+            {
+                if ((node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
+                {
+                    if (node->OnPrepareRender(frameNumber, camera))
+                    {
+                        Light* light = static_cast<Light*>(node);
+                            if (light->GetLightType() != LIGHT_DIRECTIONAL)
+                                lights.push_back(light);
+                            else if (dirLight == nullptr || light->GetColor().Average() > dirLight->GetColor().Average())
+                                dirLight = light;
+                    }
+                }
+            }
         }
     }
 }
@@ -1409,6 +1319,7 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
         {
             Octant* octant = it->first;
             unsigned char planeMask = it->second;
+
             for (auto nIt = octant->nodes.begin(); nIt != octant->nodes.end(); ++nIt)
             {
                 OctreeNode* node = *nIt;

@@ -108,8 +108,6 @@ private:
     void DefineQuadVertexBuffer();
     /// Setup light cluster frustums and bounding boxes if necessary.
     void DefineClusterFrustums();
-    /// Non-threaded version of collecting geometries and lights
-    void CollectGeometriesAndLightsNonThreaded();
     /// Work function to collect geometries from octants.
     void CollectGeometriesWork(Task* task, unsigned threadIndex);
     /// Work function to collect lights and handle shadowcasting point and spot lights.
