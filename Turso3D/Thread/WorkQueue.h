@@ -110,6 +110,8 @@ private:
     std::queue<Task*> tasks;
     /// Worker threads.
     std::vector<std::thread> threads;
+    /// Amount of tasks in queue.
+    std::atomic<int> numQueuedTasks;
     /// Amount of queued tasks. Used to check for completion.
     std::atomic<int> numPendingTasks;
 

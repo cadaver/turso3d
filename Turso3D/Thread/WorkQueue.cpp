@@ -14,6 +14,7 @@ WorkQueue::WorkQueue(unsigned numThreads) :
 {
     RegisterSubsystem(this);
 
+    numQueuedTasks.store(0);
     numPendingTasks.store(0);
 
     if (numThreads == 0)
@@ -46,6 +47,7 @@ void WorkQueue::QueueTask(Task* task)
         {
             std::lock_guard<std::mutex> lock(queueMutex);
             tasks.push(task);
+            numQueuedTasks.fetch_add(1);
             numPendingTasks.fetch_add(1);
         }
 
@@ -65,10 +67,17 @@ void WorkQueue::Complete()
 
     for (;;)
     {
-        int tasksLeft = numPendingTasks.load();
-        if (!tasksLeft)
+        if (!numPendingTasks.load())
             break;
 
+        // Avoid locking the queue mutex if do not have tasks in queue, just wait for the workers to finish
+        if (!numQueuedTasks.load())
+        {
+            std::this_thread::yield();
+            continue;
+        }
+
+        // Otherwise if have still tasks, execute them in the main thread
         Task* task;
 
         {
@@ -78,6 +87,7 @@ void WorkQueue::Complete()
 
             task = tasks.front();
             tasks.pop();
+            numQueuedTasks.fetch_add(-1);
         }
 
         task->Invoke(task, 0);
@@ -105,6 +115,7 @@ void WorkQueue::WorkerLoop(unsigned threadIndex_)
 
             task = tasks.front();
             tasks.pop();
+            numQueuedTasks.fetch_add(-1);
         }
 
         task->Invoke(task, threadIndex_);
