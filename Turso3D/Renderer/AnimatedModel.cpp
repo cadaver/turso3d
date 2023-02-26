@@ -123,11 +123,10 @@ void AnimatedModel::OnRender(size_t /*geomIndex*/, ShaderProgram* /*program*/)
     skinMatrixBuffer->Bind(UB_SKINMATRICES);
 }
 
-void AnimatedModel::SetModel(Model* model_, bool createBones)
+void AnimatedModel::SetModel(Model* model_)
 {
     StaticModel::SetModel(model_);
-    if (createBones)
-        CreateBones();
+    CreateBones();
 }
 
 void AnimatedModel::SetUpdateInvisible(bool enable)
@@ -271,39 +270,6 @@ void AnimatedModel::OnWorldBoundingBoxUpdate() const
         OctreeNode::OnWorldBoundingBoxUpdate();
 }
 
-void AnimatedModel::OnLoadFinished()
-{
-    Node::OnLoadFinished();
-    CreateBones();
-
-    animationStates.clear();
-
-    const JSONArray& states = animationStatesAttr.GetArray();
-
-    for (auto it = states.begin(); it != states.end(); ++it)
-    {
-        const JSONValue& state = *it;
-        if (state.Size() < 6)
-            continue;
-
-        Animation* animation = Subsystem<ResourceCache>()->LoadResource<Animation>(state[0].GetString());
-        if (!animation)
-            continue;
-
-        AnimationState* animState = AddAnimationState(animation);
-        if (!animState)
-            continue;
-
-        animState->SetStartBone(FindChild<Bone>(state[1].GetString(), true));
-        animState->SetLooped(state[2].GetBool());
-        animState->SetWeight((float)state[3].GetNumber());
-        animState->SetTime((float)state[4].GetNumber());
-        animState->SetBlendLayer((unsigned char)(int)state[5].GetNumber());
-    }
-
-    animationStatesAttr.SetNull();
-}
-
 void AnimatedModel::CreateBones()
 {
     PROFILE(CreateAnimatedModelBones);
@@ -443,8 +409,7 @@ void AnimatedModel::RemoveBones()
 void AnimatedModel::SetModelAttr(const ResourceRef& value)
 {
     ResourceCache* cache = Subsystem<ResourceCache>();
-    // Do not set bones now, wait for load finishing instead
-    SetModel(cache->LoadResource<Model>(value.name), false);
+    SetModel(cache->LoadResource<Model>(value.name));
 }
 
 ResourceRef AnimatedModel::ModelAttr() const
@@ -454,7 +419,26 @@ ResourceRef AnimatedModel::ModelAttr() const
 
 void AnimatedModel::SetAnimationStatesAttr(const JSONValue& value)
 {
-    animationStatesAttr = value;
+    for (size_t i = 0; i < value.Size(); ++i)
+    {
+        const JSONValue& state = value[i];
+        if (state.Size() < 6)
+            continue;
+
+        Animation* animation = Subsystem<ResourceCache>()->LoadResource<Animation>(state[0].GetString());
+        if (!animation)
+            continue;
+
+        AnimationState* animState = AddAnimationState(animation);
+        if (!animState)
+            continue;
+
+        animState->SetStartBone(FindChild<Bone>(state[1].GetString(), true));
+        animState->SetLooped(state[2].GetBool());
+        animState->SetWeight((float)state[3].GetNumber());
+        animState->SetTime((float)state[4].GetNumber());
+        animState->SetBlendLayer((unsigned char)(int)state[5].GetNumber());
+    }
 }
 
 JSONValue AnimatedModel::AnimationStatesAttr() const
@@ -465,15 +449,15 @@ JSONValue AnimatedModel::AnimationStatesAttr() const
     /// \todo Per-bone weights not serialized
     for (auto it = animationStates.begin(); it != animationStates.end(); ++it)
     {
-        AnimationState* state = *it;
-        JSONValue stateValue;
-        stateValue.Push(state->GetAnimation() ? state->GetAnimation()->Name() : "");
-        stateValue.Push(state->StartBone() ? state->StartBone()->Name() : "");
-        stateValue.Push(state->Looped());
-        stateValue.Push(state->Weight());
-        stateValue.Push(state->Time());
-        stateValue.Push((int)state->BlendLayer());
-        states.Push(stateValue);
+        AnimationState* animState = *it;
+        JSONValue state;
+        state.Push(animState->GetAnimation() ? animState->GetAnimation()->Name() : "");
+        state.Push(animState->StartBone() ? animState->StartBone()->Name() : "");
+        state.Push(animState->Looped());
+        state.Push(animState->Weight());
+        state.Push(animState->Time());
+        state.Push((int)animState->BlendLayer());
+        states.Push(state);
     }
 
     return states;

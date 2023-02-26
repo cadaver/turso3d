@@ -41,9 +41,7 @@ void Node::RegisterObject()
 
 void Node::Load(Stream& source, ObjectResolver& resolver)
 {
-    // Type and id has been read by the parent
-    Serializable::Load(source, resolver);
-
+    // Load child nodes before own attributes to enable e.g. AnimatedModel to set bones at load time
     size_t numChildren = source.ReadVLE();
     for (size_t i = 0; i < numChildren; ++i)
     {
@@ -61,14 +59,16 @@ void Node::Load(Stream& source, ObjectResolver& resolver)
             SkipHierarchy(source);
         }
     }
+
+    // Type and id has been read by the parent
+    Serializable::Load(source, resolver);
 }
 
 void Node::Save(Stream& dest)
 {
-    // Write type and ID first, followed by attributes and child nodes
+    // Write type and ID first, followed by child nodes and attributes
     dest.Write(Type());
     dest.Write(Id());
-    Serializable::Save(dest);
     dest.WriteVLE(NumPersistentChildren());
 
     for (auto it = children.begin(); it != children.end(); ++it)
@@ -77,13 +77,12 @@ void Node::Save(Stream& dest)
         if (!child->IsTemporary())
             child->Save(dest);
     }
+
+    Serializable::Save(dest);
 }
 
 void Node::LoadJSON(const JSONValue& source, ObjectResolver& resolver)
 {
-    // Type and id has been read by the parent
-    Serializable::LoadJSON(source, resolver);
-    
     const JSONArray& childrenArray = source["children"].GetArray();
     if (childrenArray.size())
     {
@@ -100,14 +99,16 @@ void Node::LoadJSON(const JSONValue& source, ObjectResolver& resolver)
             }
         }
     }
+
+    // Type and id has been read by the parent
+    Serializable::LoadJSON(source, resolver);
 }
 
 void Node::SaveJSON(JSONValue& dest)
 {
     dest["type"] = TypeName();
     dest["id"] = Id();
-    Serializable::SaveJSON(dest);
-    
+
     if (NumPersistentChildren())
     {
         dest["children"].SetEmptyArray();
@@ -122,6 +123,8 @@ void Node::SaveJSON(JSONValue& dest)
             }
         }
     }
+
+    Serializable::SaveJSON(dest);
 }
 
 bool Node::SaveJSON(Stream& dest)
@@ -515,8 +518,3 @@ void Node::OnEnabledChanged(bool)
 {
 }
 
-void Node::OnLoadFinished()
-{
-    for (auto it = children.begin(); it != children.end(); ++it)
-        (*it)->OnLoadFinished();
-}

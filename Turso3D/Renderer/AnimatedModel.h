@@ -85,7 +85,7 @@ public:
     void OnRender(size_t geomIndex, ShaderProgram* program) override;
 
     /// Set the model resource and create / acquire bone scene nodes.
-    void SetModel(Model* model, bool createBones = true);
+    void SetModel(Model* model);
     /// Set whether to update animation when invisible. Default false for better performance.
     void SetUpdateInvisible(bool enable);
     /// Add an animation and return the created animation state.
@@ -160,8 +160,6 @@ protected:
     void OnTransformChanged() override;
     /// Recalculate the world space bounding box.
     void OnWorldBoundingBoxUpdate() const override;
-    /// Handle load finishing. Assigns the bones and animation states. Should propagate to child nodes.
-    virtual void OnLoadFinished();
 
 private:
     /// Create bone scene nodes based on the model. If compatible bones already exist in the scene hierarchy, they are taken into use instead of creating new.
@@ -197,6 +195,4 @@ private:
     AutoPtr<UniformBuffer> skinMatrixBuffer;
     /// Animation states.
     std::vector<SharedPtr<AnimationState> > animationStates;
-    /// Pending animation state attribute data during loading.
-    JSONValue animationStatesAttr;
 };

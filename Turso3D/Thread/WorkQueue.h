@@ -87,6 +87,8 @@ public:
 
     /// Queue a task for execution. If no threads, completes immediately in the main thread.
     void QueueTask(Task* task);
+    /// Queue several tasks execution. If no threads, completes immediately in the main thread.
+    void QueueTasks(size_t count, Task** tasks);
     /// Complete all currently queued tasks. To be called only from the main thread.
     void Complete();
 

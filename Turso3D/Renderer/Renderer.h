@@ -100,7 +100,7 @@ private:
     void RenderBatches(Camera* camera, const BatchQueue& queue);
     /// Allocate shadow map for light. Return true on success.
     bool AllocateShadowMap(Light* light);
-    /// Collect (unlit) shadow batches from geometry nodes and sort them.
+    /// Collect (unlit) shadow batches from geometry.
     void CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view);
     /// Define face selection texture for point light shadows.
     void DefineFaceSelectionTextures();
@@ -108,13 +108,11 @@ private:
     void DefineQuadVertexBuffer();
     /// Setup light cluster frustums and bounding boxes if necessary.
     void DefineClusterFrustums();
-    /// Work function to collect geometries from octants.
-    void CollectGeometriesWork(Task* task, unsigned threadIndex);
-    /// Work function to collect lights and handle shadowcasting point and spot lights.
-    void ProcessLightsWork(Task* task, unsigned threadIndex);
-    /// Work function to handle shadowcasting directional light.
-    void ProcessShadowDirLightWork(Task* task, unsigned threadIndex);
-    /// Work function to collect shadowcaster batches after main view batches have been processed.
+    /// Work function to collect main view batches from geometries.
+    void CollectBatchesWork(Task* task, unsigned threadIndex);
+    /// Work function to collect shadowcasters per shadowcasting light.
+    void CollectShadowCastersWork(Task* task, unsigned threadIndex);
+    /// Work function to collect and sort shadowcaster batches per shadowmap.
     void CollectShadowBatchesWork(Task* task, unsigned threadIndex);
     /// Work function to cull lights to the frustum grid.
     void CullLightsToFrustumWork(Task* task, unsigned threadIndex);
@@ -137,8 +135,6 @@ private:
     std::vector<Light*> lights;
     /// Shadow maps.
     std::vector<ShadowMap> shadowMaps;
-    /// Final shadow casters during shadow view processing.
-    std::vector<GeometryNode*> shadowCasters;
     /// Face selection UV indirection texture 1.
     AutoPtr<Texture> faceSelectionTexture1;
     /// Face selection UV indirection texture 2.
@@ -223,16 +219,14 @@ private:
     float depthBiasMul;
     /// Slope-scaled depth bias multiplier.
     float slopeScaleBiasMul;
-    /// Tasks for octree geometry and batch collection.
-    std::vector<AutoPtr<Task> > collectGeometriesTasks;
-    /// Task for light processing.
-    AutoPtr<Task> lightTask;
-    /// Task for shadowed directional light processing.
-    AutoPtr<Task> shadowDirLightTask;
+    /// Tasks for main view batches collection.
+    std::vector<AutoPtr<Task> > collectBatchesTasks;
+    /// Tasks for shadow light processing.
+    std::vector<AutoPtr<Task> > collectShadowCastersTasks;
+    /// Tasks for shadow batch collecting and sorting per shadowmap.
+    AutoPtr<Task> collectShadowBatchesTasks[2];
     /// Task for light grid culling.
     AutoPtr<Task> cullLightsTask;
-    /// Task for shadow batches collecting.
-    AutoPtr<Task> shadowBatchesTask;
 };
 
 /// Register Renderer related object factories and attributes.

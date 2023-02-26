@@ -1,5 +1,6 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
+#include "../Time/Profiler.h"
 #include "ThreadUtils.h"
 #include "WorkQueue.h"
 
@@ -60,8 +61,37 @@ void WorkQueue::QueueTask(Task* task)
     }
 }
 
+void WorkQueue::QueueTasks(size_t count, Task** tasks_)
+{
+    if (threads.size())
+    {
+        {
+            std::lock_guard<std::mutex> lock(queueMutex);
+            for (size_t i = 0; i < count; ++i)
+                tasks.push(tasks_[i]);
+            numQueuedTasks.fetch_add(count);
+            numPendingTasks.fetch_add(count);
+        }
+
+        if (count >= threads.size())
+            signal.notify_all();
+        else
+        {
+            for (size_t i = 0; i < count; ++i)
+                signal.notify_one();
+        }
+    }
+    else
+    {
+        // If no threads, execute directly
+        for (size_t i = 0; i < count; ++i)
+            tasks_[i]->Invoke(tasks_[i], 0);
+    }
+}
 void WorkQueue::Complete()
 {
+    PROFILE(CompleteWorkQueue);
+    
     if (!threads.size())
         return;
 
@@ -72,10 +102,7 @@ void WorkQueue::Complete()
 
         // Avoid locking the queue mutex if do not have tasks in queue, just wait for the workers to finish
         if (!numQueuedTasks.load())
-        {
-            std::this_thread::yield();
             continue;
-        }
 
         // Otherwise if have still tasks, execute them in the main thread
         Task* task;

@@ -186,8 +186,6 @@ protected:
     virtual void OnSceneSet(Scene* newScene, Scene* oldScene);
     /// Handle the enabled status changing.
     virtual void OnEnabledChanged(bool newEnabled);
-    /// Handle load finishing. Should propagate to child nodes.
-    virtual void OnLoadFinished();
 
 private:
     /// Node implementation.

@@ -120,10 +120,10 @@ void Octree::Update(unsigned short frameNumber_)
                 reinsertTasks.push_back(new MemberFunctionTask<Octree>(this, &Octree::CheckReinsertWork));
             reinsertTasks[taskIdx]->start = &updateQueue[0] + start;
             reinsertTasks[taskIdx]->end = &updateQueue[0] + end;
-            workQueue->QueueTask(reinsertTasks[taskIdx]);
             ++taskIdx;
         }
 
+        workQueue->QueueTasks(taskIdx, reinterpret_cast<Task**>(&reinsertTasks[0]));
         workQueue->Complete();
 
         SetThreadedUpdate(false);
