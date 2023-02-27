@@ -11,7 +11,8 @@ Experimental 3D / game engine technology partially based on the Urho3D codebase.
 
 - WSAD + mouse to move
 - Shift move faster
+- Space toggle scene animation
 - 1 toggle shadow modes
 - 2 toggle SSAO
-- 3 & 4 switch scene preset
+- 3 - 5 switch scene preset
 - F toggle fullscreen

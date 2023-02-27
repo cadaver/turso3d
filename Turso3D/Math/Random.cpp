@@ -27,7 +27,7 @@ float RandStandardNormal()
         val += Rand() / 32768.0f;
     val -= 6.0f;
     
-    // Now val is approximatly standard normal distributed
+    // Now val is approximately standard normal distributed
     return val;
 }
 

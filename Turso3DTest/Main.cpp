@@ -32,12 +32,13 @@ std::vector<AnimatedModel*> animatingObjects;
 
 void CreateScene(Scene* scene, int preset)
 {
+    rotatingObjects.clear();
+    animatingObjects.clear();
+
     ResourceCache* cache = Object::Subsystem<ResourceCache>();
 
     scene->Clear();
     scene->CreateChild<Octree>();
-    rotatingObjects.clear();
-    animatingObjects.clear();
 
     SetRandomSeed(1);
 
@@ -84,8 +85,7 @@ void CreateScene(Scene* scene, int preset)
             light->SetMaxDistance(900.0f);
         }
     }
-
-    if (preset == 1)
+    else if (preset == 1)
     {
         for (int y = -125; y <= 125; ++y)
         {
@@ -108,8 +108,7 @@ void CreateScene(Scene* scene, int preset)
         light->SetShadowMapSize(1024);
         light->SetShadowMaxDistance(100.0f);
     }
-
-    if (preset == 2)
+    else if (preset == 2)
     {
         {
             StaticModel* object = scene->CreateChild<StaticModel>();
@@ -203,13 +202,12 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     HiresTimer frameTimer;
     Timer profilerTimer;
     float dt = 0.0f;
+    float angle = 0.0f;
     int shadowMode = 1;
     bool drawSSAO = false;
     bool animate = true;
 
     std::string profilerOutput;
-
-    float angle = 0.0f;
 
     while (!input->ShouldExit() && !input->KeyPressed(27))
     {
