@@ -8,6 +8,9 @@
 #include "IO/StringUtils.h"
 #include "Math/Math.h"
 #include "Math/Random.h"
+#include "Renderer/AnimatedModel.h"
+#include "Renderer/Animation.h"
+#include "Renderer/AnimationState.h"
 #include "Renderer/Camera.h"
 #include "Renderer/Light.h"
 #include "Renderer/Material.h"
@@ -24,7 +27,8 @@
 #include <SDL.h>
 #include <glew.h>
 
-std::vector<SpatialNode*> movingObjects;
+std::vector<StaticModel*> rotatingObjects;
+std::vector<AnimatedModel*> animatingObjects;
 
 void CreateScene(Scene* scene, int preset)
 {
@@ -32,12 +36,13 @@ void CreateScene(Scene* scene, int preset)
 
     scene->Clear();
     scene->CreateChild<Octree>();
-    movingObjects.clear();
+    rotatingObjects.clear();
+    animatingObjects.clear();
+
+    SetRandomSeed(1);
 
     if (preset == 0)
     {
-        SetRandomSeed(1);
-
         for (int y = -55; y <= 55; ++y)
         {
             for (int x = -55; x <= 55; ++x)
@@ -74,7 +79,6 @@ void CreateScene(Scene* scene, int preset)
             light->SetColor(Color(colorVec.x, colorVec.y, colorVec.z));
             light->SetRange(40.0f);
             light->SetPosition(Vector3(Random() * 1000.0f - 500.0f, 7.0f, Random() * 1000.0f - 500.0f));
-            light->SetDirection(Vector3(0.0f, -1.0f, 0.0f));
             light->SetShadowMapSize(256);
             light->SetShadowMaxDistance(200.0f);
             light->SetMaxDistance(900.0f);
@@ -92,7 +96,7 @@ void CreateScene(Scene* scene, int preset)
                 object->SetPosition(Vector3(x * 0.3f, 0.0f, y * 0.3f));
                 object->SetScale(0.25f);
                 object->SetModel(cache->LoadResource<Model>("Box.mdl"));
-                movingObjects.push_back(object);
+                rotatingObjects.push_back(object);
             }
         }
 
@@ -102,6 +106,41 @@ void CreateScene(Scene* scene, int preset)
         light->SetColor(Color(1.0f, 1.0f, 1.0f, 0.5f));
         light->SetRotation(Quaternion(45.0f, 45.0f, 0.0f));
         light->SetShadowMapSize(1024);
+        light->SetShadowMaxDistance(100.0f);
+    }
+
+    if (preset == 2)
+    {
+        {
+            StaticModel* object = scene->CreateChild<StaticModel>();
+            object->SetStatic(true);
+            object->SetPosition(Vector3(0, -0.05f, 0));
+            object->SetScale(Vector3(100.0f, 0.1f, 100.0f));
+            object->SetModel(cache->LoadResource<Model>("Box.mdl"));
+            object->SetMaterial(cache->LoadResource<Material>("Stone.json"));
+        }
+
+        for (int i = 0; i < 500; ++i)
+        {
+            AnimatedModel* object = scene->CreateChild<AnimatedModel>();
+            object->SetStatic(true);
+            object->SetPosition(Vector3(Random() * 90.0f - 45.0f, 0.0f, Random() * 90.0f - 45.0f));
+            object->SetRotation(Quaternion(Random(360.0f), Vector3::UP));
+            object->SetModel(cache->LoadResource<Model>("Jack.mdl"));
+            object->SetCastShadows(true);
+            object->SetMaxDistance(600.0f);
+            AnimationState* state = object->AddAnimationState(cache->LoadResource<Animation>("Jack_Walk.ani"));
+            state->SetWeight(1.0f);
+            state->SetLooped(true);
+            animatingObjects.push_back(object);
+        }
+
+        Light* light = scene->CreateChild<Light>();
+        light->SetLightType(LIGHT_DIRECTIONAL);
+        light->SetCastShadows(true);
+        light->SetColor(Color(1.0f, 1.0f, 1.0f, 0.5f));
+        light->SetRotation(Quaternion(45.0f, 45.0f, 0.0f));
+        light->SetShadowMapSize(2048);
         light->SetShadowMaxDistance(100.0f);
     }
 }
@@ -166,6 +205,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     float dt = 0.0f;
     int shadowMode = 1;
     bool drawSSAO = false;
+    bool animate = true;
 
     std::string profilerOutput;
 
@@ -205,6 +245,8 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             CreateScene(scene, 0);
         if (input->KeyPressed(SDLK_4))
             CreateScene(scene, 1);
+        if (input->KeyPressed(SDLK_5))
+            CreateScene(scene, 2);
         if (input->KeyPressed(SDLK_f))
             graphics->SetFullscreen(!graphics->IsFullscreen());
         
@@ -225,14 +267,35 @@ int ApplicationMain(const std::vector<std::string>& arguments)
         if (input->KeyDown(SDLK_d))
             camera->Translate(Vector3::RIGHT * dt * moveSpeed);
 
-        if (input->KeyDown(SDLK_SPACE))
+        if (input->KeyPressed(SDLK_SPACE))
+            animate = !animate;
+
+        if (animate)
         {
             PROFILE(MoveObjects);
         
-            angle += 100.0f * dt;
-            Quaternion rotQuat(angle, Vector3::ONE);
-            for (auto it = movingObjects.begin(); it != movingObjects.end(); ++it)
-                (*it)->SetRotation(rotQuat);
+            if (rotatingObjects.size())
+            {
+                angle += 100.0f * dt;
+                Quaternion rotQuat(angle, Vector3::ONE);
+                for (auto it = rotatingObjects.begin(); it != rotatingObjects.end(); ++it)
+                    (*it)->SetRotation(rotQuat);
+            }
+            else if (animatingObjects.size())
+            {
+                for (auto it = animatingObjects.begin(); it != animatingObjects.end(); ++it)
+                {
+                    AnimatedModel* object = *it;
+                    AnimationState* state = object->AnimationStates()[0];
+                    state->AddTime(dt);
+                    object->Translate(Vector3::FORWARD * 2.0f * dt, TS_LOCAL);
+
+                    // Rotate to avoid going outside the plane
+                    Vector3 pos = object->Position();
+                    if (pos.x < -45.0f || pos.x > 45.0f || pos.z < -45.0f || pos.z > 45.0f)
+                        object->Yaw(45.0f * dt);
+                }
+            }
         }
 
         int width = graphics->RenderWidth();
