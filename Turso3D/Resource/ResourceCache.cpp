@@ -369,8 +369,9 @@ void RegisterResourceLibrary()
     static bool registered = false;
     if (registered)
         return;
-    registered = true;
 
     Image::RegisterObject();
     JSONFile::RegisterObject();
+
+    registered = true;
 }

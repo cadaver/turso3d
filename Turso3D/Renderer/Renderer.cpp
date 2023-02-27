@@ -1409,20 +1409,20 @@ void Renderer::CollectBatchesWork(Task* task, unsigned threadIndex)
 void Renderer::CollectShadowCastersWork(Task* task, unsigned)
 {
     Light* light = (Light*)task->start;
-
     LightType lightType = light->GetLightType();
     std::vector<ShadowView>& shadowViews = light->ShadowViews();
+    ShadowMap& shadowMap = shadowMaps[lightType == LIGHT_DIRECTIONAL ? 0 : 1];
 
     if (lightType == LIGHT_DIRECTIONAL)
     {
-        ShadowMap& shadowMap = shadowMaps[0];
+        // Directional light: perform separate query per split frustum
         ShadowView& view = shadowViews[(size_t)task->end];
         std::vector<GeometryNode*>& shadowCasters = shadowMap.shadowCasters[view.casterListIdx];
         octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(shadowCasters), view.shadowFrustum, NF_GEOMETRY | NF_CAST_SHADOWS);
     } 
     else if (lightType == LIGHT_POINT)
     {
-        ShadowMap& shadowMap = shadowMaps[1];
+        // Point light: perform only one sphere query, then check which of the point light sides are visible
         std::vector<GeometryNode*>& shadowCasters = shadowMap.shadowCasters[shadowViews[0].casterListIdx];
         octree->FindNodes(reinterpret_cast<std::vector<OctreeNode*>&>(shadowCasters), light->WorldSphere(), NF_GEOMETRY | NF_CAST_SHADOWS);
 
@@ -1441,7 +1441,7 @@ void Renderer::CollectShadowCastersWork(Task* task, unsigned)
     }
     else if (lightType == LIGHT_SPOT)
     {
-        ShadowMap& shadowMap = shadowMaps[1];
+        // Spot light: perform one query for the spot frustum
         ShadowView& view = shadowViews[0];
         std::vector<GeometryNode*>& shadowCasters = shadowMap.shadowCasters[view.casterListIdx];
         octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(shadowCasters), view.shadowFrustum, NF_GEOMETRY | NF_CAST_SHADOWS);
@@ -1458,7 +1458,8 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
         // Check if view was discarded during shadowcaster collecting
         if (!view->light)
             continue;
-        CollectShadowBatches(shadowMap, *view); 
+
+        CollectShadowBatches(shadowMap, *view);
     }
 }
 
@@ -1477,8 +1478,9 @@ void Renderer::CullLightsToFrustumWork(Task*, unsigned)
     for (size_t i = 0; i < lights.size(); ++i)
     {
         Light* light = lights[i];
+        LightType lightType = light->GetLightType();
 
-        if (light->GetLightType() == LIGHT_POINT)
+        if (lightType == LIGHT_POINT)
         {
             Sphere bounds(cameraView * light->WorldPosition(), light->Range());
             float minViewZ = bounds.center.z - light->Range();
@@ -1502,7 +1504,7 @@ void Renderer::CullLightsToFrustumWork(Task*, unsigned)
                 }
             }
         }
-        else if (light->GetLightType() == LIGHT_SPOT)
+        else if (lightType == LIGHT_SPOT)
         {
             Frustum bounds(light->WorldFrustum().Transformed(cameraView));
             BoundingBox boundsBox(bounds);
@@ -1535,7 +1537,6 @@ void RegisterRendererLibrary()
     static bool registered = false;
     if (registered)
         return;
-    registered = true;
 
     // Scene node base attributes are needed
     RegisterSceneLibrary();
@@ -1550,4 +1551,6 @@ void RegisterRendererLibrary()
     Material::RegisterObject();
     Model::RegisterObject();
     Animation::RegisterObject();
+
+    registered = true;
 }
