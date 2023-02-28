@@ -29,7 +29,7 @@ public:
     int Uniform(const std::string& name) const;
     /// Return uniform location by name or negative if not found.
     int Uniform(const char* name) const;
-    /// Return uniform location by name or negative if not found.
+    /// Return uniform location by name hash or negative if not found.
     int Uniform(StringHash name) const;
     /// Return preset uniform location or negative if not found.
     int Uniform(PresetUniform uniform) const { return presetUniforms[uniform]; }
