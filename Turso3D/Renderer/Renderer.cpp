@@ -1011,15 +1011,7 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
         perViewData.projectionMatrix = camera_->ProjectionMatrix();
         perViewData.viewMatrix = camera_->ViewMatrix();
         perViewData.viewProjMatrix = perViewData.projectionMatrix * perViewData.viewMatrix;
-
-        perViewData.depthParameters = Vector4(camera_->NearClip(), camera_->FarClip(), 0.0f, 0.0f);
-        if (camera_->IsOrthographic())
-        {
-            perViewData.depthParameters.z = 0.5f;
-            perViewData.depthParameters.w = 0.5f;
-        }
-        else
-            perViewData.depthParameters.w = 1.0f / camera_->FarClip();
+        perViewData.depthParameters = Vector4(camera_->NearClip(), camera_->FarClip(), camera_->IsOrthographic() ? 0.5f : 0.0f, camera_->IsOrthographic() ? 0.5f : 1.0f / camera_->FarClip());
 
         if (!dirLight)
         {
