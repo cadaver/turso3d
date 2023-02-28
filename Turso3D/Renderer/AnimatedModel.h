@@ -40,7 +40,7 @@ public:
     void SetAnimationEnabled(bool enable);
 
     /// Set bone parent space transform without dirtying the hierarchy.
-    void Bone::SetTransformSilent(const Vector3& position_, const Quaternion& rotation_, const Vector3& scale_)
+    void SetTransformSilent(const Vector3& position_, const Quaternion& rotation_, const Vector3& scale_)
     {
         position = position_;
         rotation = rotation_;
@@ -125,7 +125,7 @@ public:
     AnimationState* FindAnimationState(StringHash animationNameHash) const;
 
     /// Set bounding box and skinning dirty and queue octree reinsertion when any of the bones move.
-    void AnimatedModel::OnBoneTransformChanged()
+    void OnBoneTransformChanged()
     {
         SetFlag(NF_BOUNDING_BOX_DIRTY, true);
         if (octree && (Flags() & (NF_OCTREE_REINSERT_QUEUED | NF_ENABLED)) == NF_ENABLED)

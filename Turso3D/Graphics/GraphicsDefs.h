@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <cstddef>
+
 /// Maximum simultaneous vertex buffers.
 static const size_t MAX_VERTEX_STREAMS = 4;
 /// Maximum number of material textures
