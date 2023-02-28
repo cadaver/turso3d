@@ -43,6 +43,21 @@ struct ThreadGeometryResult
     std::vector<Batch> alphaBatches;
 };
 
+/// Per-view uniform buffer data
+struct PerViewUniforms
+{
+    /// Current camera's view matrix
+    Matrix3x4 viewMatrix;
+    /// Current camera's projection matrix.
+    Matrix4 projectionMatrix;
+    /// Current camera's combined view and projection matrix.
+    Matrix4 viewProjMatrix;
+    /// Current camera's depth parameters.
+    Vector4 depthParameters;
+    /// Data for the view's global directional light.
+    Vector4 dirLightData[12];
+};
+
 /// High-level rendering subsystem. Performs rendering of 3D scenes.
 class Renderer : public Object
 {
@@ -127,6 +142,10 @@ private:
     Frustum frustum;
     /// Cached work queue subsystem.
     WorkQueue* workQueue;
+    /// Camera view mask.
+    unsigned viewMask;
+    /// Framenumber.
+    unsigned short frameNumber;
     /// Octants with plane masks in frustum.
     std::vector<std::pair<Octant*, unsigned char> > octants;
     /// Brightest directional light in frustum.
@@ -141,6 +160,8 @@ private:
     AutoPtr<Texture> faceSelectionTexture2;
     /// Cluster lookup 3D texture.
     AutoPtr<Texture> clusterTexture;
+    /// Per-view uniform buffer.
+    AutoPtr<UniformBuffer> perViewDataBuffer;
     /// Light data uniform buffer.
     AutoPtr<UniformBuffer> lightDataBuffer;
     /// Cluster frustums for lights.
@@ -151,7 +172,9 @@ private:
     unsigned char numClusterLights[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
     /// Cluster data CPU copy.
     unsigned char clusterData[MAX_LIGHTS_CLUSTER * NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
-    /// Light constantbuffer data CPU copy
+    /// Per-view uniform data CPU copy.
+    PerViewUniforms perViewData;
+    /// Light constantbuffer data CPU copy.
     LightData lightData[MAX_LIGHTS + 1];
     /// Last projection matrix used to initialize cluster frustums.
     Matrix4 lastClusterFrustumProj;
@@ -185,18 +208,10 @@ private:
     bool instancingEnabled;
     /// Shadow maps globally dirty flag. All cached shadow content should be reset.
     bool shadowMapsDirty;
-    /// Cluster frustums init flag.
+    /// Cluster frustums dirty flag.
     bool clusterFrustumsDirty;
-    /// Camera view mask.
-    unsigned viewMask;
-    /// Framenumber.
-    unsigned short frameNumber;
-    /// Subview framenumber for state sorting.
-    unsigned short sortViewNumber;
     /// Last camera used for rendering.
     Camera* lastCamera;
-    /// Last camera uniforms assignment number.
-    unsigned lastPerViewUniforms;
     /// Last material pass used for rendering.
     Pass* lastPass;
     /// Last material used for rendering.

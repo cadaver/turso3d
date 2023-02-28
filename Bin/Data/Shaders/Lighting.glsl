@@ -1,20 +1,3 @@
-struct Light
-{
-    vec4 position;
-    vec4 direction;
-    vec4 attenuation;
-    vec4 color;
-    vec4 shadowParameters;
-    mat4 shadowMatrix;
-};
-
-layout(std140) uniform LightData0
-{
-    Light lights[255];
-};
-
-uniform vec4 dirLightData[12];
-
 uniform sampler2DShadow dirShadowTex8;
 uniform sampler2DShadow shadowTex9;
 uniform samplerCube faceSelectionTex10;

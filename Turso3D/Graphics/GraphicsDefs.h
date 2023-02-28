@@ -121,11 +121,6 @@ enum TextureAddressMode
 /// Preset uniforms.
 enum PresetUniform
 {
-    U_VIEWMATRIX = 0,
-    U_PROJECTIONMATRIX,
-    U_VIEWPROJMATRIX,
-    U_DEPTHPARAMETERS,
-    U_DIRLIGHTDATA,
     U_WORLDMATRIX,
     U_MATDIFFCOLOR,
     MAX_PRESET_UNIFORMS
@@ -134,7 +129,8 @@ enum PresetUniform
 /// Uniform buffer binding points.
 enum UniformBufferBindings
 {
-    UB_LIGHTDATA = 0,
+    UB_PERVIEWDATA = 0,
+    UB_LIGHTDATA,
     UB_SKINMATRICES
 };
 

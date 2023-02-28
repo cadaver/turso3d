@@ -97,7 +97,6 @@ Renderer::Renderer() :
     workQueue(Subsystem<WorkQueue>()),
     frameNumber(0),
     clusterFrustumsDirty(true),
-    lastPerViewUniforms(0),
     lastPerMaterialUniforms(0),
     lastBlendMode(MAX_BLEND_MODES),
     lastCullMode(MAX_CULL_MODES),
@@ -139,6 +138,9 @@ Renderer::Renderer() :
     clusterTexture = new Texture();
     clusterTexture->Define(TEX_3D, IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RGBA32U, 1);
     clusterTexture->DefineSampler(FILTER_POINT, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
+
+    perViewDataBuffer = new UniformBuffer();
+    perViewDataBuffer->Define(USAGE_DYNAMIC, sizeof(PerViewUniforms));
 
     lightDataBuffer = new UniformBuffer();
     lightDataBuffer->Define(USAGE_DYNAMIC, MAX_LIGHTS * sizeof(LightData));
@@ -1006,11 +1008,54 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
 
     if (camera_ != lastCamera)
     {
+        perViewData.projectionMatrix = camera_->ProjectionMatrix();
+        perViewData.viewMatrix = camera_->ViewMatrix();
+        perViewData.viewProjMatrix = perViewData.projectionMatrix * perViewData.viewMatrix;
+
+        perViewData.depthParameters = Vector4(camera_->NearClip(), camera_->FarClip(), 0.0f, 0.0f);
+        if (camera_->IsOrthographic())
+        {
+            perViewData.depthParameters.z = 0.5f;
+            perViewData.depthParameters.w = 0.5f;
+        }
+        else
+            perViewData.depthParameters.w = 1.0f / camera_->FarClip();
+
+        if (!dirLight)
+        {
+            perViewData.dirLightData[0] = Vector4::ZERO;
+            perViewData.dirLightData[1] = Vector4::ZERO;
+            perViewData.dirLightData[3] = Vector4::ONE;
+        }
+        else
+        {
+            perViewData.dirLightData[0] = Vector4(-dirLight->WorldDirection(), 0.0f);
+            perViewData.dirLightData[1] = dirLight->GetColor().Data();
+
+            if (dirLight->ShadowMap())
+            {
+                float farClip = camera->FarClip();
+                float firstSplit = dirLight->ShadowSplit(0) / farClip;
+                float secondSplit = dirLight->ShadowSplit(1) / farClip;
+
+                perViewData.dirLightData[2] = Vector4(firstSplit, secondSplit, dirLight->ShadowFadeStart() * secondSplit, 1.0f / (secondSplit - dirLight->ShadowFadeStart() * secondSplit));
+                perViewData.dirLightData[3] = dirLight->ShadowParameters();
+                if (dirLight->ShadowViews().size() >= 2)
+                {
+                    *reinterpret_cast<Matrix4*>(&perViewData.dirLightData[4]) = dirLight->ShadowViews()[0].shadowMatrix;
+                    *reinterpret_cast<Matrix4*>(&perViewData.dirLightData[8]) = dirLight->ShadowViews()[1].shadowMatrix;
+                }
+            }
+            else
+                perViewData.dirLightData[3] = Vector4::ONE;
+        }
+
+        perViewDataBuffer->SetData(0, sizeof(perViewData), &perViewData);
+
         lastCamera = camera_;
-        ++lastPerViewUniforms;
-        if (!lastPerViewUniforms)
-            ++lastPerViewUniforms;
     }
+
+    perViewDataBuffer->Bind(UB_PERVIEWDATA);
 
     for (auto it = queue.batches.begin(); it != queue.batches.end(); ++it)
     {
@@ -1020,77 +1065,6 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
         ShaderProgram* program = batch.pass->GetShaderProgram(batch.programBits);
         if (!program->Bind())
             continue;
-
-        if (program->lastPerViewUniforms != lastPerViewUniforms)
-        {
-            Matrix4 projection = camera_->ProjectionMatrix();
-            const Matrix3x4& view = camera_->ViewMatrix();
-
-            int location = program->Uniform(U_VIEWMATRIX);
-            if (location >= 0)
-                glUniformMatrix3x4fv(location, 1, GL_FALSE, view.Data());
-            location = program->Uniform(U_PROJECTIONMATRIX);
-            if (location >= 0)
-                glUniformMatrix4fv(location, 1, GL_FALSE, projection.Data());
-            location = program->Uniform(U_VIEWPROJMATRIX);
-            if (location >= 0)
-                glUniformMatrix4fv(location, 1, GL_FALSE, (projection * view).Data());
-            location = program->Uniform(U_DEPTHPARAMETERS);
-            if (location >= 0)
-            {
-                Vector4 depthParameters(camera_->NearClip(), camera_->FarClip(), 0.0f, 0.0f);
-                if (camera_->IsOrthographic())
-                {
-                    depthParameters.z = 0.5f;
-                    depthParameters.w = 0.5f;
-                }
-                else
-                    depthParameters.w = 1.0f / camera_->FarClip();
-
-                glUniform4fv(location, 1, depthParameters.Data());
-            }
-            location = program->Uniform(U_DIRLIGHTDATA);
-            if (location >= 0)
-            {
-                Vector4 dirLightData[12];
-                bool hasShadow = false;
-
-                if (!dirLight)
-                {
-                    dirLightData[0] = Vector4::ZERO;
-                    dirLightData[1] = Vector4::ZERO;
-                    dirLightData[3] = Vector4::ONE;
-                }
-                else
-                {
-                    dirLightData[0] = Vector4(-dirLight->WorldDirection(), 0.0f);
-                    dirLightData[1] = dirLight->GetColor().Data();
-
-                    if (dirLight->ShadowMap())
-                    {
-                        hasShadow = true;
-
-                        float farClip = camera->FarClip();
-                        float firstSplit = dirLight->ShadowSplit(0) / farClip;
-                        float secondSplit = dirLight->ShadowSplit(1) / farClip;
-
-                        dirLightData[2] = Vector4(firstSplit, secondSplit, dirLight->ShadowFadeStart() * secondSplit, 1.0f / (secondSplit - dirLight->ShadowFadeStart() * secondSplit));
-                        dirLightData[3] = dirLight->ShadowParameters();
-                        if (dirLight->ShadowViews().size() >= 2)
-                        {
-                            *reinterpret_cast<Matrix4*>(&dirLightData[4]) = dirLight->ShadowViews()[0].shadowMatrix;
-                            *reinterpret_cast<Matrix4*>(&dirLightData[8]) = dirLight->ShadowViews()[1].shadowMatrix;
-                        }
-                    }
-                    else
-                        dirLightData[3] = Vector4::ONE;
-                }
-
-                glUniform4fv(location, hasShadow ? 12 : 4, dirLightData[0].Data());
-            }
-
-            program->lastPerViewUniforms = lastPerViewUniforms;
-        }
 
         Material* material = batch.pass->Parent();
         if (batch.pass != lastPass)

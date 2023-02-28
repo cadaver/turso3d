@@ -1,8 +1,3 @@
-uniform mat3x4 viewMatrix;
-uniform mat4x4 projectionMatrix;
-uniform mat4x4 viewProjMatrix;
-uniform vec4 depthParameters;
-
 #if defined(INSTANCED)
 in vec4 texCoord3;
 in vec4 texCoord4;
@@ -15,11 +10,6 @@ mat3x4 GetWorldMatrix()
 #elif defined(SKINNED)
 in vec4 blendWeights;
 in vec4 blendIndices;
-
-layout(std140) uniform SkinMatrixData1
-{
-    mat3x4 skinMatrices[96];
-};
 
 mat3x4 GetWorldMatrix()
 {

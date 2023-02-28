@@ -1,3 +1,5 @@
+#include "Uniforms.glsl"
+
 #ifdef COMPILEVS
 
 #include "Transform.glsl"
