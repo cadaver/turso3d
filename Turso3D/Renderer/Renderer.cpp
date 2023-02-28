@@ -1013,6 +1013,8 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
         perViewData.viewProjMatrix = perViewData.projectionMatrix * perViewData.viewMatrix;
         perViewData.depthParameters = Vector4(camera_->NearClip(), camera_->FarClip(), camera_->IsOrthographic() ? 0.5f : 0.0f, camera_->IsOrthographic() ? 0.5f : 1.0f / camera_->FarClip());
 
+        size_t dataSize = sizeof(Matrix3x4) + 2 * sizeof(Matrix4) + 5 * sizeof(Vector4);
+
         // Set the dir light parameters only in the main view
         if (!dirLight || camera_ != camera)
         {
@@ -1037,13 +1039,14 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
                 {
                     *reinterpret_cast<Matrix4*>(&perViewData.dirLightData[4]) = dirLight->ShadowViews()[0].shadowMatrix;
                     *reinterpret_cast<Matrix4*>(&perViewData.dirLightData[8]) = dirLight->ShadowViews()[1].shadowMatrix;
+                    dataSize += 8 * sizeof(Vector4);
                 }
             }
             else
                 perViewData.dirLightData[3] = Vector4::ONE;
         }
 
-        perViewDataBuffer->SetData(0, sizeof(perViewData), &perViewData);
+        perViewDataBuffer->SetData(0, dataSize, &perViewData);
 
         lastCamera = camera_;
     }
