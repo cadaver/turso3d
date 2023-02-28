@@ -1013,7 +1013,8 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
         perViewData.viewProjMatrix = perViewData.projectionMatrix * perViewData.viewMatrix;
         perViewData.depthParameters = Vector4(camera_->NearClip(), camera_->FarClip(), camera_->IsOrthographic() ? 0.5f : 0.0f, camera_->IsOrthographic() ? 0.5f : 1.0f / camera_->FarClip());
 
-        if (!dirLight)
+        // Set the dir light parameters only in the main view
+        if (!dirLight || camera_ != camera)
         {
             perViewData.dirLightData[0] = Vector4::ZERO;
             perViewData.dirLightData[1] = Vector4::ZERO;
