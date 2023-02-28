@@ -326,56 +326,60 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
         renderer->PrepareView(scene, camera, shadowMode > 0);
         
-        renderer->RenderShadowMaps();
-
-        if (drawSSAO)
-            viewMRTFbo->Bind();
-        else
-            viewFbo->Bind();
-
-        renderer->SetViewport(IntRect(0, 0, width, height));
-        renderer->Clear(true, true, IntRect::ZERO, Color::BLACK);
-        renderer->RenderOpaque();
-
-        if (drawSSAO)
         {
-            float farClip = camera->FarClip();
-            float nearClip = camera->NearClip();
-            Vector3 nearVec, farVec;
-            camera->FrustumSize(nearVec, farVec);
+            PROFILE(RenderView);
 
-            ssaoFbo->Bind();
-            renderer->SetViewport(IntRect(0, 0, ssaoTexture->Width(), ssaoTexture->Height()));
-            ShaderProgram* program = renderer->SetProgram("Shaders/SSAO.glsl");
-            renderer->SetUniform(program, "noiseInvSize", Vector2(ssaoTexture->Width() / 4.0f, ssaoTexture->Height() / 4.0f));
-            renderer->SetUniform(program, "screenInvSize", Vector2(1.0f / colorBuffer->Width(), 1.0f / colorBuffer->Height()));
-            renderer->SetUniform(program, "frustumSize", Vector4(farVec, (float)height / (float)width));
-            renderer->SetUniform(program, "aoParameters", Vector4(0.15f, 1.0f, 0.015f, 0.15f));
-            renderer->SetUniform(program, "depthReconstruct", Vector2(farClip / (farClip - nearClip), -nearClip / (farClip - nearClip)));
-            depthStencilBuffer->Bind(0);
-            normalBuffer->Bind(1);
-            noiseTexture->Bind(2);
-            renderer->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_ALWAYS, true, false);
-            renderer->DrawQuad();
-            Texture::Unbind(1);
-            Texture::Unbind(2);
+            renderer->RenderShadowMaps();
+
+            if (drawSSAO)
+                viewMRTFbo->Bind();
+            else
+                viewFbo->Bind();
+
+            renderer->SetViewport(IntRect(0, 0, width, height));
+            renderer->Clear(true, true, IntRect::ZERO, Color::BLACK);
+            renderer->RenderOpaque();
+
+            if (drawSSAO)
+            {
+                float farClip = camera->FarClip();
+                float nearClip = camera->NearClip();
+                Vector3 nearVec, farVec;
+                camera->FrustumSize(nearVec, farVec);
+
+                ssaoFbo->Bind();
+                renderer->SetViewport(IntRect(0, 0, ssaoTexture->Width(), ssaoTexture->Height()));
+                ShaderProgram* program = renderer->SetProgram("Shaders/SSAO.glsl");
+                renderer->SetUniform(program, "noiseInvSize", Vector2(ssaoTexture->Width() / 4.0f, ssaoTexture->Height() / 4.0f));
+                renderer->SetUniform(program, "screenInvSize", Vector2(1.0f / colorBuffer->Width(), 1.0f / colorBuffer->Height()));
+                renderer->SetUniform(program, "frustumSize", Vector4(farVec, (float)height / (float)width));
+                renderer->SetUniform(program, "aoParameters", Vector4(0.15f, 1.0f, 0.015f, 0.15f));
+                renderer->SetUniform(program, "depthReconstruct", Vector2(farClip / (farClip - nearClip), -nearClip / (farClip - nearClip)));
+                depthStencilBuffer->Bind(0);
+                normalBuffer->Bind(1);
+                noiseTexture->Bind(2);
+                renderer->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_ALWAYS, true, false);
+                renderer->DrawQuad();
+                Texture::Unbind(1);
+                Texture::Unbind(2);
+
+                viewFbo->Bind();
+                renderer->SetViewport(IntRect(0, 0, width, height));
+                program = renderer->SetProgram("Shaders/SSAOBlur.glsl");
+                renderer->SetUniform(program, "blurInvSize", Vector2(1.0f / ssaoTexture->Width(), 1.0f / ssaoTexture->Height()));
+                ssaoTexture->Bind(0);
+                renderer->SetRenderState(BLEND_SUBTRACT, CULL_NONE, CMP_ALWAYS, true, false);
+                renderer->DrawQuad();
+                Texture::Unbind(0);
+            }
 
             viewFbo->Bind();
             renderer->SetViewport(IntRect(0, 0, width, height));
-            program = renderer->SetProgram("Shaders/SSAOBlur.glsl");
-            renderer->SetUniform(program, "blurInvSize", Vector2(1.0f / ssaoTexture->Width(), 1.0f / ssaoTexture->Height()));
-            ssaoTexture->Bind(0);
-            renderer->SetRenderState(BLEND_SUBTRACT, CULL_NONE, CMP_ALWAYS, true, false);
-            renderer->DrawQuad();
-            Texture::Unbind(0);
+            renderer->RenderAlpha();
+
+            FrameBuffer::Blit(nullptr, IntRect(0, 0, width, height), viewFbo, IntRect(0, 0, width, height), true, false, FILTER_POINT);
+            graphics->Present();
         }
-
-        viewFbo->Bind();
-        renderer->SetViewport(IntRect(0, 0, width, height));
-        renderer->RenderAlpha();
-
-        FrameBuffer::Blit(nullptr, IntRect(0, 0, width, height), viewFbo, IntRect(0, 0, width, height), true, false, FILTER_POINT);
-        graphics->Present();
 
         profiler->EndFrame();
         dt = frameTimer.ElapsedUSec() * 0.000001f;
