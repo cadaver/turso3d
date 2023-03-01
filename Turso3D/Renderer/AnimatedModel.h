@@ -18,7 +18,7 @@ static const unsigned char AMF_IN_ANIMATION_UPDATE = 0x4;
 static const unsigned char AMF_SKINNING_DIRTY = 0x8;
 static const unsigned char AMF_SKINNING_BUFFER_DIRTY = 0x10;
 
-/// Bone scene node.
+/// %Bone scene node for AnimatedModel skinning.
 class Bone : public SpatialNode
 {
     friend class AnimatedModel;
@@ -63,7 +63,7 @@ private:
     bool animationEnabled;
 };
 
-/// %Scene node that renders a skinned animated model.
+/// %Scene node that renders a skeletally animated (skinned) model.
 class AnimatedModel : public StaticModel
 {
     OBJECT(AnimatedModel);

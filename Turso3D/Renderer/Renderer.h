@@ -64,7 +64,7 @@ class Renderer : public Object
     OBJECT(Renderer);
 
 public:
-    /// Construct. Register subsystem and objects. %Graphics subsystem must have been initialized.
+    /// Construct. Register subsystem and objects. Graphics and WorkQueue subsystems must have been initialized.
     Renderer();
     /// Destruct.
     ~Renderer();
@@ -73,11 +73,11 @@ public:
     void SetupShadowMaps(int dirLightSize, int lightAtlasSize, ImageFormat format);
     /// Set global depth bias multipiers for shadow maps.
     void SetShadowDepthBiasMul(float depthBiasMul, float slopeScaleBiasMul);
-    /// Prepare view for rendering.
+    /// Prepare view for rendering. This will utilize worker threads.
     void PrepareView(Scene* scene, Camera* camera, bool drawShadows);
     /// Render shadowmaps before rendering the view. Last shadow framebuffer will be left bound.
     void RenderShadowMaps();
-    /// Render opaque objects into currently set framebuffer and viewport. 
+    /// Render opaque objects into currently set framebuffer and viewport.
     void RenderOpaque();
     /// Render transparent objects into currently set framebuffer and viewport.
     void RenderAlpha();
@@ -91,15 +91,15 @@ public:
     /// Set depth bias.
     void SetDepthBias(float constantBias = 0.0f, float slopeScaleBias = 0.0f);
 
-    /// Set a shader program and bind. Return pointer on success or null otherwise.
+    /// Bind a shader program for use. Return pointer on success or null otherwise.
     ShaderProgram* SetProgram(const std::string& shaderName, const std::string& vsDefines = JSONValue::emptyString, const std::string& fsDefines = JSONValue::emptyString);
      /// Set float uniform. Low performance, provided for convenience.
     void SetUniform(ShaderProgram* program, const char* name, float value);
-    /// Set Vector2 uniform. Low performance, provided for convenience.
+    /// Set a Vector2 uniform. Low performance, provided for convenience.
     void SetUniform(ShaderProgram* program, const char* name, const Vector2& value);
-    /// Set Vector3 uniform. Low performance, provided for convenience.
+    /// Set a Vector3 uniform. Low performance, provided for convenience.
     void SetUniform(ShaderProgram* program, const char* name, const Vector3& value);
-    /// Set Vector4 uniform. Low performance, provided for convenience.
+    /// Set a Vector4 uniform. Low performance, provided for convenience.
     void SetUniform(ShaderProgram* program, const char* name, const Vector4& value);
     /// Draw a quad with current renderstate.
     void DrawQuad();

@@ -11,7 +11,7 @@
 class ShaderProgram : public RefCounted
 {
 public:
-    /// Construct from shader source code and defines. %Graphics subsystem must have been initialized.
+    /// Construct from shader source code and defines. Graphics subsystem must have been initialized.
     ShaderProgram(const std::string& sourceCode, const std::string& shaderName = JSONValue::emptyString, const std::string& vsDefines = JSONValue::emptyString, const std::string& fsDefines = JSONValue::emptyString);
     /// Destruct.
     ~ShaderProgram();

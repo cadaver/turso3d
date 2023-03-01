@@ -12,18 +12,18 @@
 class RenderBuffer;
 class Texture;
 
-/// GPU framebuffer object for rendering.
+/// GPU framebuffer object for rendering. Combines color and depth-stencil textures or buffers.
 class FrameBuffer : public RefCounted
 {
 public:
-    /// Construct. %Graphics subsystem must have been initialized.
+    /// Construct. Graphics subsystem must have been initialized.
     FrameBuffer();
     /// Destruct.
     ~FrameBuffer();
 
     /// Define renderbuffers to render to.
     void Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBuffer);
-    /// Define textures to render to.
+    /// Define textures to render to. Leave texture(s) null for color-only or depth-only rendering.
     void Define(Texture* colorTexture, Texture* depthStencilTexture);
     /// Define cube map face to render to.
     void Define(Texture* colorTexture, size_t cubeMapFace, Texture* depthStencilTexture);
@@ -36,7 +36,7 @@ public:
     unsigned GLBuffer() const { return buffer; }
     /// Blit from one framebuffer to another.
     static void Blit(FrameBuffer* dest, const IntRect& destRect, FrameBuffer* src, const IntRect& srcRect, bool blitColor, bool blitDepth, TextureFilterMode filter);
-    /// Return to backbuffer rendering.
+    /// Unbind the current framebuffer and return to backbuffer rendering.
     static void Unbind();
 
 private:

@@ -68,7 +68,7 @@ class Octree : public Node
     OBJECT(Octree);
 
 public:
-    /// Construct.
+    /// Construct. The WorkQueue subsystem must have been initialized, as it will be used during update.
     Octree();
     /// Destruct. Delete all child octants and detach the nodes.
     ~Octree();
@@ -76,7 +76,7 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
     
-    /// Process the queue of nodes to be reinserted. Then sort nodes inside changed octants. This will utilize worker threads
+    /// Process the queue of nodes to be reinserted. Then sort nodes inside changed octants. This will utilize worker threads.
     void Update(unsigned short frameNumber);
     /// Resize octree.
     void Resize(const BoundingBox& boundingBox, int numLevels);

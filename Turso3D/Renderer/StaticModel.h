@@ -6,7 +6,7 @@
 
 class Model;
 
-/// %Scene node that renders an unanimated model.
+/// %Scene node that renders an unanimated model, which can have LOD levels.
 class StaticModel : public GeometryNode
 {
     OBJECT(StaticModel);

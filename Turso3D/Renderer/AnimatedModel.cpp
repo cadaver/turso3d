@@ -245,6 +245,13 @@ AnimationState* AnimatedModel::GetAnimationState(size_t index) const
 
 void AnimatedModel::OnTransformChanged()
 {
+    // If animation is already dirty, update will have been queued, and bones will be updated as appropriate. Only set the self transform and bounding box dirty
+    if (animatedModelFlags & AMF_ANIMATION_DIRTY)
+    {
+        SetFlag(NF_WORLD_TRANSFORM_DIRTY | NF_BOUNDING_BOX_DIRTY, true);
+        return;
+    }
+
     // To improve performance, do not signal bone transform changes back to the model, as we already know the skinning has dirtied
     animatedModelFlags |= AMF_IN_ANIMATION_UPDATE;
     SpatialNode::OnTransformChanged();

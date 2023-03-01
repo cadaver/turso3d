@@ -286,7 +286,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                     AnimatedModel* object = *it;
                     AnimationState* state = object->AnimationStates()[0];
                     state->AddTime(dt);
-                    object->Translate(Vector3::FORWARD * 2.0f * dt, TS_LOCAL);
+                    object->Translate(Vector3::FORWARD * 2.0f * dt);
 
                     // Rotate to avoid going outside the plane
                     Vector3 pos = object->Position();

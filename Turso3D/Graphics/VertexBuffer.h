@@ -12,7 +12,7 @@
 class VertexBuffer : public RefCounted
 {
 public:
-    /// Construct. %Graphics subsystem must have been initialized.
+    /// Construct. Graphics subsystem must have been initialized.
     VertexBuffer();
     /// Destruct.
     ~VertexBuffer();

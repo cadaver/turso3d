@@ -10,7 +10,7 @@
 class UniformBuffer : public RefCounted
 {
 public:
-    /// Construct. %Graphics subsystem must have been initialized.
+    /// Construct. Graphics subsystem must have been initialized.
     UniformBuffer();
     /// Destruct.
     ~UniformBuffer();
