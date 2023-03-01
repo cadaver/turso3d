@@ -7,7 +7,7 @@
 #include "../Resource/Image.h"
 #include "GraphicsDefs.h"
 
-/// Renderbuffer object on the GPU.
+/// GPU renderbuffer object for rendering and blitting, that cannot be sampled as a texture.
 class RenderBuffer : public RefCounted
 {
 public:
