@@ -84,14 +84,14 @@ void AnimatedModel::RegisterObject()
 
 void AnimatedModel::OnOctreeUpdate(unsigned short frameNumber)
 {
-    if (animatedModelFlags & AMF_ANIMATION_DIRTY)
+    if (updateInvisible || WasInView(frameNumber))
     {
-        if (updateInvisible || WasInView(frameNumber))
+        if (animatedModelFlags & AMF_ANIMATION_DIRTY)
             UpdateAnimation();
+        
+        if (animatedModelFlags & AMF_SKINNING_DIRTY)
+            UpdateSkinning();
     }
-
-    if (animatedModelFlags & AMF_SKINNING_DIRTY)
-        UpdateSkinning();
 }
 
 bool AnimatedModel::OnPrepareRender(unsigned short frameNumber, Camera* camera)
