@@ -245,7 +245,10 @@ AnimationState* AnimatedModel::GetAnimationState(size_t index) const
 
 void AnimatedModel::OnTransformChanged()
 {
+    // To improve performance, do not signal bone transform changes back to the model, as we already know the skinning has dirtied
+    animatedModelFlags |= AMF_IN_ANIMATION_UPDATE;
     SpatialNode::OnTransformChanged();
+    animatedModelFlags &= ~AMF_IN_ANIMATION_UPDATE;
 
     SetFlag(NF_BOUNDING_BOX_DIRTY, true);
     if (octree && (Flags() & (NF_OCTREE_REINSERT_QUEUED | NF_ENABLED)) == NF_ENABLED)
