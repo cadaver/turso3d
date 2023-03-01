@@ -287,7 +287,6 @@ void Node::RemoveChild(size_t index)
     Node* child = children[index];
     // Detach from both the parent and the scene (removes id assignment)
     child->parent = nullptr;
-    child->OnParentSet(nullptr, this);
     if (impl->scene)
         impl->scene->RemoveNode(child);
     children.erase(children.begin() + index);
@@ -299,7 +298,6 @@ void Node::RemoveAllChildren()
     {
         Node* child = *it;
         child->parent = nullptr;
-        child->OnParentSet(nullptr, this);
         if (impl->scene)
             impl->scene->RemoveNode(child);
         it->Reset();
