@@ -105,9 +105,9 @@ public:
     void DrawQuad();
 
 private:
-    /// Find visible objects within frustum.
+    /// Collect batches for visible geometries within frustum, as well as lights. Initiate light grid culling task. Perform octree queries for shadowcasters per light.
     void CollectGeometriesAndLights();
-    /// Join the per-thread batch results and sort.
+    /// Join the per-thread batch results and sort. Collect and sort shadowcaster geometry batches.
     void JoinAndSortBatches();
     /// Upload instance transforms before rendering.
     void UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms);
@@ -115,8 +115,6 @@ private:
     void RenderBatches(Camera* camera, const BatchQueue& queue);
     /// Allocate shadow map for light. Return true on success.
     bool AllocateShadowMap(Light* light);
-    /// Collect (unlit) shadow batches from geometry.
-    void CollectShadowBatches(ShadowMap& shadowMap, ShadowView& view);
     /// Define face selection texture for point light shadows.
     void DefineFaceSelectionTextures();
     /// Define vertex data for rendering full-screen quads.
