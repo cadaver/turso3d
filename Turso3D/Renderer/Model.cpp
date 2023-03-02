@@ -9,8 +9,12 @@
 #include "Material.h"
 #include "Model.h"
 
-const size_t COMBINEDBUFFER_VERTICES = 384 * 1024;
-const size_t COMBINEDBUFFER_INDICES = 1024 * 1024;
+// Vertex and index allocation for the combined model buffers
+static const size_t COMBINEDBUFFER_VERTICES = 384 * 1024;
+static const size_t COMBINEDBUFFER_INDICES = 1024 * 1024;
+
+// Bone bounding box size required to contribute to bounding box recalculation
+static const float BONE_SIZE_THRESHOLD = 0.05f;
 
 std::map<unsigned, std::vector<WeakPtr<CombinedBuffer> > > CombinedBuffer::buffers;
 
@@ -95,7 +99,8 @@ ModelBone::ModelBone() :
     offsetMatrix(Matrix3x4::IDENTITY),
     radius(0.0f),
     boundingBox(0.0f, 0.0f),
-    parentIndex(0)
+    parentIndex(0),
+    active(true)
 {
 }
 
@@ -269,9 +274,17 @@ bool Model::BeginLoad(Stream& source)
 
         unsigned char boneCollisionType = source.Read<unsigned char>();
         if (boneCollisionType & 1)
+        {
             bone.radius = source.Read<float>();
+            if (bone.radius < BONE_SIZE_THRESHOLD * 0.5f)
+                bone.active = false;
+        }
         if (boneCollisionType & 2)
+        {
             bone.boundingBox = source.Read<BoundingBox>();
+            if (bone.boundingBox.Size().Length() < BONE_SIZE_THRESHOLD)
+                bone.active = false;
+        }
     }
 
     // Read bounding box

@@ -45,7 +45,8 @@ void Bone::OnTransformChanged()
 {
     SpatialNode::OnTransformChanged();
 
-    // Avoid duplicate dirtying calls if model's skinning is already dirty. During animation update, do not signal changes either, as the model will set the hierarchy dirty when finished.
+    // Avoid duplicate dirtying calls if model's skinning is already dirty. Do not signal changes either during animation update,
+    // as the model will set the hierarchy dirty when finished. This is also used to optimize when only the model node moves.
     if (model && !(model->AnimatedModelFlags() & (AMF_IN_ANIMATION_UPDATE | AMF_SKINNING_DIRTY)))
         model->OnBoneTransformChanged();
 }
@@ -245,27 +246,36 @@ AnimationState* AnimatedModel::GetAnimationState(size_t index) const
 
 void AnimatedModel::OnTransformChanged()
 {
-    // To improve performance, do not signal bone transform changes back to the model, as we already know the skinning has dirtied
-    animatedModelFlags |= AMF_IN_ANIMATION_UPDATE;
-    SpatialNode::OnTransformChanged();
-    animatedModelFlags &= ~AMF_IN_ANIMATION_UPDATE;
-
-    SetFlag(NF_BOUNDING_BOX_DIRTY, true);
-    if (octree && (Flags() & (NF_OCTREE_REINSERT_QUEUED | NF_ENABLED)) == NF_ENABLED)
-        octree->QueueUpdate(this);
-
+    // To improve performance set skinning dirty now, so the bone nodes will not redundantly signal transform changes back
     animatedModelFlags |= AMF_SKINNING_DIRTY;
+    OctreeNode::OnTransformChanged();
 }
 
 void AnimatedModel::OnWorldBoundingBoxUpdate() const
 {
     if (model && numBones)
     {
-        const std::vector<ModelBone>& modelBones = model->Bones();
+        // Recalculate bounding box from bone only if they moved individually
+        if (animatedModelFlags & AMF_BONE_BOUNDING_BOX_DIRTY)
+        {
+            const std::vector<ModelBone>& modelBones = model->Bones();
 
-        worldBoundingBox = modelBones[0].boundingBox.Transformed(bones[0]->WorldTransform());
-        for (size_t i = 1; i < numBones; ++i)
-            worldBoundingBox.Merge(modelBones[i].boundingBox.Transformed(bones[i]->WorldTransform()));
+            if (modelBones[0].active)
+                worldBoundingBox = modelBones[0].boundingBox.Transformed(bones[0]->WorldTransform());
+            else
+                worldBoundingBox.Undefine();
+
+            for (size_t i = 1; i < numBones; ++i)
+            {
+                if (modelBones[i].active)
+                    worldBoundingBox.Merge(modelBones[i].boundingBox.Transformed(bones[i]->WorldTransform()));
+            }
+
+            boneBoundingBox = worldBoundingBox.Transformed(WorldTransform().Inverse());
+            animatedModelFlags &= ~AMF_BONE_BOUNDING_BOX_DIRTY;
+        }
+        else
+            worldBoundingBox = boneBoundingBox.Transformed(WorldTransform());
 
         SetFlag(NF_BOUNDING_BOX_DIRTY, false);
     }
@@ -329,7 +339,7 @@ void AnimatedModel::CreateBones()
         skinMatrixBuffer = new UniformBuffer();
     skinMatrixBuffer->Define(USAGE_DYNAMIC, numBones * sizeof(Matrix3x4));
 
-    // Set initial bounding box recalculation and skinning dirty
+    // Set initial bone bounding box recalculation and skinning dirty
     OnBoneTransformChanged();
 }
 
@@ -338,7 +348,7 @@ void AnimatedModel::UpdateAnimation()
     if (animatedModelFlags & AMF_ANIMATION_ORDER_DIRTY)
         std::sort(animationStates.begin(), animationStates.end(), CompareAnimationStates);
     
-    animatedModelFlags |= AMF_IN_ANIMATION_UPDATE;
+    animatedModelFlags |= AMF_IN_ANIMATION_UPDATE | AMF_BONE_BOUNDING_BOX_DIRTY;
 
     // Reset bones to initial pose, then apply animations
     const std::vector<ModelBone>& modelBones = model->Bones();

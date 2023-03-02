@@ -75,6 +75,8 @@ struct ModelBone
     BoundingBox boundingBox;
     /// Parent bone index. If points to self, is the root bone.
     size_t parentIndex;
+    /// Whether contributes to bounding boxes.
+    bool active;
 };
 
 /// Combined vertex and index buffers for static models.

@@ -14,9 +14,10 @@ struct ModelBone;
 
 static const unsigned char AMF_ANIMATION_ORDER_DIRTY = 0x1;
 static const unsigned char AMF_ANIMATION_DIRTY = 0x2;
-static const unsigned char AMF_IN_ANIMATION_UPDATE = 0x4;
-static const unsigned char AMF_SKINNING_DIRTY = 0x8;
-static const unsigned char AMF_SKINNING_BUFFER_DIRTY = 0x10;
+static const unsigned char AMF_SKINNING_DIRTY = 0x4;
+static const unsigned char AMF_SKINNING_BUFFER_DIRTY = 0x8;
+static const unsigned char AMF_BONE_BOUNDING_BOX_DIRTY = 0x10;
+static const unsigned char AMF_IN_ANIMATION_UPDATE = 0x20;
 
 /// %Bone scene node for AnimatedModel skinning.
 class Bone : public SpatialNode
@@ -131,7 +132,7 @@ public:
         if (octree && (Flags() & (NF_OCTREE_REINSERT_QUEUED | NF_ENABLED)) == NF_ENABLED)
             octree->QueueUpdate(this);
 
-        animatedModelFlags |= AMF_SKINNING_DIRTY;
+        animatedModelFlags |= AMF_SKINNING_DIRTY | AMF_BONE_BOUNDING_BOX_DIRTY;
     }
 
     /// Set animation order dirty when animation state changes layer order and queue octree reinsertion. Note: bounding box will only be dirtied once animation actually updates.
@@ -179,10 +180,12 @@ private:
     /// Return animation states attribute. Used in serialization.
     JSONValue AnimationStatesAttr() const;
 
+    /// Combined bounding box of the bones in model space, used for quick updates when only the node moves without animation
+    mutable BoundingBox boneBoundingBox;
     /// Update when invisible flag.
     bool updateInvisible;
     /// Internal dirty status flags.
-    unsigned char animatedModelFlags;
+    mutable unsigned char animatedModelFlags;
     /// Number of bones.
     unsigned short numBones;
     /// Root bone.
