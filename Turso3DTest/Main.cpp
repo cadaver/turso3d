@@ -21,11 +21,11 @@
 #include "Renderer/StaticModel.h"
 #include "Scene/Scene.h"
 #include "Time/Timer.h"
-#include "Time/Profiler.h"
 #include "Thread/ThreadUtils.h"
 
 #include <SDL.h>
 #include <glew.h>
+#include <tracy/Tracy.hpp>
 
 std::vector<StaticModel*> rotatingObjects;
 std::vector<AnimatedModel*> animatingObjects;
@@ -153,7 +153,6 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
     AutoPtr<WorkQueue> workQueue = new WorkQueue(useThreads ? 0 : 1);
 
-    AutoPtr<Profiler> profiler = new Profiler();
     AutoPtr<Log> log = new Log();
     AutoPtr<ResourceCache> cache = new ResourceCache();
     cache->AddResourceDir(ExecutableDir() + "Data");
@@ -207,22 +206,10 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     bool drawSSAO = false;
     bool animate = true;
 
-    std::string profilerOutput;
-
     while (!input->ShouldExit() && !input->KeyPressed(27))
     {
+        ZoneScoped;
         frameTimer.Reset();
-
-        if (profilerTimer.ElapsedMSec() >= 1000)
-        {
-            profilerOutput = profiler->OutputResults();
-            profiler->BeginInterval();
-            profilerTimer.Reset();
-        }
-
-        profiler->BeginFrame();
-
-        PROFILE(RunFrame);
 
         input->Update();
 
@@ -270,8 +257,8 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
         if (animate)
         {
-            PROFILE(MoveObjects);
-        
+            ZoneScopedN("MoveObjects");
+
             if (rotatingObjects.size())
             {
                 angle += 100.0f * dt;
@@ -327,7 +314,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
         renderer->PrepareView(scene, camera, shadowMode > 0);
         
         {
-            PROFILE(RenderView);
+            ZoneScopedN("RenderView");
 
             renderer->RenderShadowMaps();
 
@@ -381,11 +368,10 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             graphics->Present();
         }
 
-        profiler->EndFrame();
         dt = frameTimer.ElapsedUSec() * 0.000001f;
-    }
 
-    printf("%s", profilerOutput.c_str());
+        FrameMark;
+    }
 
     return 0;
 }

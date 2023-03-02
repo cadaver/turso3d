@@ -4,7 +4,6 @@
 #include "../Graphics/UniformBuffer.h"
 #include "../IO/Log.h"
 #include "../Resource/ResourceCache.h"
-#include "../Time/Profiler.h"
 #include "AnimatedModel.h"
 #include "Animation.h"
 #include "AnimationState.h"
@@ -12,6 +11,7 @@
 
 #include <glew.h>
 #include <algorithm>
+#include <tracy/Tracy.hpp>
 
 Bone::Bone() :
     model(nullptr),
@@ -126,6 +126,8 @@ void AnimatedModel::OnRender(size_t /*geomIndex*/, ShaderProgram* /*program*/)
 
 void AnimatedModel::SetModel(Model* model_)
 {
+    ZoneScoped;
+
     StaticModel::SetModel(model_);
     CreateBones();
 }
@@ -285,7 +287,7 @@ void AnimatedModel::OnWorldBoundingBoxUpdate() const
 
 void AnimatedModel::CreateBones()
 {
-    PROFILE(CreateAnimatedModelBones);
+    ZoneScoped;
 
     if (!model)
     {
@@ -345,6 +347,8 @@ void AnimatedModel::CreateBones()
 
 void AnimatedModel::UpdateAnimation()
 {
+    ZoneScoped;
+
     if (animatedModelFlags & AMF_ANIMATION_ORDER_DIRTY)
         std::sort(animationStates.begin(), animationStates.end(), CompareAnimationStates);
     
@@ -389,6 +393,8 @@ void AnimatedModel::UpdateAnimation()
 
 void AnimatedModel::UpdateSkinning()
 {
+    ZoneScoped;
+
     const std::vector<ModelBone>& modelBones = model->Bones();
 
     for (size_t i = 0; i < numBones; ++i)

@@ -1,9 +1,9 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
-#include "../Time/Profiler.h"
 #include "Input.h"
 
 #include <SDL.h>
+#include <tracy/Tracy.hpp>
 
 Input::Input(SDL_Window* window_) :
     window(window_),
@@ -21,7 +21,7 @@ Input::~Input()
 
 void Input::Update()
 {
-    PROFILE(UpdateInput);
+    ZoneScoped;
 
     for (auto it = keyStates.begin(); it != keyStates.end(); ++it)
     {

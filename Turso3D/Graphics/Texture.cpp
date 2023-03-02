@@ -1,11 +1,11 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
-#include "../Time/Profiler.h"
 #include "Graphics.h"
 #include "Texture.h"
 
 #include <glew.h>
+#include <tracy/Tracy.hpp>
 
 static size_t activeTextureUnit = 0xffffffff;
 static unsigned activeTargets[MAX_TEXTURE_UNITS];
@@ -153,6 +153,8 @@ void Texture::RegisterObject()
 
 bool Texture::BeginLoad(Stream& source)
 {
+    ZoneScoped;
+
     loadImages.clear();
     loadImages.push_back(new Image());
     if (!loadImages[0]->Load(source))
@@ -188,6 +190,8 @@ bool Texture::BeginLoad(Stream& source)
 
 bool Texture::EndLoad()
 {
+    ZoneScoped;
+
     if (loadImages.empty())
         return false;
 
@@ -231,7 +235,7 @@ bool Texture::Define(TextureType type_, const IntVector2& size_, ImageFormat for
 
 bool Texture::Define(TextureType type_, const IntVector3& size_, ImageFormat format_, int multisample_, size_t numLevels_, const ImageLevel* initialData)
 {
-    PROFILE(DefineTexture);
+    ZoneScoped;
 
     Release();
 
@@ -348,7 +352,7 @@ bool Texture::Define(TextureType type_, const IntVector3& size_, ImageFormat for
 
 bool Texture::DefineSampler(TextureFilterMode filter_, TextureAddressMode u, TextureAddressMode v, TextureAddressMode w, unsigned maxAnisotropy_, float minLod_, float maxLod_, const Color& borderColor_)
 {
-    PROFILE(DefineTextureSampler);
+    ZoneScoped;
 
     filter = filter_;
     addressModes[0] = u;
@@ -429,8 +433,6 @@ bool Texture::SetData(size_t level, const IntRect& rect, const ImageLevel& data)
 
 bool Texture::SetData(size_t level, const IntBox& box, const ImageLevel& data)
 {
-    //PROFILE(UpdateTextureLevel);
-
     if (!texture)
         return true;
 

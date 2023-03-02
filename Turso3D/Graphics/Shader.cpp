@@ -1,7 +1,6 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
-#include "../Time/Profiler.h"
 #include "../Resource/ResourceCache.h"
 #include "../IO/File.h"
 #include "../IO/FileSystem.h"

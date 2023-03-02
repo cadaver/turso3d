@@ -1,8 +1,9 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
-#include "../Time/Profiler.h"
 #include "ThreadUtils.h"
 #include "WorkQueue.h"
+
+#include <tracy/Tracy.hpp>
 
 thread_local unsigned WorkQueue::threadIndex = 0;
 
@@ -43,6 +44,8 @@ WorkQueue::~WorkQueue()
 
 void WorkQueue::QueueTask(Task* task)
 {
+    ZoneScoped;
+
     if (threads.size())
     {
         {
@@ -63,6 +66,8 @@ void WorkQueue::QueueTask(Task* task)
 
 void WorkQueue::QueueTasks(size_t count, Task** tasks_)
 {
+    ZoneScoped;
+
     if (threads.size())
     {
         {
@@ -90,7 +95,7 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
 }
 void WorkQueue::Complete()
 {
-    PROFILE(CompleteWorkQueue);
+    ZoneScoped;
     
     if (!threads.size())
         return;

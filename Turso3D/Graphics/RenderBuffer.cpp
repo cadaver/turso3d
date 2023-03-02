@@ -1,11 +1,11 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
-#include "../Time/Profiler.h"
 #include "Graphics.h"
 #include "RenderBuffer.h"
 
 #include <glew.h>
+#include <tracy/Tracy.hpp>
 
 static const GLenum glInternalFormats[] =
 {
@@ -70,7 +70,7 @@ void RenderBuffer::Release()
 
 bool RenderBuffer::Define(const IntVector2& size_, ImageFormat format_, int multisample_)
 {
-    PROFILE(DefineRenderBuffer);
+    ZoneScoped;
 
     Release();
 

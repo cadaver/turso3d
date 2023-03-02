@@ -2,11 +2,11 @@
 
 #include "../IO/Log.h"
 #include "../Math/Ray.h"
-#include "../Time/Profiler.h"
 #include "Octree.h"
 
 #include <cassert>
 #include <algorithm>
+#include <tracy/Tracy.hpp>
 
 static const float DEFAULT_OCTREE_SIZE = 1000.0f;
 static const int DEFAULT_OCTREE_LEVELS = 8;
@@ -97,12 +97,11 @@ void Octree::RegisterObject()
 
 void Octree::Update(unsigned short frameNumber_)
 {
-    PROFILE(UpdateOctree);
+    ZoneScoped;
 
     frameNumber = frameNumber_;
 
-    // Try to create more than one task per worker thread in case some nodes are slower to update (animation)
-    const size_t nodesPerTask = Max(128, (int)updateQueue.size() / workQueue->NumThreads() / 4);
+    const size_t nodesPerTask = Max(1, (unsigned)updateQueue.size() / workQueue->NumThreads() / 3);
 
     if (updateQueue.size() >= nodesPerTask)
     {
@@ -155,7 +154,7 @@ void Octree::Update(unsigned short frameNumber_)
 
 void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
 {
-    PROFILE(ResizeOctree);
+    ZoneScoped;
 
     // Collect nodes to the root and delete all child octants
     updateQueue.clear();
@@ -453,6 +452,8 @@ void Octree::CollectNodes(std::vector<std::pair<OctreeNode*, float> >& result, O
 
 void Octree::CheckReinsertWork(Task* task, unsigned threadIndex_)
 {
+    ZoneScoped;
+
     OctreeNode** start = reinterpret_cast<OctreeNode**>(task->start);
     OctreeNode** end = reinterpret_cast<OctreeNode**>(task->end);
     std::vector<OctreeNode*>& reinsertQueue = reinsertQueues[threadIndex_];

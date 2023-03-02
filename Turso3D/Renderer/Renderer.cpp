@@ -13,7 +13,6 @@
 #include "../Math/Random.h"
 #include "../Resource/ResourceCache.h"
 #include "../Scene/Scene.h"
-#include "../Time/Profiler.h"
 #include "AnimatedModel.h"
 #include "Animation.h"
 #include "Batch.h"
@@ -28,6 +27,7 @@
 #include <glew.h>
 #include <algorithm>
 #include <cstring>
+#include <tracy/Tracy.hpp>
 
 static const GLenum glCompareFuncs[] =
 {
@@ -192,7 +192,7 @@ void Renderer::SetShadowDepthBiasMul(float depthBiasMul_, float slopeScaleBiasMu
 
 void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
 {
-    PROFILE(PrepareView);
+    ZoneScoped;
 
     if (!scene_ || !camera_)
         return;
@@ -240,7 +240,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
 
 void Renderer::RenderShadowMaps()
 {
-    PROFILE(RenderShadowMaps);
+    ZoneScoped;
 
     Texture::Unbind(8);
     Texture::Unbind(9);
@@ -328,7 +328,7 @@ void Renderer::RenderShadowMaps()
 
 void Renderer::RenderOpaque()
 {
-    PROFILE(RenderOpaque);
+    ZoneScoped;
 
     // Update main batches' instance transforms & light data
     UpdateInstanceTransforms(instanceTransforms);
@@ -352,7 +352,7 @@ void Renderer::RenderOpaque()
 
 void Renderer::RenderAlpha()
 {
-    PROFILE(RenderAlpha);
+    ZoneScoped;
 
     if (shadowMaps.size())
     {
@@ -536,7 +536,7 @@ void Renderer::DrawQuad()
 
 void Renderer::CollectGeometriesAndLights()
 {
-    PROFILE(CollectGeometriesAndLights);
+    ZoneScoped;
 
     // Find octants in view and their plane masks for node frustum culling
     octants.clear();
@@ -732,7 +732,7 @@ void Renderer::CollectGeometriesAndLights()
 
 void Renderer::JoinAndSortBatches()
 {
-    PROFILE(JoinAndSortBatches);
+    ZoneScoped;
 
     // Shadow batches collection needs accurate scene min / max Z results
     for (size_t i = 0; i < geometryResults.size(); ++i)
@@ -777,6 +777,8 @@ void Renderer::UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms
 
 bool Renderer::AllocateShadowMap(Light* light)
 {
+    ZoneScoped;
+
     size_t index = light->GetLightType() == LIGHT_DIRECTIONAL ? 0 : 1;
     ShadowMap& shadowMap = shadowMaps[index];
 
@@ -816,6 +818,8 @@ bool Renderer::AllocateShadowMap(Light* light)
 
 void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
 {
+    ZoneScoped;
+
     lastMaterial = nullptr;
     lastPass = nullptr;
 
@@ -1050,7 +1054,7 @@ void Renderer::DefineClusterFrustums()
 
     if (clusterFrustumsDirty)
     {
-        PROFILE(DefineClusterFrustums);
+        ZoneScoped;
 
         Matrix4 cameraProjInverse = cameraProj.Inverse();
         float cameraNearClip = camera->NearClip();
@@ -1094,6 +1098,8 @@ void Renderer::DefineClusterFrustums()
 
 void Renderer::CollectBatchesWork(Task* task, unsigned threadIndex)
 {
+    ZoneScoped;
+
     bool threaded = workQueue->NumThreads() > 1;
 
     std::pair<Octant*, unsigned char>* start = reinterpret_cast<std::pair<Octant*, unsigned char>*>(task->start);
@@ -1191,6 +1197,8 @@ void Renderer::CollectBatchesWork(Task* task, unsigned threadIndex)
 
 void Renderer::CollectShadowCastersWork(Task* task, unsigned)
 {
+    ZoneScoped;
+
     Light* light = (Light*)task->start;
     LightType lightType = light->GetLightType();
     std::vector<ShadowView>& shadowViews = light->ShadowViews();
@@ -1229,6 +1237,8 @@ void Renderer::CollectShadowCastersWork(Task* task, unsigned)
 
 void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
 {
+    ZoneScoped;
+
     ShadowMap& shadowMap = shadowMaps[(size_t)task->start];
 
     for (size_t i = 0; i < shadowMap.shadowViews.size(); ++i)
@@ -1433,6 +1443,8 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
 
 void Renderer::CullLightsToFrustumWork(Task*, unsigned)
 {
+    ZoneScoped;
+
     // Update cluster frustums and bounding boxes if camera changed
     DefineClusterFrustums();
 

@@ -27,13 +27,14 @@ add_engine_directory (Scene)
 add_engine_directory (Thread)
 add_engine_directory (Time)
 
-add_definitions (-DGLEW_STATIC -DSDL_MAIN_HANDLED)
+add_definitions (-DGLEW_STATIC -DSDL_MAIN_HANDLED -DTRACY_ENABLE)
 
 add_library (${TARGET_NAME} ${SOURCE_FILES})
 
 target_include_directories (${TARGET_NAME} PUBLIC ../ThirdParty/SDL/include)
 target_include_directories (${TARGET_NAME} PUBLIC ../ThirdParty/GLEW)
 target_include_directories (${TARGET_NAME} PUBLIC ../ThirdParty/STB)
+target_include_directories (${TARGET_NAME} PUBLIC ../ThirdParty/Tracy)
 target_include_directories (${TARGET_NAME} PUBLIC .)
 
-target_link_libraries (${TARGET_NAME} SDL2-static GLEW)
+target_link_libraries (${TARGET_NAME} SDL2-static GLEW Tracy)

@@ -3,11 +3,11 @@
 #include "../IO/Log.h"
 #include "../IO/Stream.h"
 #include "../Math/Math.h"
-#include "../Time/Profiler.h"
 #include "Decompress.h"
 
 #include <cstdlib>
 #include <cstring>
+#include <tracy/Tracy.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -259,7 +259,7 @@ void Image::RegisterObject()
 
 bool Image::BeginLoad(Stream& source)
 {
-    PROFILE(LoadImage);
+    ZoneScoped;
 
     // Check for DDS, KTX or PVR compressed format
     std::string fileID = source.ReadFileID();
@@ -522,7 +522,7 @@ bool Image::BeginLoad(Stream& source)
 
 bool Image::Save(Stream& dest)
 {
-    PROFILE(SaveImage);
+    ZoneScoped;
 
     if (IsCompressed())
     {
@@ -605,7 +605,7 @@ void Image::FreePixelData(unsigned char* pixelData)
 
 bool Image::GenerateMipImage(Image& dest) const
 {
-    PROFILE(GenerateMipImage);
+    ZoneScoped;
 
     int pixelByteSize = Components();
     if (pixelByteSize < 1 || pixelByteSize > 4)
@@ -697,7 +697,7 @@ ImageLevel Image::Level(size_t index) const
 
 bool Image::DecompressLevel(unsigned char* dest, size_t index) const
 {
-    PROFILE(DecompressImageLevel);
+    ZoneScoped;
 
     if (!dest)
     {
