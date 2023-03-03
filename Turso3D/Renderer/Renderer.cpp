@@ -167,8 +167,8 @@ void Renderer::SetupShadowMaps(int dirLightSize, int lightAtlasSize, ImageFormat
         shadowMap.texture->DefineSampler(COMPARE_BILINEAR, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP, 1);
         shadowMap.fbo->Define(nullptr, shadowMap.texture);
 
-        collectShadowBatchesTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::CollectShadowBatchesWork);
-        collectShadowBatchesTasks[i]->start = (void*)i;
+        sortShadowBatchesTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::SortShadowBatchesWork);
+        sortShadowBatchesTasks[i]->start = (void*)i;
     }
 
     staticObjectShadowBuffer = new RenderBuffer();
@@ -542,7 +542,7 @@ void Renderer::CollectGeometriesAndLights()
     octants.clear();
     octree->FindOctantsMasked(octants, frustum);
 
-    // Setup batches collection tasks
+    // Setup and queue batches collection tasks
     const size_t nodesPerTask = 128;
     size_t start = 0;
     size_t nodeAcc = 0;
@@ -567,7 +567,7 @@ void Renderer::CollectGeometriesAndLights()
     
     workQueue->QueueTasks(taskIdx, reinterpret_cast<Task**>(&collectBatchesTasks[0]));
 
-    // While batches collection is going on, find lights infrustum
+    // While batches collection is going on, find lights in frustum
     for (size_t i = 0; i < octants.size(); ++i)
     {
         Octant* octant = octants[i].first;
@@ -598,9 +598,6 @@ void Renderer::CollectGeometriesAndLights()
     if (lights.size() > MAX_LIGHTS)
         lights.resize(MAX_LIGHTS);
 
-    // Begin light grid culling
-    workQueue->QueueTask(cullLightsTask);
-
     // Pre-step for shadow map caching: reallocate all lights' shadow map rectangles which are non-zero at this point.
     // If shadow maps were dirtied (size or bias change) reset all allocations instead
     for (auto it = lights.begin(); it != lights.end(); ++it)
@@ -626,6 +623,7 @@ void Renderer::CollectGeometriesAndLights()
 
     size_t lightTaskIdx = 0;
 
+    // Go through lights and setup shadowcaster collection tasks
     for (size_t i = 0; i < lights.size(); ++i)
     {
         ShadowMap& shadowMap = shadowMaps[1];
@@ -734,7 +732,10 @@ void Renderer::JoinAndSortBatches()
 {
     ZoneScoped;
 
-    // Shadow batches collection needs accurate scene min / max Z results
+    // Begin light grid culling
+    workQueue->QueueTask(cullLightsTask);
+
+    // Shadow batches collection needs accurate scene min / max Z results, combine them from per-thread data
     for (size_t i = 0; i < geometryResults.size(); ++i)
     {
         const ThreadGeometryResult& result = geometryResults[i];
@@ -742,13 +743,27 @@ void Renderer::JoinAndSortBatches()
         maxZ = Max(maxZ, result.maxZ);
     }
 
-    // Process shadow batches collection and sorting in parallel with main batches sorting
+    // Queue shadow batches collection tasks. These will queue shadow batch sorting tasks when done
+    size_t shadowTaskIdx = 0;
+
     for (size_t i = 0; i < shadowMaps.size(); ++i)
     {
-        if (shadowMaps[i].freeQueueIdx)
-            workQueue->QueueTask(collectShadowBatchesTasks[i]);
+        ShadowMap& shadowMap = shadowMaps[i];
+        numPendingShadowViews[i].store((int)shadowMap.shadowViews.size());
+        for (size_t j = 0; j < shadowMap.shadowViews.size(); ++j)
+        {
+            if (collectShadowBatchesTasks.size() <= shadowTaskIdx)
+                collectShadowBatchesTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectShadowBatchesWork));
+            collectShadowBatchesTasks[shadowTaskIdx]->start = (void*)i;
+            collectShadowBatchesTasks[shadowTaskIdx]->end = (void*)j;
+            ++shadowTaskIdx;
+        }
     }
+    
+    if (shadowTaskIdx > 0)
+        workQueue->QueueTasks(shadowTaskIdx, reinterpret_cast<Task**>(&collectShadowBatchesTasks[0]));
 
+    // Meanwhile sort main view batches in the main thread
     for (size_t i = 0; i < geometryResults.size(); ++i)
     {
         const ThreadGeometryResult& result = geometryResults[i];
@@ -1239,6 +1254,214 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
 {
     ZoneScoped;
 
+    size_t shadowMapIdx = (size_t)task->start;
+    size_t shadowViewIdx = (size_t)task->end;
+    ShadowMap& shadowMap = shadowMaps[shadowMapIdx];
+    ShadowView& view = *shadowMap.shadowViews[shadowViewIdx];
+
+    Light* light = view.light;
+
+    // Check if view was discarded during shadowcaster collecting
+    if (!light)
+    {
+        view.renderMode = RENDER_STATIC_LIGHT_CACHED;
+        view.lastViewport = IntRect::ZERO;
+        
+        // Queue shadow batch sort task if was the last
+        if (numPendingShadowViews[shadowMapIdx].fetch_add(-1) == 1)
+            workQueue->QueueTask(sortShadowBatchesTasks[shadowMapIdx]);
+        return;
+    }
+
+    LightType lightType = light->GetLightType();
+    const Frustum& shadowFrustum = view.shadowFrustum;
+    const Matrix3x4& lightView = view.shadowCamera->ViewMatrix();
+    const std::vector<GeometryNode*>& initialShadowCasters = shadowMap.shadowCasters[view.casterListIdx];
+
+    bool dynamicOrDirLight = lightType == LIGHT_DIRECTIONAL || !light->Static();
+    bool checkFrustum = lightType == LIGHT_POINT;
+    bool dynamicCastersMoved = false;
+    bool staticCastersMoved = false;
+
+    float splitMinZ = lightType != LIGHT_DIRECTIONAL ? minZ : Max(minZ, view.splitStart);
+    float splitMaxZ = lightType != LIGHT_DIRECTIONAL ? maxZ : Min(maxZ, view.splitEnd);
+
+    size_t totalShadowCasters = 0;
+    size_t dynamicShadowCasters = 0;
+    size_t staticShadowCasters = 0;
+
+    // Check for degenerate frustum (no visible geometry in split range); in that case no shadow rendering
+    if (splitMaxZ <= splitMinZ)
+    {
+        view.renderMode = RENDER_STATIC_LIGHT_CACHED;
+        view.lastViewport = IntRect::ZERO;
+
+        // Queue shadow batch sort task if was the last
+        if (numPendingShadowViews[shadowMapIdx].fetch_add(-1) == 1)
+            workQueue->QueueTask(sortShadowBatchesTasks[shadowMapIdx]);
+        return;
+    }
+
+    Frustum lightViewFrustum = camera->WorldSplitFrustum(splitMinZ, splitMaxZ).Transformed(lightView);
+    BoundingBox lightViewFrustumBox(lightViewFrustum);
+
+    BatchQueue* destStatic = !dynamicOrDirLight ? &shadowMap.shadowBatches[view.staticQueueIdx] : nullptr;
+    BatchQueue* destDynamic = &shadowMap.shadowBatches[view.dynamicQueueIdx];
+
+    for (auto it = initialShadowCasters.begin(); it != initialShadowCasters.end(); ++it)
+    {
+        GeometryNode* node = *it;
+
+        if (checkFrustum && !shadowFrustum.IsInsideFast(node->WorldBoundingBox()))
+            continue;
+
+        bool inView = node->InView(frameNumber);
+        bool staticNode = node->Static();
+
+        // Check if shadowcaster contributes to visible geometry shadowing or if it can be skipped
+        // This is done only for dynamic objects or dynamic lights' shadows; cached static shadowmap needs to render everything
+        if (!staticNode || dynamicOrDirLight)
+        {
+            BoundingBox lightViewBox = node->WorldBoundingBox().Transformed(lightView);
+
+            if (lightType == LIGHT_DIRECTIONAL)
+            {
+                lightViewBox.max.z = Max(lightViewBox.max.z, lightViewFrustumBox.max.z);
+
+                // For directional light shadowcasters always consider the Z-range of the split, even if the geometry is in view
+                if (!lightViewFrustum.IsInsideFast(lightViewBox))
+                    continue;
+            }
+            else if (!inView)
+            {
+                // For perspective lights, extrusion direction depends on the position of the shadow caster
+                Vector3 center = lightViewBox.Center();
+                Ray extrusionRay(center, center);
+
+                float extrusionDistance = view.shadowCamera->FarClip();
+                float originalDistance = Clamp(center.Length(), M_EPSILON, extrusionDistance);
+
+                // Because of the perspective, the bounding box must also grow when it is extruded to the distance
+                float sizeFactor = extrusionDistance / originalDistance;
+
+                // Calculate the endpoint box and merge it to the original. Because it's axis-aligned, it will be larger
+                // than necessary, so the test will be conservative
+                Vector3 newCenter = extrusionDistance * extrusionRay.direction;
+                Vector3 newHalfSize = lightViewBox.Size() * sizeFactor * 0.5f;
+                BoundingBox extrudedBox(newCenter - newHalfSize, newCenter + newHalfSize);
+                lightViewBox.Merge(extrudedBox);
+
+                if (!lightViewFrustum.IsInsideFast(lightViewBox))
+                    continue;
+            }
+        }
+
+        // If not in view, let the node prepare itself for render now
+        if (!inView)
+        {
+            if (!node->OnPrepareRender(frameNumber, camera))
+                continue;
+        }
+
+        ++totalShadowCasters;
+
+        if (staticNode)
+        {
+            ++staticShadowCasters;
+            if (node->LastUpdateFrameNumber() == frameNumber)
+                staticCastersMoved = true;
+        }
+        else
+        {
+            dynamicShadowCasters = true;
+            if (node->LastUpdateFrameNumber() == frameNumber)
+                dynamicCastersMoved = true;
+        }
+
+        // If did not allocate a static queue, just put everything to dynamic
+        BatchQueue& dest = destStatic ? (staticNode ? *destStatic : *destDynamic) : *destDynamic;
+        const SourceBatches& batches = node->Batches();
+        size_t numGeometries = batches.NumGeometries();
+
+        Batch newBatch;
+
+        for (size_t j = 0; j < numGeometries; ++j)
+        {
+            Material* material = batches.GetMaterial(j);
+            newBatch.pass = material->GetPass(PASS_SHADOW);
+            if (!newBatch.pass)
+                continue;
+
+            newBatch.geometry = batches.GetGeometry(j);
+            newBatch.programBits = (unsigned char)node->GetGeometryType();
+            newBatch.geomIndex = (unsigned char)j;
+
+            if (!newBatch.programBits)
+                newBatch.worldTransform = &node->WorldTransform();
+            else
+                newBatch.node = node;
+
+            dest.batches.push_back(newBatch);
+        }
+    }
+
+    // Now determine which kind of caching can be used for the shadow map
+    // Dynamic or directional lights
+    if (dynamicOrDirLight)
+    {
+        // If light atlas allocation changed, light moved, or amount of objects in view changed, render an optimized shadow map
+        if (view.lastViewport != view.viewport || !view.lastShadowMatrix.Equals(view.shadowMatrix, 0.0001f) || view.lastNumGeometries != totalShadowCasters || dynamicCastersMoved || staticCastersMoved)
+            view.renderMode = RENDER_DYNAMIC_LIGHT;
+        else
+            view.renderMode = RENDER_STATIC_LIGHT_CACHED;
+    }
+    // Static lights
+    else
+    {
+        // If light atlas allocation has changed, or the static light changed, render a full shadow map now that can be cached next frame
+        if (view.lastViewport != view.viewport || !view.lastShadowMatrix.Equals(view.shadowMatrix, 0.0001f))
+            view.renderMode = RENDER_STATIC_LIGHT_STORE_STATIC;
+        else
+        {
+            view.renderMode = RENDER_STATIC_LIGHT_CACHED;
+
+            // If static shadowcasters updated themselves (e.g. LOD change), render shadow map fully
+            // If dynamic casters moved, need to restore shadowmap and rerender
+            if (staticCastersMoved)
+                view.renderMode = RENDER_STATIC_LIGHT_STORE_STATIC;
+
+            if (view.renderMode != RENDER_STATIC_LIGHT_STORE_STATIC)
+            {
+                if (dynamicCastersMoved || view.lastNumGeometries != totalShadowCasters)
+                    view.renderMode = staticShadowCasters > 0 ? RENDER_STATIC_LIGHT_RESTORE_STATIC : RENDER_DYNAMIC_LIGHT;
+            }
+        }
+    }
+
+    // If no rendering to be done, use the last rendered shadow projection matrix to avoid artifacts when rotating camera
+    if (view.renderMode == RENDER_STATIC_LIGHT_CACHED)
+        view.shadowMatrix = view.lastShadowMatrix;
+    else
+    {
+        view.lastDynamicCasters = dynamicShadowCasters > 0;
+        view.lastViewport = view.viewport;
+        view.lastNumGeometries = totalShadowCasters;
+        view.lastShadowMatrix = view.shadowMatrix;
+
+        // Clear static batch queue if not needed
+        if (destStatic && view.renderMode != RENDER_STATIC_LIGHT_STORE_STATIC)
+            destStatic->Clear();
+    }
+
+    // Queue shadow batch sort task if was the last
+    if (numPendingShadowViews[shadowMapIdx].fetch_add(-1) == 1)
+        workQueue->QueueTask(sortShadowBatchesTasks[shadowMapIdx]);
+}
+
+void Renderer::SortShadowBatchesWork(Task* task, unsigned)
+{
+    ZoneScoped;
+
     ShadowMap& shadowMap = shadowMaps[(size_t)task->start];
 
     for (size_t i = 0; i < shadowMap.shadowViews.size(); ++i)
@@ -1249,193 +1472,13 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
 
         // Check if view was discarded during shadowcaster collecting
         if (!light)
-        {
-            view.renderMode = RENDER_STATIC_LIGHT_CACHED;
-            view.lastViewport = IntRect::ZERO;
             continue;
-        }
 
-        LightType lightType = light->GetLightType();
-        const Frustum& shadowFrustum = view.shadowFrustum;
-        const Matrix3x4& lightView = view.shadowCamera->ViewMatrix();
-        const std::vector<GeometryNode*>& initialShadowCasters = shadowMap.shadowCasters[view.casterListIdx];
+        BatchQueue* destStatic = (view.renderMode == RENDER_STATIC_LIGHT_STORE_STATIC) ? &shadowMap.shadowBatches[view.staticQueueIdx] : nullptr;
+        BatchQueue* destDynamic = &shadowMap.shadowBatches[view.dynamicQueueIdx];
 
-        bool dynamicOrDirLight = lightType == LIGHT_DIRECTIONAL || !light->Static();
-        bool checkFrustum = lightType == LIGHT_POINT;
-        bool dynamicCastersMoved = false;
-        bool staticCastersMoved = false;
-
-        float splitMinZ = lightType != LIGHT_DIRECTIONAL ? minZ : Max(minZ, view.splitStart);
-        float splitMaxZ = lightType != LIGHT_DIRECTIONAL ? maxZ : Min(maxZ, view.splitEnd);
-
-        size_t totalShadowCasters = 0;
-        size_t dynamicShadowCasters = 0;
-        size_t staticShadowCasters = 0;
-
-        // Check for degenerate frustum (no visible geometry in split range); in that case no shadow rendering
-        if (splitMaxZ <= splitMinZ)
-        {
-            view.renderMode = RENDER_STATIC_LIGHT_CACHED;
-            view.lastViewport = IntRect::ZERO;
-            continue;
-        }
-
-        Frustum lightViewFrustum = camera->WorldSplitFrustum(splitMinZ, splitMaxZ).Transformed(lightView);
-        BoundingBox lightViewFrustumBox(lightViewFrustum);
-
-        BatchQueue* destStatic = !dynamicOrDirLight ? destStatic = &shadowMap.shadowBatches[view.staticQueueIdx] : nullptr;
-        BatchQueue* destDynamic = destDynamic = &shadowMap.shadowBatches[view.dynamicQueueIdx];
-
-        for (auto it = initialShadowCasters.begin(); it != initialShadowCasters.end(); ++it)
-        {
-            GeometryNode* node = *it;
-
-            if (checkFrustum && !shadowFrustum.IsInsideFast(node->WorldBoundingBox()))
-                continue;
-
-            bool inView = node->InView(frameNumber);
-            bool staticNode = node->Static();
-
-            // Check if shadowcaster contributes to visible geometry shadowing or if it can be skipped
-            // This is done only for dynamic objects or dynamic lights' shadows; cached static shadowmap needs to render everything
-            if (!staticNode || dynamicOrDirLight)
-            {
-                BoundingBox lightViewBox = node->WorldBoundingBox().Transformed(lightView);
-
-                if (lightType == LIGHT_DIRECTIONAL)
-                {
-                    lightViewBox.max.z = Max(lightViewBox.max.z, lightViewFrustumBox.max.z);
-
-                    // For directional light shadowcasters always consider the Z-range of the split, even if the geometry is in view
-                    if (!lightViewFrustum.IsInsideFast(lightViewBox))
-                        continue;
-                }
-                else if (!inView)
-                {
-                    // For perspective lights, extrusion direction depends on the position of the shadow caster
-                    Vector3 center = lightViewBox.Center();
-                    Ray extrusionRay(center, center);
-
-                    float extrusionDistance = view.shadowCamera->FarClip();
-                    float originalDistance = Clamp(center.Length(), M_EPSILON, extrusionDistance);
-
-                    // Because of the perspective, the bounding box must also grow when it is extruded to the distance
-                    float sizeFactor = extrusionDistance / originalDistance;
-
-                    // Calculate the endpoint box and merge it to the original. Because it's axis-aligned, it will be larger
-                    // than necessary, so the test will be conservative
-                    Vector3 newCenter = extrusionDistance * extrusionRay.direction;
-                    Vector3 newHalfSize = lightViewBox.Size() * sizeFactor * 0.5f;
-                    BoundingBox extrudedBox(newCenter - newHalfSize, newCenter + newHalfSize);
-                    lightViewBox.Merge(extrudedBox);
-
-                    if (!lightViewFrustum.IsInsideFast(lightViewBox))
-                        continue;
-                }
-            }
-
-            // If not in view, let the node prepare itself for render now
-            if (!inView)
-            {
-                if (!node->OnPrepareRender(frameNumber, camera))
-                    continue;
-            }
-
-            ++totalShadowCasters;
-
-            if (staticNode)
-            {
-                ++staticShadowCasters;
-                if (node->LastUpdateFrameNumber() == frameNumber)
-                    staticCastersMoved = true;
-            }
-            else
-            {
-                dynamicShadowCasters = true;
-                if (node->LastUpdateFrameNumber() == frameNumber)
-                    dynamicCastersMoved = true;
-            }
-
-            // If did not allocate a static queue, just put everything to dynamic
-            BatchQueue& dest = destStatic ? (staticNode ? *destStatic : *destDynamic) : *destDynamic;
-            const SourceBatches& batches = node->Batches();
-            size_t numGeometries = batches.NumGeometries();
-
-            Batch newBatch;
-
-            for (size_t j = 0; j < numGeometries; ++j)
-            {
-                Material* material = batches.GetMaterial(j);
-                newBatch.pass = material->GetPass(PASS_SHADOW);
-                if (!newBatch.pass)
-                    continue;
-
-                newBatch.geometry = batches.GetGeometry(j);
-                newBatch.programBits = (unsigned char)node->GetGeometryType();
-                newBatch.geomIndex = (unsigned char)j;
-
-                if (!newBatch.programBits)
-                    newBatch.worldTransform = &node->WorldTransform();
-                else
-                    newBatch.node = node;
-
-                dest.batches.push_back(newBatch);
-            }
-        }
-
-        // Now determine which kind of caching can be used for the shadow map
-        // Dynamic or directional lights
-        if (dynamicOrDirLight)
-        {
-            // If light atlas allocation changed, light moved, or amount of objects in view changed, render an optimized shadow map
-            if (view.lastViewport != view.viewport || !view.lastShadowMatrix.Equals(view.shadowMatrix, 0.0001f) || view.lastNumGeometries != totalShadowCasters || dynamicCastersMoved || staticCastersMoved)
-                view.renderMode = RENDER_DYNAMIC_LIGHT;
-            else
-                view.renderMode = RENDER_STATIC_LIGHT_CACHED;
-        }
-        // Static lights
-        else
-        {
-            // If light atlas allocation has changed, or the static light changed, render a full shadow map now that can be cached next frame
-            if (view.lastViewport != view.viewport || !view.lastShadowMatrix.Equals(view.shadowMatrix, 0.0001f))
-                view.renderMode = RENDER_STATIC_LIGHT_STORE_STATIC;
-            else
-            {
-                view.renderMode = RENDER_STATIC_LIGHT_CACHED;
-
-                // If static shadowcasters updated themselves (e.g. LOD change), render shadow map fully
-                // If dynamic casters moved, need to restore shadowmap and rerender
-                if (staticCastersMoved)
-                    view.renderMode = RENDER_STATIC_LIGHT_STORE_STATIC;
-
-                if (view.renderMode != RENDER_STATIC_LIGHT_STORE_STATIC)
-                {
-                    if (dynamicCastersMoved || view.lastNumGeometries != totalShadowCasters)
-                        view.renderMode = staticShadowCasters > 0 ? RENDER_STATIC_LIGHT_RESTORE_STATIC : RENDER_DYNAMIC_LIGHT;
-                }
-            }
-        }
-
-        // If no rendering to be done, use the last rendered shadow projection matrix to avoid artifacts when rotating camera
-        if (view.renderMode == RENDER_STATIC_LIGHT_CACHED)
-        {
-            view.shadowMatrix = view.lastShadowMatrix;
-            continue;
-        }
-
-        view.lastDynamicCasters = dynamicShadowCasters > 0;
-        view.lastViewport = view.viewport;
-        view.lastNumGeometries = totalShadowCasters;
-        view.lastShadowMatrix = view.shadowMatrix;
-
-        // Clear the static queue if not needed
         if (destStatic)
-        {
-            if (view.renderMode == RENDER_STATIC_LIGHT_STORE_STATIC)
-                destStatic->Sort(shadowMap.instanceTransforms, SORT_STATE, hasInstancing);
-            else
-                destStatic->Clear();
-        }
+            destStatic->Sort(shadowMap.instanceTransforms, SORT_STATE, hasInstancing);
 
         destDynamic->Sort(shadowMap.instanceTransforms, SORT_STATE, hasInstancing);
     }

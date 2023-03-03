@@ -53,10 +53,6 @@ endmacro ()
 # Set output directory for executables
 set_output_directories (${PROJECT_SOURCE_DIR}/Bin RUNTIME PDB)
 
-if (TURSO3D_TRACY)
-    add_definitions (-DTRACY_ENABLE)
-endif ()
-
 add_subdirectory (ThirdParty)
 add_subdirectory (Turso3D)
 add_subdirectory (Turso3DTest)

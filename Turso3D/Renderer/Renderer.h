@@ -10,6 +10,8 @@
 #include "../Thread/WorkQueue.h"
 #include "Batch.h"
 
+#include <atomic>
+
 class Camera;
 class GeometryNode;
 class Graphics;
@@ -125,8 +127,10 @@ private:
     void CollectBatchesWork(Task* task, unsigned threadIndex);
     /// Work function to collect shadowcasters per shadowcasting light.
     void CollectShadowCastersWork(Task* task, unsigned threadIndex);
-    /// Work function to collect and sort shadowcaster batches per shadowmap.
+    /// Work function to collect shadowcaster batches per view.
     void CollectShadowBatchesWork(Task* task, unsigned threadIndex);
+    /// Work function to sort shadowcaster batches per shadowmap.
+    void SortShadowBatchesWork(Task* task, unsigned threadIndex);
     /// Work function to cull lights to the frustum grid.
     void CullLightsToFrustumWork(Task* task, unsigned threadIndex);
 
@@ -236,10 +240,14 @@ private:
     std::vector<AutoPtr<Task> > collectBatchesTasks;
     /// Tasks for shadow light processing.
     std::vector<AutoPtr<Task> > collectShadowCastersTasks;
-    /// Tasks for shadow batch collecting and sorting per shadowmap.
-    AutoPtr<Task> collectShadowBatchesTasks[2];
+    /// Tasks for shadow batch processing.
+    std::vector<AutoPtr<Task> > collectShadowBatchesTasks;
+    /// Tasks for shadow batch sorting per shadowmap.
+    AutoPtr<Task> sortShadowBatchesTasks[2];
     /// Task for light grid culling.
     AutoPtr<Task> cullLightsTask;
+    /// Counters for shadow views remaining per shadowmap. When zero, the shadow batches can be sorted.
+    std::atomic<int> numPendingShadowViews[2];
 };
 
 /// Register Renderer related object factories and attributes.
