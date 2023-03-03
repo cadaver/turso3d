@@ -539,8 +539,11 @@ void Renderer::CollectGeometriesAndLights()
     ZoneScoped;
 
     // Find octants in view and their plane masks for node frustum culling
-    octants.clear();
-    octree->FindOctantsMasked(octants, frustum);
+    {
+        ZoneScopedN("FindOctantsInView");
+        octants.clear();
+        octree->FindOctantsMasked(octants, frustum);
+    }
 
     // Setup and queue batches collection tasks
     const size_t nodesPerTask = 128;
