@@ -4,7 +4,7 @@ set (TARGET_NAME Turso3DTest)
 
 file (GLOB SOURCE_FILES *.h *.cpp)
 
-add_definitions (-DGLEW_STATIC -DSDL_MAIN_HANDLED -DTRACY_ENABLE)
+add_definitions (-DGLEW_STATIC -DSDL_MAIN_HANDLED)
 
 add_executable (${TARGET_NAME} ${SOURCE_FILES})
 

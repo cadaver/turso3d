@@ -4,6 +4,10 @@ cmake_minimum_required (VERSION 2.8.12)
 # Set project name
 project (Turso3D)
 
+# Define CMake options
+include (CMakeDependentOption)
+option (TURSO3D_TRACY "Enable Tracy profiler" FALSE)
+
 # Set default configuration to Release for single-configuration generators
 if (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
     set (CMAKE_BUILD_TYPE Release)
@@ -48,6 +52,10 @@ endmacro ()
 
 # Set output directory for executables
 set_output_directories (${PROJECT_SOURCE_DIR}/Bin RUNTIME PDB)
+
+if (TURSO3D_TRACY)
+    add_definitions (-DTRACY_ENABLE)
+endif ()
 
 add_subdirectory (ThirdParty)
 add_subdirectory (Turso3D)

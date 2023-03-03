@@ -101,7 +101,8 @@ void Octree::Update(unsigned short frameNumber_)
 
     frameNumber = frameNumber_;
 
-    const size_t nodesPerTask = Max(1, (unsigned)updateQueue.size() / workQueue->NumThreads() / 3);
+    // Split into smaller tasks to encourage work stealing in case some thread is slower
+    const size_t nodesPerTask = Max(1, (unsigned)updateQueue.size() / workQueue->NumThreads() / 4);
 
     if (updateQueue.size() >= nodesPerTask)
     {

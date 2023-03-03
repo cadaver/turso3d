@@ -27,7 +27,7 @@ add_engine_directory (Scene)
 add_engine_directory (Thread)
 add_engine_directory (Time)
 
-add_definitions (-DGLEW_STATIC -DSDL_MAIN_HANDLED -DTRACY_ENABLE)
+add_definitions (-DGLEW_STATIC -DSDL_MAIN_HANDLED)
 
 add_library (${TARGET_NAME} ${SOURCE_FILES})
 
