@@ -21,6 +21,7 @@
 #include "Renderer/StaticModel.h"
 #include "Scene/Scene.h"
 #include "Time/Timer.h"
+#include "Time/Profiler.h"
 #include "Thread/ThreadUtils.h"
 
 #include <SDL.h>
@@ -153,6 +154,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
     AutoPtr<WorkQueue> workQueue = new WorkQueue(useThreads ? 0 : 1);
 
+    AutoPtr<Profiler> profiler = new Profiler();
     AutoPtr<Log> log = new Log();
     AutoPtr<ResourceCache> cache = new ResourceCache();
     cache->AddResourceDir(ExecutableDir() + "Data");
@@ -206,10 +208,21 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     bool drawSSAO = false;
     bool animate = true;
 
+    std::string profilerOutput;
+
     while (!input->ShouldExit() && !input->KeyPressed(27))
     {
         ZoneScoped;
         frameTimer.Reset();
+
+        if (profilerTimer.ElapsedMSec() >= 1000)
+        {
+            profilerOutput = profiler->OutputResults();
+            profiler->BeginInterval();
+            profilerTimer.Reset();
+        }
+
+        profiler->BeginFrame();
 
         input->Update();
 
@@ -257,8 +270,8 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
         if (animate)
         {
-            ZoneScopedN("MoveObjects");
-
+            PROFILE(MoveObjects);
+        
             if (rotatingObjects.size())
             {
                 angle += 100.0f * dt;
@@ -311,10 +324,13 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
         camera->SetAspectRatio((float)width / (float)height);
 
-        renderer->PrepareView(scene, camera, shadowMode > 0);
+        {
+            PROFILE(PrepareView);
+            renderer->PrepareView(scene, camera, shadowMode > 0);
+        }
         
         {
-            ZoneScopedN("RenderView");
+            PROFILE(RenderView);
 
             renderer->RenderShadowMaps();
 
@@ -365,13 +381,20 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             renderer->RenderAlpha();
 
             FrameBuffer::Blit(nullptr, IntRect(0, 0, width, height), viewFbo, IntRect(0, 0, width, height), true, false, FILTER_POINT);
+        }
+
+        {
+            PROFILE(Present);
             graphics->Present();
         }
 
+        profiler->EndFrame();
         dt = frameTimer.ElapsedUSec() * 0.000001f;
 
         FrameMark;
     }
+
+    printf("%s", profilerOutput.c_str());
 
     return 0;
 }
