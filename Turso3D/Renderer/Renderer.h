@@ -244,8 +244,8 @@ private:
     std::vector<AutoPtr<Task> > collectShadowBatchesTasks;
     /// Tasks for shadow batch sorting per shadowmap.
     AutoPtr<Task> sortShadowBatchesTasks[2];
-    /// Task for light grid culling.
-    AutoPtr<Task> cullLightsTask;
+    /// Tasks for light grid culling.
+    AutoPtr<Task> cullLightsTasks[NUM_CLUSTER_Z];
     /// Counters for shadow views remaining per shadowmap. When zero, the shadow batches can be sorted.
     std::atomic<int> numPendingShadowViews[2];
 };

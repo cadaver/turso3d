@@ -147,7 +147,8 @@ Renderer::Renderer() :
 
     geometryResults.resize(workQueue->NumThreads());
 
-    cullLightsTask = new MemberFunctionTask<Renderer>(this, &Renderer::CullLightsToFrustumWork);
+    for (size_t i = 0; i < NUM_CLUSTER_Z; ++i)
+        cullLightsTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::CullLightsToFrustumWork, (void*)i);
 }
 
 Renderer::~Renderer()
@@ -728,6 +729,13 @@ void Renderer::CollectGeometriesAndLights()
     if (lightTaskIdx > 0)
         workQueue->QueueTasks(lightTaskIdx, reinterpret_cast<Task**>(&collectShadowCastersTasks[0]));
 
+    // Update cluster frustums and bounding boxes if camera changed
+    DefineClusterFrustums();
+
+    // Clear per-cluster light data
+    memset(numClusterLights, 0, sizeof numClusterLights);
+    memset(clusterData, 0, sizeof clusterData);
+
     workQueue->Complete();
 }
 
@@ -735,8 +743,9 @@ void Renderer::JoinAndSortBatches()
 {
     ZoneScoped;
 
-    // Begin light grid culling
-    workQueue->QueueTask(cullLightsTask);
+    // If has local lights, queue light grid culling tasks
+    if (lights.size())
+        workQueue->QueueTasks(NUM_CLUSTER_Z, reinterpret_cast<Task**>(&cullLightsTasks[0]));
 
     // Shadow batches collection needs accurate scene min / max Z results, combine them from per-thread data
     for (size_t i = 0; i < geometryResults.size(); ++i)
@@ -755,6 +764,10 @@ void Renderer::JoinAndSortBatches()
         numPendingShadowViews[i].store((int)shadowMap.shadowViews.size());
         for (size_t j = 0; j < shadowMap.shadowViews.size(); ++j)
         {
+            // Skip discarded view
+            if (!shadowMap.shadowViews[j]->light)
+                continue;
+
             if (collectShadowBatchesTasks.size() <= shadowTaskIdx)
                 collectShadowBatchesTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectShadowBatchesWork));
             collectShadowBatchesTasks[shadowTaskIdx]->start = (void*)i;
@@ -1239,9 +1252,14 @@ void Renderer::CollectShadowCastersWork(Task* task, unsigned)
         {
             ShadowView& view = shadowViews[j];
 
-            // For point light, check if each of the frustums is in view. Do not process if isn't
+            // For point light, check if each of the frustums is in view. Do not process if isn't. Rendering will be no-op this frame,
+            // but cached contents are discarded once comes into view again
             if (!frustum.IsInsideFast(BoundingBox(view.shadowFrustum)))
+            {
                 view.light = nullptr;
+                view.renderMode = RENDER_STATIC_LIGHT_CACHED;
+                view.lastViewport = IntRect::ZERO;
+            }
         }
     }
     else if (lightType == LIGHT_SPOT)
@@ -1263,19 +1281,6 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
     ShadowView& view = *shadowMap.shadowViews[shadowViewIdx];
 
     Light* light = view.light;
-
-    // Check if view was discarded during shadowcaster collecting
-    if (!light)
-    {
-        view.renderMode = RENDER_STATIC_LIGHT_CACHED;
-        view.lastViewport = IntRect::ZERO;
-        
-        // Queue shadow batch sort task if was the last
-        if (numPendingShadowViews[shadowMapIdx].fetch_add(-1) == 1)
-            workQueue->QueueTask(sortShadowBatchesTasks[shadowMapIdx]);
-        return;
-    }
-
     LightType lightType = light->GetLightType();
     const Frustum& shadowFrustum = view.shadowFrustum;
     const Matrix3x4& lightView = view.shadowCamera->ViewMatrix();
@@ -1487,19 +1492,13 @@ void Renderer::SortShadowBatchesWork(Task* task, unsigned)
     }
 }
 
-void Renderer::CullLightsToFrustumWork(Task*, unsigned)
+void Renderer::CullLightsToFrustumWork(Task* task, unsigned)
 {
     ZoneScoped;
 
-    // Update cluster frustums and bounding boxes if camera changed
-    DefineClusterFrustums();
-
-    // Clear per-cluster light data
-    memset(numClusterLights, 0, sizeof numClusterLights);
-    memset(clusterData, 0, sizeof clusterData);
-
-    // Cull lights against each cluster frustum.
-    Matrix3x4 cameraView = camera->ViewMatrix();
+    // Cull lights against each cluster frustum on the given Z-level
+    size_t z = (size_t)task->start;
+    const Matrix3x4& cameraView = camera->ViewMatrix();
 
     for (size_t i = 0; i < lights.size(); ++i)
     {
@@ -1512,21 +1511,18 @@ void Renderer::CullLightsToFrustumWork(Task*, unsigned)
             float minViewZ = bounds.center.z - light->Range();
             float maxViewZ = bounds.center.z + light->Range();
 
-            for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
+            size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
+            if (minViewZ > clusterFrustums[idx].vertices[4].z || maxViewZ < clusterFrustums[idx].vertices[0].z || numClusterLights[idx] >= MAX_LIGHTS_CLUSTER)
+                continue;
+
+            for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
             {
-                size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
-                if (minViewZ > clusterFrustums[idx].vertices[4].z || maxViewZ < clusterFrustums[idx].vertices[0].z || numClusterLights[idx] >= MAX_LIGHTS_CLUSTER)
-                    continue;
-
-                for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
+                for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
                 {
-                    for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
-                    {
-                        if (bounds.IsInsideFast(clusterBoundingBoxes[idx]) && clusterFrustums[idx].IsInsideFast(bounds))
-                            clusterData[(idx << 4) + numClusterLights[idx]++] = (unsigned char)(i + 1);
+                    if (bounds.IsInsideFast(clusterBoundingBoxes[idx]) && clusterFrustums[idx].IsInsideFast(bounds))
+                        clusterData[(idx << 4) + numClusterLights[idx]++] = (unsigned char)(i + 1);
 
-                        ++idx;
-                    }
+                    ++idx;
                 }
             }
         }
@@ -1537,21 +1533,18 @@ void Renderer::CullLightsToFrustumWork(Task*, unsigned)
             float minViewZ = boundsBox.min.z;
             float maxViewZ = boundsBox.max.z;
 
-            for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
+            size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
+            if (minViewZ > clusterFrustums[idx].vertices[4].z || maxViewZ < clusterFrustums[idx].vertices[0].z || numClusterLights[idx] >= MAX_LIGHTS_CLUSTER)
+                continue;
+
+            for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
             {
-                size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
-                if (minViewZ > clusterFrustums[idx].vertices[4].z || maxViewZ < clusterFrustums[idx].vertices[0].z || numClusterLights[idx] >= MAX_LIGHTS_CLUSTER)
-                    continue;
-
-                for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
+                for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
                 {
-                    for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
-                    {
-                        if (bounds.IsInsideFast(clusterBoundingBoxes[idx]) && clusterFrustums[idx].IsInsideFast(boundsBox))
-                            clusterData[(idx << 4) + numClusterLights[idx]++] = (unsigned char)(i + 1);
+                    if (bounds.IsInsideFast(clusterBoundingBoxes[idx]) && clusterFrustums[idx].IsInsideFast(boundsBox))
+                        clusterData[(idx << 4) + numClusterLights[idx]++] = (unsigned char)(i + 1);
 
-                        ++idx;
-                    }
+                    ++idx;
                 }
             }
         }
