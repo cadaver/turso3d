@@ -270,6 +270,8 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
         if (animate)
         {
+            ZoneScopedN("MoveObjects");
+
             PROFILE(MoveObjects);
         
             if (rotatingObjects.size())
