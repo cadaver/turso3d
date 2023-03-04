@@ -541,7 +541,7 @@ void Renderer::CollectGeometriesAndLights()
 
     // Find octants in view and their plane masks for node frustum culling
     {
-        ZoneScopedN("FindOctantsInView");
+        ZoneScopedN("FindOctants");
         octants.clear();
         octree->FindOctantsMasked(octants, frustum);
     }
@@ -572,24 +572,28 @@ void Renderer::CollectGeometriesAndLights()
     workQueue->QueueTasks(taskIdx, reinterpret_cast<Task**>(&collectBatchesTasks[0]));
 
     // While batches collection is going on, find lights in frustum
-    for (size_t i = 0; i < octants.size(); ++i)
     {
-        Octant* octant = octants[i].first;
-        unsigned char planeMask = octants[i].second;
+        ZoneScopedN("CollectLights");
 
-        for (auto it = octant->nodes.begin(); it != octant->nodes.end(); ++it)
+        for (size_t i = 0; i < octants.size(); ++i)
         {
-            OctreeNode* node = *it;
-            unsigned short flags = node->Flags();
-            if ((flags & NF_LIGHT) && (node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
+            Octant* octant = octants[i].first;
+            unsigned char planeMask = octants[i].second;
+
+            for (auto it = octant->nodes.begin(); it != octant->nodes.end(); ++it)
             {
-                if (node->OnPrepareRender(frameNumber, camera))
+                OctreeNode* node = *it;
+                unsigned short flags = node->Flags();
+                if ((flags & NF_LIGHT) && (node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
                 {
-                    Light* light = static_cast<Light*>(node);
-                    if (light->GetLightType() != LIGHT_DIRECTIONAL)
-                        lights.push_back(light);
-                    else if (!dirLight || light->GetColor().Average() > dirLight->GetColor().Average())
-                        dirLight = light;
+                    if (node->OnPrepareRender(frameNumber, camera))
+                    {
+                        Light* light = static_cast<Light*>(node);
+                        if (light->GetLightType() != LIGHT_DIRECTIONAL)
+                            lights.push_back(light);
+                        else if (!dirLight || light->GetColor().Average() > dirLight->GetColor().Average())
+                            dirLight = light;
+                    }
                 }
             }
         }
@@ -654,12 +658,10 @@ void Renderer::CollectGeometriesAndLights()
                 continue;
         }
 
-        // Setup shadow cameras
-        light->SetupShadowViews(camera);
+        light->InitShadowViews();
         std::vector<ShadowView>& shadowViews = light->ShadowViews();
 
         lightData[i].shadowParameters = light->ShadowParameters();
-        lightData[i].shadowMatrix = light->ShadowViews()[0].shadowMatrix;
 
         // Preallocate shadowcaster list
         size_t casterListIdx = shadowMap.freeCasterListIdx++;
@@ -698,7 +700,7 @@ void Renderer::CollectGeometriesAndLights()
     {
         ShadowMap& shadowMap = shadowMaps[0];
 
-        dirLight->SetupShadowViews(camera);
+        dirLight->InitShadowViews();
         std::vector<ShadowView>& shadowViews = dirLight->ShadowViews();
 
         for (size_t i = 0; i < shadowViews.size(); ++i)
@@ -745,7 +747,16 @@ void Renderer::JoinAndSortBatches()
 
     // If has local lights, queue light grid culling tasks
     if (lights.size())
+    {
         workQueue->QueueTasks(NUM_CLUSTER_Z, reinterpret_cast<Task**>(&cullLightsTasks[0]));
+
+        // Also copy correct shadow matrices for the light data after shadow caster collection has finalized them
+        for (size_t i = 0; i < lights.size(); ++i)
+        {
+            if (lights[i]->ShadowMap())
+                lightData[i].shadowMatrix = lights[i]->ShadowViews()[0].shadowMatrix;
+        }
+    }
 
     // Shadow batches collection needs accurate scene min / max Z results, combine them from per-thread data
     for (size_t i = 0; i < geometryResults.size(); ++i)
@@ -1238,22 +1249,22 @@ void Renderer::CollectShadowCastersWork(Task* task, unsigned)
     if (lightType == LIGHT_DIRECTIONAL)
     {
         // Directional light: perform separate query per split frustum
-        ShadowView& view = shadowViews[(size_t)task->end];
+        size_t i = (size_t)task->end;
+        light->SetupShadowView(i, camera);
+        ShadowView& view = shadowViews[i];
+
         std::vector<GeometryNode*>& shadowCasters = shadowMap.shadowCasters[view.casterListIdx];
         octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(shadowCasters), view.shadowFrustum, NF_GEOMETRY | NF_CAST_SHADOWS);
     } 
     else if (lightType == LIGHT_POINT)
     {
         // Point light: perform only one sphere query, then check which of the point light sides are visible
-        std::vector<GeometryNode*>& shadowCasters = shadowMap.shadowCasters[shadowViews[0].casterListIdx];
-        octree->FindNodes(reinterpret_cast<std::vector<OctreeNode*>&>(shadowCasters), light->WorldSphere(), NF_GEOMETRY | NF_CAST_SHADOWS);
-
-        for (size_t j = 0; j < shadowViews.size(); ++j)
+        for (size_t i = 0; i < shadowViews.size(); ++i)
         {
-            ShadowView& view = shadowViews[j];
+            // Check if each of the sides is in view. Do not process if isn't. Rendering will be no-op this frame, but cached contents are discarded once comes into view again
+            light->SetupShadowView(i, camera);
+            ShadowView& view = shadowViews[i];
 
-            // For point light, check if each of the frustums is in view. Do not process if isn't. Rendering will be no-op this frame,
-            // but cached contents are discarded once comes into view again
             if (!frustum.IsInsideFast(BoundingBox(view.shadowFrustum)))
             {
                 view.light = nullptr;
@@ -1261,11 +1272,16 @@ void Renderer::CollectShadowCastersWork(Task* task, unsigned)
                 view.lastViewport = IntRect::ZERO;
             }
         }
+
+        std::vector<GeometryNode*>& shadowCasters = shadowMap.shadowCasters[shadowViews[0].casterListIdx];
+        octree->FindNodes(reinterpret_cast<std::vector<OctreeNode*>&>(shadowCasters), light->WorldSphere(), NF_GEOMETRY | NF_CAST_SHADOWS);
     }
     else if (lightType == LIGHT_SPOT)
     {
-        // Spot light: perform one query for the spot frustum
+        // Spot light: perform query for the spot frustum
+        light->SetupShadowView(0, camera);
         ShadowView& view = shadowViews[0];
+
         std::vector<GeometryNode*>& shadowCasters = shadowMap.shadowCasters[view.casterListIdx];
         octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(shadowCasters), view.shadowFrustum, NF_GEOMETRY | NF_CAST_SHADOWS);
     }

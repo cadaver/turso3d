@@ -9,6 +9,8 @@
 #include "Octree.h"
 #include "Renderer.h"
 
+#include <tracy/Tracy.hpp>
+
 static const LightType DEFAULT_LIGHTTYPE = LIGHT_POINT;
 static const Color DEFAULT_COLOR = Color(1.0f, 1.0f, 1.0f, 0.5f);
 static const float DEFAULT_RANGE = 10.0f;
@@ -20,6 +22,15 @@ static const float DEFAULT_SHADOW_MAX_STRENGTH = 0.0f;
 static const float DEFAULT_SHADOW_QUANTIZE = 0.5f;
 static const float DEFAULT_DEPTH_BIAS = 2.0f;
 static const float DEFAULT_SLOPESCALE_BIAS = 1.5f;
+
+static const Quaternion pointLightFaceRotations[] = {
+    Quaternion(0.0f, 90.0f, 0.0f),
+    Quaternion(0.0f, -90.0f, 0.0f),
+    Quaternion(-90.0f, 0.0f, 0.0f),
+    Quaternion(90.0f, 0.0f, 0.0f),
+    Quaternion(0.0f, 0.0f, 0.0f),
+    Quaternion(0.0f, 180.0f, 0.0f)
+};
 
 static const char* lightTypeNames[] =
 {
@@ -297,193 +308,185 @@ void Light::SetShadowMap(Texture* shadowMap_, const IntRect& shadowRect_)
     shadowRect = shadowRect_;
 }
 
-void Light::SetupShadowViews(Camera* mainCamera)
+void Light::InitShadowViews()
 {
-    size_t numViews = NumShadowViews();
-    if (!numViews)
-        return;
+    shadowViews.resize(NumShadowViews());
 
-    shadowViews.resize(numViews);
+    // Calculate shadow mapping constants common to all lights
+    shadowParameters = Vector4(0.5f / (float)shadowMap->Width(), 0.5f / (float)shadowMap->Height(), ShadowStrength(), 0.0f);
+}
+
+void Light::SetupShadowView(size_t viewIndex, Camera* mainCamera)
+{
+    ZoneScoped;
 
     int numVerticalSplits = lightType == LIGHT_POINT ? 2 : 1;
     int actualShadowMapSize = shadowRect.Height() / numVerticalSplits;
     float pointShadowZoom = (float)(actualShadowMapSize - 4) / (float)actualShadowMapSize;
 
-    for (size_t i = 0; i < numViews; ++i)
+    ShadowView& view = shadowViews[viewIndex];
+    view.light = this;
+
+    if (!view.shadowCamera)
     {
-        ShadowView& view = shadowViews[i];
-        view.light = this;
-        if (!view.shadowCamera)
-            view.shadowCamera = new Camera();
+        view.shadowCamera = new Camera();
+        // OpenGL render-to-texture needs vertical flip
+        view.shadowCamera->SetFlipVertical(true);
+    }
 
-        Camera* shadowCamera = view.shadowCamera;
-        shadowCamera->SetFlipVertical(true);
+    Camera* shadowCamera = view.shadowCamera;
 
-        switch (lightType)
+    switch (lightType)
+    {
+    case LIGHT_DIRECTIONAL:
+    {
+        IntVector2 topLeft(shadowRect.left, shadowRect.top);
+        if (viewIndex & 1)
+            topLeft.x += actualShadowMapSize;
+        view.viewport = IntRect(topLeft.x, topLeft.y, topLeft.x + actualShadowMapSize, topLeft.y + actualShadowMapSize);
+
+        view.splitStart = Max(mainCamera->NearClip(), (viewIndex == 0) ? 0.0f : ShadowSplit(viewIndex - 1));
+        view.splitEnd = Min(mainCamera->FarClip(), ShadowSplit(viewIndex));
+        float extrusionDistance = mainCamera->FarClip();
+
+        // Calculate initial position & rotation
+        shadowCamera->SetTransform(mainCamera->WorldPosition() - extrusionDistance * WorldDirection(), WorldRotation());
+
+        // Calculate main camera shadowed frustum in light's view space
+        Frustum splitFrustum = mainCamera->WorldSplitFrustum(view.splitStart, view.splitEnd);
+        Frustum lightViewFrustum = splitFrustum.Transformed(shadowCamera->ViewMatrix());
+
+        // Fit the frustum inside a bounding box
+        BoundingBox shadowBox;
+        shadowBox.Define(lightViewFrustum);
+
+        // If shadow camera is far away from the frustum, can bring it closer for better depth precision
+        /// \todo The minimum distance is somewhat arbitrary
+        float minDistance = mainCamera->FarClip() * 0.25f;
+        if (shadowBox.min.z > minDistance)
         {
-        case LIGHT_DIRECTIONAL:
-        {
-            IntVector2 topLeft(shadowRect.left, shadowRect.top);
-            if (i & 1)
-                topLeft.x += actualShadowMapSize;
-            view.viewport = IntRect(topLeft.x, topLeft.y, topLeft.x + actualShadowMapSize, topLeft.y + actualShadowMapSize);
-
-            view.splitStart = Max(mainCamera->NearClip(), (i == 0) ? 0.0f : ShadowSplit(i - 1));
-            view.splitEnd = Min(mainCamera->FarClip(), ShadowSplit(i));
-            float extrusionDistance = mainCamera->FarClip();
-
-            // Calculate initial position & rotation
-            shadowCamera->SetTransform(mainCamera->WorldPosition() - extrusionDistance * WorldDirection(), WorldRotation());
-
-            // Calculate main camera shadowed frustum in light's view space
-            Frustum splitFrustum = mainCamera->WorldSplitFrustum(view.splitStart, view.splitEnd);
-            Frustum lightViewFrustum = splitFrustum.Transformed(shadowCamera->ViewMatrix());
-
-            // Fit the frustum inside a bounding box
-            BoundingBox shadowBox;
-            shadowBox.Define(lightViewFrustum);
-
-            // If shadow camera is far away from the frustum, can bring it closer for better depth precision
-            /// \todo The minimum distance is somewhat arbitrary
-            float minDistance = mainCamera->FarClip() * 0.25f;
-            if (shadowBox.min.z > minDistance)
-            {
-                float move = shadowBox.min.z - minDistance;
-                shadowCamera->Translate(Vector3(0.0f, 0.f, move));
-                shadowBox.min.z -= move,
-                    shadowBox.max.z -= move;
-            }
-
-            shadowCamera->SetOrthographic(true);
-            shadowCamera->SetFarClip(shadowBox.max.z);
-
-            Vector3 center = shadowBox.Center();
-            Vector3 size = shadowBox.Size();
-
-            size.x = ceilf(sqrtf(size.x / shadowQuantize));
-            size.y = ceilf(sqrtf(size.y / shadowQuantize));
-            size.x = size.x * size.x * shadowQuantize;
-            size.y = size.y * size.y * shadowQuantize;
-
-            shadowCamera->SetOrthoSize(Vector2(size.x, size.y));
-            shadowCamera->SetZoom(1.0f);
-
-            // Center shadow camera to the view space bounding box
-            Vector3 pos(shadowCamera->WorldPosition());
-            Quaternion rot(shadowCamera->WorldRotation());
-            Vector3 adjust(center.x, center.y, 0.0f);
-            shadowCamera->Translate(rot * adjust, TS_WORLD);
-
-            // Snap to whole texels
-            {
-                Vector3 viewPos(rot.Inverse() * shadowCamera->WorldPosition());
-                float invSize = 4.0f / actualShadowMapSize;
-                Vector2 texelSize(size.x * invSize, size.y * invSize);
-                Vector3 snap(-fmodf(viewPos.x, texelSize.x), -fmodf(viewPos.y, texelSize.y), 0.0f);
-                shadowCamera->Translate(rot * snap, TS_WORLD);
-            }
-
-            view.shadowFrustum = shadowCamera->WorldFrustum();
+            float move = shadowBox.min.z - minDistance;
+            shadowCamera->Translate(Vector3(0.0f, 0.f, move));
+            shadowBox.min.z -= move,
+                shadowBox.max.z -= move;
         }
+
+        shadowCamera->SetOrthographic(true);
+        shadowCamera->SetFarClip(shadowBox.max.z);
+
+        Vector3 center = shadowBox.Center();
+        Vector3 size = shadowBox.Size();
+
+        size.x = ceilf(sqrtf(size.x / shadowQuantize));
+        size.y = ceilf(sqrtf(size.y / shadowQuantize));
+        size.x = size.x * size.x * shadowQuantize;
+        size.y = size.y * size.y * shadowQuantize;
+
+        shadowCamera->SetOrthoSize(Vector2(size.x, size.y));
+        shadowCamera->SetZoom(1.0f);
+
+        // Center shadow camera to the view space bounding box
+        Vector3 pos(shadowCamera->WorldPosition());
+        Quaternion rot(shadowCamera->WorldRotation());
+        Vector3 adjust(center.x, center.y, 0.0f);
+        shadowCamera->Translate(rot * adjust, TS_WORLD);
+
+        // Snap to whole texels
+        {
+            Vector3 viewPos(rot.Inverse() * shadowCamera->WorldPosition());
+            float invSize = 4.0f / actualShadowMapSize;
+            Vector2 texelSize(size.x * invSize, size.y * invSize);
+            Vector3 snap(-fmodf(viewPos.x, texelSize.x), -fmodf(viewPos.y, texelSize.y), 0.0f);
+            shadowCamera->Translate(rot * snap, TS_WORLD);
+        }
+
+        view.shadowFrustum = shadowCamera->WorldFrustum();
+    }
+    break;
+
+    case LIGHT_POINT:
+    {
+        IntVector2 topLeft(shadowRect.left, shadowRect.top);
+        if (viewIndex & 1)
+            topLeft.y += actualShadowMapSize;
+        topLeft.x += ((unsigned)viewIndex >> 1) * actualShadowMapSize;
+        view.viewport = IntRect(topLeft.x, topLeft.y, topLeft.x + actualShadowMapSize, topLeft.y + actualShadowMapSize);
+
+        shadowCamera->SetTransform(WorldPosition(), pointLightFaceRotations[viewIndex]);
+        shadowCamera->SetFov(90.0f);
+        shadowCamera->SetZoom(pointShadowZoom);
+        shadowCamera->SetFarClip(Range());
+        shadowCamera->SetNearClip(Range() * 0.01f);
+        shadowCamera->SetOrthographic(false);
+        shadowCamera->SetAspectRatio(1.0f);
+        view.shadowFrustum = shadowCamera->WorldFrustum();
+    }
+    break;
+
+    case LIGHT_SPOT:
+        view.viewport = shadowRect;
+        shadowCamera->SetTransform(WorldPosition(), WorldRotation());
+        shadowCamera->SetFov(fov);
+        shadowCamera->SetZoom(1.0f);
+        shadowCamera->SetFarClip(Range());
+        shadowCamera->SetNearClip(Range() * 0.01f);
+        shadowCamera->SetOrthographic(false);
+        shadowCamera->SetAspectRatio(1.0f);
+        view.shadowFrustum = shadowCamera->WorldFrustum();
         break;
-
-        case LIGHT_POINT:
-        {
-            static const Quaternion pointLightFaceRotations[] = {
-                Quaternion(0.0f, 90.0f, 0.0f),
-                Quaternion(0.0f, -90.0f, 0.0f),
-                Quaternion(-90.0f, 0.0f, 0.0f),
-                Quaternion(90.0f, 0.0f, 0.0f),
-                Quaternion(0.0f, 0.0f, 0.0f),
-                Quaternion(0.0f, 180.0f, 0.0f)
-            };
-
-            IntVector2 topLeft(shadowRect.left, shadowRect.top);
-            if (i & 1)
-                topLeft.y += actualShadowMapSize;
-            topLeft.x += ((unsigned)i >> 1) * actualShadowMapSize;
-            view.viewport = IntRect(topLeft.x, topLeft.y, topLeft.x + actualShadowMapSize, topLeft.y + actualShadowMapSize);
-
-            shadowCamera->SetTransform(WorldPosition(), pointLightFaceRotations[i]);
-            shadowCamera->SetFov(90.0f);
-            shadowCamera->SetZoom(pointShadowZoom);
-            shadowCamera->SetFarClip(Range());
-            shadowCamera->SetNearClip(Range() * 0.01f);
-            shadowCamera->SetOrthographic(false);
-            shadowCamera->SetAspectRatio(1.0f);
-            view.shadowFrustum = shadowCamera->WorldFrustum();
-        }
-        break;
-
-        case LIGHT_SPOT:
-            view.viewport = shadowRect;
-            shadowCamera->SetTransform(WorldPosition(), WorldRotation());
-            shadowCamera->SetFov(fov);
-            shadowCamera->SetZoom(1.0f);
-            shadowCamera->SetFarClip(Range());
-            shadowCamera->SetNearClip(Range() * 0.01f);
-            shadowCamera->SetOrthographic(false);
-            shadowCamera->SetAspectRatio(1.0f);
-            view.shadowFrustum = shadowCamera->WorldFrustum();
-            break;
-        }
     }
 
     // Setup shadow matrices now as camera positions have been finalized
     if (lightType != LIGHT_POINT)
     {
-        for (size_t i = 0; i < numViews; ++i)
-        {
-            ShadowView& view = shadowViews[i];
+        float width = (float)shadowMap->Width();
+        float height = (float)shadowMap->Height();
+        Vector3 viewOffset((float)view.viewport.left / width, (float)view.viewport.top / height, 0.0f);
+        Vector3 viewScale(0.5f * (float)view.viewport.Width() / width, 0.5f * (float)view.viewport.Height() / height, 1.0f);
 
-            Camera* shadowCamera = view.shadowCamera;
-            float width = (float)shadowMap->Width();
-            float height = (float)shadowMap->Height();
-            Vector3 viewOffset((float)view.viewport.left / width, (float)view.viewport.top / height, 0.0f);
-            Vector3 viewScale(0.5f * (float)view.viewport.Width() / width, 0.5f * (float)view.viewport.Height() / height, 1.0f);
+        viewOffset.x += viewScale.x;
+        viewOffset.y += viewScale.y;
 
-            viewOffset.x += viewScale.x;
-            viewOffset.y += viewScale.y;
+        // OpenGL has different depth range
+        viewOffset.z = 0.5f;
+        viewScale.z = 0.5f;
 
-            // OpenGL has different depth range
-            viewOffset.z = 0.5f;
-            viewScale.z = 0.5f;
+        Matrix4 texAdjust(Matrix4::IDENTITY);
+        texAdjust.SetTranslation(viewOffset);
+        texAdjust.SetScale(viewScale);
 
-            Matrix4 texAdjust(Matrix4::IDENTITY);
-            texAdjust.SetTranslation(viewOffset);
-            texAdjust.SetScale(viewScale);
-
-            view.shadowMatrix = texAdjust * shadowCamera->ProjectionMatrix() * shadowCamera->ViewMatrix();
-        }
+        view.shadowMatrix = texAdjust * shadowCamera->ProjectionMatrix() * shadowCamera->ViewMatrix();
     }
     else
     {
-        Vector3 worldPosition = WorldPosition();
-        Vector2 textureSize((float)shadowMap->Width(), (float)shadowMap->Height());
-        float nearClip = Range() * 0.01f;
-        float farClip = Range();
-        float q = farClip / (farClip - nearClip);
-        float r = -q * nearClip;
+        if (!viewIndex)
+        {
+            Vector3 worldPosition = WorldPosition();
+            Vector2 textureSize((float)shadowMap->Width(), (float)shadowMap->Height());
+            float nearClip = Range() * 0.01f;
+            float farClip = Range();
+            float q = farClip / (farClip - nearClip);
+            float r = -q * nearClip;
 
-        Matrix4& shadowMatrix = shadowViews[0].shadowMatrix;
-        shadowMatrix = Matrix4::IDENTITY;
-        shadowMatrix.m00 = actualShadowMapSize / textureSize.x;
-        shadowMatrix.m01 = actualShadowMapSize / textureSize.y;
-        shadowMatrix.m02 = (float)shadowRect.left / textureSize.x;
-        shadowMatrix.m03 = (float)shadowRect.top / textureSize.y;
-        shadowMatrix.m10 = pointShadowZoom;
-        shadowMatrix.m11 = q;
-        shadowMatrix.m12 = r;
-        // Put position here for invalidating dynamic light shadowmaps when the light moves
-        shadowMatrix.m20 = worldPosition.x;
-        shadowMatrix.m21 = worldPosition.y;
-        shadowMatrix.m22 = worldPosition.z;
-        for (size_t i = 1; i < numViews; ++i)
-            shadowViews[i].shadowMatrix = shadowMatrix;
+            Matrix4& shadowMatrix = view.shadowMatrix;
+            shadowMatrix.m00 = actualShadowMapSize / textureSize.x;
+            shadowMatrix.m01 = actualShadowMapSize / textureSize.y;
+            shadowMatrix.m02 = (float)shadowRect.left / textureSize.x;
+            shadowMatrix.m03 = (float)shadowRect.top / textureSize.y;
+            shadowMatrix.m10 = pointShadowZoom;
+            shadowMatrix.m11 = q;
+            shadowMatrix.m12 = r;
+            // Put position here for invalidating dynamic light shadowmaps when the light moves
+            shadowMatrix.m20 = worldPosition.x;
+            shadowMatrix.m21 = worldPosition.y;
+            shadowMatrix.m22 = worldPosition.z;
+        }
+        else
+        {
+            // Shadow matrix for the rest of the cubemap sides is copied from the first
+            view.shadowMatrix = shadowViews[0].shadowMatrix;
+        }
     }
-
-    // Calculate shadow mapping constants common to all lights
-    shadowParameters = Vector4(0.5f / (float)shadowMap->Width(), 0.5f / (float)shadowMap->Height(), ShadowStrength(), 0.0f);
 }
 
 void Light::OnWorldBoundingBoxUpdate() const

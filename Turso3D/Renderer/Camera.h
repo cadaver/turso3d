@@ -30,37 +30,35 @@ class Camera : public SpatialNode
     static void RegisterObject();
 
     /// Set near clip distance.
-    void SetNearClip(float nearClip);
+    void SetNearClip(float distance) { nearClip = Max(distance, M_EPSILON); }
     /// Set far clip distance.
-    void SetFarClip(float farClip);
+    void SetFarClip(float distance) { farClip = Max(distance, M_EPSILON); }
     /// Set vertical field of view in degrees.
-    void SetFov(float fov);
+    void SetFov(float degrees) { fov = Clamp(degrees, 0.0f, 180.0f); }
     /// Set orthographic mode view uniform size.
-    void SetOrthoSize(float orthoSize);
+    void SetOrthoSize(float size) { orthoSize = size; aspectRatio = 1.0f; }
     /// Set orthographic mode view non-uniform size.
-    void SetOrthoSize(const Vector2& orthoSize);
+    void SetOrthoSize(const Vector2& size) { orthoSize = size.y; aspectRatio = size.x / size.y; }
     /// Set aspect ratio.
-    void SetAspectRatio(float aspectRatio);
-    /// Set zoom.
-    void SetZoom(float zoom);
+    void SetAspectRatio(float ratio) { aspectRatio = Max(ratio, M_EPSILON); }
+    /// Set zoom level, where 1 is no zooming.
+    void SetZoom(float level) { zoom = Max(level, M_EPSILON); }
     /// Set LOD bias. Values higher than 1 uses higher quality LOD (acts if distance is smaller.)
-    void SetLodBias(float bias);
+    void SetLodBias(float bias) { lodBias = Max(bias, M_EPSILON); }
     /// Set view layer mask. Will be checked against scene objects' layers to see what to render.
-    void SetViewMask(unsigned mask);
+    void SetViewMask(unsigned mask) { viewMask = mask; }
     /// Set orthographic projection mode.
-    void SetOrthographic(bool enable);
-    /// Set projection offset. It needs to be calculated as (offset in pixels) / (viewport dimensions.)
-    void SetProjectionOffset(const Vector2& offset);
+    void SetOrthographic(bool enable) { orthographic = enable; }
     /// Set reflection mode.
-    void SetUseReflection(bool enable);
+    void SetUseReflection(bool enable) { useReflection = enable; viewMatrixDirty = true; }
     /// Set reflection plane in world space for reflection mode.
-    void SetReflectionPlane(const Plane& plane);
+    void SetReflectionPlane(const Plane& plane) { reflectionPlane = plane; reflectionMatrix = plane.ReflectionMatrix(); viewMatrixDirty = true; }
     /// Set whether to use a custom clip plane.
-    void SetUseClipping(bool enable);
+    void SetUseClipping(bool enable) { useClipping = enable; }
     /// Set custom clipping plane in world space.
-    void SetClipPlane(const Plane& plane);
+    void SetClipPlane(const Plane& plane) { clipPlane = plane; }
     /// Set vertical flipping mode.
-    void SetFlipVertical(bool enable);
+    void SetFlipVertical(bool enable) { flipVertical = enable; }
 
     /// Return far clip distance.
     float FarClip() const { return farClip; }
@@ -80,10 +78,6 @@ class Camera : public SpatialNode
     unsigned ViewMask() const { return viewMask; }
     /// Return whether is orthographic.
     bool IsOrthographic() const { return orthographic; }
-    /// Return ambient light color.
-    const Color& AmbientColor() const { return ambientColor; }
-    /// Return projection offset.
-    const Vector2& ProjectionOffset() const { return projectionOffset; }
     /// Return whether is using reflection.
     bool UseReflection() const { return useReflection; }
     /// Return the reflection plane.
@@ -173,10 +167,6 @@ private:
     float lodBias;
     /// View layer mask.
     unsigned viewMask;
-    /// Ambient light color.
-    Color ambientColor;
-    /// Projection offset.
-    Vector2 projectionOffset;
     /// Reflection plane.
     Plane reflectionPlane;
     /// Clipping plane.

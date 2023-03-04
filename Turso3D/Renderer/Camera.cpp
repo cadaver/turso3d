@@ -30,7 +30,6 @@ Camera::Camera() :
     zoom(1.0f),
     lodBias(1.0f),
     viewMask(M_MAX_UNSIGNED),
-    projectionOffset(Vector2::ZERO),
     reflectionPlane(Plane::UP),
     clipPlane(Plane::UP),
     useReflection(false),
@@ -54,97 +53,10 @@ void Camera::RegisterObject()
     RegisterAttribute("zoom", &Camera::Zoom, &Camera::SetZoom, 1.0f);
     RegisterAttribute("lodBias", &Camera::LodBias, &Camera::SetLodBias, 1.0f);
     RegisterAttribute("viewMask", &Camera::ViewMask, &Camera::SetViewMask, M_MAX_UNSIGNED);
-    RegisterRefAttribute("projectionOffset", &Camera::ProjectionOffset, &Camera::SetProjectionOffset, Vector2::ZERO);
     RegisterMixedRefAttribute("reflectionPlane", &Camera::ReflectionPlaneAttr, &Camera::SetReflectionPlaneAttr, Vector4(0.0f, 1.0f, 0.0f, 0.0f));
     RegisterMixedRefAttribute("clipPlane", &Camera::ClipPlaneAttr, &Camera::SetClipPlaneAttr, Vector4(0.0f, 1.0f, 0.0f, 0.0f));
     RegisterAttribute("useReflection", &Camera::UseReflection, &Camera::SetUseReflection, false);
     RegisterAttribute("useClipping", &Camera::UseClipping, &Camera::SetUseClipping, false);
-}
-
-void Camera::SetNearClip(float nearClip_)
-{
-    nearClip = Max(nearClip_, M_EPSILON);
-}
-
-void Camera::SetFarClip(float farClip_)
-{
-    farClip = Max(farClip_, M_EPSILON);
-}
-
-void Camera::SetFov(float fov_)
-{
-    fov = Clamp(fov_, 0.0f, 180.0f);
-}
-
-void Camera::SetOrthoSize(float orthoSize_)
-{
-    orthoSize = orthoSize_;
-    aspectRatio = 1.0f;
-}
-
-void Camera::SetOrthoSize(const Vector2& orthoSize_)
-{
-    orthoSize = orthoSize_.y;
-    aspectRatio = orthoSize_.x / orthoSize_.y;
-}
-
-void Camera::SetAspectRatio(float aspectRatio_)
-{
-    aspectRatio = Max(aspectRatio_, M_EPSILON);
-}
-
-void Camera::SetZoom(float zoom_)
-{
-    zoom = Max(zoom_, M_EPSILON);
-}
-
-void Camera::SetLodBias(float bias)
-{
-    lodBias = Max(bias, M_EPSILON);
-}
-
-void Camera::SetViewMask(unsigned mask)
-{
-    viewMask = mask;
-}
-
-void Camera::SetOrthographic(bool enable)
-{
-    orthographic = enable;
-}
-
-void Camera::SetProjectionOffset(const Vector2& offset)
-{
-    projectionOffset = offset;
-}
-
-void Camera::SetUseReflection(bool enable)
-{
-    useReflection = enable;
-    viewMatrixDirty = true;
-}
-
-void Camera::SetReflectionPlane(const Plane& plane)
-{
-    reflectionPlane = plane;
-    reflectionMatrix = plane.ReflectionMatrix();
-    viewMatrixDirty = true;
-}
-
-void Camera::SetUseClipping(bool enable)
-{
-    useClipping = enable;
-}
-
-void Camera::SetClipPlane(const Plane& plane)
-{
-    clipPlane = plane;
-}
-
-
-void Camera::SetFlipVertical(bool enable)
-{
-    flipVertical = enable;
 }
 
 float Camera::NearClip() const
@@ -237,9 +149,9 @@ Matrix4 Camera::ProjectionMatrix(bool apiSpecific) const
         float r = -q * nearClip;
 
         ret.m00 = w;
-        ret.m02 = projectionOffset.x * 2.0f;
+        ret.m02 = 0.0f;
         ret.m11 = h;
-        ret.m12 = projectionOffset.y * 2.0f;
+        ret.m12 = 0.0f;
         ret.m22 = q;
         ret.m23 = r;
         ret.m32 = 1.0f;
@@ -253,9 +165,9 @@ Matrix4 Camera::ProjectionMatrix(bool apiSpecific) const
         float r = 0.0f;
 
         ret.m00 = w;
-        ret.m03 = projectionOffset.x * 2.0f;
+        ret.m03 = 0.0f;
         ret.m11 = h;
-        ret.m13 = projectionOffset.y * 2.0f;
+        ret.m13 = 0.0f;
         ret.m22 = q;
         ret.m23 = r;
         ret.m33 = 1.0f;
