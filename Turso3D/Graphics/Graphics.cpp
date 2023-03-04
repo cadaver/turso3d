@@ -1,13 +1,13 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
-#include "../Time/Profiler.h"
 #include "Graphics.h"
 #include "Shader.h"
 #include "Texture.h"
 
 #include <SDL.h>
 #include <glew.h>
+#include <tracy/Tracy.hpp>
 
 #ifdef WIN32
 #include <Windows.h>
@@ -65,7 +65,7 @@ Graphics::~Graphics()
 
 bool Graphics::Initialize()
 {
-    PROFILE(InitializeGraphics);
+    ZoneScoped;
 
     if (context)
         return true;
@@ -127,7 +127,7 @@ void Graphics::SetVSync(bool enable)
 
 void Graphics::Present()
 {
-    PROFILE(Present);
+    ZoneScoped;
 
     SDL_GL_SwapWindow(window);
 }

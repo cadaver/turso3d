@@ -1,11 +1,11 @@
 ﻿// For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
-#include "../Time/Profiler.h"
 #include "Graphics.h"
 #include "ShaderProgram.h"
 
 #include <glew.h>
+#include <tracy/Tracy.hpp>
 
 #include <cctype>
 
@@ -99,7 +99,7 @@ void ShaderProgram::Release()
 
 void ShaderProgram::Create(const std::string& sourceCode, const std::vector<std::string>& vsDefines, const std::vector<std::string>& fsDefines)
 {
-    PROFILE(CompileAndLinkShader);
+    ZoneScoped;
 
     std::string vsSourceCode;
     vsSourceCode += "#version 150\n";

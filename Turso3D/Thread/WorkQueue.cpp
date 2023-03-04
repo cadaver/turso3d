@@ -1,8 +1,9 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
-#include "../Time/Profiler.h"
 #include "ThreadUtils.h"
 #include "WorkQueue.h"
+
+#include <tracy/Tracy.hpp>
 
 thread_local unsigned WorkQueue::threadIndex = 0;
 
@@ -15,17 +16,22 @@ WorkQueue::WorkQueue(unsigned numThreads) :
 {
     RegisterSubsystem(this);
 
-    numQueuedTasks.store(0);
     numPendingTasks.store(0);
 
     if (numThreads == 0)
+    {
         numThreads = CPUCount();
-    // Avoid completely excessive core count
-    if (numThreads > 16)
-        numThreads = 16;
+        // Avoid completely excessive core count
+        if (numThreads > 16)
+            numThreads = 16;
+    }
 
-    for (unsigned  i = 0; i < numThreads - 1; ++i)
-        threads.push_back(std::thread(&WorkQueue::WorkerLoop, this, i + 1));
+    if (numThreads > 0)
+    {
+        exitTask = new MemberFunctionTask<WorkQueue>(this, &WorkQueue::ExitWorkerThreadWork);
+        for (unsigned  i = 0; i < numThreads - 1; ++i)
+            threads.push_back(std::thread(&WorkQueue::WorkerLoop, this, i + 1));
+    }
 }
 
 WorkQueue::~WorkQueue()
@@ -35,24 +41,21 @@ WorkQueue::~WorkQueue()
 
     // Signal exit and wait for threads to finish
     shouldExit = true;
+    for (size_t i = 0; i < threads.size(); ++i)
+        QueueTask(exitTask);
 
-    signal.notify_all();
     for (auto it = threads.begin(); it != threads.end(); ++it)
         it->join();
 }
 
 void WorkQueue::QueueTask(Task* task)
 {
+    ZoneScoped;
+
     if (threads.size())
     {
-        {
-            std::lock_guard<std::mutex> lock(queueMutex);
-            tasks.push(task);
-            numQueuedTasks.fetch_add(1);
-            numPendingTasks.fetch_add(1);
-        }
-
-        signal.notify_one();
+        numPendingTasks.fetch_add(1);
+        taskQueue.enqueue(task);
     }
     else
     {
@@ -63,23 +66,12 @@ void WorkQueue::QueueTask(Task* task)
 
 void WorkQueue::QueueTasks(size_t count, Task** tasks_)
 {
+    ZoneScoped;
+
     if (threads.size())
     {
-        {
-            std::lock_guard<std::mutex> lock(queueMutex);
-            for (size_t i = 0; i < count; ++i)
-                tasks.push(tasks_[i]);
-            numQueuedTasks.fetch_add(count);
-            numPendingTasks.fetch_add(count);
-        }
-
-        if (count >= threads.size())
-            signal.notify_all();
-        else
-        {
-            for (size_t i = 0; i < count; ++i)
-                signal.notify_one();
-        }
+        numPendingTasks.fetch_add((int)count);
+        taskQueue.enqueue_bulk(tasks_, count);
     }
     else
     {
@@ -90,7 +82,7 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
 }
 void WorkQueue::Complete()
 {
-    PROFILE(CompleteWorkQueue);
+    ZoneScoped;
     
     if (!threads.size())
         return;
@@ -100,25 +92,13 @@ void WorkQueue::Complete()
         if (!numPendingTasks.load())
             break;
 
-        // Avoid locking the queue mutex if do not have tasks in queue, just wait for the workers to finish
-        if (!numQueuedTasks.load())
-            continue;
-
-        // Otherwise if have still tasks, execute them in the main thread
+        // If have still tasks, execute them in the main thread
         Task* task;
-
+        if (taskQueue.try_dequeue(task))
         {
-            std::lock_guard<std::mutex> lock(queueMutex);
-            if (!tasks.size())
-                continue;
-
-            task = tasks.front();
-            tasks.pop();
-            numQueuedTasks.fetch_add(-1);
+            task->Invoke(task, 0);
+            numPendingTasks.fetch_add(-1);
         }
-
-        task->Invoke(task, 0);
-        numPendingTasks.fetch_add(-1);
     }
 }
 
@@ -126,26 +106,15 @@ void WorkQueue::WorkerLoop(unsigned threadIndex_)
 {
     WorkQueue::threadIndex = threadIndex_;
 
-    for (;;)
+    while (!shouldExit)
     {
         Task* task;
-
-        {
-            std::unique_lock<std::mutex> lock(queueMutex);
-            signal.wait(lock, [this]
-            {
-                return !tasks.empty() || shouldExit;
-            });
-
-            if (shouldExit)
-                break;
-
-            task = tasks.front();
-            tasks.pop();
-            numQueuedTasks.fetch_add(-1);
-        }
-
+        taskQueue.wait_dequeue(task);
         task->Invoke(task, threadIndex_);
         numPendingTasks.fetch_add(-1);
     }
+}
+
+void WorkQueue::ExitWorkerThreadWork(Task*, unsigned)
+{
 }

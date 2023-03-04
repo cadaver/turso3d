@@ -2,8 +2,9 @@
 
 #include "../IO/Log.h"
 #include "../IO/File.h"
-#include "../Time/Profiler.h"
 #include "JSONFile.h"
+
+#include <tracy/Tracy.hpp>
 
 void JSONFile::RegisterObject()
 {
@@ -12,7 +13,7 @@ void JSONFile::RegisterObject()
 
 bool JSONFile::BeginLoad(Stream& source)
 {
-    PROFILE(LoadJSONFile);
+    ZoneScoped;
     
     size_t dataSize = source.Size() - source.Position();
     AutoArrayPtr<char> buffer(new char[dataSize]);
@@ -36,7 +37,7 @@ bool JSONFile::BeginLoad(Stream& source)
 
 bool JSONFile::Save(Stream& dest)
 {
-    PROFILE(SaveJSONFile);
+    ZoneScoped;
     
     std::string buffer;
     root.ToString(buffer);

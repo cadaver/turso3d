@@ -1,13 +1,14 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
-#include "../Time/Profiler.h"
 #include "../Graphics/IndexBuffer.h"
 #include "../Graphics/VertexBuffer.h"
 #include "../Scene/Node.h"
 #include "GeometryNode.h"
 #include "Material.h"
 #include "Model.h"
+
+#include <tracy/Tracy.hpp>
 
 // Vertex and index allocation for the combined model buffers
 static const size_t COMBINEDBUFFER_VERTICES = 384 * 1024;
@@ -123,6 +124,8 @@ void Model::RegisterObject()
 
 bool Model::BeginLoad(Stream& source)
 {
+    ZoneScoped;
+
     /// \todo Develop own format for Turso3D
     if (source.ReadFileID() != "UMDL")
     {
@@ -295,6 +298,8 @@ bool Model::BeginLoad(Stream& source)
 
 void Model::ApplyBoneMappings(const GeometryDesc& geomDesc, const std::vector<unsigned>& boneMappings, std::set<std::pair<unsigned, unsigned> >& processedVertices)
 {
+    ZoneScoped;
+
     size_t blendIndicesOffset = 0;
     bool blendIndicesFound = false;
     const VertexBufferDesc& vbDesc = vbDescs[geomDesc.vbRef];
@@ -356,6 +361,8 @@ void Model::ApplyBoneMappings(const GeometryDesc& geomDesc, const std::vector<un
 
 bool Model::EndLoad()
 {
+    ZoneScoped;
+
     bool hasWeights = false;
     bool hasSameIndexSize = true;
     size_t totalIndices = 0;

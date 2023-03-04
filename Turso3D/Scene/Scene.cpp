@@ -4,9 +4,10 @@
 #include "../IO/Stream.h"
 #include "../Object/ObjectResolver.h"
 #include "../Resource/JSONFile.h"
-#include "../Time/Profiler.h"
 #include "Scene.h"
 #include "SpatialNode.h"
+
+#include <tracy/Tracy.hpp>
 
 Scene::Scene() :
     nextNodeId(1)
@@ -33,7 +34,7 @@ void Scene::RegisterObject()
 
 void Scene::Save(Stream& dest)
 {
-    PROFILE(SaveScene);
+    ZoneScoped;
     
     LOGINFO("Saving scene to " + dest.Name());
     
@@ -43,7 +44,7 @@ void Scene::Save(Stream& dest)
 
 bool Scene::Load(Stream& source)
 {
-    PROFILE(LoadScene);
+    ZoneScoped;
     
     LOGINFO("Loading scene from " + source.Name());
     
@@ -74,7 +75,7 @@ bool Scene::Load(Stream& source)
 
 bool Scene::LoadJSON(const JSONValue& source)
 {
-    PROFILE(LoadSceneJSON);
+    ZoneScoped;
     
     StringHash ownType(source["type"].GetString());
     unsigned ownId = (unsigned)source["id"].GetNumber();
@@ -97,6 +98,8 @@ bool Scene::LoadJSON(const JSONValue& source)
 
 bool Scene::LoadJSON(Stream& source)
 {
+    ZoneScoped;
+
     LOGINFO("Loading scene from " + source.Name());
     
     JSONFile json;
@@ -107,7 +110,7 @@ bool Scene::LoadJSON(Stream& source)
 
 bool Scene::SaveJSON(Stream& dest)
 {
-    PROFILE(SaveSceneJSON);
+    ZoneScoped;
     
     LOGINFO("Saving scene to " + dest.Name());
     
@@ -118,7 +121,7 @@ bool Scene::SaveJSON(Stream& dest)
 
 Node* Scene::Instantiate(Stream& source)
 {
-    PROFILE(Instantiate);
+    ZoneScoped;
     
     ObjectResolver resolver;
     StringHash childType(source.Read<StringHash>());
@@ -137,7 +140,7 @@ Node* Scene::Instantiate(Stream& source)
 
 Node* Scene::InstantiateJSON(const JSONValue& source)
 {
-    PROFILE(InstantiateJSON);
+    ZoneScoped;
     
     ObjectResolver resolver;
     StringHash childType(source["type"].GetString());
@@ -156,6 +159,8 @@ Node* Scene::InstantiateJSON(const JSONValue& source)
 
 Node* Scene::InstantiateJSON(Stream& source)
 {
+    ZoneScoped;
+
     JSONFile json;
     json.Load(source);
     return InstantiateJSON(json.Root());

@@ -4,7 +4,6 @@
 #include "../Graphics/UniformBuffer.h"
 #include "../IO/Log.h"
 #include "../Resource/ResourceCache.h"
-#include "../Time/Profiler.h"
 #include "AnimatedModel.h"
 #include "Animation.h"
 #include "AnimationState.h"
@@ -12,10 +11,12 @@
 
 #include <glew.h>
 #include <algorithm>
+#include <tracy/Tracy.hpp>
 
 Bone::Bone() :
     model(nullptr),
-    animationEnabled(true)
+    animationEnabled(true),
+    numChildBones(0)
 {
 }
 
@@ -39,6 +40,17 @@ void Bone::SetAnimatedModel(AnimatedModel* model_)
 void Bone::SetAnimationEnabled(bool enable)
 {
     animationEnabled = enable;
+}
+
+void Bone::CountChildBones()
+{
+    numChildBones = 0;
+
+    for (auto it = children.begin(); it != children.end(); ++it)
+    {
+        if ((*it)->Type() == Bone::TypeStatic())
+            ++numChildBones;
+    }
 }
 
 void Bone::OnTransformChanged()
@@ -126,6 +138,8 @@ void AnimatedModel::OnRender(size_t /*geomIndex*/, ShaderProgram* /*program*/)
 
 void AnimatedModel::SetModel(Model* model_)
 {
+    ZoneScoped;
+
     StaticModel::SetModel(model_);
     CreateBones();
 }
@@ -248,6 +262,20 @@ void AnimatedModel::OnTransformChanged()
 {
     // To improve performance set skinning dirty now, so the bone nodes will not redundantly signal transform changes back
     animatedModelFlags |= AMF_SKINNING_DIRTY;
+
+    // If have other children than the root bone, dirty the hierarchy normally. Otherwise optimize
+    if (children.size() > 1)
+        SpatialNode::OnTransformChanged();
+    else
+    {
+        SetBoneTransformsDirty();
+        SetFlag(NF_WORLD_TRANSFORM_DIRTY, true);
+    }
+
+    SetFlag(NF_BOUNDING_BOX_DIRTY, true);
+    if (octree && (Flags() & (NF_OCTREE_REINSERT_QUEUED | NF_ENABLED)) == NF_ENABLED)
+        octree->QueueUpdate(this);
+
     OctreeNode::OnTransformChanged();
 }
 
@@ -285,7 +313,7 @@ void AnimatedModel::OnWorldBoundingBoxUpdate() const
 
 void AnimatedModel::CreateBones()
 {
-    PROFILE(CreateAnimatedModelBones);
+    ZoneScoped;
 
     if (!model)
     {
@@ -335,6 +363,10 @@ void AnimatedModel::CreateBones()
             bones[i]->SetParent(bones[desc.parentIndex]);
     }
 
+    // Count child bones now
+    for (size_t i = 0; i < modelBones.size(); ++i)
+        bones[i]->CountChildBones();
+
     if (!skinMatrixBuffer)
         skinMatrixBuffer = new UniformBuffer();
     skinMatrixBuffer->Define(USAGE_DYNAMIC, numBones * sizeof(Matrix3x4));
@@ -345,6 +377,8 @@ void AnimatedModel::CreateBones()
 
 void AnimatedModel::UpdateAnimation()
 {
+    ZoneScoped;
+
     if (animatedModelFlags & AMF_ANIMATION_ORDER_DIRTY)
         std::sort(animationStates.begin(), animationStates.end(), CompareAnimationStates);
     
@@ -369,7 +403,7 @@ void AnimatedModel::UpdateAnimation()
     }
     
     // Dirty the bone hierarchy now. This will also dirty and queue reinsertion for attached models
-    rootBone->OnTransformChanged();
+    SetBoneTransformsDirty();
 
     animatedModelFlags &= ~(AMF_ANIMATION_ORDER_DIRTY | AMF_ANIMATION_DIRTY | AMF_IN_ANIMATION_UPDATE);
 
@@ -389,6 +423,8 @@ void AnimatedModel::UpdateAnimation()
 
 void AnimatedModel::UpdateSkinning()
 {
+    ZoneScoped;
+
     const std::vector<ModelBone>& modelBones = model->Bones();
 
     for (size_t i = 0; i < numBones; ++i)
@@ -396,6 +432,18 @@ void AnimatedModel::UpdateSkinning()
 
     animatedModelFlags &= ~AMF_SKINNING_DIRTY;
     animatedModelFlags |= AMF_SKINNING_BUFFER_DIRTY;
+}
+
+void AnimatedModel::SetBoneTransformsDirty()
+{
+    for (size_t i = 0; i < numBones; ++i)
+    {
+        // If bone has only other bones as children, just set world transform dirty without going through the hierarchy
+        if (bones[i]->NumChildren() > bones[i]->NumChildBones())
+            bones[i]->OnTransformChanged();
+        else
+            bones[i]->SetFlag(NF_WORLD_TRANSFORM_DIRTY, true);
+    }
 }
 
 void AnimatedModel::RemoveBones()

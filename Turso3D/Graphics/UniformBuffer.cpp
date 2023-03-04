@@ -1,12 +1,12 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
-#include "../Time/Profiler.h"
 #include "Graphics.h"
 #include "UniformBuffer.h"
 
 #include <glew.h>
 #include <cstring>
+#include <tracy/Tracy.hpp>
 
 static UniformBuffer* boundUniformBuffers[MAX_CONSTANT_BUFFER_SLOTS];
 
@@ -29,7 +29,7 @@ UniformBuffer::~UniformBuffer()
 
 bool UniformBuffer::Define(ResourceUsage usage_, size_t size_, const void* data)
 {
-    PROFILE(DefineUniformBuffer);
+    ZoneScoped;
 
     Release();
 
@@ -62,8 +62,6 @@ void UniformBuffer::Release()
 
 bool UniformBuffer::SetData(size_t offset, size_t numBytes, const void* data, bool discard)
 {
-    //PROFILE(UpdateUniformBuffer);
-
     if (!numBytes)
         return true;
 

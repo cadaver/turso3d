@@ -4,10 +4,11 @@
 #include "../IO/FileSystem.h"
 #include "../IO/Log.h"
 #include "../IO/StringUtils.h"
-#include "../Time/Profiler.h"
 #include "Image.h"
 #include "JSONFile.h"
 #include "ResourceCache.h"
+
+#include <tracy/Tracy.hpp>
 
 ResourceCache::ResourceCache()
 {
@@ -23,7 +24,7 @@ ResourceCache::~ResourceCache()
 
 bool ResourceCache::AddResourceDir(const std::string& pathName, bool addFirst)
 {
-    PROFILE(AddResourceDir);
+    ZoneScoped;
 
     if (!DirExists(pathName))
     {
@@ -85,6 +86,8 @@ void ResourceCache::RemoveResourceDir(const std::string& pathName)
 
 void ResourceCache::UnloadResource(StringHash type, const std::string& name, bool force)
 {
+    ZoneScoped;
+
     auto key = std::make_pair(type, StringHash(name));
     auto it = resources.find(key);
     if (it == resources.end())
@@ -97,6 +100,8 @@ void ResourceCache::UnloadResource(StringHash type, const std::string& name, boo
 
 void ResourceCache::UnloadResources(StringHash type, bool force)
 {
+    ZoneScoped;
+
     // In case resources refer to other resources, repeat until there are no further unloads
     for (;;)
     {
@@ -123,6 +128,8 @@ void ResourceCache::UnloadResources(StringHash type, bool force)
 
 void ResourceCache::UnloadResources(StringHash type, const std::string& partialName, bool force)
 {
+    ZoneScoped;
+
     // In case resources refer to other resources, repeat until there are no further unloads
     for (;;)
     {
@@ -149,6 +156,8 @@ void ResourceCache::UnloadResources(StringHash type, const std::string& partialN
 
 void ResourceCache::UnloadResources(const std::string& partialName, bool force)
 {
+    ZoneScoped;
+
     // In case resources refer to other resources, repeat until there are no further unloads
     for (;;)
     {
@@ -172,6 +181,8 @@ void ResourceCache::UnloadResources(const std::string& partialName, bool force)
 
 void ResourceCache::UnloadAllResources(bool force)
 {
+    ZoneScoped;
+
     // In case resources refer to other resources, repeat until there are no further unloads
     for (;;)
     {
@@ -195,6 +206,8 @@ void ResourceCache::UnloadAllResources(bool force)
 
 bool ResourceCache::ReloadResource(Resource* resource)
 {
+    ZoneScoped;
+
     if (!resource)
         return false;
 
@@ -204,6 +217,8 @@ bool ResourceCache::ReloadResource(Resource* resource)
 
 AutoPtr<Stream> ResourceCache::OpenResource(const std::string& nameIn)
 {
+    ZoneScoped;
+
     std::string name = SanitateResourceName(nameIn);
     AutoPtr<Stream> ret;
 
@@ -233,6 +248,8 @@ AutoPtr<Stream> ResourceCache::OpenResource(const std::string& nameIn)
 
 Resource* ResourceCache::LoadResource(StringHash type, const std::string& nameIn)
 {
+    ZoneScoped;
+
     std::string name = SanitateResourceName(nameIn);
 
     // If empty name, return null pointer immediately without logging an error

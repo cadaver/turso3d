@@ -2,8 +2,9 @@
 
 #include "../IO/Log.h"
 #include "../IO/Stream.h"
-#include "../Time/Profiler.h"
 #include "Animation.h"
+
+#include <tracy/Tracy.hpp>
 
 void AnimationTrack::FindKeyFrameIndex(float time, size_t& index) const
 {
@@ -38,6 +39,8 @@ void Animation::RegisterObject()
 
 bool Animation::BeginLoad(Stream& source)
 {
+    ZoneScoped;
+
     /// \todo Develop own format for Turso3D
     if (source.ReadFileID() != "UANI")
     {

@@ -4,8 +4,9 @@
 #include "../IO/StringUtils.h"
 #include "../Resource/JSONFile.h"
 #include "../Resource/ResourceCache.h"
-#include "../Time/Profiler.h"
 #include "Material.h"
+
+#include <tracy/Tracy.hpp>
 
 const char* passNames[] = {
     "shadow",
@@ -44,6 +45,8 @@ Pass::~Pass()
 
 void Pass::LoadJSON(const JSONValue& source)
 {
+    ZoneScoped;
+
     ResourceCache* cache = Object::Subsystem<ResourceCache>();
 
     SetShader(cache->LoadResource<Shader>(source["shader"].GetString()), source["vsDefines"].GetString(), source["fsDefines"].GetString());
@@ -101,7 +104,7 @@ void Material::RegisterObject()
 
 bool Material::BeginLoad(Stream& source)
 {
-    PROFILE(BeginLoadMaterial);
+    ZoneScoped;
 
     loadJSON = new JSONFile();
     if (!loadJSON->Load(source))
@@ -131,7 +134,7 @@ bool Material::BeginLoad(Stream& source)
 
 bool Material::EndLoad()
 {
-    PROFILE(EndLoadMaterial);
+    ZoneScoped;
 
     const JSONValue& root = loadJSON->Root();
 

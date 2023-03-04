@@ -26,6 +26,7 @@
 
 #include <SDL.h>
 #include <glew.h>
+#include <tracy/Tracy.hpp>
 
 std::vector<StaticModel*> rotatingObjects;
 std::vector<AnimatedModel*> animatingObjects;
@@ -211,6 +212,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
     while (!input->ShouldExit() && !input->KeyPressed(27))
     {
+        ZoneScoped;
         frameTimer.Reset();
 
         if (profilerTimer.ElapsedMSec() >= 1000)
@@ -221,8 +223,6 @@ int ApplicationMain(const std::vector<std::string>& arguments)
         }
 
         profiler->BeginFrame();
-
-        PROFILE(RunFrame);
 
         input->Update();
 
@@ -270,6 +270,8 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
         if (animate)
         {
+            ZoneScopedN("MoveObjects");
+
             PROFILE(MoveObjects);
         
             if (rotatingObjects.size())
@@ -324,7 +326,10 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
         camera->SetAspectRatio((float)width / (float)height);
 
-        renderer->PrepareView(scene, camera, shadowMode > 0);
+        {
+            PROFILE(PrepareView);
+            renderer->PrepareView(scene, camera, shadowMode > 0);
+        }
         
         {
             PROFILE(RenderView);
@@ -378,11 +383,17 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             renderer->RenderAlpha();
 
             FrameBuffer::Blit(nullptr, IntRect(0, 0, width, height), viewFbo, IntRect(0, 0, width, height), true, false, FILTER_POINT);
+        }
+
+        {
+            PROFILE(Present);
             graphics->Present();
         }
 
         profiler->EndFrame();
         dt = frameTimer.ElapsedUSec() * 0.000001f;
+
+        FrameMark;
     }
 
     printf("%s", profilerOutput.c_str());

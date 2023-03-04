@@ -1,12 +1,12 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
-#include "../Time/Profiler.h"
 #include "Graphics.h"
 #include "VertexBuffer.h"
 
 #include <glew.h>
 #include <cstring>
+#include <tracy/Tracy.hpp>
 
 static unsigned boundAttributes = 0;
 static VertexBuffer* boundVertexBuffer = nullptr;
@@ -63,7 +63,7 @@ VertexBuffer::~VertexBuffer()
 
 bool VertexBuffer::Define(ResourceUsage usage_, size_t numVertices_, const std::vector<VertexElement>& elements_, const void* data)
 {
-    PROFILE(DefineVertexBuffer);
+    ZoneScoped;
 
     Release();
 
@@ -107,8 +107,6 @@ void VertexBuffer::Release()
 
 bool VertexBuffer::SetData(size_t firstVertex, size_t numVertices_, const void* data, bool discard)
 {
-    //PROFILE(UpdateVertexBuffer);
-
     if (!data)
     {
         LOGERROR("Null source data for updating vertex buffer");

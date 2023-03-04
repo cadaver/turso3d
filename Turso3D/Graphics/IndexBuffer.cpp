@@ -1,12 +1,12 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
-#include "../Time/Profiler.h"
 #include "Graphics.h"
 #include "IndexBuffer.h"
 
 #include <glew.h>
 #include <cstring>
+#include <tracy/Tracy.hpp>
 
 static IndexBuffer* boundIndexBuffer = nullptr;
 
@@ -30,7 +30,7 @@ IndexBuffer::~IndexBuffer()
 
 bool IndexBuffer::Define(ResourceUsage usage_, size_t numIndices_, size_t indexSize_, const void* data)
 {
-    PROFILE(DefineIndexBuffer);
+    ZoneScoped;
 
     Release();
 
@@ -66,8 +66,6 @@ void IndexBuffer::Release()
 
 bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* data, bool discard)
 {
-    //PROFILE(UpdateIndexBuffer);
-
     if (!data)
     {
         LOGERROR("Null source data for updating index buffer");

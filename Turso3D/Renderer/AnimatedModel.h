@@ -39,6 +39,8 @@ public:
     void SetAnimatedModel(AnimatedModel* model);
     /// Set animation enabled. Default is enabled, when disabled the bone can be programmatically controlled.
     void SetAnimationEnabled(bool enable);
+    /// Count number of child bones. Called by AnimatedModel once the skeleton has been fully created.
+    void CountChildBones();
 
     /// Set bone parent space transform without dirtying the hierarchy.
     void SetTransformSilent(const Vector3& position_, const Quaternion& rotation_, const Vector3& scale_)
@@ -52,6 +54,8 @@ public:
     AnimatedModel* GetAnimatedModel() const { return model; }
     /// Return whether animation is enabled.
     bool AnimationEnabled() const { return animationEnabled; }
+    /// Return amount of child bones. This is used to check whether bone has attached objects and its dirtying cannot be handled in an optimized way.
+    size_t NumChildBones() const { return numChildBones; }
 
 protected:
     /// Handle the transform matrix changing.
@@ -62,6 +66,8 @@ private:
     AnimatedModel* model;
     /// Animation enabled flag.
     bool animationEnabled;
+    /// Amount of child bones.
+    size_t numChildBones;
 };
 
 /// %Scene node that renders a skeletally animated (skinned) model.
@@ -167,6 +173,8 @@ private:
     void CreateBones();
     /// Remove existing bones.
     void RemoveBones();
+    /// Mark bone transforms dirty. Do in an optimized manner if bone has no attached objects.
+    void SetBoneTransformsDirty();
     /// Apply animation states and recalculate bounding box.
     void UpdateAnimation();
     /// Update skin matrices for rendering.

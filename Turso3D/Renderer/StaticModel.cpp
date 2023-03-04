@@ -6,6 +6,8 @@
 #include "Model.h"
 #include "StaticModel.h"
 
+#include <tracy/Tracy.hpp>
+
 static Vector3 DOT_SCALE(1 / 3.0f, 1 / 3.0f, 1 / 3.0f);
 
 StaticModel::StaticModel() :
@@ -73,6 +75,8 @@ bool StaticModel::OnPrepareRender(unsigned short frameNumber, Camera* camera)
 
 void StaticModel::SetModel(Model* model_)
 {
+    ZoneScoped;
+
     model = model_;
     SetFlag(NF_HAS_LOD_LEVELS, false);
 

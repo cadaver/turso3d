@@ -1,13 +1,13 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
-#include "../Time/Profiler.h"
 #include "FrameBuffer.h"
 #include "Graphics.h"
 #include "RenderBuffer.h"
 #include "Texture.h"
 
 #include <glew.h>
+#include <tracy/Tracy.hpp>
 
 static FrameBuffer* boundDrawBuffer = nullptr;
 static FrameBuffer* boundReadBuffer = nullptr;
@@ -30,7 +30,7 @@ FrameBuffer::~FrameBuffer()
 
 void FrameBuffer::Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBuffer)
 {
-    PROFILE(DefineFrameBuffer);
+    ZoneScoped;
 
     Bind(true);
 
@@ -69,7 +69,7 @@ void FrameBuffer::Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBu
 
 void FrameBuffer::Define(Texture* colorTexture, Texture* depthStencilTexture)
 {
-    PROFILE(DefineFrameBuffer);
+    ZoneScoped;
 
     Bind(true);
 
@@ -108,7 +108,7 @@ void FrameBuffer::Define(Texture* colorTexture, Texture* depthStencilTexture)
 
 void FrameBuffer::Define(Texture* colorTexture, size_t cubeMapFace, Texture* depthStencilTexture)
 {
-    PROFILE(DefineFrameBuffer);
+    ZoneScoped;
 
     Bind(true);
 
@@ -147,7 +147,7 @@ void FrameBuffer::Define(Texture* colorTexture, size_t cubeMapFace, Texture* dep
 
 void FrameBuffer::Define(const std::vector<Texture*>& colorTextures, Texture* depthStencilTexture)
 {
-    PROFILE(DefineFrameBuffer);
+    ZoneScoped;
 
     Bind(true);
 
@@ -205,7 +205,7 @@ void FrameBuffer::Bind(bool force)
 
 void FrameBuffer::Blit(FrameBuffer* dest, const IntRect& destRect, FrameBuffer* src, const IntRect& srcRect, bool blitColor, bool blitDepth, TextureFilterMode filter)
 {
-    PROFILE(BlitFrameBuffer);
+    ZoneScoped;
 
     GLenum glBlitBits = 0;
     if (blitColor)
