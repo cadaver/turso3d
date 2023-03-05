@@ -115,6 +115,8 @@ public:
     void Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL) const;
     /// Query for nodes with a raycast and return the closest result.
     RaycastResult RaycastSingle(const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL) const;
+    /// Collect octants and their masks using a frustum and masked testing.
+    void FindOctantsMasked(std::vector<std::pair<Octant*, unsigned char> >& result, const Frustum& frustum) const;
 
     /// Query for nodes using a volume such as frustum or sphere.
     template <class T> void FindNodes(std::vector<OctreeNode*>& result, const T& volume, unsigned short nodeFlags, unsigned layerMask = LAYERMASK_ALL) const
@@ -138,12 +140,6 @@ public:
     template <class T> void FindNodesMasked(const Frustum& frustum, T* object, void (T::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, unsigned char)) const
     {
         CollectNodesMaskedMemberCallback(&root, frustum, object, callback);
-    }
-
-    /// Collect octants and their masks using a frustum and masked testing. Their nodes are to be processed later threaded.
-    void FindOctantsMasked(std::vector<std::pair<Octant*, unsigned char> >& result, const Frustum& frustum) const
-    {
-        CollectOctantsMasked(result, const_cast<Octant*>(&root), frustum);
     }
 
     /// Return whether threaded update is enabled.
@@ -225,6 +221,8 @@ private:
     void CollectNodes(std::vector<std::pair<OctreeNode*, float> >& result, Octant* octant, const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask) const;
     /// Work function to check reinsertion of nodes.
     void CheckReinsertWork(Task* task, unsigned threadIndex);
+    /// Work function to collect octants.
+    void CollectOctantsWork(Task* task, unsigned threadIndex);
 
     /// Collect nodes matching flags using a volume such as frustum or sphere.
     template <class T> void CollectNodes(std::vector<OctreeNode*>& result, Octant* octant, const T& volume, unsigned short nodeFlags, unsigned layerMask) const
@@ -367,24 +365,32 @@ private:
 
     /// Threaded update flag. During threaded update moved OctreeNodes should go directly to thread-specific reinsert queues.
     volatile bool threadedUpdate;
+    /// Current framenumber.
+    unsigned short frameNumber;
     /// Queue of nodes to be reinserted.
     std::vector<OctreeNode*> updateQueue;
     /// Octants which need to have sort order updated.
     std::vector<Octant*> sortDirtyOctants;
-    /// Intermediate reinsert queues for threaded execution.
-    std::vector<std::vector<OctreeNode*> > reinsertQueues;
-    /// Tasks for threaded reinsert execution.
-    std::vector<AutoPtr<Task> > reinsertTasks;
-    /// Current framenumber.
-    unsigned short frameNumber;
-    /// RaycastSingle initial coarse result.
-    mutable std::vector<std::pair<OctreeNode*, float> > initialRes;
-    /// RaycastSingle final result.
-    mutable std::vector<RaycastResult> finalRes;
-    /// Allocator for child octants.
-    Allocator<Octant> allocator;
     /// Root octant.
     Octant root;
+    /// Allocator for child octants.
+    Allocator<Octant> allocator;
     /// Cached %WorkQueue subsystem.
     WorkQueue* workQueue;
+    /// Tasks for threaded reinsert execution.
+    std::vector<AutoPtr<Task> > reinsertTasks;
+    /// Intermediate reinsert queues for threaded execution.
+    std::vector<std::vector<OctreeNode*> > reinsertQueues;
+    /// Tasks for octant collection.
+    mutable AutoPtr<Task> collectOctantsTasks[NUM_OCTANTS];
+    /// Query frustum for CollectOctantsWork.
+    mutable Frustum queryFrustum;
+    /// Root octant plane mask for CollectOctantsWork.
+    mutable unsigned char rootPlaneMask;
+    /// Intermediate octant lists for CollectOctantsWork.
+    mutable std::vector<std::pair<Octant*, unsigned char> > octantResults[NUM_OCTANTS];
+    /// RaycastSingle initial coarse result.
+    mutable std::vector<std::pair<OctreeNode*, float> > initialRayResult;
+    /// RaycastSingle final result.
+    mutable std::vector<RaycastResult> finalRayResult;
 };

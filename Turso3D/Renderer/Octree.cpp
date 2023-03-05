@@ -78,6 +78,9 @@ Octree::Octree() :
     // Have at least 1 task for reinsert processing
     reinsertTasks.push_back(new MemberFunctionTask<Octree>(this, &Octree::CheckReinsertWork));
     reinsertQueues.resize(workQueue->NumThreads());
+
+    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        collectOctantsTasks[i] = new MemberFunctionTask<Octree>(this, &Octree::CollectOctantsWork, (void*)i);
 }
 
 Octree::~Octree()
@@ -193,30 +196,30 @@ void Octree::Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigne
 RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask) const
 {
     // Get first the potential hits
-    initialRes.clear();
-    CollectNodes(initialRes, const_cast<Octant*>(&root), ray, nodeFlags, maxDistance, layerMask);
-    std::sort(initialRes.begin(), initialRes.end(), CompareNodeDistances);
+    initialRayResult.clear();
+    CollectNodes(initialRayResult, const_cast<Octant*>(&root), ray, nodeFlags, maxDistance, layerMask);
+    std::sort(initialRayResult.begin(), initialRayResult.end(), CompareNodeDistances);
 
     // Then perform actual per-node ray tests and early-out when possible
-    finalRes.clear();
+    finalRayResult.clear();
     float closestHit = M_INFINITY;
-    for (auto it = initialRes.begin(); it != initialRes.end(); ++it)
+    for (auto it = initialRayResult.begin(); it != initialRayResult.end(); ++it)
     {
         if (it->second < Min(closestHit, maxDistance))
         {
-            size_t oldSize = finalRes.size();
-            it->first->OnRaycast(finalRes, ray, maxDistance);
-            if (finalRes.size() > oldSize)
-                closestHit = Min(closestHit, finalRes.back().distance);
+            size_t oldSize = finalRayResult.size();
+            it->first->OnRaycast(finalRayResult, ray, maxDistance);
+            if (finalRayResult.size() > oldSize)
+                closestHit = Min(closestHit, finalRayResult.back().distance);
         }
         else
             break;
     }
 
-    if (finalRes.size())
+    if (finalRayResult.size())
     {
-        std::sort(finalRes.begin(), finalRes.end(), CompareRaycastResults);
-        return finalRes.front();
+        std::sort(finalRayResult.begin(), finalRayResult.end(), CompareRaycastResults);
+        return finalRayResult.front();
     }
     else
     {
@@ -227,6 +230,27 @@ RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, fl
         emptyRes.subObject = 0;
         return emptyRes;
     }
+}
+
+void Octree::FindOctantsMasked(std::vector<std::pair<Octant*, unsigned char> >& result, const Frustum& frustum) const
+{
+    queryFrustum = frustum;
+
+    rootPlaneMask = frustum.IsInsideMasked(root.cullingBox);
+    if (rootPlaneMask == 0xff)
+        return;
+
+    if (root.nodes.size())
+        result.push_back(std::make_pair(const_cast<Octant*>(&root), rootPlaneMask));
+
+    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        octantResults[i].clear();
+
+    workQueue->QueueTasks(NUM_OCTANTS, reinterpret_cast<Task**>(&collectOctantsTasks[0]));
+    workQueue->Complete();
+
+    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        result.insert(result.end(), octantResults[i].begin(), octantResults[i].end());
 }
 
 void Octree::RemoveNode(OctreeNode* node)
@@ -490,4 +514,14 @@ void Octree::CheckReinsertWork(Task* task, unsigned threadIndex_)
         else
             node->SetFlag(NF_OCTREE_REINSERT_QUEUED, false);
     }
+}
+
+void Octree::CollectOctantsWork(Task* task, unsigned)
+{
+    ZoneScoped;
+
+    size_t idx = (size_t)task->start;
+
+    if (root.children[idx])
+        CollectOctantsMasked(octantResults[idx], root.children[idx], queryFrustum, rootPlaneMask);
 }
