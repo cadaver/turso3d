@@ -10,8 +10,6 @@
 #include <queue>
 #include <thread>
 
-#include <blockingconcurrentqueue.h>
-
 /// Task for execution by worker threads.
 struct Task
 {
@@ -103,19 +101,21 @@ public:
 private:
     /// Worker thread function.
     void WorkerLoop(unsigned threadIndex);
-    /// Dummy task to exit the worker threads.
-    void ExitWorkerThreadWork(Task* task, unsigned threadIndex);
 
+    /// Mutex for the work queue.
+    std::mutex queueMutex;
+    /// Condition variable to wake up workers.
+    std::condition_variable signal;
     /// Exit flag.
     volatile bool shouldExit;
     /// Task queue.
-    moodycamel::BlockingConcurrentQueue<Task*> taskQueue;
+    std::queue<Task*> tasks;
     /// Worker threads.
     std::vector<std::thread> threads;
+    /// Amount of tasks in queue.
+    std::atomic<int> numQueuedTasks;
     /// Amount of queued tasks. Used to check for completion.
     std::atomic<int> numPendingTasks;
-    /// Task for exiting.
-    AutoPtr<Task> exitTask;
 
     /// Thread index for queries outside the work functions.
     static thread_local unsigned threadIndex;

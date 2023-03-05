@@ -38,7 +38,6 @@ add_library (${TARGET_NAME} ${SOURCE_FILES})
 target_include_directories (${TARGET_NAME} PUBLIC ../ThirdParty/SDL/include)
 target_include_directories (${TARGET_NAME} PUBLIC ../ThirdParty/GLEW)
 target_include_directories (${TARGET_NAME} PUBLIC ../ThirdParty/STB)
-target_include_directories (${TARGET_NAME} PUBLIC ../ThirdParty/ConcurrentQueue)
 target_include_directories (${TARGET_NAME} PUBLIC ../ThirdParty/Tracy)
 target_include_directories (${TARGET_NAME} PUBLIC .)
 
