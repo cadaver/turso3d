@@ -584,17 +584,23 @@ void Renderer::CollectGeometriesAndLights()
             {
                 OctreeNode* node = *it;
                 unsigned short flags = node->Flags();
-                if ((flags & NF_LIGHT) && (node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
+                if (flags & NF_LIGHT)
                 {
-                    if (node->OnPrepareRender(frameNumber, camera))
+                    if ((node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
                     {
-                        Light* light = static_cast<Light*>(node);
-                        if (light->GetLightType() != LIGHT_DIRECTIONAL)
-                            lights.push_back(light);
-                        else if (!dirLight || light->GetColor().Average() > dirLight->GetColor().Average())
-                            dirLight = light;
+                        if (node->OnPrepareRender(frameNumber, camera))
+                        {
+                            Light* light = static_cast<Light*>(node);
+                            if (light->GetLightType() != LIGHT_DIRECTIONAL)
+                                lights.push_back(light);
+                            else if (!dirLight || light->GetColor().Average() > dirLight->GetColor().Average())
+                                dirLight = light;
+                        }
                     }
                 }
+                // Lights are sorted first in octants, so break when first geometry encountered
+                else
+                    break;
             }
         }
     }

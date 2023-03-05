@@ -22,6 +22,16 @@ bool CompareNodeDistances(const std::pair<OctreeNode*, float>& lhs, const std::p
     return lhs.second < rhs.second;
 }
 
+bool CompareOctantNodes(OctreeNode* lhs, OctreeNode* rhs)
+{
+    unsigned short lhsFlags = lhs->Flags() & (NF_LIGHT | NF_GEOMETRY);
+    unsigned short rhsFlags = rhs->Flags() & (NF_LIGHT | NF_GEOMETRY);
+    if (lhsFlags != rhsFlags)
+        return lhsFlags < rhsFlags;
+    else
+        return lhs < rhs;
+}
+
 void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigned char level_)
 {
     worldBoundingBox = boundingBox;
@@ -143,10 +153,11 @@ void Octree::Update(unsigned short frameNumber_)
 
     updateQueue.clear();
 
+    // Sort octants' nodes by address and put lights first
     for (auto it = sortDirtyOctants.begin(); it != sortDirtyOctants.end(); ++it)
     {
         Octant* octant = *it;
-        std::sort(octant->nodes.begin(), octant->nodes.end());
+        std::sort(octant->nodes.begin(), octant->nodes.end(), CompareOctantNodes);
         octant->sortDirty = false;
     }
 
