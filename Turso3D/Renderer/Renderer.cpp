@@ -651,6 +651,7 @@ void Renderer::CollectGeometriesAndLights()
         lightData[i].color = light->EffectiveColor();
         lightData[i].shadowParameters = Vector4::ONE; // Assume unshadowed
 
+        // Check if not shadowcasting or beyond shadow range
         if (!drawShadows || light->ShadowStrength() >= 1.0f)
         {
             light->SetShadowMap(nullptr);
@@ -666,8 +667,6 @@ void Renderer::CollectGeometriesAndLights()
 
         light->InitShadowViews();
         std::vector<ShadowView>& shadowViews = light->ShadowViews();
-
-        lightData[i].shadowParameters = light->ShadowParameters();
 
         // Preallocate shadowcaster list
         size_t casterListIdx = shadowMap.freeCasterListIdx++;
@@ -759,8 +758,13 @@ void Renderer::JoinAndSortBatches()
         // Also copy correct shadow matrices for the light data after shadow caster collection has finalized them
         for (size_t i = 0; i < lights.size(); ++i)
         {
-            if (lights[i]->ShadowMap())
-                lightData[i].shadowMatrix = lights[i]->ShadowViews()[0].shadowMatrix;
+            Light* light = lights[i];
+
+            if (light->ShadowMap())
+            {
+                lightData[i].shadowParameters = light->ShadowParameters();
+                lightData[i].shadowMatrix = light->ShadowViews()[0].shadowMatrix;
+            }
         }
     }
 

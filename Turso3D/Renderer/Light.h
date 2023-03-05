@@ -162,7 +162,7 @@ public:
     void SetShadowMap(Texture* shadowMap, const IntRect& shadowRect = IntRect::ZERO);
     /// Init the correct number of shadow views but do not setup them yet. Called by Renderer.
     void InitShadowViews();
-    /// Setup a shadow view. Called by Renderer.
+    /// Setup the camera and matrix for a shadow view. Called by Renderer.
     void SetupShadowView(size_t viewIndex, Camera* mainCamera);
     /// Return shadow map.
     Texture* ShadowMap() const { return shadowMap; }
