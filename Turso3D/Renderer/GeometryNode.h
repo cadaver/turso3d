@@ -36,7 +36,7 @@ struct Geometry : public RefCounted
     float lodDistance;
 };
 
-/// Draw call source data with optimal memory storage.
+/// Draw call source data with optimal memory storage. 
 class SourceBatches
 {
 public:
@@ -48,22 +48,22 @@ public:
     /// Set number of geometries. Will destroy previously set geometry and material assignments.
     void SetNumGeometries(size_t num);
 
-    /// Set geometry at index.
+    /// Set geometry at index. Geometry pointers are raw pointers for safe LOD level changes on OnPrepareRender() in worker threads; a strong ref to the geometry should be held elsewhere.
     void SetGeometry(size_t index, Geometry* geometry)
     {
         if (numGeometries < 2)
-            *(reinterpret_cast<Geometry**>(&geomPtr)) = geometry;
+            geomPtr = geometry;
         else
-            *(reinterpret_cast<Geometry**>(geomPtr + index * 2)) = geometry;
+            *(reinterpret_cast<Geometry**>(geomPtr) + index * 2) = geometry;
     } 
 
-    /// Set material at index.
+    /// Set material at index. Material holds a strong ref and should not be changed from worker threads in OnPrepareRender().
     void SetMaterial(size_t index, Material* material)
     {
         if (numGeometries < 2)
-            *reinterpret_cast<SharedPtr<Material>*>(&matPtr) = material;
+            matPtr = material;
         else
-            *reinterpret_cast<SharedPtr<Material>*>(geomPtr + index * 2 + 1) = material;
+            *(reinterpret_cast<SharedPtr<Material>*>(geomPtr) + index * 2 + 1) = material;
     }
 
     /// Get number of geometries.
@@ -75,23 +75,23 @@ public:
         if (numGeometries < 2)
             return reinterpret_cast<Geometry*>(geomPtr);
         else
-            return *(reinterpret_cast<Geometry**>(geomPtr + index * 2));
+            return *(reinterpret_cast<Geometry**>(geomPtr) + index * 2);
     }
 
     /// Get material at index.
     Material* GetMaterial(size_t index) const
     {
         if (numGeometries < 2)
-            return reinterpret_cast<const SharedPtr<Material>*>(&matPtr)->Get();
+            return matPtr;
         else
-            return reinterpret_cast<const SharedPtr<Material>*>(geomPtr + index * 2 + 1)->Get();
+            return *(reinterpret_cast<SharedPtr<Material>*>(geomPtr) + index * 2 + 1);
     }
 
 private:
     /// Geometry pointer or dynamic storage.
-    size_t* geomPtr;
+    void* geomPtr;
     /// Material pointer.
-    size_t* matPtr;
+    SharedPtr<Material> matPtr;
     /// Number of geometries.
     size_t numGeometries;
 };

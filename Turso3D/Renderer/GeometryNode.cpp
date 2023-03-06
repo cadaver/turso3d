@@ -12,21 +12,15 @@
 SourceBatches::SourceBatches()
 {
     numGeometries = 0;
-
     geomPtr = nullptr;
-    new (&matPtr) SharedPtr<Material>();
 }
 
 SourceBatches::~SourceBatches()
 {
-    if (numGeometries < 2)
-    {
-        reinterpret_cast<SharedPtr<Material>*>(&matPtr)->~SharedPtr<Material>();
-    }
-    else
+    if (numGeometries >= 2)
     {
         for (size_t i = 0; i < numGeometries; ++i)
-            reinterpret_cast<SharedPtr<Material>*>(geomPtr + i * 2 + 1)->~SharedPtr<Material>();
+            (reinterpret_cast<SharedPtr<Material>*>(geomPtr) + i * 2 + 1)->~SharedPtr<Material>();
 
         delete[] geomPtr;
     }
@@ -37,20 +31,15 @@ void SourceBatches::SetNumGeometries(size_t num)
     if (numGeometries == num)
         return;
 
-    if (numGeometries < 2 && num < 2)
-    {
-        numGeometries = num;
-        for (size_t i = 0; i < numGeometries; ++i)
-            SetMaterial(i, Material::DefaultMaterial());
-        return;
-    }
-
     if (numGeometries < 2)
-        reinterpret_cast<SharedPtr<Material>*>(&matPtr)->~SharedPtr<Material>();
+    {
+        geomPtr = nullptr;
+        matPtr.Reset();
+    }
     else
     {
         for (size_t i = 0; i < numGeometries; ++i)
-            reinterpret_cast<SharedPtr<Material>*>(geomPtr + i * 2 + 1)->~SharedPtr<Material>();
+            (reinterpret_cast<SharedPtr<Material>*>(geomPtr) + i * 2 + 1)->~SharedPtr<Material>();
 
         delete[] geomPtr;
     }
@@ -60,15 +49,15 @@ void SourceBatches::SetNumGeometries(size_t num)
     if (numGeometries < 2)
     {
         geomPtr = nullptr;
-        new (&matPtr) SharedPtr<Material>();
+        matPtr.Reset();
     }
     else
     {
         geomPtr = new size_t[numGeometries * 2];
         for (size_t i = 0; i < numGeometries; ++i)
         {
-            *(reinterpret_cast<Geometry**>(geomPtr + i * 2)) = nullptr;
-            new (geomPtr + i * 2 + 1) SharedPtr<Material>();
+            *(reinterpret_cast<Geometry**>(geomPtr) + i * 2) = nullptr;
+            new (reinterpret_cast<SharedPtr<Material>*>(geomPtr) + i * 2 + 1) SharedPtr<Material>();
         }
     }
 
