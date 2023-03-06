@@ -97,15 +97,15 @@ Renderer::Renderer() :
     workQueue(Subsystem<WorkQueue>()),
     frameNumber(0),
     clusterFrustumsDirty(true),
+    hasInstancing(false),
     lastPerMaterialUniforms(0),
     lastBlendMode(MAX_BLEND_MODES),
     lastCullMode(MAX_CULL_MODES),
     lastDepthTest(MAX_COMPARE_MODES),
+    instancingEnabled(false),
     lastColorWrite(true),
     lastDepthWrite(true),
     lastDepthBias(false),
-    hasInstancing(false),
-    instancingEnabled(false),
     depthBiasMul(1.0f),
     slopeScaleBiasMul(1.0f)
 {
@@ -297,16 +297,10 @@ void Renderer::RenderShadowMaps()
         {
             ShadowView* view = shadowMap.shadowViews[j];
 
-            switch (view->renderMode)
-            {
-            case RENDER_DYNAMIC_LIGHT:
+            if (view->renderMode == RENDER_DYNAMIC_LIGHT)
                 Clear(false, true, view->viewport);
-                break;
-
-            case RENDER_STATIC_LIGHT_RESTORE_STATIC:
+            else if (view->renderMode == RENDER_STATIC_LIGHT_RESTORE_STATIC)
                 FrameBuffer::Blit(shadowMap.fbo, view->viewport, staticObjectShadowFbo, view->viewport, false, true, FILTER_POINT);
-                break;
-            }
         }
 
         // Finally render the dynamic objects
