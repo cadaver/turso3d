@@ -111,10 +111,12 @@ void Octree::Update(unsigned short frameNumber_)
 
     frameNumber = frameNumber_;
 
+    // Avoid overhead of threaded update if only a small number of objects to update / reinsert
+    const size_t minThreadedUpdate = 16;
     // Split into smaller tasks to encourage work stealing in case some thread is slower
     const size_t nodesPerTask = Max(1, (unsigned)updateQueue.size() / workQueue->NumThreads() / 4);
 
-    if (updateQueue.size() >= nodesPerTask)
+    if (updateQueue.size() >= minThreadedUpdate)
     {
         SetThreadedUpdate(true);
 
@@ -144,7 +146,6 @@ void Octree::Update(unsigned short frameNumber_)
     }
     else if (updateQueue.size())
     {
-        // Avoid overhead of threaded update if only a small number of objects to update / reinsert
         reinsertTasks[0]->start = &updateQueue[0];
         reinsertTasks[0]->end = &updateQueue[0] + updateQueue.size();
         reinsertTasks[0]->Invoke(reinsertTasks[0], 0);
