@@ -123,6 +123,10 @@ private:
     void DefineQuadVertexBuffer();
     /// Setup light cluster frustums and bounding boxes if necessary.
     void DefineClusterFrustums();
+    /// Collect octants and lights from the octree recursively.
+    void CollectOctantsAndLights(Octant* octant, std::vector<std::pair<Octant*, unsigned char> >& octantDest, std::vector<Light*>& lightDest, bool recursive, unsigned char planeMask = 0x3f);
+    /// Work function to collect octants.
+    void CollectOctantsWork(Task* task, unsigned threadIndex);
     /// Work function to collect main view batches from geometries.
     void CollectBatchesWork(Task* task, unsigned threadIndex);
     /// Work function to collect shadowcasters per shadowcasting light.
@@ -148,7 +152,25 @@ private:
     unsigned viewMask;
     /// Framenumber.
     unsigned short frameNumber;
-    /// Octants with plane masks in frustum.
+    /// Shadow use flag.
+    bool drawShadows;
+    /// Shadow maps globally dirty flag. All cached shadow content should be reset.
+    bool shadowMapsDirty;
+    /// Cluster frustums dirty flag.
+    bool clusterFrustumsDirty;
+    /// Instancing supported flag.
+    bool hasInstancing;
+    /// Intermediate octant lists for worker threads.
+    std::vector<std::pair<Octant*, unsigned char> > octantResults[NUM_OCTANTS + 1];
+    /// Intermediate light lists for worker threads.
+    std::vector<Light*> lightResults[NUM_OCTANTS + 1];
+    /// Per-worker thread scene geometry collection results.
+    std::vector<ThreadGeometryResult> geometryResults;
+    /// Minimum Z value for all geometries in frustum.
+    float minZ;
+    /// Maximum Z value for all geometries in frustum.
+    float maxZ;
+    /// Octants in frustum.
     std::vector<std::pair<Octant*, unsigned char> > octants;
     /// Brightest directional light in frustum.
     Light* dirLight;
@@ -156,6 +178,12 @@ private:
     std::vector<Light*> lights;
     /// Shadow maps.
     std::vector<ShadowMap> shadowMaps;
+    /// Last projection matrix used to initialize cluster frustums.
+    Matrix4 lastClusterFrustumProj;
+    /// Opaque batches.
+    BatchQueue opaqueBatches;
+    /// Transparent batches.
+    BatchQueue alphaBatches;
     /// Face selection UV indirection texture 1.
     AutoPtr<Texture> faceSelectionTexture1;
     /// Face selection UV indirection texture 2.
@@ -166,30 +194,6 @@ private:
     AutoPtr<UniformBuffer> perViewDataBuffer;
     /// Light data uniform buffer.
     AutoPtr<UniformBuffer> lightDataBuffer;
-    /// Cluster frustums for lights.
-    Frustum clusterFrustums[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
-    /// Cluster bounding boxes.
-    BoundingBox clusterBoundingBoxes[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
-    /// Amount of lights per cluster.
-    unsigned char numClusterLights[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
-    /// Cluster data CPU copy.
-    unsigned char clusterData[MAX_LIGHTS_CLUSTER * NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
-    /// Per-view uniform data CPU copy.
-    PerViewUniforms perViewData;
-    /// Light constantbuffer data CPU copy.
-    LightData lightData[MAX_LIGHTS + 1];
-    /// Last projection matrix used to initialize cluster frustums.
-    Matrix4 lastClusterFrustumProj;
-    /// Per-worker thread scene geometry collection results.
-    std::vector<ThreadGeometryResult> geometryResults;
-    /// Minimum Z value for all geometries in frustum.
-    float minZ;
-    /// Maximum Z value for all geometries in frustum.
-    float maxZ;
-    /// Opaque batches.
-    BatchQueue opaqueBatches;
-    /// Transparent batches.
-    BatchQueue alphaBatches;
     /// Instancing vertex buffer.
     AutoPtr<VertexBuffer> instanceVertexBuffer;
     /// Quad vertex buffer.
@@ -202,16 +206,6 @@ private:
     std::vector<VertexElement> instanceVertexElements;
     /// Instance transforms for opaque and alpha batches.
     std::vector<Matrix3x4> instanceTransforms;
-    /// Shadow use flag.
-    bool drawShadows;
-    /// Instancing supported flag.
-    bool hasInstancing;
-    /// Instancing vertex arrays enabled flag.
-    bool instancingEnabled;
-    /// Shadow maps globally dirty flag. All cached shadow content should be reset.
-    bool shadowMapsDirty;
-    /// Cluster frustums dirty flag.
-    bool clusterFrustumsDirty;
     /// Last camera used for rendering.
     Camera* lastCamera;
     /// Last material pass used for rendering.
@@ -226,6 +220,8 @@ private:
     CullMode lastCullMode;
     /// Last depth test.
     CompareMode lastDepthTest;
+    /// Instancing vertex arrays enabled flag.
+    bool instancingEnabled;
     /// Last color write.
     bool lastColorWrite;
     /// Last depth write.
@@ -236,6 +232,8 @@ private:
     float depthBiasMul;
     /// Slope-scaled depth bias multiplier.
     float slopeScaleBiasMul;
+    /// Tasks for octant collection.
+    AutoPtr<Task> collectOctantsTasks[NUM_OCTANTS + 1];
     /// Tasks for main view batches collection.
     std::vector<AutoPtr<Task> > collectBatchesTasks;
     /// Tasks for shadow light processing.
@@ -248,6 +246,18 @@ private:
     AutoPtr<Task> cullLightsTasks[NUM_CLUSTER_Z];
     /// Counters for shadow views remaining per shadowmap. When zero, the shadow batches can be sorted.
     std::atomic<int> numPendingShadowViews[2];
+    /// Cluster frustums for lights.
+    Frustum clusterFrustums[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
+    /// Cluster bounding boxes.
+    BoundingBox clusterBoundingBoxes[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
+    /// Amount of lights per cluster.
+    unsigned char numClusterLights[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
+    /// Cluster data CPU copy.
+    unsigned char clusterData[MAX_LIGHTS_CLUSTER * NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
+    /// Per-view uniform data CPU copy.
+    PerViewUniforms perViewData;
+    /// Light constantbuffer data CPU copy.
+    LightData lightData[MAX_LIGHTS + 1];
 };
 
 /// Register Renderer related object factories and attributes.

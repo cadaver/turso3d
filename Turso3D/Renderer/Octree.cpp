@@ -78,9 +78,6 @@ Octree::Octree() :
     // Have at least 1 task for reinsert processing
     reinsertTasks.push_back(new MemberFunctionTask<Octree>(this, &Octree::CheckReinsertWork));
     reinsertQueues.resize(workQueue->NumThreads());
-
-    for (size_t i = 0; i < NUM_OCTANTS; ++i)
-        collectOctantsTasks[i] = new MemberFunctionTask<Octree>(this, &Octree::CollectOctantsWork, (void*)i);
 }
 
 Octree::~Octree()
@@ -230,27 +227,6 @@ RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, fl
         emptyRes.subObject = 0;
         return emptyRes;
     }
-}
-
-void Octree::FindOctantsMasked(std::vector<std::pair<Octant*, unsigned char> >& result, const Frustum& frustum) const
-{
-    queryFrustum = frustum;
-
-    rootPlaneMask = frustum.IsInsideMasked(root.cullingBox);
-    if (rootPlaneMask == 0xff)
-        return;
-
-    if (root.nodes.size())
-        result.push_back(std::make_pair(const_cast<Octant*>(&root), rootPlaneMask));
-
-    for (size_t i = 0; i < NUM_OCTANTS; ++i)
-        octantResults[i].clear();
-
-    workQueue->QueueTasks(NUM_OCTANTS, reinterpret_cast<Task**>(&collectOctantsTasks[0]));
-    workQueue->Complete();
-
-    for (size_t i = 0; i < NUM_OCTANTS; ++i)
-        result.insert(result.end(), octantResults[i].begin(), octantResults[i].end());
 }
 
 void Octree::RemoveNode(OctreeNode* node)
@@ -514,14 +490,4 @@ void Octree::CheckReinsertWork(Task* task, unsigned threadIndex_)
         else
             node->SetFlag(NF_OCTREE_REINSERT_QUEUED, false);
     }
-}
-
-void Octree::CollectOctantsWork(Task* task, unsigned)
-{
-    ZoneScoped;
-
-    size_t idx = (size_t)task->start;
-
-    if (root.children[idx])
-        CollectOctantsMasked(octantResults[idx], root.children[idx], queryFrustum, rootPlaneMask);
 }

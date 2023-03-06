@@ -147,6 +147,9 @@ Renderer::Renderer() :
 
     geometryResults.resize(workQueue->NumThreads());
 
+    for (size_t i = 0; i < NUM_OCTANTS + 1; ++i)
+        collectOctantsTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::CollectOctantsWork, nullptr, (void*)i);
+
     for (size_t i = 0; i < NUM_CLUSTER_Z; ++i)
         cullLightsTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::CullLightsToFrustumWork, (void*)i);
 }
@@ -217,6 +220,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
 
     minZ = M_MAX_FLOAT;
     maxZ = 0.0f;
+    octants.clear();
     opaqueBatches.Clear();
     alphaBatches.Clear();
     lights.clear();
@@ -539,11 +543,25 @@ void Renderer::CollectGeometriesAndLights()
 {
     ZoneScoped;
 
-    // Find octants in view and their plane masks for node frustum culling
+    // Find octants in view and their plane masks for node frustum culling. At the same time, find lights.
     {
-        ZoneScopedN("FindOctants");
-        octants.clear();
-        octree->FindOctantsMasked(octants, frustum);
+        ZoneScopedN("CollectOctantsAndLights");
+
+        for (size_t i = 0; i < NUM_OCTANTS + 1; ++i)
+        {
+            lightResults[i].clear();
+            octantResults[i].clear();
+            collectOctantsTasks[i]->start = (i == 0) ? octree->Root() : octree->Root()->children[i - 1];
+        }
+
+        workQueue->QueueTasks(NUM_OCTANTS + 1, reinterpret_cast<Task**>(&collectOctantsTasks[0]));
+        workQueue->Complete();
+
+        for (size_t i = 0; i < NUM_OCTANTS + 1; ++i)
+        {
+            octants.insert(octants.end(), octantResults[i].begin(), octantResults[i].end());
+            lights.insert(lights.end(), lightResults[i].begin(), lightResults[i].end());
+        }
     }
 
     // Setup and queue batches collection tasks
@@ -571,38 +589,18 @@ void Renderer::CollectGeometriesAndLights()
     
     workQueue->QueueTasks(taskIdx, reinterpret_cast<Task**>(&collectBatchesTasks[0]));
 
-    // While batches collection is going on, find lights in frustum
+    // Find the directional light if any
+    for (auto it = lights.begin(); it != lights.end(); )
     {
-        ZoneScopedN("CollectLights");
-
-        for (size_t i = 0; i < octants.size(); ++i)
+        Light* light = *it;
+        if (light->GetLightType() == LIGHT_DIRECTIONAL)
         {
-            Octant* octant = octants[i].first;
-            unsigned char planeMask = octants[i].second;
-
-            for (auto it = octant->nodes.begin(); it != octant->nodes.end(); ++it)
-            {
-                OctreeNode* node = *it;
-                unsigned short flags = node->Flags();
-                if (flags & NF_LIGHT)
-                {
-                    if ((node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
-                    {
-                        if (node->OnPrepareRender(frameNumber, camera))
-                        {
-                            Light* light = static_cast<Light*>(node);
-                            if (light->GetLightType() != LIGHT_DIRECTIONAL)
-                                lights.push_back(light);
-                            else if (!dirLight || light->GetColor().Average() > dirLight->GetColor().Average())
-                                dirLight = light;
-                        }
-                    }
-                }
-                // Lights are sorted first in octants, so break when first geometry encountered
-                else
-                    break;
-            }
+            if (!dirLight || light->GetColor().Average() > dirLight->GetColor().Average())
+                dirLight = light;
+            it = lights.erase(it);
         }
+        else
+            ++it;
     }
 
     // Sort localized lights by increasing distance
@@ -1146,6 +1144,62 @@ void Renderer::DefineClusterFrustums()
         lastClusterFrustumProj = cameraProj;
         clusterFrustumsDirty = false;
     }
+}
+
+void Renderer::CollectOctantsAndLights(Octant* octant, std::vector<std::pair<Octant*, unsigned char> >& octantDest, std::vector<Light*>& lightDest, bool recursive, unsigned char planeMask)
+{
+    if (planeMask)
+    {
+        planeMask = frustum.IsInsideMasked(octant->cullingBox, planeMask);
+        if (planeMask == 0xff)
+            return;
+    }
+
+    for (auto it = octant->nodes.begin(); it != octant->nodes.end(); ++it)
+    {
+        OctreeNode* node = *it;
+        unsigned short flags = node->Flags();
+        if (flags & NF_LIGHT)
+        {
+            if ((node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
+            {
+                if (node->OnPrepareRender(frameNumber, camera))
+                {
+                    Light* light = static_cast<Light*>(node);
+                    lightDest.push_back(light);
+                }
+            }
+        }
+        // Lights are sorted first in octants, so break when first geometry encountered. Store the octant for batch collecting
+        else
+        {
+            octantDest.push_back(std::make_pair(octant, planeMask));
+            break;
+        }
+    }
+
+    if (!recursive)
+        return;
+
+    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+    {
+        if (octant->children[i])
+            CollectOctantsAndLights(octant->children[i], octantDest, lightDest, true, planeMask);
+    }
+}
+void Renderer::CollectOctantsWork(Task* task, unsigned)
+{
+    ZoneScoped;
+
+    Octant* octant = reinterpret_cast<Octant*>(task->start);
+    if (!octant)
+        return;
+
+    size_t resultIdx = (size_t)task->end;
+    std::vector<std::pair<Octant*, unsigned char> >& octantDest = octantResults[resultIdx];
+    std::vector<Light*>& lightDest = lightResults[resultIdx];
+
+    CollectOctantsAndLights(octant, octantDest, lightDest, octant != octree->Root());
 }
 
 void Renderer::CollectBatchesWork(Task* task, unsigned threadIndex)

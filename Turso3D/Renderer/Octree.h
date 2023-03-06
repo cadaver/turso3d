@@ -115,19 +115,11 @@ public:
     void Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL) const;
     /// Query for nodes with a raycast and return the closest result.
     RaycastResult RaycastSingle(const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL) const;
-    /// Collect octants and their masks using a frustum and masked testing.
-    void FindOctantsMasked(std::vector<std::pair<Octant*, unsigned char> >& result, const Frustum& frustum) const;
 
     /// Query for nodes using a volume such as frustum or sphere.
     template <class T> void FindNodes(std::vector<OctreeNode*>& result, const T& volume, unsigned short nodeFlags, unsigned layerMask = LAYERMASK_ALL) const
     {
         CollectNodes(result, const_cast<Octant*>(&root), volume, nodeFlags, layerMask);
-    }
-
-    /// Query for nodes using a volume such as frustum or sphere. Invoke a member function for each octant.
-    template <class T, class U> void FindNodes(const T& volume, U* object, void (U::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, bool)) const
-    {
-        CollectNodesMemberCallback(const_cast<Octant*>(&root), volume, object, callback);
     }
 
     /// Collect nodes matching flags using a frustum and masked testing.
@@ -136,14 +128,10 @@ public:
         CollectNodesMasked(result, const_cast<Octant*>(&root), frustum, nodeFlags, layerMask);
     }
 
-    /// Collect nodes matching flags using a frustum and masked testing. Invoke a member callback for each octant, with current mask provided.
-    template <class T> void FindNodesMasked(const Frustum& frustum, T* object, void (T::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, unsigned char)) const
-    {
-        CollectNodesMaskedMemberCallback(&root, frustum, object, callback);
-    }
-
     /// Return whether threaded update is enabled.
     bool ThreadedUpdate() const { return threadedUpdate; }
+    /// Return the root octant.
+    Octant* Root() const { return const_cast<Octant*>(&root); }
 
 private:
     /// Set bounding box. Used in serialization.
@@ -221,8 +209,6 @@ private:
     void CollectNodes(std::vector<std::pair<OctreeNode*, float> >& result, Octant* octant, const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask) const;
     /// Work function to check reinsertion of nodes.
     void CheckReinsertWork(Task* task, unsigned threadIndex);
-    /// Work function to collect octants.
-    void CollectOctantsWork(Task* task, unsigned threadIndex);
 
     /// Collect nodes matching flags using a volume such as frustum or sphere.
     template <class T> void CollectNodes(std::vector<OctreeNode*>& result, Octant* octant, const T& volume, unsigned short nodeFlags, unsigned layerMask) const
@@ -254,46 +240,6 @@ private:
         }
     }
 
-    /// Collect nodes from octant and child octants. Invoke a member function for each octant.
-    template <class T> void CollectNodesMemberCallback(Octant* octant, T* object, void (T::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, bool)) const
-    {
-        std::vector<OctreeNode*>& octantNodes = octant->nodes;
-
-        if (octantNodes.size())
-            (object->*callback)(octantNodes.begin(), octantNodes.end(), true);
-
-        for (size_t i = 0; i < NUM_OCTANTS; ++i)
-        {
-            if (octant->children[i])
-                CollectNodesMemberCallback(octant->children[i], object, callback);
-        }
-    }
-
-    /// Collect nodes using a volume such as frustum or sphere. Invoke a member function for each octant.
-    template <class T, class U> void CollectNodesMemberCallback(Octant* octant, const T& volume, U* object, void (U::*callback)(std::vector<OctreeNode*>::const_iterator, std::vector<OctreeNode*>::const_iterator, bool)) const
-    {
-        Intersection res = volume.IsInside(octant->cullingBox);
-        if (res == OUTSIDE)
-            return;
-
-        // If this octant is completely inside the volume, can include all contained octants and their nodes without further tests
-        if (res == INSIDE)
-            CollectNodesMemberCallback(octant, object, callback);
-        else
-        {
-            std::vector<OctreeNode*>& octantNodes = octant->nodes;
-
-            if (octantNodes.size())
-                (object->*callback)(octantNodes.begin(), octantNodes.end(), false);
-
-            for (size_t i = 0; i < NUM_OCTANTS; ++i)
-            {
-                if (octant->children[i])
-                    CollectNodesMemberCallback(octant->children[i], volume, object, callback);
-            }
-        }
-    }
-
     /// Collect nodes using a frustum and masked testing.
     void CollectNodesMasked(std::vector<OctreeNode*>& result, Octant* octant, const Frustum& frustum, unsigned short nodeFlags, unsigned layerMask, unsigned char planeMask = 0x3f) const
     {
@@ -320,49 +266,6 @@ private:
         }
     }
 
-    /// Collect nodes using a frustum and masked testing. Invoke a member function for each octant.
-    template <class T> void CollectNodesMaskedMemberCallback(Octant* octant, const Frustum& frustum, T* object, void (T::*callback)(std::vector<OctreeNode*>::const_iterator, 
-        std::vector<OctreeNode*>::const_iterator, unsigned char), unsigned char planeMask = 0x3f) const
-    {
-        if (planeMask)
-        {
-            planeMask = frustum.IsInsideMasked(octant->cullingBox, planeMask);
-            if (planeMask == 0xff)
-                return;
-        }
-
-        std::vector<OctreeNode*>& octantNodes = octant->nodes;
-
-        if (octantNodes.size())
-            (object->*callback)(octantNodes.begin(), octantNodes.end(), planeMask);
-
-        for (size_t i = 0; i < NUM_OCTANTS; ++i)
-        {
-            if (octant->children[i])
-                CollectNodesMaskedMemberCallback(octant->children[i], frustum, object, callback, planeMask);
-        }
-    }
-
-    /// Collect octants and their masks using a frustum and masked testing. Their nodes are to be processed later threaded.
-    void CollectOctantsMasked(std::vector<std::pair<Octant*, unsigned char> >& result, Octant* octant, const Frustum& frustum, unsigned char planeMask = 0x3f) const
-    {
-        if (planeMask)
-        {
-            planeMask = frustum.IsInsideMasked(octant->cullingBox, planeMask);
-            if (planeMask == 0xff)
-                return;
-        }
-
-        if (octant->nodes.size())
-            result.push_back(std::make_pair(octant, planeMask));
-
-        for (size_t i = 0; i < NUM_OCTANTS; ++i)
-        {
-            if (octant->children[i])
-                CollectOctantsMasked(result, octant->children[i], frustum, planeMask);
-        }
-    }
-
     /// Threaded update flag. During threaded update moved OctreeNodes should go directly to thread-specific reinsert queues.
     volatile bool threadedUpdate;
     /// Current framenumber.
@@ -381,14 +284,6 @@ private:
     std::vector<AutoPtr<Task> > reinsertTasks;
     /// Intermediate reinsert queues for threaded execution.
     std::vector<std::vector<OctreeNode*> > reinsertQueues;
-    /// Tasks for octant collection.
-    mutable AutoPtr<Task> collectOctantsTasks[NUM_OCTANTS];
-    /// Query frustum for CollectOctantsWork.
-    mutable Frustum queryFrustum;
-    /// Root octant plane mask for CollectOctantsWork.
-    mutable unsigned char rootPlaneMask;
-    /// Intermediate octant lists for CollectOctantsWork.
-    mutable std::vector<std::pair<Octant*, unsigned char> > octantResults[NUM_OCTANTS];
     /// RaycastSingle initial coarse result.
     mutable std::vector<std::pair<OctreeNode*, float> > initialRayResult;
     /// RaycastSingle final result.
