@@ -312,6 +312,17 @@ void Light::InitShadowViews()
 {
     shadowViews.resize(NumShadowViews());
 
+    for (size_t i = 0; i < shadowViews.size(); ++i)
+    {
+        ShadowView& view = shadowViews[i];
+        if (!view.shadowCamera)
+        {
+            view.shadowCamera = new Camera();
+            // OpenGL render-to-texture needs vertical flip
+            view.shadowCamera->SetFlipVertical(true);
+        }
+    }
+
     // Calculate shadow mapping constants common to all lights
     shadowParameters = Vector4(0.5f / (float)shadowMap->Width(), 0.5f / (float)shadowMap->Height(), ShadowStrength(), 0.0f);
 }
@@ -326,13 +337,6 @@ void Light::SetupShadowView(size_t viewIndex, Camera* mainCamera)
 
     ShadowView& view = shadowViews[viewIndex];
     view.light = this;
-
-    if (!view.shadowCamera)
-    {
-        view.shadowCamera = new Camera();
-        // OpenGL render-to-texture needs vertical flip
-        view.shadowCamera->SetFlipVertical(true);
-    }
 
     Camera* shadowCamera = view.shadowCamera;
 
