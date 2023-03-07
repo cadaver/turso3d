@@ -329,8 +329,6 @@ void Light::InitShadowViews()
 
 void Light::SetupShadowView(size_t viewIndex, Camera* mainCamera)
 {
-    ZoneScoped;
-
     int numVerticalSplits = lightType == LIGHT_POINT ? 2 : 1;
     int actualShadowMapSize = shadowRect.Height() / numVerticalSplits;
     float pointShadowZoom = (float)(actualShadowMapSize - 4) / (float)actualShadowMapSize;

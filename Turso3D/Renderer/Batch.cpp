@@ -5,6 +5,7 @@
 #include "Material.h"
 
 #include <algorithm>
+#include <tracy/Tracy.hpp>
 
 inline bool CompareBatchKeys(const Batch& lhs, const Batch& rhs)
 {
@@ -23,6 +24,8 @@ void BatchQueue::Clear()
 
 void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode sortMode, bool convertToInstanced)
 {
+    ZoneScoped;
+
     switch (sortMode)
     {
     case SORT_STATE:

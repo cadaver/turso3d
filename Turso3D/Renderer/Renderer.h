@@ -42,8 +42,14 @@ struct ThreadOctantResult
     /// Clear for the next frame.
     void Clear();
 
-    /// Intermediate octant list.
-    std::vector<std::pair<Octant*, unsigned char> > octants;
+    /// Octant list current position.
+    std::list<std::vector<std::pair<Octant*, unsigned char> > >::iterator octantListIt;
+    /// Node accumulator. When full, queue the next batch collection task.
+    size_t nodeAcc;
+    /// Batch collection task index.
+    size_t batchTaskIdx;
+    /// Intermediate octant lists. Stored inside std::list so that batch collection tasks can begin early without iterator invalidation. 
+    std::list<std::vector<std::pair<Octant*, unsigned char> > > octants;
     /// Intermediate light list.
     std::vector<Light*> lights;
     /// Tasks for main view batches collection, queued by the octant collection task when it finishes.
@@ -180,8 +186,8 @@ private:
     void CollectGeometriesAndLights();
     /// Process lights once all of them have been collected, and queue shadowcaster query tasks for them as necessary.
     void ProcessLights();
-    /// Join the per-thread batch results and sort. Cull lights to the frustum grid. Collect and sort shadowcaster geometry batches.
-    void JoinAndSortBatches();
+    /// Process shadowcasters once shadowcaster query tasks are complete.
+    void ProcessShadowCasters();
     /// Upload instance transforms before rendering.
     void UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms);
     /// Render a batch queue.
@@ -194,8 +200,8 @@ private:
     void DefineQuadVertexBuffer();
     /// Setup light cluster frustums and bounding boxes if necessary.
     void DefineClusterFrustums();
-    /// Collect octants and lights from the octree recursively.
-    void CollectOctantsAndLights(Octant* octant, std::vector<std::pair<Octant*, unsigned char> >& octantDest, std::vector<Light*>& lightDest, bool recursive, unsigned char planeMask = 0x3f);
+    /// Collect octants and lights from the octree recursively. Queue batch collection tasks while ongoing.
+    void CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, bool threaded, bool recursive, unsigned char planeMask = 0x3f);
     /// Work function to collect octants.
     void CollectOctantsWork(Task* task, unsigned threadIndex);
     /// Work function to collect main view batches from geometries.
@@ -204,6 +210,8 @@ private:
     void CollectShadowCastersWork(Task* task, unsigned threadIndex);
     /// Work function to collect shadowcaster batches per view.
     void CollectShadowBatchesWork(Task* task, unsigned threadIndex);
+    /// Work function to sort main view batches.
+    void SortMainBatchesWork(Task* task, unsigned threadIndex);
     /// Work function to sort shadowcaster batches per shadowmap.
     void SortShadowBatchesWork(Task* task, unsigned threadIndex);
     /// Work function to cull lights to the frustum grid.
@@ -231,6 +239,12 @@ private:
     bool clusterFrustumsDirty;
     /// Instancing supported flag.
     bool hasInstancing;
+    /// Counter for octant collection tasks remaining. When zero, light processing can begin while batches collection still goes on.
+    std::atomic<int> numPendingOctantTasks;
+    /// Counter for batch collection tasks remaining. When zero, main batch sorting can begin while other tasks go on.
+    std::atomic<int> numPendingBatchTasks;
+    /// Counters for shadow views remaining per shadowmap. When zero, the shadow batches can be sorted.
+    std::atomic<int> numPendingShadowViews[2];
     /// Per-worker thread octant collection results.
     std::vector<ThreadOctantResult> octantResults;
     /// Per-worker thread batch collection results.
@@ -305,14 +319,12 @@ private:
     std::vector<AutoPtr<Task> > collectShadowCastersTasks;
     /// Tasks for shadow batch processing.
     std::vector<AutoPtr<Task> > collectShadowBatchesTasks;
+    /// Task for main batch sorting.
+    AutoPtr<Task> sortMainBatchesTask;
     /// Tasks for shadow batch sorting per shadowmap.
     AutoPtr<Task> sortShadowBatchesTasks[2];
     /// Tasks for light grid culling.
     AutoPtr<Task> cullLightsTasks[NUM_CLUSTER_Z];
-    /// Counter for octant collection tasks remaining. When zero, light processing can begin while batches collection still goes on.
-    std::atomic<int> numPendingOctantTasks;
-    /// Counters for shadow views remaining per shadowmap. When zero, the shadow batches can be sorted.
-    std::atomic<int> numPendingShadowViews[2];
     /// Cluster frustums for lights.
     Frustum clusterFrustums[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
     /// Cluster bounding boxes.
