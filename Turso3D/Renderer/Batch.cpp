@@ -19,32 +19,6 @@ inline bool CompareBatchDistance(const Batch& lhs, const Batch& rhs)
     return lhs.distance > rhs.distance;
 }
 
-ShadowMap::ShadowMap()
-{
-    // Construct texture but do not define its size yet
-    texture = new Texture();
-    fbo = new FrameBuffer();
-}
-
-ShadowMap::~ShadowMap()
-{
-}
-
-void ShadowMap::Clear()
-{
-    allocator.Reset(texture->Width(), texture->Height(), 0, 0, false);
-    shadowViews.clear();
-    instanceTransforms.clear();
-
-    for (auto it = shadowBatches.begin(); it != shadowBatches.end(); ++it)
-        it->Clear();
-    for (auto it = shadowCasters.begin(); it != shadowCasters.end(); ++it)
-        it->clear();
-
-    freeQueueIdx = 0;
-    freeCasterListIdx = 0;
-}
-
 void BatchQueue::Clear()
 {
     batches.clear();

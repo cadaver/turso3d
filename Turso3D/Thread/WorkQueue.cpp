@@ -128,17 +128,17 @@ void WorkQueue::Complete()
     }
 }
 
-void WorkQueue::TryComplete()
+bool WorkQueue::TryComplete()
 {
     if (!threads.size() || !numPendingTasks.load() || !numQueuedTasks.load())
-        return;
+        return false;
 
     Task* task;
 
     {
         std::lock_guard<std::mutex> lock(queueMutex);
         if (!tasks.size())
-            return;
+            return false;
 
         task = tasks.front();
         tasks.pop();
@@ -147,6 +147,8 @@ void WorkQueue::TryComplete()
 
     task->Invoke(task, 0);
     numPendingTasks.fetch_add(-1);
+
+    return true;
 }
 
 void WorkQueue::WorkerLoop(unsigned threadIndex_)

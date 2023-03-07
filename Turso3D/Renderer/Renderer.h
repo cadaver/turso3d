@@ -29,8 +29,22 @@ static const size_t NUM_CLUSTER_Z = 8;
 static const size_t MAX_LIGHTS = 255;
 static const size_t MAX_LIGHTS_CLUSTER = 16;
 
-/// Per-thread results from scene geometry processing.
-struct ThreadGeometryResult
+/// Per-thread results for octant collection.
+struct ThreadOctantResult
+{
+    /// Clear for the next frame.
+    void Clear();
+
+    /// Intermediate octant list.
+    std::vector<std::pair<Octant*, unsigned char> > octants;
+    /// Intermediate light list.
+    std::vector<Light*> lights;
+    /// Tasks for main view batches collection, queued by the octant collection task when it finishes.
+    std::vector<AutoPtr<Task> > collectBatchesTasks;
+};
+
+/// Per-thread results for batch collection.
+struct ThreadBatchResult
 {
     /// Clear for the next frame.
     void Clear();
@@ -39,19 +53,13 @@ struct ThreadGeometryResult
     float minZ;
     /// Maximum geometry Z value.
     float maxZ;
-    /// Intermediate octant list.
-    std::vector<std::pair<Octant*, unsigned char> > octants;
-    /// Intermediate light list.
-    std::vector<Light*> lights;
-    /// Tasks for main view batches collection, queued by the octant collection task when it finishes.
-    std::vector<AutoPtr<Task> > collectBatchesTasks;
     /// Initial opaque batches.
     std::vector<Batch> opaqueBatches;
     /// Initial alpha batches.
     std::vector<Batch> alphaBatches;
 };
 
-/// Per-view uniform buffer data
+/// Per-view uniform buffer data.
 struct PerViewUniforms
 {
     /// Current camera's view matrix
@@ -64,6 +72,54 @@ struct PerViewUniforms
     Vector4 depthParameters;
     /// Data for the view's global directional light.
     Vector4 dirLightData[12];
+};
+
+/// Shadow map data structure. May be shared by several lights.
+struct ShadowMap
+{
+    /// Default-construct.
+    ShadowMap();
+    /// Destruct.
+    ~ShadowMap();
+
+    /// Clear for next frame.
+    void Clear();
+
+    /// Rectangle allocator.
+    AreaAllocator allocator;
+    /// Shadow map texture.
+    SharedPtr<Texture> texture;
+    /// Shadow map framebuffer.
+    SharedPtr<FrameBuffer> fbo;
+    /// Shadow views that use this shadow map.
+    std::vector<ShadowView*> shadowViews;
+    /// Shadow batch queues used by the shadow views.
+    std::vector<BatchQueue> shadowBatches;
+    /// Intermediate shadowcaster lists for processing.
+    std::vector<std::vector<GeometryNode*> > shadowCasters;
+    /// Instancing transforms for shadowcasters.
+    std::vector<Matrix3x4> instanceTransforms;
+    /// Next free batch queue.
+    size_t freeQueueIdx;
+    /// Next free shadowcaster list index.
+    size_t freeCasterListIdx;
+};
+
+/// Light data for cluster light shader.
+struct LightData
+{
+    /// %Light position.
+    Vector4 position;
+    /// %Light direction.
+    Vector4 direction;
+    /// %Light attenuation parameters.
+    Vector4 attenuation;
+    /// %Light color.
+    Color color;
+    /// Shadow parameters.
+    Vector4 shadowParameters;
+    /// Shadow matrix. For point lights, contains extra parameters.
+    Matrix4 shadowMatrix;
 };
 
 /// High-level rendering subsystem. Performs rendering of 3D scenes.
@@ -168,8 +224,10 @@ private:
     bool clusterFrustumsDirty;
     /// Instancing supported flag.
     bool hasInstancing;
-    /// Per-worker thread scene geometry collection results.
-    std::vector<ThreadGeometryResult> geometryResults;
+    /// Per-worker thread octant collection results.
+    std::vector<ThreadOctantResult> octantResults;
+    /// Per-worker thread batch collection results.
+    std::vector<ThreadBatchResult> batchResults;
     /// Minimum Z value for all geometries in frustum.
     float minZ;
     /// Maximum Z value for all geometries in frustum.

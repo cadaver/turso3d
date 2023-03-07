@@ -85,14 +85,44 @@ inline bool CompareLights(Light* lhs, Light* rhs)
     return lhs->Distance() < rhs->Distance();
 }
 
-void ThreadGeometryResult::Clear()
+void ThreadOctantResult::Clear()
+{
+    octants.clear();
+    lights.clear();
+}
+
+void ThreadBatchResult::Clear()
 {
     minZ = M_MAX_FLOAT;
     maxZ = 0.0f;
-    octants.clear();
-    lights.clear();
     opaqueBatches.clear();
     alphaBatches.clear();
+}
+
+ShadowMap::ShadowMap()
+{
+    // Construct texture but do not define its size yet
+    texture = new Texture();
+    fbo = new FrameBuffer();
+}
+
+ShadowMap::~ShadowMap()
+{
+}
+
+void ShadowMap::Clear()
+{
+    allocator.Reset(texture->Width(), texture->Height(), 0, 0, false);
+    shadowViews.clear();
+    instanceTransforms.clear();
+
+    for (auto it = shadowBatches.begin(); it != shadowBatches.end(); ++it)
+        it->Clear();
+    for (auto it = shadowCasters.begin(); it != shadowCasters.end(); ++it)
+        it->clear();
+
+    freeQueueIdx = 0;
+    freeCasterListIdx = 0;
 }
 
 Renderer::Renderer() :
@@ -147,10 +177,11 @@ Renderer::Renderer() :
     lightDataBuffer = new UniformBuffer();
     lightDataBuffer->Define(USAGE_DYNAMIC, MAX_LIGHTS * sizeof(LightData));
 
-    geometryResults.resize(workQueue->NumThreads());
+    octantResults.resize(NUM_OCTANTS + 1);
+    batchResults.resize(workQueue->NumThreads());
 
     for (size_t i = 0; i < NUM_OCTANTS + 1; ++i)
-        collectOctantsTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::CollectOctantsWork);
+        collectOctantsTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::CollectOctantsWork, nullptr, (void*)i);
 
     for (size_t i = 0; i < NUM_CLUSTER_Z; ++i)
         cullLightsTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::CullLightsToFrustumWork, (void*)i);
@@ -227,8 +258,10 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
     lights.clear();
     instanceTransforms.clear();
 
-    for (size_t i = 0; i < geometryResults.size(); ++i)
-        geometryResults[i].Clear();
+    for (size_t i = 0; i < octantResults.size(); ++i)
+        octantResults[i].Clear();
+    for (size_t i = 0; i < batchResults.size(); ++i)
+        batchResults[i].Clear();
     for (auto it = shadowMaps.begin(); it != shadowMaps.end(); ++it)
         it->Clear();
 
@@ -559,8 +592,8 @@ void Renderer::ProcessLights()
 {
     ZoneScoped;
 
-    // Merge the light results
-    for (auto it = geometryResults.begin(); it != geometryResults.end(); ++it)
+    // Merge the light collection results
+    for (auto it = octantResults.begin(); it != octantResults.end(); ++it)
         lights.insert(lights.end(), it->lights.begin(), it->lights.end());
 
     // Find the directional light if any
@@ -723,6 +756,7 @@ void Renderer::JoinAndSortBatches()
     // If has local lights, queue light grid culling tasks
     if (lights.size())
     {
+        // TODO: queue only tasks for visible geometry Z-range
         workQueue->QueueTasks(NUM_CLUSTER_Z, reinterpret_cast<Task**>(&cullLightsTasks[0]));
 
         // Also copy correct shadow matrices for the light data after shadow caster collection has finalized them
@@ -739,11 +773,10 @@ void Renderer::JoinAndSortBatches()
     }
 
     // Shadow batches collection needs accurate scene min / max Z results, combine them from per-thread data
-    for (size_t i = 0; i < geometryResults.size(); ++i)
+    for (auto it = batchResults.begin(); it != batchResults.end(); ++it)
     {
-        const ThreadGeometryResult& result = geometryResults[i];
-        minZ = Min(minZ, result.minZ);
-        maxZ = Max(maxZ, result.maxZ);
+        minZ = Min(minZ, it->minZ);
+        maxZ = Max(maxZ, it->maxZ);
     }
 
     // Queue shadow batches collection tasks. These will queue shadow batch sorting tasks when done
@@ -771,13 +804,12 @@ void Renderer::JoinAndSortBatches()
         workQueue->QueueTasks(shadowTaskIdx, reinterpret_cast<Task**>(&collectShadowBatchesTasks[0]));
 
     // Meanwhile sort main view batches in the main thread
-    for (size_t i = 0; i < geometryResults.size(); ++i)
+    for (auto it = batchResults.begin(); it != batchResults.end(); ++it)
     {
-        const ThreadGeometryResult& result = geometryResults[i];
-        if (result.opaqueBatches.size())
-            opaqueBatches.batches.insert(opaqueBatches.batches.end(), result.opaqueBatches.begin(), result.opaqueBatches.end());
-        if (result.alphaBatches.size())
-            alphaBatches.batches.insert(alphaBatches.batches.end(), result.alphaBatches.begin(), result.alphaBatches.end());
+        if (it->opaqueBatches.size())
+            opaqueBatches.batches.insert(opaqueBatches.batches.end(), it->opaqueBatches.begin(), it->opaqueBatches.end());
+        if (it->alphaBatches.size())
+            alphaBatches.batches.insert(alphaBatches.batches.end(), it->alphaBatches.begin(), it->alphaBatches.end());
     }
 
     opaqueBatches.Sort(instanceTransforms, SORT_STATE_AND_DISTANCE, hasInstancing);
@@ -1159,7 +1191,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, std::vector<std::pair<Oct
             CollectOctantsAndLights(octant->children[i], octantDest, lightDest, true, planeMask);
     }
 }
-void Renderer::CollectOctantsWork(Task* task, unsigned threadIndex)
+void Renderer::CollectOctantsWork(Task* task, unsigned)
 {
     ZoneScoped;
 
@@ -1167,7 +1199,7 @@ void Renderer::CollectOctantsWork(Task* task, unsigned threadIndex)
     if (octant)
     {
         // Go through octants in this task's octree branch
-        ThreadGeometryResult& result = geometryResults[threadIndex];
+        ThreadOctantResult& result = octantResults[(size_t)task->end];
         CollectOctantsAndLights(octant, result.octants, result.lights, octant != octree->Root());
 
         // Setup and queue batches collection tasks
@@ -1204,12 +1236,11 @@ void Renderer::CollectBatchesWork(Task* task, unsigned threadIndex)
 {
     ZoneScoped;
 
+    ThreadBatchResult& result = batchResults[threadIndex];
     bool threaded = workQueue->NumThreads() > 1;
 
     std::pair<Octant*, unsigned char>* start = reinterpret_cast<std::pair<Octant*, unsigned char>*>(task->start);
     std::pair<Octant*, unsigned char>* end = reinterpret_cast<std::pair<Octant*, unsigned char>*>(task->end);
-
-    ThreadGeometryResult& result = geometryResults[threadIndex];
     std::vector<Batch>& opaqueQueue = threaded ? result.opaqueBatches : opaqueBatches.batches;
     std::vector<Batch>& alphaQueue = threaded ? result.alphaBatches : alphaBatches.batches;
 
