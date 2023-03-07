@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "../Graphics/GraphicsDefs.h"
 #include "../IO/JSONValue.h"
 #include "../Math/Color.h"
 #include "../Math/Frustum.h"
@@ -13,21 +14,27 @@
 #include <atomic>
 
 class Camera;
+class FrameBuffer;
 class GeometryNode;
 class Graphics;
+class Light;
 class Material;
 class Octree;
 class RenderBuffer;
 class Scene;
+class ShaderProgram;
+class Texture;
 class UniformBuffer;
 class VertexBuffer;
 struct Octant;
+struct ShadowView;
 
 static const size_t NUM_CLUSTER_X = 16;
 static const size_t NUM_CLUSTER_Y = 8;
 static const size_t NUM_CLUSTER_Z = 8;
 static const size_t MAX_LIGHTS = 255;
 static const size_t MAX_LIGHTS_CLUSTER = 16;
+static const size_t NUM_OCTANT_TASKS = 9;
 
 /// Per-thread results for octant collection.
 struct ThreadOctantResult
@@ -293,7 +300,7 @@ private:
     /// Slope-scaled depth bias multiplier.
     float slopeScaleBiasMul;
     /// Tasks for octant collection.
-    AutoPtr<Task> collectOctantsTasks[NUM_OCTANTS + 1];
+    AutoPtr<Task> collectOctantsTasks[NUM_OCTANT_TASKS];
     /// Tasks for shadow light processing.
     std::vector<AutoPtr<Task> > collectShadowCastersTasks;
     /// Tasks for shadow batch processing.

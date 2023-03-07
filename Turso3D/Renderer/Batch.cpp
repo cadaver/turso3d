@@ -1,8 +1,5 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
-#include "../Graphics/FrameBuffer.h"
-#include "../Graphics/Texture.h"
-#include "../Graphics/VertexBuffer.h"
 #include "Batch.h"
 #include "GeometryNode.h"
 #include "Material.h"

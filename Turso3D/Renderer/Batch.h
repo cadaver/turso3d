@@ -8,16 +8,9 @@
 
 #include <vector>
 
-class FrameBuffer;
 class GeometryNode;
-class Light;
 class Pass;
-class ShaderProgram;
-class Texture;
 struct Geometry;
-struct ShadowView;
-
-static const int MAX_LIGHTS_PER_PASS = 4;
 
 /// Sorting modes for batches.
 enum BatchSortMode
