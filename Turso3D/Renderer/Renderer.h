@@ -182,11 +182,11 @@ public:
     void DrawQuad();
 
 private:
-    /// Collect batches for visible geometries within frustum, as well as lights.
-    void CollectGeometriesAndLights();
-    /// Process lights once all of them have been collected, and queue shadowcaster query tasks for them as necessary.
+    /// Process lights collected by octant tasks, and queue shadowcaster query tasks for them as necessary.
     void ProcessLights();
-    /// Process shadowcasters once shadowcaster query tasks are complete.
+    /// Begin main batches sorting and allow shadowcaster batch collection.
+    void BeginMainBatchSorting();
+    /// Queue shadowcaster batch collection tasks. Requires shadowcaster query tasks to be complete.
     void ProcessShadowCasters();
     /// Upload instance transforms before rendering.
     void UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms);
@@ -202,6 +202,8 @@ private:
     void DefineClusterFrustums();
     /// Collect octants and lights from the octree recursively. Queue batch collection tasks while ongoing.
     void CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, bool threaded, bool recursive, unsigned char planeMask = 0x3f);
+    /// Sort all batch queues of a shadowmap.
+    void SortShadowBatches(ShadowMap& shadowMap);
     /// Work function to collect octants.
     void CollectOctantsWork(Task* task, unsigned threadIndex);
     /// Work function to collect main view batches from geometries.
@@ -212,8 +214,6 @@ private:
     void CollectShadowBatchesWork(Task* task, unsigned threadIndex);
     /// Work function to sort main view batches.
     void SortMainBatchesWork(Task* task, unsigned threadIndex);
-    /// Work function to sort shadowcaster batches per shadowmap.
-    void SortShadowBatchesWork(Task* task, unsigned threadIndex);
     /// Work function to cull lights to the frustum grid.
     void CullLightsToFrustumWork(Task* task, unsigned threadIndex);
 
@@ -243,6 +243,8 @@ private:
     std::atomic<int> numPendingOctantTasks;
     /// Counter for batch collection tasks remaining. When zero, main batch sorting can begin while other tasks go on.
     std::atomic<int> numPendingBatchTasks;
+    /// Counter for shadowcaster queries remaining. When zero, shadowcaster batch collection can begin.
+    std::atomic<int> numPendingShadowQueries;
     /// Counters for shadow views remaining per shadowmap. When zero, the shadow batches can be sorted.
     std::atomic<int> numPendingShadowViews[2];
     /// Per-worker thread octant collection results.
@@ -321,8 +323,6 @@ private:
     std::vector<AutoPtr<Task> > collectShadowBatchesTasks;
     /// Task for main batch sorting.
     AutoPtr<Task> sortMainBatchesTask;
-    /// Tasks for shadow batch sorting per shadowmap.
-    AutoPtr<Task> sortShadowBatchesTasks[2];
     /// Tasks for light grid culling.
     AutoPtr<Task> cullLightsTasks[NUM_CLUSTER_Z];
     /// Cluster frustums for lights.

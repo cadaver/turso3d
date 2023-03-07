@@ -213,9 +213,6 @@ void Renderer::SetupShadowMaps(int dirLightSize, int lightAtlasSize, ImageFormat
         shadowMap.texture->Define(TEX_2D, i == 0 ? IntVector2(dirLightSize * 2, dirLightSize) : IntVector2(lightAtlasSize, lightAtlasSize), format, 1);
         shadowMap.texture->DefineSampler(COMPARE_BILINEAR, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP, 1);
         shadowMap.fbo->Define(nullptr, shadowMap.texture);
-
-        sortShadowBatchesTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::SortShadowBatchesWork);
-        sortShadowBatchesTasks[i]->start = (void*)i;
     }
 
     staticObjectShadowBuffer = new RenderBuffer();
@@ -279,6 +276,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
 
     numPendingOctantTasks.store(NUM_OCTANTS + 1);
     numPendingBatchTasks.store(NUM_OCTANTS + 1); // For safely keeping track of batch + octant task progress
+    numPendingShadowQueries.store(1); // Will be decremented by one when main view batch collection is complete, which also blocks shadowcaster processing
     numPendingShadowViews[0].store(0);
     numPendingShadowViews[1].store(0);
 
@@ -295,11 +293,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
         collectOctantsTasks[i]->start = (i == 0) ? octree->Root() : octree->Root()->children[i - 1];
 
     workQueue->QueueTasks(NUM_OCTANTS + 1, reinterpret_cast<Task**>(&collectOctantsTasks[0]));
-
-    // These will wait for relevant work to complete before proceeding
-    ProcessLights();
-    ProcessShadowCasters();
-
     workQueue->Complete();
 
     // No more threaded reinsertion will take place
@@ -598,10 +591,6 @@ void Renderer::DrawQuad()
 
 void Renderer::ProcessLights()
 {
-    // Wait for octant work to complete
-    while (numPendingOctantTasks.load() > 0)
-        workQueue->TryComplete();
-
     ZoneScoped;
 
     // Merge the light collection results
@@ -715,7 +704,7 @@ void Renderer::ProcessLights()
             collectShadowCastersTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectShadowCastersWork));
 
         collectShadowCastersTasks[lightTaskIdx]->start = light;
-        numPendingShadowViews[1].fetch_add(1);
+        numPendingShadowQueries.fetch_add(1);
         ++lightTaskIdx;
     }
 
@@ -746,7 +735,7 @@ void Renderer::ProcessLights()
 
             collectShadowCastersTasks[lightTaskIdx]->start = dirLight;
             collectShadowCastersTasks[lightTaskIdx]->end = (void*)i;
-            numPendingShadowViews[0].fetch_add(1);
+            numPendingShadowQueries.fetch_add(1);
             ++lightTaskIdx;
         }
     }
@@ -754,20 +743,18 @@ void Renderer::ProcessLights()
     // Now queue all shadowcaster collection tasks
     if (lightTaskIdx > 0)
         workQueue->QueueTasks(lightTaskIdx, reinterpret_cast<Task**>(&collectShadowCastersTasks[0]));
+}
 
-    // Clear per-cluster light data from previous frame, update cluster frustums and bounding boxes if camera changed, then queue light culling tasks
-    DefineClusterFrustums();
-    memset(numClusterLights, 0, sizeof numClusterLights);
-    memset(clusterData, 0, sizeof clusterData);
-    workQueue->QueueTasks(NUM_CLUSTER_Z, reinterpret_cast<Task**>(&cullLightsTasks[0]));
+void Renderer::BeginMainBatchSorting()
+{
+    workQueue->QueueTask(sortMainBatchesTask);
+
+    if (numPendingShadowQueries.fetch_add(-1) == 1)
+        ProcessShadowCasters();
 }
 
 void Renderer::ProcessShadowCasters()
 {
-    // Wait for batch collection & shadowcaster queries to complete
-    while (numPendingBatchTasks.load() > 0 || numPendingShadowViews[0].load() > 0 || numPendingShadowViews[1].load() > 0)
-        workQueue->TryComplete();
-
     ZoneScoped;
 
     // Shadow batches collection needs accurate scene min / max Z results, combine them from per-thread data
@@ -777,16 +764,16 @@ void Renderer::ProcessShadowCasters()
         maxZ = Max(maxZ, it->maxZ);
     }
 
-    // Copy correct shadow matrices for the light data now that shadow caster collection has finalized them
-    for (size_t i = 0; i < lights.size(); ++i)
+    // Clear per-cluster light data from previous frame, update cluster frustums and bounding boxes if camera changed, then queue light culling tasks for the needed scene range
+    DefineClusterFrustums();
+    memset(numClusterLights, 0, sizeof numClusterLights);
+    memset(clusterData, 0, sizeof clusterData);
+    for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
     {
-        Light* light = lights[i];
-
-        if (light->ShadowMap())
-        {
-            lightData[i].shadowParameters = light->ShadowParameters();
-            lightData[i].shadowMatrix = light->ShadowViews()[0].shadowMatrix;
-        }
+        size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
+        if (minZ > clusterFrustums[idx].vertices[4].z || maxZ < clusterFrustums[idx].vertices[0].z)
+            continue;
+        workQueue->QueueTask(cullLightsTasks[z]);
     }
 
     // Queue shadow batch collection tasks. These will queue shadow batch sorting tasks when done
@@ -812,6 +799,18 @@ void Renderer::ProcessShadowCasters()
 
     if (shadowTaskIdx > 0)
         workQueue->QueueTasks(shadowTaskIdx, reinterpret_cast<Task**>(&collectShadowBatchesTasks[0]));
+
+    // Finally copy correct shadow matrices for the light data now that shadow caster collection has finalized them
+    for (size_t i = 0; i < lights.size(); ++i)
+    {
+        Light* light = lights[i];
+
+        if (light->ShadowMap())
+        {
+            lightData[i].shadowParameters = light->ShadowParameters();
+            lightData[i].shadowMatrix = light->ShadowViews()[0].shadowMatrix;
+        }
+    }
 }
 
 void Renderer::UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms)
@@ -1206,6 +1205,32 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         }
     }
 }
+
+void Renderer::SortShadowBatches(ShadowMap& shadowMap)
+{
+    ZoneScoped;
+
+    for (size_t i = 0; i < shadowMap.shadowViews.size(); ++i)
+    {
+        ShadowView& view = *shadowMap.shadowViews[i];
+
+        Light* light = view.light;
+
+        // Check if view was discarded during shadowcaster collecting
+        if (!light)
+            continue;
+
+        BatchQueue* destStatic = (view.renderMode == RENDER_STATIC_LIGHT_STORE_STATIC) ? &shadowMap.shadowBatches[view.staticQueueIdx] : nullptr;
+        BatchQueue* destDynamic = &shadowMap.shadowBatches[view.dynamicQueueIdx];
+
+        if (destStatic && destStatic->HasBatches())
+            destStatic->Sort(shadowMap.instanceTransforms, SORT_STATE, hasInstancing);
+
+        if (destDynamic->HasBatches())
+            destDynamic->Sort(shadowMap.instanceTransforms, SORT_STATE, hasInstancing);
+    }
+}
+
 void Renderer::CollectOctantsWork(Task* task, unsigned)
 {
     ZoneScoped;
@@ -1229,11 +1254,13 @@ void Renderer::CollectOctantsWork(Task* task, unsigned)
         }
     }
     
-    numPendingOctantTasks.fetch_add(-1);
+    // If was the last octant task, process lights
+    if (numPendingOctantTasks.fetch_add(-1) == 1)
+        ProcessLights();
 
     // Check for queuing main view sort task also here in the unlikely case batch tasks manage to complete before octant tasks
     if (numPendingBatchTasks.fetch_add(-1) == 1)
-        workQueue->QueueTask(sortMainBatchesTask);
+        BeginMainBatchSorting();
 }
 
 void Renderer::CollectBatchesWork(Task* task, unsigned threadIndex)
@@ -1334,7 +1361,7 @@ void Renderer::CollectBatchesWork(Task* task, unsigned threadIndex)
 
     // Queue sort of main view batches when all batches collected
     if (numPendingBatchTasks.fetch_add(-1) == 1)
-        workQueue->QueueTask(sortMainBatchesTask);
+        BeginMainBatchSorting();
 }
 
 void Renderer::CollectShadowCastersWork(Task* task, unsigned)
@@ -1388,7 +1415,9 @@ void Renderer::CollectShadowCastersWork(Task* task, unsigned)
         octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(shadowCasters), view.shadowFrustum, NF_GEOMETRY | NF_CAST_SHADOWS);
     }
 
-    numPendingShadowViews[shadowMapIdx].fetch_add(-1);
+    // Check if all shadowcaster queries done, if so begin shadowcaster batch collection
+    if (numPendingShadowQueries.fetch_add(-1) == 1)
+        ProcessShadowCasters();
 }
 
 void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
@@ -1424,9 +1453,9 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
         view.renderMode = RENDER_STATIC_LIGHT_CACHED;
         view.lastViewport = IntRect::ZERO;
 
-        // Queue shadow batch sort task if was the last
+        // Sort shadow batches if was the last view
         if (numPendingShadowViews[shadowMapIdx].fetch_add(-1) == 1)
-            workQueue->QueueTask(sortShadowBatchesTasks[shadowMapIdx]);
+            SortShadowBatches(shadowMap);
         return;
     }
 
@@ -1581,9 +1610,9 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
             destStatic->Clear();
     }
 
-    // Queue shadow batch sort task if was the last
+    // Sort shadow batches if was the last
     if (numPendingShadowViews[shadowMapIdx].fetch_add(-1) == 1)
-        workQueue->QueueTask(sortShadowBatchesTasks[shadowMapIdx]);
+        SortShadowBatches(shadowMap);
 }
 
 void Renderer::SortMainBatchesWork(Task*, unsigned)
@@ -1600,33 +1629,6 @@ void Renderer::SortMainBatchesWork(Task*, unsigned)
 
     opaqueBatches.Sort(instanceTransforms, SORT_STATE_AND_DISTANCE, hasInstancing);
     alphaBatches.Sort(instanceTransforms, SORT_DISTANCE, hasInstancing);
-}
-
-void Renderer::SortShadowBatchesWork(Task* task, unsigned)
-{
-    ZoneScoped;
-
-    ShadowMap& shadowMap = shadowMaps[(size_t)task->start];
-
-    for (size_t i = 0; i < shadowMap.shadowViews.size(); ++i)
-    {
-        ShadowView& view = *shadowMap.shadowViews[i];
-
-        Light* light = view.light;
-
-        // Check if view was discarded during shadowcaster collecting
-        if (!light)
-            continue;
-
-        BatchQueue* destStatic = (view.renderMode == RENDER_STATIC_LIGHT_STORE_STATIC) ? &shadowMap.shadowBatches[view.staticQueueIdx] : nullptr;
-        BatchQueue* destDynamic = &shadowMap.shadowBatches[view.dynamicQueueIdx];
-
-        if (destStatic && destStatic->HasBatches())
-            destStatic->Sort(shadowMap.instanceTransforms, SORT_STATE, hasInstancing);
-
-        if (destDynamic->HasBatches())
-            destDynamic->Sort(shadowMap.instanceTransforms, SORT_STATE, hasInstancing);
-    }
 }
 
 void Renderer::CullLightsToFrustumWork(Task* task, unsigned)
