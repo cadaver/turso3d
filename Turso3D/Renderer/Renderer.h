@@ -214,8 +214,6 @@ private:
     void CollectShadowCastersWork(Task* task, unsigned threadIndex);
     /// Work function to collect shadowcaster batches per view.
     void CollectShadowBatchesWork(Task* task, unsigned threadIndex);
-    /// Work function to sort main view batches.
-    void SortMainBatchesWork(Task* task, unsigned threadIndex);
     /// Work function to cull lights to the frustum grid.
     void CullLightsToFrustumWork(Task* task, unsigned threadIndex);
 
@@ -323,8 +321,6 @@ private:
     std::vector<AutoPtr<Task> > collectShadowCastersTasks;
     /// Tasks for shadow batch processing.
     std::vector<AutoPtr<Task> > collectShadowBatchesTasks;
-    /// Task for main batch sorting.
-    AutoPtr<Task> sortMainBatchesTask;
     /// Tasks for light grid culling.
     AutoPtr<Task> cullLightsTasks[NUM_CLUSTER_Z];
     /// Cluster frustums for lights.
