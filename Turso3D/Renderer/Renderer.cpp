@@ -258,15 +258,17 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
     drawShadows = shadowMaps.size() ? drawShadows_ : false;
     frustum = camera->WorldFrustum();
     viewMask = camera->ViewMask();
+
+    // Clear results from last frame
     dirLight = nullptr;
     lastCamera = nullptr;
-
-    minZ = M_MAX_FLOAT;
-    maxZ = 0.0f;
     opaqueBatches.Clear();
     alphaBatches.Clear();
     lights.clear();
     instanceTransforms.clear();
+    
+    minZ = M_MAX_FLOAT;
+    maxZ = 0.0f;
 
     for (size_t i = 0; i < octantResults.size(); ++i)
         octantResults[i].Clear();
@@ -275,36 +277,38 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
     for (auto it = shadowMaps.begin(); it != shadowMaps.end(); ++it)
         it->Clear();
 
+    numPendingOctantTasks.store(NUM_OCTANTS + 1);
+    numPendingBatchTasks.store(0);
+    numPendingShadowViews[0].store(0);
+    numPendingShadowViews[1].store(0);
+
+    // First process moved / animated objects' octree reinsertions
     octree->Update(frameNumber);
 
     // Enable threaded update during geometry / light gathering in case nodes' OnPrepareRender() causes further reinsertion queuing
     octree->SetThreadedUpdate(workQueue->NumThreads() > 1);
 
     // Find octants in view and their plane masks for node frustum culling. At the same time, find lights.
-    // When the octant collection tasks complete, they queue tasks for collecting batches from those octants.
-    numPendingOctantTasks.store(NUM_OCTANTS + 1);
-    numPendingBatchTasks.store(0);
-    numPendingShadowViews[0].store(0);
-    numPendingShadowViews[1].store(0);
-
+    // When octant collection tasks complete, they queue tasks for collecting batches from those octants, and for light processing when all complete
     for (size_t i = 0; i < NUM_OCTANTS + 1; ++i)
         collectOctantsTasks[i]->start = (i == 0) ? octree->Root() : octree->Root()->children[i - 1];
 
     workQueue->QueueTasks(NUM_OCTANTS + 1, reinterpret_cast<Task**>(&collectOctantsTasks[0]));
 
-    // Clear per-cluster light data from previous frame
-    memset(numClusterLights, 0, sizeof numClusterLights);
-    memset(clusterData, 0, sizeof clusterData);
-
-    // Wait until all octants have been collected
-    while (numPendingOctantTasks.load() > 0)
+    // Wait until main batch collecting is done, then queue the main batch sorting task
+    while (numPendingOctantTasks.load() > 0 || numPendingBatchTasks.load() > 0)
         workQueue->TryComplete();
 
-    // Now lights can be processed and their shadowcaster query tasks setup
-    ProcessLights();
+    workQueue->QueueTask(sortMainBatchesTask);
 
-    // Wait until both shadowcaster queries and main batch collection are complete
-    while (numPendingShadowViews[0].load() > 0 || numPendingShadowViews[1].load() > 0 || numPendingBatchTasks.load() > 0)
+    // Clear per-cluster light data from previous frame, update cluster frustums and bounding boxes if camera changed, then queue light culling tasks
+    DefineClusterFrustums();
+    memset(numClusterLights, 0, sizeof numClusterLights);
+    memset(clusterData, 0, sizeof clusterData);
+    workQueue->QueueTasks(NUM_CLUSTER_Z, reinterpret_cast<Task**>(&cullLightsTasks[0]));
+
+    // Wait until shadowcaster queries are complete
+    while (numPendingShadowViews[0].load() > 0 || numPendingShadowViews[1].load() > 0)
         workQueue->TryComplete();
 
     // Now shadowcaster batches can be collected and sorted
@@ -628,19 +632,12 @@ void Renderer::ProcessLights()
             ++it;
     }
 
-    if (lights.size())
-    {
-        // Sort localized lights by increasing distance
-        std::sort(lights.begin(), lights.end(), CompareLights);
+    // Sort localized lights by increasing distance
+    std::sort(lights.begin(), lights.end(), CompareLights);
 
-        // Clamp to maximum supported
-        if (lights.size() > MAX_LIGHTS)
-            lights.resize(MAX_LIGHTS);
-
-        // Update cluster frustums and bounding boxes if camera changed, then queue light culling tasks
-        DefineClusterFrustums();
-        workQueue->QueueTasks(NUM_CLUSTER_Z, reinterpret_cast<Task**>(&cullLightsTasks[0]));
-    }
+    // Clamp to maximum supported
+    if (lights.size() > MAX_LIGHTS)
+        lights.resize(MAX_LIGHTS);
 
     // Pre-step for shadow map caching: reallocate all lights' shadow map rectangles which are non-zero at this point.
     // If shadow maps were dirtied (size or bias change) reset all allocations instead
@@ -1229,8 +1226,11 @@ void Renderer::CollectOctantsWork(Task* task, unsigned)
             workQueue->QueueTask(result.collectBatchesTasks[result.batchTaskIdx]);
         }
     }
+    
+    // When was the last octant collecting task, process lights and setup further tasks
+    if (numPendingOctantTasks.fetch_add(-1) == 1)
+        ProcessLights();
 
-    numPendingOctantTasks.fetch_add(-1);
 }
 
 void Renderer::CollectBatchesWork(Task* task, unsigned threadIndex)
@@ -1329,9 +1329,7 @@ void Renderer::CollectBatchesWork(Task* task, unsigned threadIndex)
         }
     }
 
-    // Queue main batch sorting when all main batch collecting is done
-    if (numPendingBatchTasks.fetch_add(-1) == 1 && numPendingOctantTasks.load() == 0)
-        workQueue->QueueTask(sortMainBatchesTask);
+    numPendingBatchTasks.fetch_add(-1);
 }
 
 void Renderer::CollectShadowCastersWork(Task* task, unsigned)
