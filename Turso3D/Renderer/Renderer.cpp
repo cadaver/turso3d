@@ -303,14 +303,8 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
     // Now lights can be processed and their shadowcaster query tasks setup
     ProcessLights();
 
-    // Wait until main view batches have been collected, then sort them
-    while (numPendingBatchTasks.load() > 0)
-        workQueue->TryComplete();
-
-    workQueue->QueueTask(sortMainBatchesTask);
-
-    // Wait until shadowcaster queries are complete
-    while (numPendingShadowViews[0].load() > 0 || numPendingShadowViews[1].load())
+    // Wait until both shadowcaster queries and main batch collection are complete
+    while (numPendingShadowViews[0].load() > 0 || numPendingShadowViews[1].load() > 0 || numPendingBatchTasks.load() > 0)
         workQueue->TryComplete();
 
     // Now shadowcaster batches can be collected and sorted
@@ -1335,7 +1329,9 @@ void Renderer::CollectBatchesWork(Task* task, unsigned threadIndex)
         }
     }
 
-    numPendingBatchTasks.fetch_add(-1);
+    // Queue main batch sorting when all main batch collecting is done
+    if (numPendingBatchTasks.fetch_add(-1) == 1 && numPendingOctantTasks.load() == 0)
+        workQueue->QueueTask(sortMainBatchesTask);
 }
 
 void Renderer::CollectShadowCastersWork(Task* task, unsigned)
