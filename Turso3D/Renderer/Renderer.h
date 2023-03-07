@@ -39,6 +39,12 @@ struct ThreadGeometryResult
     float minZ;
     /// Maximum geometry Z value.
     float maxZ;
+    /// Intermediate octant list.
+    std::vector<std::pair<Octant*, unsigned char> > octants;
+    /// Intermediate light list.
+    std::vector<Light*> lights;
+    /// Tasks for main view batches collection, queued by the octant collection task when it finishes.
+    std::vector<AutoPtr<Task> > collectBatchesTasks;
     /// Initial opaque batches.
     std::vector<Batch> opaqueBatches;
     /// Initial alpha batches.
@@ -107,9 +113,11 @@ public:
     void DrawQuad();
 
 private:
-    /// Collect batches for visible geometries within frustum, as well as lights. Initiate light grid culling task. Perform octree queries for shadowcasters per light.
+    /// Collect batches for visible geometries within frustum, as well as lights.
     void CollectGeometriesAndLights();
-    /// Join the per-thread batch results and sort. Collect and sort shadowcaster geometry batches.
+    /// Process lights once all of them have been collected, and queue shadowcaster query tasks for them as necessary.
+    void ProcessLights();
+    /// Join the per-thread batch results and sort. Cull lights to the frustum grid. Collect and sort shadowcaster geometry batches.
     void JoinAndSortBatches();
     /// Upload instance transforms before rendering.
     void UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms);
@@ -160,18 +168,12 @@ private:
     bool clusterFrustumsDirty;
     /// Instancing supported flag.
     bool hasInstancing;
-    /// Intermediate octant lists for worker threads.
-    std::vector<std::pair<Octant*, unsigned char> > octantResults[NUM_OCTANTS + 1];
-    /// Intermediate light lists for worker threads.
-    std::vector<Light*> lightResults[NUM_OCTANTS + 1];
     /// Per-worker thread scene geometry collection results.
     std::vector<ThreadGeometryResult> geometryResults;
     /// Minimum Z value for all geometries in frustum.
     float minZ;
     /// Maximum Z value for all geometries in frustum.
     float maxZ;
-    /// Octants in frustum.
-    std::vector<std::pair<Octant*, unsigned char> > octants;
     /// Brightest directional light in frustum.
     Light* dirLight;
     /// Accepted point and spot lights in frustum.
@@ -234,8 +236,6 @@ private:
     float slopeScaleBiasMul;
     /// Tasks for octant collection.
     AutoPtr<Task> collectOctantsTasks[NUM_OCTANTS + 1];
-    /// Tasks for main view batches collection.
-    std::vector<AutoPtr<Task> > collectBatchesTasks;
     /// Tasks for shadow light processing.
     std::vector<AutoPtr<Task> > collectShadowCastersTasks;
     /// Tasks for shadow batch processing.
@@ -244,6 +244,8 @@ private:
     AutoPtr<Task> sortShadowBatchesTasks[2];
     /// Tasks for light grid culling.
     AutoPtr<Task> cullLightsTasks[NUM_CLUSTER_Z];
+    /// Counter for octant collection tasks remaining. When zero, light processing can begin while batches collection still goes on.
+    std::atomic<int> numPendingOctantTasks;
     /// Counters for shadow views remaining per shadowmap. When zero, the shadow batches can be sorted.
     std::atomic<int> numPendingShadowViews[2];
     /// Cluster frustums for lights.

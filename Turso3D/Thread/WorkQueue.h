@@ -91,6 +91,8 @@ public:
     void QueueTasks(size_t count, Task** tasks);
     /// Complete all currently queued tasks. To be called only from the main thread.
     void Complete();
+    /// Execute a task from the queue if possible, then return. To be called only from the main thread.
+    void TryComplete();
 
     /// Return number of execution threads including the main thread.
     unsigned NumThreads() const { return (unsigned)threads.size() + 1; }

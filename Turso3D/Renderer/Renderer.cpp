@@ -89,6 +89,8 @@ void ThreadGeometryResult::Clear()
 {
     minZ = M_MAX_FLOAT;
     maxZ = 0.0f;
+    octants.clear();
+    lights.clear();
     opaqueBatches.clear();
     alphaBatches.clear();
 }
@@ -148,7 +150,7 @@ Renderer::Renderer() :
     geometryResults.resize(workQueue->NumThreads());
 
     for (size_t i = 0; i < NUM_OCTANTS + 1; ++i)
-        collectOctantsTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::CollectOctantsWork, nullptr, (void*)i);
+        collectOctantsTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::CollectOctantsWork);
 
     for (size_t i = 0; i < NUM_CLUSTER_Z; ++i)
         cullLightsTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::CullLightsToFrustumWork, (void*)i);
@@ -220,7 +222,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
 
     minZ = M_MAX_FLOAT;
     maxZ = 0.0f;
-    octants.clear();
     opaqueBatches.Clear();
     alphaBatches.Clear();
     lights.clear();
@@ -538,50 +539,29 @@ void Renderer::CollectGeometriesAndLights()
     ZoneScoped;
 
     // Find octants in view and their plane masks for node frustum culling. At the same time, find lights.
-    {
-        ZoneScopedN("CollectOctantsAndLights");
+    // When the octant collection tasks complete, they queue tasks for collecting batches from those octants.
+    numPendingOctantTasks.store(NUM_OCTANTS + 1);
+    for (size_t i = 0; i < NUM_OCTANTS + 1; ++i)
+        collectOctantsTasks[i]->start = (i == 0) ? octree->Root() : octree->Root()->children[i - 1];
 
-        for (size_t i = 0; i < NUM_OCTANTS + 1; ++i)
-        {
-            lightResults[i].clear();
-            octantResults[i].clear();
-            collectOctantsTasks[i]->start = (i == 0) ? octree->Root() : octree->Root()->children[i - 1];
-        }
+    workQueue->QueueTasks(NUM_OCTANTS + 1, reinterpret_cast<Task**>(&collectOctantsTasks[0]));
 
-        workQueue->QueueTasks(NUM_OCTANTS + 1, reinterpret_cast<Task**>(&collectOctantsTasks[0]));
-        workQueue->Complete();
+    // Wait until all octant collection is complete to process lights and queue shadowcaster collection tasks
+    while (numPendingOctantTasks.load() > 0)
+        workQueue->TryComplete();
 
-        for (size_t i = 0; i < NUM_OCTANTS + 1; ++i)
-        {
-            octants.insert(octants.end(), octantResults[i].begin(), octantResults[i].end());
-            lights.insert(lights.end(), lightResults[i].begin(), lightResults[i].end());
-        }
-    }
+    ProcessLights();
 
-    // Setup and queue batches collection tasks
-    const size_t nodesPerTask = 128;
-    size_t start = 0;
-    size_t nodeAcc = 0;
-    size_t taskIdx = 0;
-    bool threaded = workQueue->NumThreads() > 1;
+    workQueue->Complete();
+}
 
-    for (size_t i = 0; i < octants.size(); ++i)
-    {
-        nodeAcc += octants[i].first->nodes.size();
-        if ((threaded && nodeAcc >= nodesPerTask) || i == octants.size() - 1)
-        {
-            if (collectBatchesTasks.size() <= taskIdx)
-                collectBatchesTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectBatchesWork));
-            collectBatchesTasks[taskIdx]->start = &octants[0] + start;
-            collectBatchesTasks[taskIdx]->end = &octants[0] + (i + 1);
+void Renderer::ProcessLights()
+{
+    ZoneScoped;
 
-            start = i + 1;
-            nodeAcc = 0;
-            ++taskIdx;
-        }
-    }
-    
-    workQueue->QueueTasks(taskIdx, reinterpret_cast<Task**>(&collectBatchesTasks[0]));
+    // Merge the light results
+    for (auto it = geometryResults.begin(); it != geometryResults.end(); ++it)
+        lights.insert(lights.end(), it->lights.begin(), it->lights.end());
 
     // Find the directional light if any
     for (auto it = lights.begin(); it != lights.end(); )
@@ -734,8 +714,6 @@ void Renderer::CollectGeometriesAndLights()
     // Clear per-cluster light data
     memset(numClusterLights, 0, sizeof numClusterLights);
     memset(clusterData, 0, sizeof clusterData);
-
-    workQueue->Complete();
 }
 
 void Renderer::JoinAndSortBatches()
@@ -1181,19 +1159,45 @@ void Renderer::CollectOctantsAndLights(Octant* octant, std::vector<std::pair<Oct
             CollectOctantsAndLights(octant->children[i], octantDest, lightDest, true, planeMask);
     }
 }
-void Renderer::CollectOctantsWork(Task* task, unsigned)
+void Renderer::CollectOctantsWork(Task* task, unsigned threadIndex)
 {
     ZoneScoped;
 
     Octant* octant = reinterpret_cast<Octant*>(task->start);
-    if (!octant)
-        return;
+    if (octant)
+    {
+        // Go through octants in this task's octree branch
+        ThreadGeometryResult& result = geometryResults[threadIndex];
+        CollectOctantsAndLights(octant, result.octants, result.lights, octant != octree->Root());
 
-    size_t resultIdx = (size_t)task->end;
-    std::vector<std::pair<Octant*, unsigned char> >& octantDest = octantResults[resultIdx];
-    std::vector<Light*>& lightDest = lightResults[resultIdx];
+        // Setup and queue batches collection tasks
+        const size_t nodesPerTask = 128;
+        size_t start = 0;
+        size_t nodeAcc = 0;
+        size_t taskIdx = 0;
+        bool threaded = workQueue->NumThreads() > 1;
 
-    CollectOctantsAndLights(octant, octantDest, lightDest, octant != octree->Root());
+        for (size_t i = 0; i < result.octants.size(); ++i)
+        {
+            nodeAcc += result.octants[i].first->nodes.size();
+            if ((threaded && nodeAcc >= nodesPerTask) || i == result.octants.size() - 1)
+            {
+                if (result.collectBatchesTasks.size() <= taskIdx)
+                    result.collectBatchesTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectBatchesWork));
+                result.collectBatchesTasks[taskIdx]->start = &result.octants[0] + start;
+                result.collectBatchesTasks[taskIdx]->end = &result.octants[0] + (i + 1);
+
+                start = i + 1;
+                nodeAcc = 0;
+                ++taskIdx;
+            }
+        }
+
+        if (taskIdx)
+            workQueue->QueueTasks(taskIdx, reinterpret_cast<Task**>(&result.collectBatchesTasks[0]));
+    }
+
+    numPendingOctantTasks.fetch_add(-1);
 }
 
 void Renderer::CollectBatchesWork(Task* task, unsigned threadIndex)

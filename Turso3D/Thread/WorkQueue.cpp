@@ -93,6 +93,7 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
             tasks_[i]->Invoke(tasks_[i], 0);
     }
 }
+
 void WorkQueue::Complete()
 {
     ZoneScoped;
@@ -125,6 +126,27 @@ void WorkQueue::Complete()
         task->Invoke(task, 0);
         numPendingTasks.fetch_add(-1);
     }
+}
+
+void WorkQueue::TryComplete()
+{
+    if (!threads.size() || !numPendingTasks.load() || !numQueuedTasks.load())
+        return;
+
+    Task* task;
+
+    {
+        std::lock_guard<std::mutex> lock(queueMutex);
+        if (!tasks.size())
+            return;
+
+        task = tasks.front();
+        tasks.pop();
+        numQueuedTasks.fetch_add(-1);
+    }
+
+    task->Invoke(task, 0);
+    numPendingTasks.fetch_add(-1);
 }
 
 void WorkQueue::WorkerLoop(unsigned threadIndex_)

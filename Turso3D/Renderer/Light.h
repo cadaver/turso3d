@@ -160,7 +160,7 @@ public:
 
     /// Set shadow map and viewport within it. Called by Renderer.
     void SetShadowMap(Texture* shadowMap, const IntRect& shadowRect = IntRect::ZERO);
-    /// Init the correct number of shadow views but do not setup them yet. Called by Renderer. Should be called from the main thread because new Camera nodes are allocated on first call.
+    /// Init the correct number of shadow views but do not setup them yet. Called by Renderer. Should be called from one thread only for all lights in view because new Camera nodes are allocated on first call, which uses the non-threadsafe NodeImpl allocator.
     void InitShadowViews();
     /// Setup the camera and matrix for a shadow view. Called by Renderer.
     void SetupShadowView(size_t viewIndex, Camera* mainCamera);
