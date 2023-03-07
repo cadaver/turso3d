@@ -272,8 +272,8 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
     for (auto it = shadowMaps.begin(); it != shadowMaps.end(); ++it)
         it->Clear();
 
-    numPendingOctantTasks.store(NUM_OCTANTS + 1);
-    numPendingBatchTasks.store(NUM_OCTANTS + 1); // For safely keeping track of batch + octant task progress
+    numPendingOctantTasks.store(NUM_OCTANT_TASKS);
+    numPendingBatchTasks.store(NUM_OCTANT_TASKS); // For safely keeping track of both batch + octant task progress
     numPendingShadowQueries.store(1); // Will be decremented by one when main view batch collection is complete, which also blocks shadowcaster processing
     numPendingShadowViews[0].store(0);
     numPendingShadowViews[1].store(0);
@@ -286,9 +286,10 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
 
     // Find octants in view and their plane masks for node frustum culling. At the same time, find lights and process them
     // When octant collection tasks complete, they queue tasks for collecting batches from those octants.
-    for (size_t i = 0; i < NUM_OCTANTS + 1; ++i)
-        collectOctantsTasks[i]->start = (i == 0) ? octree->Root() : octree->Root()->children[i - 1];
-    workQueue->QueueTasks(NUM_OCTANTS + 1, reinterpret_cast<Task**>(&collectOctantsTasks[0]));
+    collectOctantsTasks[0]->start = octree->Root();
+    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        collectOctantsTasks[i + 1]->start = octree->Root()->children[i];
+    workQueue->QueueTasks(NUM_OCTANT_TASKS, reinterpret_cast<Task**>(&collectOctantsTasks[0]));
 
     // Execute tasks until can sort the main batches. Perform that in the main thread to potentially execute faster
     while (numPendingBatchTasks.load() > 0)
