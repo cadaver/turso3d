@@ -44,8 +44,6 @@ WorkQueue::~WorkQueue()
 
 void WorkQueue::QueueTask(Task* task)
 {
-    ZoneScoped;
-
     if (threads.size())
     {
         {
@@ -74,8 +72,8 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
             std::lock_guard<std::mutex> lock(queueMutex);
             for (size_t i = 0; i < count; ++i)
                 tasks.push(tasks_[i]);
-            numQueuedTasks.fetch_add(count);
-            numPendingTasks.fetch_add(count);
+            numQueuedTasks.fetch_add((int)count);
+            numPendingTasks.fetch_add((int)count);
         }
 
         if (count >= threads.size())
