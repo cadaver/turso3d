@@ -593,6 +593,69 @@ void Renderer::DrawQuad()
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
+void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, bool threaded, bool recursive, unsigned char planeMask)
+{
+    if (planeMask)
+    {
+        planeMask = frustum.IsInsideMasked(octant->cullingBox, planeMask);
+        if (planeMask == 0xff)
+            return;
+    }
+
+    for (auto it = octant->nodes.begin(); it != octant->nodes.end(); ++it)
+    {
+        OctreeNode* node = *it;
+        unsigned short flags = node->Flags();
+        if (flags & NF_LIGHT)
+        {
+            if ((node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
+            {
+                if (node->OnPrepareRender(frameNumber, camera))
+                {
+                    Light* light = static_cast<Light*>(node);
+                    result.lights.push_back(light);
+                }
+            }
+        }
+        // Lights are sorted first in octants, so break when first geometry encountered. Store the octant for batch collecting
+        else
+        {
+            if (result.octantListIt == result.octants.end())
+            {
+                result.octants.resize(result.octants.size() + 1);
+                result.octantListIt = --result.octants.end();
+            }
+
+            result.octantListIt->push_back(std::make_pair(octant, planeMask));
+            result.nodeAcc += octant->nodes.size();
+            break;
+        }
+    }
+
+    // Setup and queue batches collection task if over the node limit now. Note: if not threaded, defer to the end
+    if (threaded && result.nodeAcc >= NODES_PER_BATCH_TASK)
+    {
+        if (result.collectBatchesTasks.size() <= result.batchTaskIdx)
+            result.collectBatchesTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectBatchesWork));
+        result.collectBatchesTasks[result.batchTaskIdx]->start = &*(result.octantListIt);
+        numPendingBatchTasks.fetch_add(1);
+
+        workQueue->QueueTask(result.collectBatchesTasks[result.batchTaskIdx]);
+        result.nodeAcc = 0;
+        ++result.batchTaskIdx;
+        ++result.octantListIt;
+    }
+
+    if (recursive)
+    {
+        for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        {
+            if (octant->children[i])
+                CollectOctantsAndLights(octant->children[i], result, threaded, true, planeMask);
+        }
+    }
+}
+
 void Renderer::ProcessLights()
 {
     ZoneScoped;
@@ -809,14 +872,45 @@ void Renderer::ProcessShadowCasters()
     }
 }
 
-void Renderer::UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms)
+
+void Renderer::SortMainBatches()
 {
-    if (hasInstancing && transforms.size())
+    ZoneScoped;
+
+    for (auto it = batchResults.begin(); it != batchResults.end(); ++it)
     {
-        if (instanceVertexBuffer->NumVertices() < transforms.size())
-            instanceVertexBuffer->Define(USAGE_DYNAMIC, transforms.size(), instanceVertexElements, &transforms[0]);
-        else
-            instanceVertexBuffer->SetData(0, transforms.size(), &transforms[0]);
+        if (it->opaqueBatches.size())
+            opaqueBatches.batches.insert(opaqueBatches.batches.end(), it->opaqueBatches.begin(), it->opaqueBatches.end());
+        if (it->alphaBatches.size())
+            alphaBatches.batches.insert(alphaBatches.batches.end(), it->alphaBatches.begin(), it->alphaBatches.end());
+    }
+
+    opaqueBatches.Sort(instanceTransforms, SORT_STATE_AND_DISTANCE, hasInstancing);
+    alphaBatches.Sort(instanceTransforms, SORT_DISTANCE, hasInstancing);
+}
+
+void Renderer::SortShadowBatches(ShadowMap& shadowMap)
+{
+    ZoneScoped;
+
+    for (size_t i = 0; i < shadowMap.shadowViews.size(); ++i)
+    {
+        ShadowView& view = *shadowMap.shadowViews[i];
+
+        Light* light = view.light;
+
+        // Check if view was discarded during shadowcaster collecting
+        if (!light)
+            continue;
+
+        BatchQueue* destStatic = (view.renderMode == RENDER_STATIC_LIGHT_STORE_STATIC) ? &shadowMap.shadowBatches[view.staticQueueIdx] : nullptr;
+        BatchQueue* destDynamic = &shadowMap.shadowBatches[view.dynamicQueueIdx];
+
+        if (destStatic && destStatic->HasBatches())
+            destStatic->Sort(shadowMap.instanceTransforms, SORT_STATE, hasInstancing);
+
+        if (destDynamic->HasBatches())
+            destDynamic->Sort(shadowMap.instanceTransforms, SORT_STATE, hasInstancing);
     }
 }
 
@@ -857,6 +951,17 @@ bool Renderer::AllocateShadowMap(Light* light)
     // No room in atlas
     light->SetShadowMap(nullptr);
     return false;
+}
+
+void Renderer::UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms)
+{
+    if (hasInstancing && transforms.size())
+    {
+        if (instanceVertexBuffer->NumVertices() < transforms.size())
+            instanceVertexBuffer->Define(USAGE_DYNAMIC, transforms.size(), instanceVertexElements, &transforms[0]);
+        else
+            instanceVertexBuffer->SetData(0, transforms.size(), &transforms[0]);
+    }
 }
 
 void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
@@ -1136,110 +1241,6 @@ void Renderer::DefineClusterFrustums()
 
         lastClusterFrustumProj = cameraProj;
         clusterFrustumsDirty = false;
-    }
-}
-
-void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, bool threaded, bool recursive, unsigned char planeMask)
-{
-    if (planeMask)
-    {
-        planeMask = frustum.IsInsideMasked(octant->cullingBox, planeMask);
-        if (planeMask == 0xff)
-            return;
-    }
-
-    for (auto it = octant->nodes.begin(); it != octant->nodes.end(); ++it)
-    {
-        OctreeNode* node = *it;
-        unsigned short flags = node->Flags();
-        if (flags & NF_LIGHT)
-        {
-            if ((node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
-            {
-                if (node->OnPrepareRender(frameNumber, camera))
-                {
-                    Light* light = static_cast<Light*>(node);
-                    result.lights.push_back(light);
-                }
-            }
-        }
-        // Lights are sorted first in octants, so break when first geometry encountered. Store the octant for batch collecting
-        else
-        {
-            if (result.octantListIt == result.octants.end())
-            {
-                result.octants.resize(result.octants.size() + 1);
-                result.octantListIt = --result.octants.end();
-            }
-
-            result.octantListIt->push_back(std::make_pair(octant, planeMask));
-            result.nodeAcc += octant->nodes.size();
-            break;
-        }
-    }
-
-    // Setup and queue batches collection task if over the node limit now. Note: if not threaded, defer to the end
-    if (threaded && result.nodeAcc >= NODES_PER_BATCH_TASK)
-    {
-        if (result.collectBatchesTasks.size() <= result.batchTaskIdx)
-            result.collectBatchesTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectBatchesWork));
-        result.collectBatchesTasks[result.batchTaskIdx]->start = &*(result.octantListIt);
-        numPendingBatchTasks.fetch_add(1);
-
-        workQueue->QueueTask(result.collectBatchesTasks[result.batchTaskIdx]);
-        result.nodeAcc = 0;
-        ++result.batchTaskIdx;
-        ++result.octantListIt;
-    }
-
-    if (recursive)
-    { 
-        for (size_t i = 0; i < NUM_OCTANTS; ++i)
-        {
-            if (octant->children[i])
-                CollectOctantsAndLights(octant->children[i], result, threaded, true, planeMask);
-        }
-    }
-}
-
-void Renderer::SortMainBatches()
-{
-    ZoneScoped;
-
-    for (auto it = batchResults.begin(); it != batchResults.end(); ++it)
-    {
-        if (it->opaqueBatches.size())
-            opaqueBatches.batches.insert(opaqueBatches.batches.end(), it->opaqueBatches.begin(), it->opaqueBatches.end());
-        if (it->alphaBatches.size())
-            alphaBatches.batches.insert(alphaBatches.batches.end(), it->alphaBatches.begin(), it->alphaBatches.end());
-    }
-
-    opaqueBatches.Sort(instanceTransforms, SORT_STATE_AND_DISTANCE, hasInstancing);
-    alphaBatches.Sort(instanceTransforms, SORT_DISTANCE, hasInstancing);
-}
-
-void Renderer::SortShadowBatches(ShadowMap& shadowMap)
-{
-    ZoneScoped;
-
-    for (size_t i = 0; i < shadowMap.shadowViews.size(); ++i)
-    {
-        ShadowView& view = *shadowMap.shadowViews[i];
-
-        Light* light = view.light;
-
-        // Check if view was discarded during shadowcaster collecting
-        if (!light)
-            continue;
-
-        BatchQueue* destStatic = (view.renderMode == RENDER_STATIC_LIGHT_STORE_STATIC) ? &shadowMap.shadowBatches[view.staticQueueIdx] : nullptr;
-        BatchQueue* destDynamic = &shadowMap.shadowBatches[view.dynamicQueueIdx];
-
-        if (destStatic && destStatic->HasBatches())
-            destStatic->Sort(shadowMap.instanceTransforms, SORT_STATE, hasInstancing);
-
-        if (destDynamic->HasBatches())
-            destDynamic->Sort(shadowMap.instanceTransforms, SORT_STATE, hasInstancing);
     }
 }
 

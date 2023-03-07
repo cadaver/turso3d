@@ -182,39 +182,37 @@ public:
     void DrawQuad();
 
 private:
+    /// Collect octants and lights from the octree recursively. Queue batch collection tasks while ongoing.
+    void CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, bool threaded, bool recursive, unsigned char planeMask = 0x3f);
     /// Process lights collected by octant tasks, and queue shadowcaster query tasks for them as necessary.
     void ProcessLights();
-    /// Begin main batches sorting and allow shadowcaster batch collection.
-    void BeginMainBatchSorting();
-    /// Queue shadowcaster batch collection tasks. Requires shadowcaster query tasks to be complete.
+    /// Queue shadowcaster batch collection tasks. Requires batch collection and shadowcaster query tasks to be complete.
     void ProcessShadowCasters();
+    /// Sort main opaque and alpha batch queues.
+    void SortMainBatches();
+    /// Sort all batch queues of a shadowmap.
+    void SortShadowBatches(ShadowMap& shadowMap);
+    /// Allocate shadow map for light. Return true on success.
+    bool AllocateShadowMap(Light* light);
     /// Upload instance transforms before rendering.
     void UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms);
     /// Render a batch queue.
     void RenderBatches(Camera* camera, const BatchQueue& queue);
-    /// Allocate shadow map for light. Return true on success.
-    bool AllocateShadowMap(Light* light);
     /// Define face selection texture for point light shadows.
     void DefineFaceSelectionTextures();
     /// Define vertex data for rendering full-screen quads.
     void DefineQuadVertexBuffer();
     /// Setup light cluster frustums and bounding boxes if necessary.
     void DefineClusterFrustums();
-    /// Collect octants and lights from the octree recursively. Queue batch collection tasks while ongoing.
-    void CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, bool threaded, bool recursive, unsigned char planeMask = 0x3f);
-    /// Sort main opaque and alpha batch queues.
-    void SortMainBatches();
-    /// Sort all batch queues of a shadowmap.
-    void SortShadowBatches(ShadowMap& shadowMap);
     /// Work function to collect octants.
     void CollectOctantsWork(Task* task, unsigned threadIndex);
     /// Work function to collect main view batches from geometries.
     void CollectBatchesWork(Task* task, unsigned threadIndex);
     /// Work function to collect shadowcasters per shadowcasting light.
     void CollectShadowCastersWork(Task* task, unsigned threadIndex);
-    /// Work function to collect shadowcaster batches per view.
+    /// Work function to collect shadowcaster batches per shadow view.
     void CollectShadowBatchesWork(Task* task, unsigned threadIndex);
-    /// Work function to cull lights to the frustum grid.
+    /// Work function to cull lights against a Z-slice of the frustum grid.
     void CullLightsToFrustumWork(Task* task, unsigned threadIndex);
 
     /// Current scene.
