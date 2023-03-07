@@ -193,8 +193,6 @@ Renderer::Renderer() :
 
     for (size_t i = 0; i < NUM_CLUSTER_Z; ++i)
         cullLightsTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::CullLightsToFrustumWork, (void*)i);
-
-    sortMainBatchesTask = new MemberFunctionTask<Renderer>(this, &Renderer::SortMainBatchesWork);
 }
 
 Renderer::~Renderer()
@@ -286,13 +284,19 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
     // Enable threaded update during geometry / light gathering in case nodes' OnPrepareRender() causes further reinsertion queuing
     octree->SetThreadedUpdate(workQueue->NumThreads() > 1);
 
-    // Find octants in view and their plane masks for node frustum culling. At the same time, find lights
-    // When octant collection tasks complete, they queue tasks for collecting batches from those octants
-    // When batch collection tasks all complete, main view batch sorting will be executed
+    // Find octants in view and their plane masks for node frustum culling. At the same time, find lights and process them
+    // When octant collection tasks complete, they queue tasks for collecting batches from those octants.
     for (size_t i = 0; i < NUM_OCTANTS + 1; ++i)
         collectOctantsTasks[i]->start = (i == 0) ? octree->Root() : octree->Root()->children[i - 1];
-
     workQueue->QueueTasks(NUM_OCTANTS + 1, reinterpret_cast<Task**>(&collectOctantsTasks[0]));
+
+    // Execute tasks until can sort the main batches. Perform that in the main thread to potentially execute faster
+    while (numPendingBatchTasks.load() > 0)
+        workQueue->TryComplete();
+
+    SortMainBatches();
+
+    // Now finish all other threaded work
     workQueue->Complete();
 
     // No more threaded reinsertion will take place
@@ -743,14 +747,6 @@ void Renderer::ProcessLights()
     // Now queue all shadowcaster collection tasks
     if (lightTaskIdx > 0)
         workQueue->QueueTasks(lightTaskIdx, reinterpret_cast<Task**>(&collectShadowCastersTasks[0]));
-}
-
-void Renderer::BeginMainBatchSorting()
-{
-    workQueue->QueueTask(sortMainBatchesTask);
-
-    if (numPendingShadowQueries.fetch_add(-1) == 1)
-        ProcessShadowCasters();
 }
 
 void Renderer::ProcessShadowCasters()
@@ -1206,6 +1202,22 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
     }
 }
 
+void Renderer::SortMainBatches()
+{
+    ZoneScoped;
+
+    for (auto it = batchResults.begin(); it != batchResults.end(); ++it)
+    {
+        if (it->opaqueBatches.size())
+            opaqueBatches.batches.insert(opaqueBatches.batches.end(), it->opaqueBatches.begin(), it->opaqueBatches.end());
+        if (it->alphaBatches.size())
+            alphaBatches.batches.insert(alphaBatches.batches.end(), it->alphaBatches.begin(), it->alphaBatches.end());
+    }
+
+    opaqueBatches.Sort(instanceTransforms, SORT_STATE_AND_DISTANCE, hasInstancing);
+    alphaBatches.Sort(instanceTransforms, SORT_DISTANCE, hasInstancing);
+}
+
 void Renderer::SortShadowBatches(ShadowMap& shadowMap)
 {
     ZoneScoped;
@@ -1258,9 +1270,12 @@ void Renderer::CollectOctantsWork(Task* task, unsigned)
     if (numPendingOctantTasks.fetch_add(-1) == 1)
         ProcessLights();
 
-    // Check for queuing main view sort task also here in the unlikely case batch tasks manage to complete before octant tasks
+    // Check for queuing shadowcaster processing task also here in the unlikely case batch tasks manage to complete before octant tasks
     if (numPendingBatchTasks.fetch_add(-1) == 1)
-        BeginMainBatchSorting();
+    {
+        if (numPendingShadowQueries.fetch_add(-1) == 1)
+            ProcessShadowCasters();
+    }
 }
 
 void Renderer::CollectBatchesWork(Task* task, unsigned threadIndex)
@@ -1359,9 +1374,12 @@ void Renderer::CollectBatchesWork(Task* task, unsigned threadIndex)
         }
     }
 
-    // Queue sort of main view batches when all batches collected
+    // Allow shadowcaster batch processing when all main view batches collected
     if (numPendingBatchTasks.fetch_add(-1) == 1)
-        BeginMainBatchSorting();
+    {
+        if (numPendingShadowQueries.fetch_add(-1) == 1)
+            ProcessShadowCasters();
+    }
 }
 
 void Renderer::CollectShadowCastersWork(Task* task, unsigned)
@@ -1415,7 +1433,7 @@ void Renderer::CollectShadowCastersWork(Task* task, unsigned)
         octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(shadowCasters), view.shadowFrustum, NF_GEOMETRY | NF_CAST_SHADOWS);
     }
 
-    // Check if all shadowcaster queries done, if so begin shadowcaster batch collection
+    // Check if all shadowcaster queries done (and also main view batch collecting), if so begin shadowcaster batch collection
     if (numPendingShadowQueries.fetch_add(-1) == 1)
         ProcessShadowCasters();
 }
@@ -1613,22 +1631,6 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
     // Sort shadow batches if was the last
     if (numPendingShadowViews[shadowMapIdx].fetch_add(-1) == 1)
         SortShadowBatches(shadowMap);
-}
-
-void Renderer::SortMainBatchesWork(Task*, unsigned)
-{
-    ZoneScoped;
-
-    for (auto it = batchResults.begin(); it != batchResults.end(); ++it)
-    {
-        if (it->opaqueBatches.size())
-            opaqueBatches.batches.insert(opaqueBatches.batches.end(), it->opaqueBatches.begin(), it->opaqueBatches.end());
-        if (it->alphaBatches.size())
-            alphaBatches.batches.insert(alphaBatches.batches.end(), it->alphaBatches.begin(), it->alphaBatches.end());
-    }
-
-    opaqueBatches.Sort(instanceTransforms, SORT_STATE_AND_DISTANCE, hasInstancing);
-    alphaBatches.Sort(instanceTransforms, SORT_DISTANCE, hasInstancing);
 }
 
 void Renderer::CullLightsToFrustumWork(Task* task, unsigned)

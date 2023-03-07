@@ -202,6 +202,8 @@ private:
     void DefineClusterFrustums();
     /// Collect octants and lights from the octree recursively. Queue batch collection tasks while ongoing.
     void CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, bool threaded, bool recursive, unsigned char planeMask = 0x3f);
+    /// Sort main opaque and alpha batch queues.
+    void SortMainBatches();
     /// Sort all batch queues of a shadowmap.
     void SortShadowBatches(ShadowMap& shadowMap);
     /// Work function to collect octants.
