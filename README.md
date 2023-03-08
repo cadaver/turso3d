@@ -4,6 +4,7 @@ Experimental 3D / game engine technology partially based on the Urho3D codebase.
 
 - OpenGL 3.2 / SDL2
 - Forward+ rendering, currently up to 255 lights in view
+- Threaded work queue to speed up animation and view preparation 
 - Caching of static shadow maps
 - SSAO
 
