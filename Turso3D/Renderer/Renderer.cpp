@@ -89,14 +89,13 @@ inline bool CompareLights(Light* lhs, Light* rhs)
 
 void ThreadOctantResult::Clear()
 {
-    for (auto it = octants.begin(); it != octants.end(); ++it)
-        it->clear();
-
-    lights.clear();
-
     octantListIt = octants.begin();
     nodeAcc = 0;
     batchTaskIdx = 0;
+    lights.clear();
+
+    for (auto it = octants.begin(); it != octants.end(); ++it)
+        it->clear();
 }
 
 void ThreadBatchResult::Clear()
@@ -120,6 +119,8 @@ ShadowMap::~ShadowMap()
 
 void ShadowMap::Clear()
 {
+    freeQueueIdx = 0;
+    freeCasterListIdx = 0;
     allocator.Reset(texture->Width(), texture->Height(), 0, 0, false);
     shadowViews.clear();
     instanceTransforms.clear();
@@ -128,9 +129,6 @@ void ShadowMap::Clear()
         it->Clear();
     for (auto it = shadowCasters.begin(); it != shadowCasters.end(); ++it)
         it->clear();
-
-    freeQueueIdx = 0;
-    freeCasterListIdx = 0;
 }
 
 Renderer::Renderer() :
@@ -193,6 +191,9 @@ Renderer::Renderer() :
 
     for (size_t i = 0; i < NUM_CLUSTER_Z; ++i)
         cullLightsTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::CullLightsToFrustumWork, (void*)i);
+
+    processLightsTask = new MemberFunctionTask<Renderer>(this, &Renderer::ProcessLightsWork);
+    processShadowCastersTask = new MemberFunctionTask<Renderer>(this, &Renderer::ProcessShadowCastersWork);
 }
 
 Renderer::~Renderer()
@@ -272,9 +273,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
     for (auto it = shadowMaps.begin(); it != shadowMaps.end(); ++it)
         it->Clear();
 
-    numPendingOctantTasks.store(NUM_OCTANT_TASKS);
-    numPendingBatchTasks.store(NUM_OCTANT_TASKS); // For safely keeping track of both batch + octant task progress
-    numPendingShadowQueries.store(1); // Will be decremented by one when main view batch collection is complete, which also blocks shadowcaster processing
+    numPendingBatchTasks.store(NUM_OCTANT_TASKS); // For safely keeping track of both batch + octant task progress before main batches can be sorted
     numPendingShadowViews[0].store(0);
     numPendingShadowViews[1].store(0);
 
@@ -286,9 +285,15 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
 
     // Find octants in view and their plane masks for node frustum culling. At the same time, find lights and process them
     // When octant collection tasks complete, they queue tasks for collecting batches from those octants.
-    collectOctantsTasks[0]->start = octree->Root();
-    for (size_t i = 0; i < NUM_OCTANTS; ++i)
-        collectOctantsTasks[i + 1]->start = octree->Root()->children[i];
+    for (size_t i = 0; i < NUM_OCTANT_TASKS; ++i)
+    {
+        collectOctantsTasks[i]->start = !i ? octree->Root() : octree->Root()->children[i - 1];
+        processLightsTask->AddDependency(collectOctantsTasks[i]);
+    }
+
+    // Ensure shadow view processing doesn't happen before lights have been found and processed
+    processShadowCastersTask->AddDependency(processLightsTask);
+
     workQueue->QueueTasks(NUM_OCTANT_TASKS, reinterpret_cast<Task**>(&collectOctantsTasks[0]));
 
     // Execute tasks until can sort the main batches. Perform that in the main thread to potentially execute faster
@@ -638,10 +643,13 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
     {
         if (result.collectBatchesTasks.size() <= result.batchTaskIdx)
             result.collectBatchesTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectBatchesWork));
-        result.collectBatchesTasks[result.batchTaskIdx]->start = &*(result.octantListIt);
-        numPendingBatchTasks.fetch_add(1);
 
-        workQueue->QueueTask(result.collectBatchesTasks[result.batchTaskIdx]);
+        Task* batchTask = result.collectBatchesTasks[result.batchTaskIdx];
+        batchTask->start = &*(result.octantListIt);
+        processShadowCastersTask->AddDependency(batchTask);
+        numPendingBatchTasks.fetch_add(1);
+        workQueue->QueueTask(batchTask);
+
         result.nodeAcc = 0;
         ++result.batchTaskIdx;
         ++result.octantListIt;
@@ -656,223 +664,6 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         }
     }
 }
-
-void Renderer::ProcessLights()
-{
-    ZoneScoped;
-
-    // Merge the light collection results
-    for (auto it = octantResults.begin(); it != octantResults.end(); ++it)
-        lights.insert(lights.end(), it->lights.begin(), it->lights.end());
-
-    // Find the directional light if any
-    for (auto it = lights.begin(); it != lights.end(); )
-    {
-        Light* light = *it;
-        if (light->GetLightType() == LIGHT_DIRECTIONAL)
-        {
-            if (!dirLight || light->GetColor().Average() > dirLight->GetColor().Average())
-                dirLight = light;
-            it = lights.erase(it);
-        }
-        else
-            ++it;
-    }
-
-    // Sort localized lights by increasing distance
-    std::sort(lights.begin(), lights.end(), CompareLights);
-
-    // Clamp to maximum supported
-    if (lights.size() > MAX_LIGHTS)
-        lights.resize(MAX_LIGHTS);
-
-    // Pre-step for shadow map caching: reallocate all lights' shadow map rectangles which are non-zero at this point.
-    // If shadow maps were dirtied (size or bias change) reset all allocations instead
-    for (auto it = lights.begin(); it != lights.end(); ++it)
-    {
-        Light* light = *it;
-        if (shadowMapsDirty)
-            light->SetShadowMap(nullptr);
-        else if (drawShadows && light->ShadowStrength() < 1.0f && light->ShadowRect() != IntRect::ZERO)
-            AllocateShadowMap(light);
-    }
-
-    // Check if directional light needs shadows
-    if (dirLight)
-    {
-        if (shadowMapsDirty)
-            dirLight->SetShadowMap(nullptr);
-
-        if (!drawShadows || dirLight->ShadowStrength() >= 1.0f || !AllocateShadowMap(dirLight))
-            dirLight->SetShadowMap(nullptr);
-    }
-
-    shadowMapsDirty = false;
-
-    size_t lightTaskIdx = 0;
-
-    // Go through lights and setup shadowcaster collection tasks
-    for (size_t i = 0; i < lights.size(); ++i)
-    {
-        ShadowMap& shadowMap = shadowMaps[1];
-
-        Light* light = lights[i];
-        float cutoff = light->GetLightType() == LIGHT_SPOT ? cosf(light->Fov() * 0.5f * M_DEGTORAD) : 0.0f;
-
-        lightData[i].position = Vector4(light->WorldPosition(), 1.0f);
-        lightData[i].direction = Vector4(-light->WorldDirection(), 0.0f);
-        lightData[i].attenuation = Vector4(1.0f / Max(light->Range(), M_EPSILON), cutoff, 1.0f / (1.0f - cutoff), 1.0f);
-        lightData[i].color = light->EffectiveColor();
-        lightData[i].shadowParameters = Vector4::ONE; // Assume unshadowed
-
-        // Check if not shadowcasting or beyond shadow range
-        if (!drawShadows || light->ShadowStrength() >= 1.0f)
-        {
-            light->SetShadowMap(nullptr);
-            continue;
-        }
-
-        // Now retry shadow map allocation if necessary. If it's a new allocation, must rerender the shadow map
-        if (!light->ShadowMap())
-        {
-            if (!AllocateShadowMap(light))
-                continue;
-        }
-
-        light->InitShadowViews();
-        std::vector<ShadowView>& shadowViews = light->ShadowViews();
-
-        // Preallocate shadowcaster list
-        size_t casterListIdx = shadowMap.freeCasterListIdx++;
-        if (shadowMap.shadowCasters.size() < shadowMap.freeCasterListIdx)
-            shadowMap.shadowCasters.resize(shadowMap.freeCasterListIdx);
-
-        for (size_t j = 0; j < shadowViews.size(); ++j)
-        {
-            ShadowView& view = shadowViews[j];
-
-            // Preallocate shadow batch queues
-            view.casterListIdx = casterListIdx;
-
-            if (light->Static())
-            {
-                view.staticQueueIdx = shadowMap.freeQueueIdx++;
-                view.dynamicQueueIdx = shadowMap.freeQueueIdx++;
-            }
-            else
-                view.dynamicQueueIdx = shadowMap.freeQueueIdx++;
-
-            if (shadowMap.shadowBatches.size() < shadowMap.freeQueueIdx)
-                shadowMap.shadowBatches.resize(shadowMap.freeQueueIdx);
-
-            shadowMap.shadowViews.push_back(&view);
-        }
-
-        if (collectShadowCastersTasks.size() <= lightTaskIdx)
-            collectShadowCastersTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectShadowCastersWork));
-
-        collectShadowCastersTasks[lightTaskIdx]->start = light;
-        numPendingShadowQueries.fetch_add(1);
-        ++lightTaskIdx;
-    }
-
-    if (dirLight && dirLight->ShadowMap())
-    {
-        ShadowMap& shadowMap = shadowMaps[0];
-
-        dirLight->InitShadowViews();
-        std::vector<ShadowView>& shadowViews = dirLight->ShadowViews();
-
-        for (size_t i = 0; i < shadowViews.size(); ++i)
-        {
-            ShadowView& view = shadowViews[i];
-
-            // Directional light needs a new frustum query for each split, as the shadow cameras are typically far outside the main view
-            view.casterListIdx = shadowMap.freeCasterListIdx++;
-            if (shadowMap.shadowCasters.size() < shadowMap.freeCasterListIdx)
-                shadowMap.shadowCasters.resize(shadowMap.freeCasterListIdx);
-
-            view.dynamicQueueIdx = shadowMap.freeQueueIdx++;
-            if (shadowMap.shadowBatches.size() < shadowMap.freeQueueIdx)
-                shadowMap.shadowBatches.resize(shadowMap.freeQueueIdx);
-
-            shadowMap.shadowViews.push_back(&view);
-
-            if (collectShadowCastersTasks.size() <= lightTaskIdx)
-                collectShadowCastersTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectShadowCastersWork));
-
-            collectShadowCastersTasks[lightTaskIdx]->start = dirLight;
-            collectShadowCastersTasks[lightTaskIdx]->end = (void*)i;
-            numPendingShadowQueries.fetch_add(1);
-            ++lightTaskIdx;
-        }
-    }
-
-    // Now queue all shadowcaster collection tasks
-    if (lightTaskIdx > 0)
-        workQueue->QueueTasks(lightTaskIdx, reinterpret_cast<Task**>(&collectShadowCastersTasks[0]));
-}
-
-void Renderer::ProcessShadowCasters()
-{
-    ZoneScoped;
-
-    // Shadow batches collection needs accurate scene min / max Z results, combine them from per-thread data
-    for (auto it = batchResults.begin(); it != batchResults.end(); ++it)
-    {
-        minZ = Min(minZ, it->minZ);
-        maxZ = Max(maxZ, it->maxZ);
-    }
-
-    // Clear per-cluster light data from previous frame, update cluster frustums and bounding boxes if camera changed, then queue light culling tasks for the needed scene range
-    DefineClusterFrustums();
-    memset(numClusterLights, 0, sizeof numClusterLights);
-    memset(clusterData, 0, sizeof clusterData);
-    for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
-    {
-        size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
-        if (minZ > clusterFrustums[idx].vertices[4].z || maxZ < clusterFrustums[idx].vertices[0].z)
-            continue;
-        workQueue->QueueTask(cullLightsTasks[z]);
-    }
-
-    // Queue shadow batch collection tasks. These will queue shadow batch sorting tasks when done
-    size_t shadowTaskIdx = 0;
-
-    for (size_t i = 0; i < shadowMaps.size(); ++i)
-    {
-        ShadowMap& shadowMap = shadowMaps[i];
-        for (size_t j = 0; j < shadowMap.shadowViews.size(); ++j)
-        {
-            // Skip discarded view
-            if (!shadowMap.shadowViews[j]->light)
-                continue;
-
-            if (collectShadowBatchesTasks.size() <= shadowTaskIdx)
-                collectShadowBatchesTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectShadowBatchesWork));
-            collectShadowBatchesTasks[shadowTaskIdx]->start = (void*)i;
-            collectShadowBatchesTasks[shadowTaskIdx]->end = (void*)j;
-            numPendingShadowViews[i].fetch_add(1);
-            ++shadowTaskIdx;
-        }
-    }
-
-    if (shadowTaskIdx > 0)
-        workQueue->QueueTasks(shadowTaskIdx, reinterpret_cast<Task**>(&collectShadowBatchesTasks[0]));
-
-    // Finally copy correct shadow matrices for the light data now that shadow caster collection has finalized them
-    for (size_t i = 0; i < lights.size(); ++i)
-    {
-        Light* light = lights[i];
-
-        if (light->ShadowMap())
-        {
-            lightData[i].shadowParameters = light->ShadowParameters();
-            lightData[i].shadowMatrix = light->ShadowViews()[0].shadowMatrix;
-        }
-    }
-}
-
 
 void Renderer::SortMainBatches()
 {
@@ -1261,23 +1052,172 @@ void Renderer::CollectOctantsWork(Task* task, unsigned)
         {
             if (result.collectBatchesTasks.size() <= result.batchTaskIdx)
                 result.collectBatchesTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectBatchesWork));
-            result.collectBatchesTasks[result.batchTaskIdx]->start = &*(result.octantListIt);
+            
+            Task* batchTask = result.collectBatchesTasks[result.batchTaskIdx];
+            batchTask->start = &*(result.octantListIt);
+            processShadowCastersTask->AddDependency(batchTask);
             numPendingBatchTasks.fetch_add(1);
-
-            workQueue->QueueTask(result.collectBatchesTasks[result.batchTaskIdx]);
+            workQueue->QueueTask(batchTask);
         }
     }
     
-    // If was the last octant task, process lights
-    if (numPendingOctantTasks.fetch_add(-1) == 1)
-        ProcessLights();
+    numPendingBatchTasks.fetch_add(-1);
+}
 
-    // Check for queuing shadowcaster processing task also here in the unlikely case batch tasks manage to complete before octant tasks
-    if (numPendingBatchTasks.fetch_add(-1) == 1)
+void Renderer::ProcessLightsWork(Task*, unsigned)
+{
+    ZoneScoped;
+
+    // Merge the light collection results
+    for (auto it = octantResults.begin(); it != octantResults.end(); ++it)
+        lights.insert(lights.end(), it->lights.begin(), it->lights.end());
+
+    // Find the directional light if any
+    for (auto it = lights.begin(); it != lights.end(); )
     {
-        if (numPendingShadowQueries.fetch_add(-1) == 1)
-            ProcessShadowCasters();
+        Light* light = *it;
+        if (light->GetLightType() == LIGHT_DIRECTIONAL)
+        {
+            if (!dirLight || light->GetColor().Average() > dirLight->GetColor().Average())
+                dirLight = light;
+            it = lights.erase(it);
+        }
+        else
+            ++it;
     }
+
+    // Sort localized lights by increasing distance
+    std::sort(lights.begin(), lights.end(), CompareLights);
+
+    // Clamp to maximum supported
+    if (lights.size() > MAX_LIGHTS)
+        lights.resize(MAX_LIGHTS);
+
+    // Pre-step for shadow map caching: reallocate all lights' shadow map rectangles which are non-zero at this point.
+    // If shadow maps were dirtied (size or bias change) reset all allocations instead
+    for (auto it = lights.begin(); it != lights.end(); ++it)
+    {
+        Light* light = *it;
+        if (shadowMapsDirty)
+            light->SetShadowMap(nullptr);
+        else if (drawShadows && light->ShadowStrength() < 1.0f && light->ShadowRect() != IntRect::ZERO)
+            AllocateShadowMap(light);
+    }
+
+    // Check if directional light needs shadows
+    if (dirLight)
+    {
+        if (shadowMapsDirty)
+            dirLight->SetShadowMap(nullptr);
+
+        if (!drawShadows || dirLight->ShadowStrength() >= 1.0f || !AllocateShadowMap(dirLight))
+            dirLight->SetShadowMap(nullptr);
+    }
+
+    shadowMapsDirty = false;
+
+    size_t lightTaskIdx = 0;
+
+    // Go through lights and setup shadowcaster collection tasks
+    for (size_t i = 0; i < lights.size(); ++i)
+    {
+        ShadowMap& shadowMap = shadowMaps[1];
+
+        Light* light = lights[i];
+        float cutoff = light->GetLightType() == LIGHT_SPOT ? cosf(light->Fov() * 0.5f * M_DEGTORAD) : 0.0f;
+
+        lightData[i].position = Vector4(light->WorldPosition(), 1.0f);
+        lightData[i].direction = Vector4(-light->WorldDirection(), 0.0f);
+        lightData[i].attenuation = Vector4(1.0f / Max(light->Range(), M_EPSILON), cutoff, 1.0f / (1.0f - cutoff), 1.0f);
+        lightData[i].color = light->EffectiveColor();
+        lightData[i].shadowParameters = Vector4::ONE; // Assume unshadowed
+
+        // Check if not shadowcasting or beyond shadow range
+        if (!drawShadows || light->ShadowStrength() >= 1.0f)
+        {
+            light->SetShadowMap(nullptr);
+            continue;
+        }
+
+        // Now retry shadow map allocation if necessary. If it's a new allocation, must rerender the shadow map
+        if (!light->ShadowMap())
+        {
+            if (!AllocateShadowMap(light))
+                continue;
+        }
+
+        light->InitShadowViews();
+        std::vector<ShadowView>& shadowViews = light->ShadowViews();
+
+        // Preallocate shadowcaster list
+        size_t casterListIdx = shadowMap.freeCasterListIdx++;
+        if (shadowMap.shadowCasters.size() < shadowMap.freeCasterListIdx)
+            shadowMap.shadowCasters.resize(shadowMap.freeCasterListIdx);
+
+        for (size_t j = 0; j < shadowViews.size(); ++j)
+        {
+            ShadowView& view = shadowViews[j];
+
+            // Preallocate shadow batch queues
+            view.casterListIdx = casterListIdx;
+
+            if (light->Static())
+            {
+                view.staticQueueIdx = shadowMap.freeQueueIdx++;
+                view.dynamicQueueIdx = shadowMap.freeQueueIdx++;
+            }
+            else
+                view.dynamicQueueIdx = shadowMap.freeQueueIdx++;
+
+            if (shadowMap.shadowBatches.size() < shadowMap.freeQueueIdx)
+                shadowMap.shadowBatches.resize(shadowMap.freeQueueIdx);
+
+            shadowMap.shadowViews.push_back(&view);
+        }
+
+        if (collectShadowCastersTasks.size() <= lightTaskIdx)
+            collectShadowCastersTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectShadowCastersWork));
+
+        collectShadowCastersTasks[lightTaskIdx]->start = light;
+        processShadowCastersTask->AddDependency(collectShadowCastersTasks[lightTaskIdx]);
+        ++lightTaskIdx;
+    }
+
+    if (dirLight && dirLight->ShadowMap())
+    {
+        ShadowMap& shadowMap = shadowMaps[0];
+
+        dirLight->InitShadowViews();
+        std::vector<ShadowView>& shadowViews = dirLight->ShadowViews();
+
+        for (size_t i = 0; i < shadowViews.size(); ++i)
+        {
+            ShadowView& view = shadowViews[i];
+
+            // Directional light needs a new frustum query for each split, as the shadow cameras are typically far outside the main view
+            view.casterListIdx = shadowMap.freeCasterListIdx++;
+            if (shadowMap.shadowCasters.size() < shadowMap.freeCasterListIdx)
+                shadowMap.shadowCasters.resize(shadowMap.freeCasterListIdx);
+
+            view.dynamicQueueIdx = shadowMap.freeQueueIdx++;
+            if (shadowMap.shadowBatches.size() < shadowMap.freeQueueIdx)
+                shadowMap.shadowBatches.resize(shadowMap.freeQueueIdx);
+
+            shadowMap.shadowViews.push_back(&view);
+
+            if (collectShadowCastersTasks.size() <= lightTaskIdx)
+                collectShadowCastersTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectShadowCastersWork));
+
+            collectShadowCastersTasks[lightTaskIdx]->start = dirLight;
+            collectShadowCastersTasks[lightTaskIdx]->end = (void*)i;
+            processShadowCastersTask->AddDependency(collectShadowCastersTasks[lightTaskIdx]);
+            ++lightTaskIdx;
+        }
+    }
+
+    // Now queue all shadowcaster collection tasks
+    if (lightTaskIdx > 0)
+        workQueue->QueueTasks(lightTaskIdx, reinterpret_cast<Task**>(&collectShadowCastersTasks[0]));
 }
 
 void Renderer::CollectBatchesWork(Task* task, unsigned threadIndex)
@@ -1376,11 +1316,66 @@ void Renderer::CollectBatchesWork(Task* task, unsigned threadIndex)
         }
     }
 
-    // Allow shadowcaster batch processing when all main view batches collected
-    if (numPendingBatchTasks.fetch_add(-1) == 1)
+    numPendingBatchTasks.fetch_add(-1);
+}
+
+void Renderer::ProcessShadowCastersWork(Task*, unsigned)
+{
+    ZoneScoped;
+
+    // Shadow batches collection needs accurate scene min / max Z results, combine them from per-thread data
+    for (auto it = batchResults.begin(); it != batchResults.end(); ++it)
     {
-        if (numPendingShadowQueries.fetch_add(-1) == 1)
-            ProcessShadowCasters();
+        minZ = Min(minZ, it->minZ);
+        maxZ = Max(maxZ, it->maxZ);
+    }
+
+    // Clear per-cluster light data from previous frame, update cluster frustums and bounding boxes if camera changed, then queue light culling tasks for the needed scene range
+    DefineClusterFrustums();
+    memset(numClusterLights, 0, sizeof numClusterLights);
+    memset(clusterData, 0, sizeof clusterData);
+    for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
+    {
+        size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
+        if (minZ > clusterFrustums[idx].vertices[4].z || maxZ < clusterFrustums[idx].vertices[0].z)
+            continue;
+        workQueue->QueueTask(cullLightsTasks[z]);
+    }
+
+    // Queue shadow batch collection tasks. These will queue shadow batch sorting tasks when done
+    size_t shadowTaskIdx = 0;
+
+    for (size_t i = 0; i < shadowMaps.size(); ++i)
+    {
+        ShadowMap& shadowMap = shadowMaps[i];
+        for (size_t j = 0; j < shadowMap.shadowViews.size(); ++j)
+        {
+            // Skip discarded view
+            if (!shadowMap.shadowViews[j]->light)
+                continue;
+
+            if (collectShadowBatchesTasks.size() <= shadowTaskIdx)
+                collectShadowBatchesTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectShadowBatchesWork));
+            collectShadowBatchesTasks[shadowTaskIdx]->start = (void*)i;
+            collectShadowBatchesTasks[shadowTaskIdx]->end = (void*)j;
+            numPendingShadowViews[i].fetch_add(1);
+            ++shadowTaskIdx;
+        }
+    }
+
+    if (shadowTaskIdx > 0)
+        workQueue->QueueTasks(shadowTaskIdx, reinterpret_cast<Task**>(&collectShadowBatchesTasks[0]));
+
+    // Finally copy correct shadow matrices for the light data now that shadow caster collection has finalized them
+    for (size_t i = 0; i < lights.size(); ++i)
+    {
+        Light* light = lights[i];
+
+        if (light->ShadowMap())
+        {
+            lightData[i].shadowParameters = light->ShadowParameters();
+            lightData[i].shadowMatrix = light->ShadowViews()[0].shadowMatrix;
+        }
     }
 }
 
@@ -1434,10 +1429,6 @@ void Renderer::CollectShadowCastersWork(Task* task, unsigned)
         std::vector<GeometryNode*>& shadowCasters = shadowMap.shadowCasters[view.casterListIdx];
         octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(shadowCasters), view.shadowFrustum, NF_GEOMETRY | NF_CAST_SHADOWS);
     }
-
-    // Check if all shadowcaster queries done (and also main view batch collecting), if so begin shadowcaster batch collection
-    if (numPendingShadowQueries.fetch_add(-1) == 1)
-        ProcessShadowCasters();
 }
 
 void Renderer::CollectShadowBatchesWork(Task* task, unsigned)

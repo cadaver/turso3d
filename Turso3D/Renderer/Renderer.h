@@ -95,9 +95,13 @@ struct ShadowMap
     /// Destruct.
     ~ShadowMap();
 
-    /// Clear for next frame.
+    /// Clear for the next frame.
     void Clear();
 
+    /// Next free batch queue.
+    size_t freeQueueIdx;
+    /// Next free shadowcaster list index.
+    size_t freeCasterListIdx;
     /// Rectangle allocator.
     AreaAllocator allocator;
     /// Shadow map texture.
@@ -112,10 +116,6 @@ struct ShadowMap
     std::vector<std::vector<GeometryNode*> > shadowCasters;
     /// Instancing transforms for shadowcasters.
     std::vector<Matrix3x4> instanceTransforms;
-    /// Next free batch queue.
-    size_t freeQueueIdx;
-    /// Next free shadowcaster list index.
-    size_t freeCasterListIdx;
 };
 
 /// Light data for cluster light shader.
@@ -184,10 +184,6 @@ public:
 private:
     /// Collect octants and lights from the octree recursively. Queue batch collection tasks while ongoing.
     void CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, bool threaded, bool recursive, unsigned char planeMask = 0x3f);
-    /// Process lights collected by octant tasks, and queue shadowcaster query tasks for them as necessary.
-    void ProcessLights();
-    /// Queue shadowcaster batch collection tasks. Requires batch collection and shadowcaster query tasks to be complete.
-    void ProcessShadowCasters();
     /// Sort main opaque and alpha batch queues.
     void SortMainBatches();
     /// Sort all batch queues of a shadowmap.
@@ -206,10 +202,14 @@ private:
     void DefineClusterFrustums();
     /// Work function to collect octants.
     void CollectOctantsWork(Task* task, unsigned threadIndex);
+    /// Process lights collected by octant tasks, and queue shadowcaster query tasks for them as necessary.
+    void ProcessLightsWork(Task* task, unsigned threadIndex);
     /// Work function to collect main view batches from geometries.
     void CollectBatchesWork(Task* task, unsigned threadIndex);
     /// Work function to collect shadowcasters per shadowcasting light.
     void CollectShadowCastersWork(Task* task, unsigned threadIndex);
+    /// Work function to queue shadowcaster batch collection tasks. Requires batch collection and shadowcaster query tasks to be complete.
+    void ProcessShadowCastersWork(Task* task, unsigned threadIndex);
     /// Work function to collect shadowcaster batches per shadow view.
     void CollectShadowBatchesWork(Task* task, unsigned threadIndex);
     /// Work function to cull lights against a Z-slice of the frustum grid.
@@ -237,12 +237,8 @@ private:
     bool clusterFrustumsDirty;
     /// Instancing supported flag.
     bool hasInstancing;
-    /// Counter for octant collection tasks remaining. When zero, light processing can begin while batches collection still goes on.
-    std::atomic<int> numPendingOctantTasks;
     /// Counter for batch collection tasks remaining. When zero, main batch sorting can begin while other tasks go on.
     std::atomic<int> numPendingBatchTasks;
-    /// Counter for shadowcaster queries remaining. When zero, shadowcaster batch collection can begin.
-    std::atomic<int> numPendingShadowQueries;
     /// Counters for shadow views remaining per shadowmap. When zero, the shadow batches can be sorted.
     std::atomic<int> numPendingShadowViews[2];
     /// Per-worker thread octant collection results.
@@ -315,8 +311,12 @@ private:
     float slopeScaleBiasMul;
     /// Tasks for octant collection.
     AutoPtr<Task> collectOctantsTasks[NUM_OCTANT_TASKS];
+    /// Task for light processing.
+    AutoPtr<Task> processLightsTask;
     /// Tasks for shadow light processing.
     std::vector<AutoPtr<Task> > collectShadowCastersTasks;
+    /// Task for queuing shadow views for further processing.
+    AutoPtr<Task> processShadowCastersTask;
     /// Tasks for shadow batch processing.
     std::vector<AutoPtr<Task> > collectShadowBatchesTasks;
     /// Tasks for light grid culling.

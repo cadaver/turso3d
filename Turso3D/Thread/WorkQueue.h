@@ -13,15 +13,40 @@
 /// Task for execution by worker threads.
 struct Task
 {
-    /// Execute the task. Thread index 0 is the main thread.
-    virtual void Invoke(Task* task, unsigned threadIndex) = 0;
+    /// Default-construct.
+    Task();
     /// Destruct.
     virtual ~Task();
+
+    /// Execute the task. Thread index 0 is the main thread.
+    virtual void Invoke(Task* task, unsigned threadIndex) = 0;
+
+    /// Add a task depended on. These need to be added for each execution. Adding dependencies is not threadsafe, so should be done before queuing.
+    void AddDependency(Task* task)
+    {
+        task->dependentTasks.push_back(this);
+        dependencyCounter.fetch_add(1);
+    }
+
+    /// Signal dependent tasks of completion.
+    void SignalDependentTasks()
+    {
+        for (auto it = dependentTasks.begin(); it != dependentTasks.end(); ++it)
+            (*it)->CompleteDependency();
+        dependentTasks.clear();
+    }
+
+    /// Complete a dependency. Called by the dependency task once complete.
+    void CompleteDependency();
 
     /// Data start pointer, task-specific meaning.
     void* start;
     /// Data end pointer, task-specific meaning.
     void* end;
+    /// Dependent tasks.
+    std::vector<Task*> dependentTasks;
+    /// Dependency counter. Once zero, this task will be automatically queue itself.
+    std::atomic<int> dependencyCounter;
 };
 
 /// Free function task.
@@ -41,6 +66,7 @@ struct FunctionTask : public Task
     void Invoke(Task* task, unsigned threadIndex) override
     {
         function(task, threadIndex);
+        SignalDependentTasks();
     }
 
     /// Task function.
@@ -61,11 +87,11 @@ template<class T> struct MemberFunctionTask : public Task
         end = end_;
     }
 
-
     /// Execute the task. Thread index 0 is the main thread.
     void Invoke(Task* task, unsigned threadIndex) override
     {
         (object->*function)(task, threadIndex);
+        SignalDependentTasks();
     }
 
     /// Object instance.
@@ -85,9 +111,9 @@ public:
     /// Destruct. Stop worker threads.
     ~WorkQueue();
 
-    /// Queue a task for execution. If no threads, completes immediately in the main thread.
+    /// Queue a task for execution. If no threads, completes immediately in the main thread. Do not queue tasks with dependencies, they will instead queue themselves.
     void QueueTask(Task* task);
-    /// Queue several tasks execution. If no threads, completes immediately in the main thread.
+    /// Queue several tasks execution. If no threads, completes immediately in the main thread. Do not queue tasks with dependencies, they will instead queue themselves.
     void QueueTasks(size_t count, Task** tasks);
     /// Complete all currently queued tasks. To be called only from the main thread.
     void Complete();

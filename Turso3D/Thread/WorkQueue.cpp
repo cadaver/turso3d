@@ -7,8 +7,19 @@
 
 thread_local unsigned WorkQueue::threadIndex = 0;
 
+Task::Task()
+{
+    dependencyCounter.store(0);
+}
+
 Task::~Task()
 {
+}
+
+void Task::CompleteDependency()
+{
+    if (dependencyCounter.fetch_add(-1) == 1)
+        Object::Subsystem<WorkQueue>()->QueueTask(this);
 }
 
 WorkQueue::WorkQueue(unsigned numThreads) :
@@ -44,8 +55,12 @@ WorkQueue::~WorkQueue()
 
 void WorkQueue::QueueTask(Task* task)
 {
+    assert(task);
+
     if (threads.size())
     {
+        assert(task->dependencyCounter.load() == 0);
+
         {
             std::lock_guard<std::mutex> lock(queueMutex);
             tasks.push(task);
@@ -71,7 +86,10 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
         {
             std::lock_guard<std::mutex> lock(queueMutex);
             for (size_t i = 0; i < count; ++i)
+            {
+                assert(tasks_[i]->dependencyCounter.load() == 0);
                 tasks.push(tasks_[i]);
+            }
             numQueuedTasks.fetch_add((int)count);
             numPendingTasks.fetch_add((int)count);
         }
@@ -172,6 +190,7 @@ void WorkQueue::WorkerLoop(unsigned threadIndex_)
             numQueuedTasks.fetch_add(-1);
         }
 
+        // Note: if task has dependents, they will be queued during Invoke(), so WorkQueue::Complete() will not exit erroneously early
         task->Invoke(task, threadIndex_);
         numPendingTasks.fetch_add(-1);
     }
