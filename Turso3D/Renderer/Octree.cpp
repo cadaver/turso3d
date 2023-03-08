@@ -146,9 +146,10 @@ void Octree::Update(unsigned short frameNumber_)
     }
     else if (updateQueue.size())
     {
+        // Execute a complete queue reinsert manually
         reinsertTasks[0]->start = &updateQueue[0];
         reinsertTasks[0]->end = &updateQueue[0] + updateQueue.size();
-        reinsertTasks[0]->Invoke(reinsertTasks[0], 0);
+        reinsertTasks[0]->Complete(0);
         ReinsertNodes(reinsertQueues[0]);
     }
 

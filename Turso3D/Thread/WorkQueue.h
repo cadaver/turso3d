@@ -18,26 +18,15 @@ struct Task
     /// Destruct.
     virtual ~Task();
 
-    /// Execute the task. Thread index 0 is the main thread.
-    virtual void Invoke(Task* task, unsigned threadIndex) = 0;
+    /// Call the work function. Thread index 0 is the main thread.
+    virtual void Complete(unsigned threadIndex) = 0;
 
     /// Add a task depended on. These need to be added for each execution. Adding dependencies is not threadsafe, so should be done before queuing.
     void AddDependency(Task* task)
     {
         task->dependentTasks.push_back(this);
-        dependencyCounter.fetch_add(1);
+        numDependencies.fetch_add(1);
     }
-
-    /// Signal dependent tasks of completion.
-    void SignalDependentTasks()
-    {
-        for (auto it = dependentTasks.begin(); it != dependentTasks.end(); ++it)
-            (*it)->CompleteDependency();
-        dependentTasks.clear();
-    }
-
-    /// Complete a dependency. Called by the dependency task once complete.
-    void CompleteDependency();
 
     /// Data start pointer, task-specific meaning.
     void* start;
@@ -46,7 +35,7 @@ struct Task
     /// Dependent tasks.
     std::vector<Task*> dependentTasks;
     /// Dependency counter. Once zero, this task will be automatically queue itself.
-    std::atomic<int> dependencyCounter;
+    std::atomic<int> numDependencies;
 };
 
 /// Free function task.
@@ -62,11 +51,10 @@ struct FunctionTask : public Task
         end = end_;
     }
 
-    /// Execute the task. Thread index 0 is the main thread.
-    void Invoke(Task* task, unsigned threadIndex) override
+    /// Call the work function. Thread index 0 is the main thread.
+    void Complete(unsigned threadIndex) override
     {
-        function(task, threadIndex);
-        SignalDependentTasks();
+        function(this, threadIndex);
     }
 
     /// Task function.
@@ -87,11 +75,10 @@ template<class T> struct MemberFunctionTask : public Task
         end = end_;
     }
 
-    /// Execute the task. Thread index 0 is the main thread.
-    void Invoke(Task* task, unsigned threadIndex) override
+    /// Call the work function. Thread index 0 is the main thread.
+    void Complete(unsigned threadIndex) override
     {
-        (object->*function)(task, threadIndex);
-        SignalDependentTasks();
+        (object->*function)(this, threadIndex);
     }
 
     /// Object instance.
@@ -129,6 +116,8 @@ public:
 private:
     /// Worker thread function.
     void WorkerLoop(unsigned threadIndex);
+    /// Complete a task by calling its work function and signal dependents.
+    void CompleteTask(Task*, unsigned threadIndex);
 
     /// Mutex for the work queue.
     std::mutex queueMutex;

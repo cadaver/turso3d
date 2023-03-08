@@ -9,17 +9,11 @@ thread_local unsigned WorkQueue::threadIndex = 0;
 
 Task::Task()
 {
-    dependencyCounter.store(0);
+    numDependencies.store(0);
 }
 
 Task::~Task()
 {
-}
-
-void Task::CompleteDependency()
-{
-    if (dependencyCounter.fetch_add(-1) == 1)
-        Object::Subsystem<WorkQueue>()->QueueTask(this);
 }
 
 WorkQueue::WorkQueue(unsigned numThreads) :
@@ -59,7 +53,7 @@ void WorkQueue::QueueTask(Task* task)
 
     if (threads.size())
     {
-        assert(task->dependencyCounter.load() == 0);
+        assert(task->numDependencies.load() == 0);
 
         {
             std::lock_guard<std::mutex> lock(queueMutex);
@@ -73,7 +67,7 @@ void WorkQueue::QueueTask(Task* task)
     else
     {
         // If no threads, execute directly
-        task->Invoke(task, 0);
+        CompleteTask(task, 0);
     }
 }
 
@@ -87,7 +81,7 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
             std::lock_guard<std::mutex> lock(queueMutex);
             for (size_t i = 0; i < count; ++i)
             {
-                assert(tasks_[i]->dependencyCounter.load() == 0);
+                assert(tasks_[i]->numDependencies.load() == 0);
                 tasks.push(tasks_[i]);
             }
             numQueuedTasks.fetch_add((int)count);
@@ -106,7 +100,7 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
     {
         // If no threads, execute directly
         for (size_t i = 0; i < count; ++i)
-            tasks_[i]->Invoke(tasks_[i], 0);
+            CompleteTask(tasks_[i], 0);
     }
 }
 
@@ -139,8 +133,7 @@ void WorkQueue::Complete()
             numQueuedTasks.fetch_add(-1);
         }
 
-        task->Invoke(task, 0);
-        numPendingTasks.fetch_add(-1);
+        CompleteTask(task, 0);
     }
 }
 
@@ -161,8 +154,7 @@ bool WorkQueue::TryComplete()
         numQueuedTasks.fetch_add(-1);
     }
 
-    task->Invoke(task, 0);
-    numPendingTasks.fetch_add(-1);
+    CompleteTask(task, 0);
 
     return true;
 }
@@ -190,8 +182,27 @@ void WorkQueue::WorkerLoop(unsigned threadIndex_)
             numQueuedTasks.fetch_add(-1);
         }
 
-        // Note: if task has dependents, they will be queued during Invoke(), so WorkQueue::Complete() will not exit erroneously early
-        task->Invoke(task, threadIndex_);
-        numPendingTasks.fetch_add(-1);
+        CompleteTask(task, threadIndex_);
     }
+}
+
+void WorkQueue::CompleteTask(Task* task, unsigned threadIndex_)
+{
+    task->Complete(threadIndex_);
+
+    if (task->dependentTasks.size())
+    {
+        // Queue dependent tasks now if no more dependencies left
+        for (auto it = task->dependentTasks.begin(); it != task->dependentTasks.end(); ++it)
+        {
+            Task* dependentTask = *it;
+            if (dependentTask->numDependencies.fetch_add(-1) == 1)
+                QueueTask(dependentTask);
+        }
+
+        task->dependentTasks.clear();
+    }
+
+    // Decrement pending task counter last, so that WorkQueue::Complete() will also wait for the potentially added dependent tasks
+    numPendingTasks.fetch_add(-1);
 }
