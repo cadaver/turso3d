@@ -321,18 +321,18 @@ private:
     std::vector<VertexElement> instanceVertexElements;
     /// Last projection matrix used to initialize cluster frustums.
     Matrix4 lastClusterFrustumProj;
-    /// Cluster frustums for lights.
-    Frustum clusterFrustums[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
-    /// Cluster bounding boxes.
-    BoundingBox clusterBoundingBoxes[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
     /// Amount of lights per cluster.
     unsigned char numClusterLights[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
+    /// Cluster frustums for lights.
+    AutoArrayPtr<Frustum> clusterFrustums;
+    /// Cluster bounding boxes.
+    AutoArrayPtr<BoundingBox> clusterBoundingBoxes;
     /// Cluster data CPU copy.
-    unsigned char clusterData[MAX_LIGHTS_CLUSTER * NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
+    AutoArrayPtr<unsigned char> clusterData;
+    /// Light constantbuffer data CPU copy.
+    AutoArrayPtr<LightData> lightData;
     /// Per-view uniform data CPU copy.
     PerViewUniforms perViewData;
-    /// Light constantbuffer data CPU copy.
-    LightData lightData[MAX_LIGHTS + 1];
 };
 
 /// Register Renderer related object factories and attributes.

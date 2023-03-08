@@ -177,6 +177,11 @@ Renderer::Renderer() :
     clusterTexture->Define(TEX_3D, IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RGBA32U, 1);
     clusterTexture->DefineSampler(FILTER_POINT, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
 
+    clusterFrustums = new Frustum[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
+    clusterBoundingBoxes = new BoundingBox[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
+    clusterData = new unsigned char[MAX_LIGHTS_CLUSTER * NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
+    lightData = new LightData[MAX_LIGHTS + 1];
+
     perViewDataBuffer = new UniformBuffer();
     perViewDataBuffer->Define(USAGE_DYNAMIC, sizeof(PerViewUniforms));
 
@@ -397,9 +402,9 @@ void Renderer::RenderOpaque()
 
     // Update main batches' instance transforms & light data
     UpdateInstanceTransforms(instanceTransforms);
-    ImageLevel clusterLevel(IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RG32U, clusterData);
+    ImageLevel clusterLevel(IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RG32U, clusterData.Get());
     clusterTexture->SetData(0, IntBox(0, 0, 0, NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), clusterLevel);
-    lightDataBuffer->SetData(0, lights.size() * sizeof(LightData), lightData);
+    lightDataBuffer->SetData(0, lights.size() * sizeof(LightData), lightData.Get());
 
     if (shadowMaps.size())
     {
@@ -1385,7 +1390,7 @@ void Renderer::ProcessShadowCastersWork(Task*, unsigned)
     // Clear per-cluster light data from previous frame, update cluster frustums and bounding boxes if camera changed, then queue light culling tasks for the needed scene range
     DefineClusterFrustums();
     memset(numClusterLights, 0, sizeof numClusterLights);
-    memset(clusterData, 0, sizeof clusterData);
+    memset(clusterData.Get(), 0, MAX_LIGHTS_CLUSTER * NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z);
     for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
     {
         size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
