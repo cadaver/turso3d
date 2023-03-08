@@ -48,7 +48,7 @@ struct ThreadOctantResult
     size_t nodeAcc;
     /// Batch collection task index.
     size_t batchTaskIdx;
-    /// Intermediate octant lists. Stored inside std::list so that batch collection tasks can begin early without iterator invalidation. 
+    /// Intermediate octant lists. Stored inside a std::list so that batch collection tasks can begin early without iterator invalidation.
     std::list<std::vector<std::pair<Octant*, unsigned char> > > octants;
     /// Intermediate light list.
     std::vector<Light*> lights;
@@ -184,12 +184,12 @@ public:
 private:
     /// Collect octants and lights from the octree recursively. Queue batch collection tasks while ongoing.
     void CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, bool threaded, bool recursive, unsigned char planeMask = 0x3f);
+    /// Allocate shadow map for light. Return true on success.
+    bool AllocateShadowMap(Light* light);
     /// Sort main opaque and alpha batch queues.
     void SortMainBatches();
     /// Sort all batch queues of a shadowmap.
     void SortShadowBatches(ShadowMap& shadowMap);
-    /// Allocate shadow map for light. Return true on success.
-    bool AllocateShadowMap(Light* light);
     /// Upload instance transforms before rendering.
     void UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms);
     /// Render a batch queue.
@@ -255,32 +255,10 @@ private:
     std::vector<Light*> lights;
     /// Shadow maps.
     std::vector<ShadowMap> shadowMaps;
-    /// Last projection matrix used to initialize cluster frustums.
-    Matrix4 lastClusterFrustumProj;
     /// Opaque batches.
     BatchQueue opaqueBatches;
     /// Transparent batches.
     BatchQueue alphaBatches;
-    /// Face selection UV indirection texture 1.
-    AutoPtr<Texture> faceSelectionTexture1;
-    /// Face selection UV indirection texture 2.
-    AutoPtr<Texture> faceSelectionTexture2;
-    /// Cluster lookup 3D texture.
-    AutoPtr<Texture> clusterTexture;
-    /// Per-view uniform buffer.
-    AutoPtr<UniformBuffer> perViewDataBuffer;
-    /// Light data uniform buffer.
-    AutoPtr<UniformBuffer> lightDataBuffer;
-    /// Instancing vertex buffer.
-    AutoPtr<VertexBuffer> instanceVertexBuffer;
-    /// Quad vertex buffer.
-    AutoPtr<VertexBuffer> quadVertexBuffer;
-    /// Cached static object shadow buffer.
-    AutoPtr<RenderBuffer> staticObjectShadowBuffer;
-    /// Cached static object shadow framebuffer.
-    AutoPtr<FrameBuffer> staticObjectShadowFbo;
-    /// Vertex elements for the instancing buffer.
-    std::vector<VertexElement> instanceVertexElements;
     /// Instance transforms for opaque and alpha batches.
     std::vector<Matrix3x4> instanceTransforms;
     /// Last camera used for rendering.
@@ -321,6 +299,28 @@ private:
     std::vector<AutoPtr<Task> > collectShadowBatchesTasks;
     /// Tasks for light grid culling.
     AutoPtr<Task> cullLightsTasks[NUM_CLUSTER_Z];
+    /// Face selection UV indirection texture 1.
+    AutoPtr<Texture> faceSelectionTexture1;
+    /// Face selection UV indirection texture 2.
+    AutoPtr<Texture> faceSelectionTexture2;
+    /// Cluster lookup 3D texture.
+    AutoPtr<Texture> clusterTexture;
+    /// Per-view uniform buffer.
+    AutoPtr<UniformBuffer> perViewDataBuffer;
+    /// Light data uniform buffer.
+    AutoPtr<UniformBuffer> lightDataBuffer;
+    /// Instancing vertex buffer.
+    AutoPtr<VertexBuffer> instanceVertexBuffer;
+    /// Quad vertex buffer.
+    AutoPtr<VertexBuffer> quadVertexBuffer;
+    /// Cached static object shadow buffer. Note: only needed for the light atlas, not the directional light shadowmap.
+    AutoPtr<RenderBuffer> staticObjectShadowBuffer;
+    /// Cached static object shadow framebuffer.
+    AutoPtr<FrameBuffer> staticObjectShadowFbo;
+    /// Vertex elements for the instancing buffer.
+    std::vector<VertexElement> instanceVertexElements;
+    /// Last projection matrix used to initialize cluster frustums.
+    Matrix4 lastClusterFrustumProj;
     /// Cluster frustums for lights.
     Frustum clusterFrustums[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
     /// Cluster bounding boxes.
@@ -337,4 +337,3 @@ private:
 
 /// Register Renderer related object factories and attributes.
 void RegisterRendererLibrary();
-

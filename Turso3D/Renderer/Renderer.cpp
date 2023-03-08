@@ -665,6 +665,45 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
     }
 }
 
+bool Renderer::AllocateShadowMap(Light* light)
+{
+    size_t index = light->GetLightType() == LIGHT_DIRECTIONAL ? 0 : 1;
+    ShadowMap& shadowMap = shadowMaps[index];
+
+    IntVector2 request = light->TotalShadowMapSize();
+
+    // If light already has its preferred shadow rect from the previous frame, try to reallocate it for shadow map caching
+    IntRect oldRect = light->ShadowRect();
+    if (request.x == oldRect.Width() && request.y == oldRect.Height())
+    {
+        if (shadowMap.allocator.AllocateSpecific(oldRect))
+        {
+            light->SetShadowMap(shadowMaps[index].texture, light->ShadowRect());
+            return true;
+        }
+    }
+
+    IntRect shadowRect;
+    size_t retries = 3;
+
+    while (retries--)
+    {
+        int x, y;
+        if (shadowMap.allocator.Allocate(request.x, request.y, x, y))
+        {
+            light->SetShadowMap(shadowMaps[index].texture, IntRect(x, y, x + request.x, y + request.y));
+            return true;
+        }
+
+        request.x /= 2;
+        request.y /= 2;
+    }
+
+    // No room in atlas
+    light->SetShadowMap(nullptr);
+    return false;
+}
+
 void Renderer::SortMainBatches()
 {
     ZoneScoped;
@@ -704,45 +743,6 @@ void Renderer::SortShadowBatches(ShadowMap& shadowMap)
         if (destDynamic->HasBatches())
             destDynamic->Sort(shadowMap.instanceTransforms, SORT_STATE, hasInstancing);
     }
-}
-
-bool Renderer::AllocateShadowMap(Light* light)
-{
-    size_t index = light->GetLightType() == LIGHT_DIRECTIONAL ? 0 : 1;
-    ShadowMap& shadowMap = shadowMaps[index];
-
-    IntVector2 request = light->TotalShadowMapSize();
-
-    // If light already has its preferred shadow rect from the previous frame, try to reallocate it for shadow map caching
-    IntRect oldRect = light->ShadowRect();
-    if (request.x == oldRect.Width() && request.y == oldRect.Height())
-    {
-        if (shadowMap.allocator.AllocateSpecific(oldRect))
-        {
-            light->SetShadowMap(shadowMaps[index].texture, light->ShadowRect());
-            return true;
-        }
-    }
-
-    IntRect shadowRect;
-    size_t retries = 3;
-
-    while (retries--)
-    {
-        int x, y;
-        if (shadowMap.allocator.Allocate(request.x, request.y, x, y))
-        {
-            light->SetShadowMap(shadowMaps[index].texture, IntRect(x, y, x + request.x, y + request.y));
-            return true;
-        }
-
-        request.x /= 2;
-        request.y /= 2;
-    }
-
-    // No room in atlas
-    light->SetShadowMap(nullptr);
-    return false;
 }
 
 void Renderer::UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms)

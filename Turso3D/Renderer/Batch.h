@@ -66,4 +66,3 @@ struct BatchQueue
     /// Batches.
     std::vector<Batch> batches;
 };
-
