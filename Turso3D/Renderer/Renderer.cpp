@@ -553,6 +553,26 @@ void Renderer::SetUniform(ShaderProgram* program, const char* name, const Vector
     }
 }
 
+void Renderer::SetUniform(ShaderProgram* program, const char* name, const Matrix3x4& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(name);
+        if (location >= 0)
+            glUniformMatrix3x4fv(location, 1, GL_FALSE, value.Data());
+    }
+}
+
+void Renderer::SetUniform(ShaderProgram* program, const char* name, const Matrix4& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(name);
+        if (location >= 0)
+            glUniformMatrix4fv(location, 1, GL_FALSE, value.Data());
+    }
+}
+
 void Renderer::SetViewport(const IntRect& viewRect)
 {
     glViewport(viewRect.left, viewRect.top, viewRect.right - viewRect.left, viewRect.bottom - viewRect.top);
@@ -602,8 +622,13 @@ void Renderer::Clear(bool clearColor, bool clearDepth, const IntRect& clearRect,
 
 void Renderer::DrawQuad()
 {
-    quadVertexBuffer->Bind(0x1);
+    quadVertexBuffer->Bind(0x11);
     glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+Texture* Renderer::ShadowMapTexture(size_t index) const
+{
+    return index < shadowMaps.size() ? shadowMaps[index].texture : nullptr;
 }
 
 void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, bool threaded, bool recursive, unsigned char planeMask)
@@ -979,17 +1004,18 @@ void Renderer::DefineQuadVertexBuffer()
     quadVertexBuffer = new VertexBuffer();
 
     float quadVertexData[] = {
-        // Position
-        -1.0f, 1.0f, 0.0f,
-        1.0f, 1.0f, 0.0f,
-        -1.0f, -1.0f, 0.0f,
-        1.0f, 1.0f, 0.0f,
-        1.0f, -1.0f, 0.0f,
-        -1.0f, -1.0f, 0.0f
+        // Position         // UV
+        -1.0f, 1.0f, 0.0f,  0.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,   1.0f, 0.0f,
+        -1.0f, -1.0f, 0.0f, 0.0f, 1.0f,
+        1.0f, 1.0f, 0.0f,   1.0f, 0.0f,
+        1.0f, -1.0f, 0.0f,  1.0f, 1.0f,
+        -1.0f, -1.0f, 0.0f, 0.0f, 1.0f
     };
 
     std::vector<VertexElement> vertexDeclaration;
     vertexDeclaration.push_back(VertexElement(ELEM_VECTOR3, SEM_POSITION));
+    vertexDeclaration.push_back(VertexElement(ELEM_VECTOR2, SEM_TEXCOORD));
     quadVertexBuffer = new VertexBuffer();
     quadVertexBuffer->Define(USAGE_DEFAULT, 6, vertexDeclaration, quadVertexData);
 }

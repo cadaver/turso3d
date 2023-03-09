@@ -180,8 +180,15 @@ public:
     void SetUniform(ShaderProgram* program, const char* name, const Vector3& value);
     /// Set a Vector4 uniform. Low performance, provided for convenience.
     void SetUniform(ShaderProgram* program, const char* name, const Vector4& value);
+    /// Set a Matrix3x4 uniform. Low performance, provided for convenience.
+    void SetUniform(ShaderProgram* program, const char* name, const Matrix3x4& value);
+    /// Set a Matrix4 uniform. Low performance, provided for convenience.
+    void SetUniform(ShaderProgram* program, const char* name, const Matrix4& value);
     /// Draw a quad with current renderstate.
     void DrawQuad();
+
+    /// Return a shadow map texture by index for debugging.
+    Texture* ShadowMapTexture(size_t index) const;
 
 private:
     /// Collect octants and lights from the octree recursively. Queue batch collection tasks while ongoing.

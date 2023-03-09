@@ -382,6 +382,26 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             renderer->SetViewport(IntRect(0, 0, width, height));
             renderer->RenderAlpha();
 
+            // Optional debug render of shadowmap
+            /*
+            {
+                PROFILE(RenderShadowDebug);
+
+                Matrix4 quadMatrix = Matrix4::IDENTITY;
+                quadMatrix.m00 = 0.5f;
+                quadMatrix.m11 = 0.5f;
+                quadMatrix.m03 = -0.5f;
+                quadMatrix.m13 = -0.5f;
+
+                ShaderProgram* program = renderer->SetProgram("Shaders/Debug.glsl");
+                renderer->SetUniform(program, "worldViewProjMatrix", quadMatrix);
+                renderer->ShadowMapTexture(0)->Bind(0);
+                renderer->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_ALWAYS, true, false);
+                renderer->DrawQuad();
+                Texture::Unbind(0);
+            }
+            */
+
             FrameBuffer::Blit(nullptr, IntRect(0, 0, width, height), viewFbo, IntRect(0, 0, width, height), true, false, FILTER_POINT);
         }
 
