@@ -16,6 +16,7 @@ static const Color DEFAULT_COLOR = Color(1.0f, 1.0f, 1.0f, 0.5f);
 static const float DEFAULT_RANGE = 10.0f;
 static const float DEFAULT_SPOT_FOV = 30.0f;
 static const int DEFAULT_SHADOWMAP_SIZE = 512;
+static const float DEFAULT_SHADOW_CASCADE_SPLIT = 0.25f;
 static const float DEFAULT_FADE_START = 0.9f;
 static const float DEFAULT_SHADOW_MAX_DISTANCE = 250.0f;
 static const float DEFAULT_SHADOW_MAX_STRENGTH = 0.0f;
@@ -48,6 +49,7 @@ Light::Light() :
     fadeStart(DEFAULT_FADE_START),
     shadowMapSize(DEFAULT_SHADOWMAP_SIZE),
     shadowFadeStart(DEFAULT_FADE_START),
+    shadowCascadeSplit(DEFAULT_SHADOW_CASCADE_SPLIT),
     shadowMaxDistance(DEFAULT_SHADOW_MAX_DISTANCE),
     shadowMaxStrength(DEFAULT_SHADOW_MAX_STRENGTH),
     shadowQuantize(DEFAULT_SHADOW_QUANTIZE),
@@ -75,6 +77,7 @@ void Light::RegisterObject()
     RegisterAttribute("fadeStart", &Light::FadeStart, &Light::SetFadeStart, DEFAULT_FADE_START);
     RegisterAttribute("shadowMapSize", &Light::ShadowMapSize, &Light::SetShadowMapSize, DEFAULT_SHADOWMAP_SIZE);
     RegisterAttribute("shadowFadeStart", &Light::ShadowFadeStart, &Light::SetShadowFadeStart, DEFAULT_FADE_START);
+    RegisterAttribute("shadowCascadeSplit", &Light::ShadowCascadeSplit, &Light::SetShadowCascadeSplit, DEFAULT_SHADOW_CASCADE_SPLIT);
     RegisterAttribute("shadowMaxDistance", &Light::ShadowMaxDistance, &Light::SetShadowMaxDistance, DEFAULT_SHADOW_MAX_DISTANCE);
     RegisterAttribute("shadowMaxStrength", &Light::ShadowMaxStrength, &Light::SetShadowMaxStrength, DEFAULT_SHADOW_MAX_STRENGTH);
     RegisterAttribute("shadowQuantize", &Light::ShadowQuantize, &Light::SetShadowQuantize, DEFAULT_SHADOW_QUANTIZE);
@@ -198,6 +201,11 @@ void Light::SetShadowFadeStart(float start)
     shadowFadeStart = Clamp(start, 0.0f, 1.0f - M_EPSILON);
 }
 
+void Light::SetShadowCascadeSplit(float split)
+{
+    shadowCascadeSplit = Clamp(split, M_EPSILON, 1.0f - M_EPSILON);
+}
+
 void Light::SetShadowMaxDistance(float distance_)
 {
     shadowMaxDistance = Max(distance_, 0.0f);
@@ -260,17 +268,9 @@ float Light::ShadowStrength() const
     return shadowMaxStrength;
 }
 
-float Light::ShadowSplit(size_t index) const
+Vector2 Light::ShadowCascadeSplits() const
 {
-    if (index == 0)
-        return 0.25f * shadowMaxDistance;
-    else
-        return shadowMaxDistance;
-}
-
-Vector2 Light::ShadowSplits() const
-{
-    return Vector2(ShadowSplit(0), ShadowSplit(1));
+    return Vector2(shadowCascadeSplit * shadowMaxDistance, shadowMaxDistance);
 }
 
 size_t Light::NumShadowViews() const
@@ -346,9 +346,10 @@ void Light::SetupShadowView(size_t viewIndex, Camera* mainCamera)
         if (viewIndex & 1)
             topLeft.x += actualShadowMapSize;
         view.viewport = IntRect(topLeft.x, topLeft.y, topLeft.x + actualShadowMapSize, topLeft.y + actualShadowMapSize);
+        Vector2 cascadeSplits = ShadowCascadeSplits();
 
-        view.splitStart = Max(mainCamera->NearClip(), (viewIndex == 0) ? 0.0f : ShadowSplit(viewIndex - 1));
-        view.splitEnd = Min(mainCamera->FarClip(), ShadowSplit(viewIndex));
+        view.splitStart = Max(mainCamera->NearClip(), (viewIndex == 0) ? 0.0f : cascadeSplits.x);
+        view.splitEnd = Min(mainCamera->FarClip(), (viewIndex == 0) ? cascadeSplits.x : cascadeSplits.y);
         float extrusionDistance = mainCamera->FarClip();
 
         // Calculate initial position & rotation

@@ -106,6 +106,8 @@ public:
     void SetShadowMapSize(int size);
     /// Set light shadow fade start distance, where 1 represents shadow max distance.
     void SetShadowFadeStart(float start);
+    /// Set the directional light cascade split distance, where 1 represents shadow max distance.
+    void SetShadowCascadeSplit(float split);
     /// Set maximum distance for shadow rendering.
     void SetShadowMaxDistance(float distance);
     /// Set maximum (when not faded) shadow strength (default 0 = fully dark).
@@ -131,12 +133,12 @@ public:
     float FadeStart() const { return fadeStart; }
     /// Return shadow map face resolution in pixels.
     int ShadowMapSize() const { return shadowMapSize; }
-    /// Return shadow split distance by index.
-    float ShadowSplit(size_t index) const;
-    /// Return directional light shadow split distances.
-    Vector2 ShadowSplits() const;
+    /// Return directional light shadow cascade absolute end distances.
+    Vector2 ShadowCascadeSplits() const;
     /// Return light shadow fade start as a function of max shadow distance.
     float ShadowFadeStart() const { return shadowFadeStart; }
+    /// Return directional light cascade split distance as a function of max shadow distance.
+    float ShadowCascadeSplit() const { return shadowCascadeSplit; }
     /// Return maximum distance for shadow rendering.
     float ShadowMaxDistance() const { return shadowMaxDistance; }
     /// Return maximum shadow strength.
@@ -195,10 +197,10 @@ private:
     float fadeStart;
     /// Shadow map resolution in pixels.
     int shadowMapSize;
-    /// Directional shadow splits.
-    Vector4 shadowSplits;
     /// Shadow fade start as a function of max distance.
     float shadowFadeStart;
+    /// Directional light shadow cascade split as a function of max distance.
+    float shadowCascadeSplit;
     /// Shadow rendering max distance.
     float shadowMaxDistance;
     /// Shadow max strength when not faded.
