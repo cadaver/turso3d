@@ -125,7 +125,7 @@ public:
     /// Convert a world space vector (either position or direction) to world space.
     Vector3 WorldToLocal(const Vector4& vector) const { return WorldTransform().Inverse() * vector; }
     /// Return whether is static.
-    bool Static() const { return TestFlag(NF_STATIC); }
+    bool IsStatic() const { return TestFlag(NF_STATIC); }
 
 protected:
     /// Handle being assigned to a new parent node.

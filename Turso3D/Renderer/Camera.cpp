@@ -84,8 +84,6 @@ Frustum Camera::WorldSplitFrustum(float nearClip_, float farClip_) const
 
     nearClip_ = Max(nearClip_, NearClip());
     farClip_ = Min(farClip_, farClip);
-    if (farClip_ < nearClip_)
-        farClip_ = nearClip_;
 
     if (!orthographic)
         ret.Define(fov, aspectRatio, zoom, nearClip_, farClip_, EffectiveWorldTransform());

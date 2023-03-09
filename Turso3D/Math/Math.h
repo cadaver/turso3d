@@ -81,14 +81,22 @@ inline float Atan2(float y, float x) { return M_RADTODEG * atan2f(y, x); }
 inline int Min(int lhs, int rhs) { return lhs < rhs ? lhs : rhs; }
 /// Return the larger of two integer values.
 inline int Max(int lhs, int rhs) { return lhs > rhs ? lhs : rhs; }
+/// Return the smaller of two unsigned integer values.
+inline unsigned Min(unsigned lhs, unsigned rhs) { return lhs < rhs ? lhs : rhs; }
+/// Return the larger of two unsigned integer values.
+inline unsigned Max(unsigned lhs, unsigned rhs) { return lhs > rhs ? lhs : rhs; }
+/// Return the smaller of two unsigned  integer values.
+inline unsigned long long Min(unsigned long long lhs, unsigned long long rhs) { return lhs < rhs ? lhs : rhs; }
+/// Return the larger of two unsigned  integer values.
+inline unsigned long long Max(unsigned long long lhs, unsigned long long rhs) { return lhs > rhs ? lhs : rhs; }
 /// Return the smaller of two integer values.
-inline size_t Min(size_t lhs, size_t rhs) { return lhs < rhs ? lhs : rhs; }
+inline unsigned Min(unsigned lhs, int rhs) { return lhs < (unsigned)rhs ? lhs : (unsigned)rhs; }
 /// Return the larger of two integer values.
-inline size_t Max(size_t lhs, size_t rhs) { return lhs > rhs ? lhs : rhs; }
+inline unsigned Max(unsigned lhs, int rhs) { return lhs > (unsigned)rhs ? lhs : (unsigned)rhs; }
 /// Return the smaller of two integer values.
-inline size_t Min(size_t lhs, int rhs) { return lhs < (size_t)rhs ? lhs : (size_t)rhs; }
+inline unsigned long long Min(unsigned long long lhs, int rhs) { return lhs < (unsigned long long)rhs ? lhs : (unsigned long long)rhs; }
 /// Return the larger of two integer values.
-inline size_t Max(size_t lhs, int rhs) { return lhs > (size_t)rhs ? lhs : (size_t)rhs; }
+inline unsigned long long Max(unsigned long long lhs, int rhs) { return lhs > (unsigned long long)rhs ? lhs : (unsigned long long)rhs; }
 
 /// Return absolute value of an integer.
 inline int Abs(int value) { return value >= 0 ? value : -value; }

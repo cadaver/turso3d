@@ -20,7 +20,7 @@ void SpatialNode::RegisterObject()
     RegisterRefAttribute("position", &SpatialNode::Position, &SpatialNode::SetPosition, Vector3::ZERO);
     RegisterRefAttribute("rotation", &SpatialNode::Rotation, &SpatialNode::SetRotation, Quaternion::IDENTITY);
     RegisterRefAttribute("scale", &SpatialNode::Scale, &SpatialNode::SetScale, Vector3::ONE);
-    RegisterAttribute("static", &SpatialNode::Static, &SpatialNode::SetStatic, false);
+    RegisterAttribute("static", &SpatialNode::IsStatic, &SpatialNode::SetStatic, false);
 }
 
 void SpatialNode::SetPosition(const Vector3& newPosition)
@@ -143,7 +143,7 @@ void SpatialNode::SetWorldTransform(const Vector3& newPosition, const Quaternion
 
 void SpatialNode::SetStatic(bool enable)
 {
-    if (enable != Static())
+    if (enable != IsStatic())
     {
         SetFlag(NF_STATIC, enable);
         // Handle possible octree reinsertion

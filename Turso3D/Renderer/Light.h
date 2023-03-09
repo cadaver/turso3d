@@ -54,9 +54,9 @@ struct ShadowView
     /// Shadow render mode to use.
     ShadowRenderMode renderMode;
     /// Directional light split near Z.
-    float splitStart;
+    float splitMinZ;
     /// Directional light split far Z.
-    float splitEnd;
+    float splitMaxZ;
     /// Static object batch queue index in the shadowmap.
     size_t staticQueueIdx;
     /// Dynamic object batch queue index in the shadowmap.

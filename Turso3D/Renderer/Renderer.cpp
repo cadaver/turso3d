@@ -1195,7 +1195,7 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
             // Preallocate shadow batch queues
             view.casterListIdx = casterListIdx;
 
-            if (light->Static())
+            if (light->IsStatic())
             {
                 view.staticQueueIdx = shadowMap.freeQueueIdx++;
                 view.dynamicQueueIdx = shadowMap.freeQueueIdx++;
@@ -1416,8 +1416,11 @@ void Renderer::ProcessShadowCastersWork(Task*, unsigned)
     {
         minZ = Min(minZ, it->minZ);
         maxZ = Max(maxZ, it->maxZ);
-        geometryBounds.Merge(it->geometryBounds);
+        if (it->geometryBounds.IsDefined())
+            geometryBounds.Merge(it->geometryBounds);
     }
+
+    minZ = Max(minZ, camera->NearClip());
 
     // Clear per-cluster light data from previous frame, update cluster frustums and bounding boxes if camera changed, then queue light culling tasks for the needed scene range
     DefineClusterFrustums();
@@ -1487,15 +1490,23 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
         Light* light = view.light;
         LightType lightType = light->GetLightType();
 
+        float splitMinZ = minZ, splitMaxZ = maxZ;
+
         // Focus directional light shadow camera to the visible geometry combined bounds before collecting the actual geometries
         if (lightType == LIGHT_DIRECTIONAL)
-            light->FocusShadowView(shadowViewIdx, camera, geometryBounds);
+        {
+            splitMinZ = Max(splitMinZ, view.splitMinZ);
+            splitMaxZ = Min(splitMaxZ, view.splitMaxZ);
 
-        float splitMinZ = lightType != LIGHT_DIRECTIONAL ? minZ : Max(minZ, view.splitStart);
-        float splitMaxZ = lightType != LIGHT_DIRECTIONAL ? maxZ : Min(maxZ, view.splitEnd);
+            // Check for degenerate depth range or frustum outside split, in that case can skip view directly without the focusing calculations
+            if (splitMinZ >= splitMaxZ || splitMinZ > view.splitMaxZ || splitMaxZ < view.splitMinZ)
+                view.viewport = IntRect::ZERO;
+            else
+                light->FocusShadowView(shadowViewIdx, camera, geometryBounds);
+        }
 
-        // Check for degenerate frustum (no visible geometry in split range) or skipped point light side; in that case no shadow rendering
-        if (splitMaxZ <= splitMinZ || view.viewport == IntRect::ZERO)
+        // Check for skipping the view (degenerate split range, no geometry or point light face not in view)
+        if (!geometryBounds.IsDefined() || view.viewport == IntRect::ZERO)
         {
             view.renderMode = RENDER_STATIC_LIGHT_CACHED;
             view.lastViewport = IntRect::ZERO;
@@ -1506,7 +1517,7 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
             const Matrix3x4& lightView = view.shadowCamera->ViewMatrix();
             const std::vector<GeometryNode*>& initialShadowCasters = shadowMap.shadowCasters[view.casterListIdx];
 
-            bool dynamicOrDirLight = lightType == LIGHT_DIRECTIONAL || !light->Static();
+            bool dynamicOrDirLight = lightType == LIGHT_DIRECTIONAL || !light->IsStatic();
             bool dynamicCastersMoved = false;
             bool staticCastersMoved = false;
 
@@ -1526,7 +1537,7 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
                 const BoundingBox& geometryBox = node->WorldBoundingBox();
 
                 bool inView = node->InView(frameNumber);
-                bool staticNode = node->Static();
+                bool staticNode = node->IsStatic();
 
                 // Recheck shadowcaster frustum visibility for point lights (may be visible in view, but not in each cube map face) and directional light shadowcasters not in view
                 if (lightType == LIGHT_POINT || !inView && lightType == LIGHT_DIRECTIONAL)

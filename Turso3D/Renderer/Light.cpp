@@ -346,15 +346,15 @@ void Light::SetupShadowView(size_t viewIndex, Camera* mainCamera)
         view.viewport = IntRect(topLeft.x, topLeft.y, topLeft.x + actualShadowMapSize, topLeft.y + actualShadowMapSize);
         Vector2 cascadeSplits = ShadowCascadeSplits();
 
-        view.splitStart = Max(mainCamera->NearClip(), (viewIndex == 0) ? 0.0f : cascadeSplits.x);
-        view.splitEnd = Min(mainCamera->FarClip(), (viewIndex == 0) ? cascadeSplits.x : cascadeSplits.y);
+        view.splitMinZ = Max(mainCamera->NearClip(), (viewIndex == 0) ? 0.0f : cascadeSplits.x);
+        view.splitMaxZ = Min(mainCamera->FarClip(), (viewIndex == 0) ? cascadeSplits.x : cascadeSplits.y);
         float extrusionDistance = mainCamera->FarClip();
 
         // Calculate initial position & rotation
         shadowCamera->SetTransform(mainCamera->WorldPosition() - extrusionDistance * WorldDirection(), WorldRotation());
 
         // Calculate main camera shadowed frustum in light's view space
-        Frustum splitFrustum = mainCamera->WorldSplitFrustum(view.splitStart, view.splitEnd);
+        Frustum splitFrustum = mainCamera->WorldSplitFrustum(view.splitMinZ, view.splitMaxZ);
         Frustum lightViewFrustum = splitFrustum.Transformed(shadowCamera->ViewMatrix());
 
         // Fit the frustum inside a bounding box
@@ -417,24 +417,22 @@ void Light::FocusShadowView(size_t viewIndex, Camera* mainCamera, const Bounding
     Camera* shadowCamera = view.shadowCamera;
 
     // Calculate main camera shadowed frustum in light's view space. Then convert to polyhedron and clip with visible geometry
-    Frustum splitFrustum = mainCamera->WorldSplitFrustum(view.splitStart, view.splitEnd);
+    Frustum splitFrustum = mainCamera->WorldSplitFrustum(view.splitMinZ, view.splitMaxZ);
     Polyhedron frustumVolume;
     frustumVolume.Define(splitFrustum);
     if (geometryBounds.IsDefined())
     {
         frustumVolume.Clip(geometryBounds);
-        // If volume became empty, disable rendering on the view
+        // If volume became empty, skip rendering the view
         if (frustumVolume.IsEmpty())
         {
-            view.viewport == IntRect::ZERO;
+            view.viewport = IntRect::ZERO;
             return;
         }
     }
 
     // Fit the clipped volume inside a bounding box
     frustumVolume.Transform(shadowCamera->ViewMatrix());
-
-    // Fit the frustum inside a bounding box
     BoundingBox shadowBox;
     shadowBox.Define(frustumVolume);
 
