@@ -63,8 +63,6 @@ struct ShadowView
     size_t dynamicQueueIdx;
     /// Shadow caster list index in the shadowmap.
     size_t casterListIdx;
-    /// Whether last render had dynamic shadowcasters.
-    bool lastDynamicCasters;
     /// Last viewport used in shadow map render.
     IntRect lastViewport;
     /// Last shadow projection matrix.

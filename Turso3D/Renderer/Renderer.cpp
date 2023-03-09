@@ -1522,7 +1522,6 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
             bool staticCastersMoved = false;
 
             size_t totalShadowCasters = 0;
-            size_t dynamicShadowCasters = 0;
             size_t staticShadowCasters = 0;
 
             Frustum lightViewFrustum = camera->WorldSplitFrustum(splitMinZ, splitMaxZ).Transformed(lightView);
@@ -1540,7 +1539,7 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
                 bool staticNode = node->IsStatic();
 
                 // Recheck shadowcaster frustum visibility for point lights (may be visible in view, but not in each cube map face) and directional light shadowcasters not in view
-                if (lightType == LIGHT_POINT || !inView && lightType == LIGHT_DIRECTIONAL)
+                if (lightType == LIGHT_POINT || (!inView && lightType == LIGHT_DIRECTIONAL))
                 {
                     if (!shadowFrustum.IsInsideFast(geometryBox))
                         continue;
@@ -1599,7 +1598,6 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
                 }
                 else
                 {
-                    dynamicShadowCasters = true;
                     if (node->LastUpdateFrameNumber() == frameNumber)
                         dynamicCastersMoved = true;
                 }
@@ -1655,8 +1653,7 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
                     // If dynamic casters moved, need to restore shadowmap and rerender
                     if (staticCastersMoved)
                         view.renderMode = RENDER_STATIC_LIGHT_STORE_STATIC;
-
-                    if (view.renderMode != RENDER_STATIC_LIGHT_STORE_STATIC)
+                    else
                     {
                         if (dynamicCastersMoved || view.lastNumGeometries != totalShadowCasters)
                             view.renderMode = staticShadowCasters > 0 ? RENDER_STATIC_LIGHT_RESTORE_STATIC : RENDER_DYNAMIC_LIGHT;
@@ -1669,7 +1666,6 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
                 view.shadowMatrix = view.lastShadowMatrix;
             else
             {
-                view.lastDynamicCasters = dynamicShadowCasters > 0;
                 view.lastViewport = view.viewport;
                 view.lastNumGeometries = totalShadowCasters;
                 view.lastShadowMatrix = view.shadowMatrix;
