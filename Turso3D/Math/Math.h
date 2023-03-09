@@ -77,11 +77,20 @@ inline float Atan(float x) { return M_RADTODEG * atanf(x); }
 /// Return arc tangent of y/x in degrees.
 inline float Atan2(float y, float x) { return M_RADTODEG * atan2f(y, x); }
 
-/// Return the smaller of two integers.
+/// Return the smaller of two integer values.
 inline int Min(int lhs, int rhs) { return lhs < rhs ? lhs : rhs; }
-/// Return the larger of two integers.
+/// Return the larger of two integer values.
 inline int Max(int lhs, int rhs) { return lhs > rhs ? lhs : rhs; }
-/// Return absolute value of an integer
+/// Return the smaller of two integer values.
+inline size_t Min(size_t lhs, size_t rhs) { return lhs < rhs ? lhs : rhs; }
+/// Return the larger of two integer values.
+inline size_t Max(size_t lhs, size_t rhs) { return lhs > rhs ? lhs : rhs; }
+/// Return the smaller of two integer values.
+inline size_t Min(size_t lhs, int rhs) { return lhs < (size_t)rhs ? lhs : (size_t)rhs; }
+/// Return the larger of two integer values.
+inline size_t Max(size_t lhs, int rhs) { return lhs > (size_t)rhs ? lhs : (size_t)rhs; }
+
+/// Return absolute value of an integer.
 inline int Abs(int value) { return value >= 0 ? value : -value; }
 
 /// Clamp an integer to a range.

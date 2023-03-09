@@ -27,10 +27,12 @@ WorkQueue::WorkQueue(unsigned numThreads) :
     numPendingTasks.store(0);
 
     if (numThreads == 0)
+    {
         numThreads = CPUCount();
-    // Avoid completely excessive core count
-    if (numThreads > 16)
-        numThreads = 16;
+        // Avoid completely excessive core count
+        if (numThreads > 16)
+            numThreads = 16;
+    }
 
     for (unsigned  i = 0; i < numThreads - 1; ++i)
         threads.push_back(std::thread(&WorkQueue::WorkerLoop, this, i + 1));

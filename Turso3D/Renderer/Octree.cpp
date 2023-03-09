@@ -12,6 +12,8 @@ static const float DEFAULT_OCTREE_SIZE = 1000.0f;
 static const int DEFAULT_OCTREE_LEVELS = 8;
 static const int MAX_OCTREE_LEVELS = 255;
 
+static const size_t MIN_THREADED_UPDATE = 16;
+
 bool CompareRaycastResults(const RaycastResult& lhs, const RaycastResult& rhs)
 {
     return lhs.distance < rhs.distance;
@@ -112,14 +114,12 @@ void Octree::Update(unsigned short frameNumber_)
     frameNumber = frameNumber_;
 
     // Avoid overhead of threaded update if only a small number of objects to update / reinsert
-    const size_t minThreadedUpdate = 16;
-    // Split into smaller tasks to encourage work stealing in case some thread is slower
-    const size_t nodesPerTask = Max(1, (unsigned)updateQueue.size() / workQueue->NumThreads() / 4);
-
-    if (updateQueue.size() >= minThreadedUpdate)
+    if (updateQueue.size() >= MIN_THREADED_UPDATE)
     {
         SetThreadedUpdate(true);
 
+        // Split into smaller tasks to encourage work stealing in case some thread is slower
+        size_t nodesPerTask = Max(MIN_THREADED_UPDATE, updateQueue.size() / workQueue->NumThreads() / 4);
         size_t taskIdx = 0;
 
         for (size_t start = 0; start < updateQueue.size(); start += nodesPerTask)

@@ -156,7 +156,7 @@ template<> JSONValue Stream::Read<JSONValue>()
 
 void Stream::WriteFileID(const std::string& value)
 {
-    Write(value.c_str(), Min((int)value.length(), 4));
+    Write(value.c_str(), Min(value.length(), 4));
     for (size_t i = value.length(); i < 4; ++i)
         Write(' ');
 }
