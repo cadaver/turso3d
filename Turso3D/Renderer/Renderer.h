@@ -66,6 +66,8 @@ struct ThreadBatchResult
     float minZ;
     /// Maximum geometry Z value.
     float maxZ;
+    /// Combined bounding box of the visible geometries.
+    BoundingBox geometryBounds;
     /// Initial opaque batches.
     std::vector<Batch> opaqueBatches;
     /// Initial alpha batches.
@@ -249,6 +251,8 @@ private:
     float minZ;
     /// Maximum Z value for all geometries in frustum.
     float maxZ;
+    /// Combined bounding box of the visible geometries.
+    BoundingBox geometryBounds;
     /// Brightest directional light in frustum.
     Light* dirLight;
     /// Accepted point and spot lights in frustum.

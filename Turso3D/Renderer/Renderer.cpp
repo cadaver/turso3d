@@ -102,6 +102,7 @@ void ThreadBatchResult::Clear()
 {
     minZ = M_MAX_FLOAT;
     maxZ = 0.0f;
+    geometryBounds.Undefine();
     opaqueBatches.clear();
     alphaBatches.clear();
 }
@@ -270,6 +271,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
     
     minZ = M_MAX_FLOAT;
     maxZ = 0.0f;
+    geometryBounds.Undefine();
 
     for (size_t i = 0; i < octantResults.size(); ++i)
         octantResults[i].Clear();
@@ -791,9 +793,10 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
 
             if (dirLight->ShadowMap())
             {
+                Vector2 cascadeSplits = dirLight->ShadowCascadeSplits();
                 float farClip = camera->FarClip();
-                float firstSplit = dirLight->ShadowSplit(0) / farClip;
-                float secondSplit = dirLight->ShadowSplit(1) / farClip;
+                float firstSplit = cascadeSplits.x / farClip;
+                float secondSplit = cascadeSplits.y / farClip;
 
                 perViewData.dirLightData[2] = Vector4(firstSplit, secondSplit, dirLight->ShadowFadeStart() * secondSplit, 1.0f / (secondSplit - dirLight->ShadowFadeStart() * secondSplit));
                 perViewData.dirLightData[3] = dirLight->ShadowParameters();
@@ -1257,9 +1260,11 @@ void Renderer::CollectBatchesWork(Task* task, unsigned threadIndex)
             {
                 if (node->OnPrepareRender(frameNumber, camera))
                 {
-                    const BoundingBox& geomBox = node->WorldBoundingBox();
-                    Vector3 center = geomBox.Center();
-                    Vector3 edge = geomBox.Size() * 0.5f;
+                    const BoundingBox& geometryBox = node->WorldBoundingBox();
+                    result.geometryBounds.Merge(geometryBox);
+
+                    Vector3 center = geometryBox.Center();
+                    Vector3 edge = geometryBox.Size() * 0.5f;
 
                     float viewCenterZ = viewZ.DotProduct(center) + viewMatrix.m23;
                     float viewEdgeZ = absViewZ.DotProduct(edge);
@@ -1385,6 +1390,7 @@ void Renderer::ProcessShadowCastersWork(Task*, unsigned)
     {
         minZ = Min(minZ, it->minZ);
         maxZ = Max(maxZ, it->maxZ);
+        geometryBounds.Merge(it->geometryBounds);
     }
 
     // Clear per-cluster light data from previous frame, update cluster frustums and bounding boxes if camera changed, then queue light culling tasks for the needed scene range
@@ -1454,21 +1460,13 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
 
         Light* light = view.light;
         LightType lightType = light->GetLightType();
-        const Frustum& shadowFrustum = view.shadowFrustum;
-        const Matrix3x4& lightView = view.shadowCamera->ViewMatrix();
-        const std::vector<GeometryNode*>& initialShadowCasters = shadowMap.shadowCasters[view.casterListIdx];
 
-        bool dynamicOrDirLight = lightType == LIGHT_DIRECTIONAL || !light->Static();
-        bool checkFrustum = lightType == LIGHT_POINT;
-        bool dynamicCastersMoved = false;
-        bool staticCastersMoved = false;
+        // Focus directional light shadow camera to the visible geometry combined bounds before collecting the actual geometries
+        if (lightType == LIGHT_DIRECTIONAL)
+            light->FocusShadowView(shadowViewIdx, camera, geometryBounds);
 
         float splitMinZ = lightType != LIGHT_DIRECTIONAL ? minZ : Max(minZ, view.splitStart);
         float splitMaxZ = lightType != LIGHT_DIRECTIONAL ? maxZ : Min(maxZ, view.splitEnd);
-
-        size_t totalShadowCasters = 0;
-        size_t dynamicShadowCasters = 0;
-        size_t staticShadowCasters = 0;
 
         // Check for degenerate frustum (no visible geometry in split range) or skipped point light side; in that case no shadow rendering
         if (splitMaxZ <= splitMinZ || view.viewport == IntRect::ZERO)
@@ -1478,6 +1476,18 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
         }
         else
         {
+            const Frustum& shadowFrustum = view.shadowFrustum;
+            const Matrix3x4& lightView = view.shadowCamera->ViewMatrix();
+            const std::vector<GeometryNode*>& initialShadowCasters = shadowMap.shadowCasters[view.casterListIdx];
+
+            bool dynamicOrDirLight = lightType == LIGHT_DIRECTIONAL || !light->Static();
+            bool dynamicCastersMoved = false;
+            bool staticCastersMoved = false;
+
+            size_t totalShadowCasters = 0;
+            size_t dynamicShadowCasters = 0;
+            size_t staticShadowCasters = 0;
+
             Frustum lightViewFrustum = camera->WorldSplitFrustum(splitMinZ, splitMaxZ).Transformed(lightView);
             BoundingBox lightViewFrustumBox(lightViewFrustum);
 
@@ -1487,28 +1497,31 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
             for (auto it = initialShadowCasters.begin(); it != initialShadowCasters.end(); ++it)
             {
                 GeometryNode* node = *it;
-
-                if (checkFrustum && !shadowFrustum.IsInsideFast(node->WorldBoundingBox()))
-                    continue;
+                const BoundingBox& geometryBox = node->WorldBoundingBox();
 
                 bool inView = node->InView(frameNumber);
                 bool staticNode = node->Static();
 
-                // Check if shadowcaster contributes to visible geometry shadowing or if it can be skipped
-                // This is done only for dynamic objects or dynamic lights' shadows; cached static shadowmap needs to render everything
-                if (!staticNode || dynamicOrDirLight)
+                // Recheck shadowcaster frustum visibility for point lights (may be visible in view, but not in each cube map face) and directional light shadowcasters not in view
+                if (lightType == LIGHT_POINT || !inView && lightType == LIGHT_DIRECTIONAL)
                 {
-                    BoundingBox lightViewBox = node->WorldBoundingBox().Transformed(lightView);
+                    if (!shadowFrustum.IsInsideFast(geometryBox))
+                        continue;
+                }
+
+                // Furthermore, check by bounding box extrusion if out-of-view or directional light shadowcaster actually contributes to visible geometry shadowing or if it can be skipped
+                // This is done only for dynamic objects or dynamic lights' shadows; cached static shadowmap needs to render everything
+                if ((!staticNode || dynamicOrDirLight) && !inView)
+                {
+                    BoundingBox lightViewBox = geometryBox.Transformed(lightView);
 
                     if (lightType == LIGHT_DIRECTIONAL)
                     {
                         lightViewBox.max.z = Max(lightViewBox.max.z, lightViewFrustumBox.max.z);
-
-                        // For directional light shadowcasters always consider the Z-range of the split, even if the geometry is in view
                         if (!lightViewFrustum.IsInsideFast(lightViewBox))
                             continue;
                     }
-                    else if (!inView)
+                    else
                     {
                         // For perspective lights, extrusion direction depends on the position of the shadow caster
                         Vector3 center = lightViewBox.Center();

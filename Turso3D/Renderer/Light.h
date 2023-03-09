@@ -153,6 +153,8 @@ public:
     float SlopeScaleBias() const { return slopeScaleBias; }
     /// Return total requested shadow map size, accounting for multiple faces / splits for directional and point lights.
     IntVector2 TotalShadowMapSize() const;
+    /// Return actual shadow map face size.
+    int ActualShadowMapSize() const { return lightType == LIGHT_POINT ? shadowRect.Height() / 2 : shadowRect.Height(); }
     /// Return number of required shadow views / cameras.
     size_t NumShadowViews() const;
     /// Return spotlight world space frustum.
@@ -166,6 +168,12 @@ public:
     void InitShadowViews();
     /// Setup the camera and matrix for a shadow view. Called by Renderer.
     void SetupShadowView(size_t viewIndex, Camera* mainCamera);
+    /// Focus a directional light view with scene geometry bounds information. Called by Renderer.
+    void FocusShadowView(size_t viewIndex, Camera* mainCamera, const BoundingBox& geometryBounds);
+    /// Center a directional light shadow camera to its split scene frustum, represented as a bounding box in shadow camera view space.
+    void CenterShadowCameraToFrustum(size_t viewIndex, const BoundingBox& shadowBox);
+    /// Finalize a shadow view's matrix and frustum.
+    void FinalizeShadowView(size_t viewIndex);
     /// Return shadow map.
     Texture* ShadowMap() const { return shadowMap; }
     /// Return the shadow views.
