@@ -193,7 +193,7 @@ Renderer::Renderer() :
     batchResults.resize(workQueue->NumThreads());
 
     for (size_t i = 0; i < NUM_OCTANTS + 1; ++i)
-        collectOctantsTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::CollectOctantsWork, nullptr, (void*)i);
+        collectOctantsTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::CollectOctantsWork);
 
     for (size_t i = 0; i < NUM_CLUSTER_Z; ++i)
         cullLightsTasks[i] = new MemberFunctionTask<Renderer>(this, &Renderer::CullLightsToFrustumWork, (void*)i);
@@ -264,6 +264,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
     // Clear results from last frame
     dirLight = nullptr;
     lastCamera = nullptr;
+    rootLevelOctants.clear();
     opaqueBatches.Clear();
     alphaBatches.Clear();
     lights.clear();
@@ -280,28 +281,38 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
     for (auto it = shadowMaps.begin(); it != shadowMaps.end(); ++it)
         it->Clear();
 
-    numPendingBatchTasks.store(NUM_OCTANT_TASKS); // For safely keeping track of both batch + octant task progress before main batches can be sorted
-    numPendingShadowViews[0].store(0);
-    numPendingShadowViews[1].store(0);
-
     // First process moved / animated objects' octree reinsertions
     octree->Update(frameNumber);
 
     // Enable threaded update during geometry / light gathering in case nodes' OnPrepareRender() causes further reinsertion queuing
     octree->SetThreadedUpdate(workQueue->NumThreads() > 1);
 
+    Octant* rootOctant = octree->Root();
+    if (rootOctant->nodes.size())
+        rootLevelOctants.push_back(rootOctant);
+    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+    {
+        if (rootOctant->children[i])
+            rootLevelOctants.push_back(rootOctant->children[i]);
+    }
+
+    numPendingBatchTasks.store(rootLevelOctants.size()); // For safely keeping track of both batch + octant task progress before main batches can be sorted
+    numPendingShadowViews[0].store(0);
+    numPendingShadowViews[1].store(0);
+
     // Find octants in view and their plane masks for node frustum culling. At the same time, find lights and process them
     // When octant collection tasks complete, they queue tasks for collecting batches from those octants.
-    for (size_t i = 0; i < NUM_OCTANT_TASKS; ++i)
+    for (size_t i = 0; i < rootLevelOctants.size(); ++i)
     {
-        collectOctantsTasks[i]->start = !i ? octree->Root() : octree->Root()->children[i - 1];
+        collectOctantsTasks[i]->start = rootLevelOctants[i];
+        collectOctantsTasks[i]->end = (void*)i;
         processLightsTask->AddDependency(collectOctantsTasks[i]);
     }
 
     // Ensure shadow view processing doesn't happen before lights have been found and processed
     processShadowCastersTask->AddDependency(processLightsTask);
 
-    workQueue->QueueTasks(NUM_OCTANT_TASKS, reinterpret_cast<Task**>(&collectOctantsTasks[0]));
+    workQueue->QueueTasks(rootLevelOctants.size(), reinterpret_cast<Task**>(&collectOctantsTasks[0]));
 
     // Execute tasks until can sort the main batches. Perform that in the main thread to potentially execute faster
     while (numPendingBatchTasks.load() > 0)
@@ -1103,8 +1114,8 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
     ZoneScoped;
 
     // Merge the light collection results
-    for (auto it = octantResults.begin(); it != octantResults.end(); ++it)
-        lights.insert(lights.end(), it->lights.begin(), it->lights.end());
+    for (size_t i = 0; i < rootLevelOctants.size(); ++i)
+        lights.insert(lights.end(), octantResults[i].lights.begin(), octantResults[i].lights.end());
 
     // Find the directional light if any
     for (auto it = lights.begin(); it != lights.end(); )

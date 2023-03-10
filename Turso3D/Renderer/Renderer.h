@@ -246,6 +246,8 @@ private:
     bool clusterFrustumsDirty;
     /// Instancing supported flag.
     bool hasInstancing;
+    /// Root-level octants, used as a starting point for octant and batch collection. The root octant is included if it also contains nodes.
+    std::vector<Octant*> rootLevelOctants;
     /// Counter for batch collection tasks remaining. When zero, main batch sorting can begin while other tasks go on.
     std::atomic<int> numPendingBatchTasks;
     /// Counters for shadow views remaining per shadowmap. When zero, the shadow batches can be sorted.
