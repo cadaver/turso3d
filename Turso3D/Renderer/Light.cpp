@@ -330,7 +330,7 @@ void Light::InitShadowViews()
     shadowParameters = Vector4(0.5f / (float)shadowMap->Width(), 0.5f / (float)shadowMap->Height(), ShadowStrength(), 0.0f);
 }
 
-void Light::SetupShadowView(size_t viewIndex, Camera* mainCamera, const BoundingBox* geometryBounds)
+bool Light::SetupShadowView(size_t viewIndex, Camera* mainCamera, const BoundingBox* geometryBounds)
 {
     ShadowView& view = shadowViews[viewIndex];
     Camera* shadowCamera = view.shadowCamera;
@@ -361,20 +361,14 @@ void Light::SetupShadowView(size_t viewIndex, Camera* mainCamera, const Bounding
         {
             // If geometry bounds given, but is not defined (no geometry), skip rendering the view
             if (!geometryBounds->IsDefined())
-            {
-                view.viewport = IntRect::ZERO;
-                return;
-            }
+                return false;
 
             Polyhedron frustumVolume(splitFrustum);
             frustumVolume.Clip(*geometryBounds);
 
             // If volume became empty, skip rendering the view
             if (frustumVolume.IsEmpty())
-            {
-                view.viewport = IntRect::ZERO;
-                return;
-            }
+                return false;
 
             // Fit the clipped volume inside a bounding box
             frustumVolume.Transform(shadowCamera->ViewMatrix());
@@ -511,6 +505,8 @@ void Light::SetupShadowView(size_t viewIndex, Camera* mainCamera, const Bounding
             view.shadowMatrix = shadowViews[0].shadowMatrix;
         }
     }
+
+    return true;
 }
 
 void Light::OnWorldBoundingBoxUpdate() const

@@ -115,18 +115,10 @@ public:
     void Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL) const;
     /// Query for nodes with a raycast and return the closest result.
     RaycastResult RaycastSingle(const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL) const;
-
     /// Query for nodes using a volume such as frustum or sphere.
-    template <class T> void FindNodes(std::vector<OctreeNode*>& result, const T& volume, unsigned short nodeFlags, unsigned layerMask = LAYERMASK_ALL) const
-    {
-        CollectNodes(result, const_cast<Octant*>(&root), volume, nodeFlags, layerMask);
-    }
-
-    /// Collect nodes matching flags using a frustum and masked testing.
-    void FindNodesMasked(std::vector<OctreeNode*>& result, const Frustum& frustum, unsigned short nodeFlags, unsigned layerMask = LAYERMASK_ALL) const
-    {
-        CollectNodesMasked(result, const_cast<Octant*>(&root), frustum, nodeFlags, layerMask);
-    }
+    template <class T> void FindNodes(std::vector<OctreeNode*>& result, const T& volume, unsigned short nodeFlags, unsigned layerMask = LAYERMASK_ALL) const { CollectNodes(result, const_cast<Octant*>(&root), volume, nodeFlags, layerMask); }
+    /// Query for nodes using a frustum and masked testing.
+    void FindNodesMasked(std::vector<OctreeNode*>& result, const Frustum& frustum, unsigned short nodeFlags, unsigned layerMask = LAYERMASK_ALL) const;
 
     /// Return whether threaded update is enabled.
     bool ThreadedUpdate() const { return threadedUpdate; }

@@ -187,6 +187,8 @@ void Octree::SetThreadedUpdate(bool enable)
 
 void Octree::Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask) const
 {
+    ZoneScoped;
+
     result.clear();
     CollectNodes(result, const_cast<Octant*>(&root), ray, nodeFlags, maxDistance, layerMask);
     std::sort(result.begin(), result.end(), CompareRaycastResults);
@@ -194,6 +196,8 @@ void Octree::Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigne
 
 RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask) const
 {
+    ZoneScoped;
+
     // Get first the potential hits
     initialRayResult.clear();
     CollectNodes(initialRayResult, const_cast<Octant*>(&root), ray, nodeFlags, maxDistance, layerMask);
@@ -229,6 +233,13 @@ RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, fl
         emptyRes.subObject = 0;
         return emptyRes;
     }
+}
+
+void Octree::FindNodesMasked(std::vector<OctreeNode*>& result, const Frustum& frustum, unsigned short nodeFlags, unsigned layerMask) const
+{
+    ZoneScoped;
+
+    CollectNodesMasked(result, const_cast<Octant*>(&root), frustum, nodeFlags, layerMask);
 }
 
 void Octree::RemoveNode(OctreeNode* node)

@@ -1405,18 +1405,6 @@ void Renderer::ProcessShadowCastersWork(Task*, unsigned)
 
     minZ = Max(minZ, camera->NearClip());
 
-    // Clear per-cluster light data from previous frame, update cluster frustums and bounding boxes if camera changed, then queue light culling tasks for the needed scene range
-    DefineClusterFrustums();
-    memset(numClusterLights, 0, sizeof numClusterLights);
-    memset(clusterData.Get(), 0, MAX_LIGHTS_CLUSTER * NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z);
-    for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
-    {
-        size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
-        if (minZ > clusterFrustums[idx].vertices[4].z || maxZ < clusterFrustums[idx].vertices[0].z)
-            continue;
-        workQueue->QueueTask(cullLightsTasks[z]);
-    }
-
     // Queue shadow batch collection tasks. These will also perform shadow batch sorting tasks when done
     size_t shadowTaskIdx = 0;
     Light* lastLight = nullptr;
@@ -1445,7 +1433,20 @@ void Renderer::ProcessShadowCastersWork(Task*, unsigned)
     if (shadowTaskIdx > 0)
         workQueue->QueueTasks(shadowTaskIdx, reinterpret_cast<Task**>(&collectShadowBatchesTasks[0]));
 
-    // Finally copy correct shadow matrices for the light data now that shadowcaster collection has finalized them
+    // Clear per-cluster light data from previous frame, update cluster frustums and bounding boxes if camera changed, then queue light culling tasks for the needed scene range
+    DefineClusterFrustums();
+    memset(numClusterLights, 0, sizeof numClusterLights);
+    memset(clusterData.Get(), 0, MAX_LIGHTS_CLUSTER * NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z);
+    for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
+    {
+        size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
+        if (minZ > clusterFrustums[idx].vertices[4].z || maxZ < clusterFrustums[idx].vertices[0].z)
+            continue;
+        workQueue->QueueTask(cullLightsTasks[z]);
+    }
+
+    // Finally copy correct shadow matrices for the localized light data
+    // Note: directional light shadow matrices may still be pending, but they are not included here
     for (size_t i = 0; i < lights.size(); ++i)
     {
         Light* light = lights[i];
@@ -1475,18 +1476,22 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
 
         float splitMinZ = minZ, splitMaxZ = maxZ;
 
-        // Focus directional light shadow camera to the visible geometry combined bounds before collecting the actual geometries, and collect shadowcasters late
+        // Focus directional light shadow camera to the visible geometry combined bounds, and query for shadowcasters late
         if (lightType == LIGHT_DIRECTIONAL)
         {
-            light->SetupShadowView(shadowViewIdx, camera, &geometryBounds);
-            splitMinZ = Max(splitMinZ, view.splitMinZ);
-            splitMaxZ = Min(splitMaxZ, view.splitMaxZ);
-
-            // Check for degenerate depth range or frustum outside split
-            if (splitMinZ >= splitMaxZ || splitMinZ > view.splitMaxZ || splitMaxZ < view.splitMinZ || view.viewport == IntRect::ZERO)
+            if (!light->SetupShadowView(shadowViewIdx, camera, &geometryBounds))
                 view.viewport = IntRect::ZERO;
             else
-                octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(shadowMap.shadowCasters[view.casterListIdx]), view.shadowFrustum, NF_GEOMETRY | NF_CAST_SHADOWS);
+            {
+                splitMinZ = Max(splitMinZ, view.splitMinZ);
+                splitMaxZ = Min(splitMaxZ, view.splitMaxZ);
+
+                // Before querying (which is potentially expensive), check for degenerate depth range or frustum outside split
+                if (splitMinZ >= splitMaxZ || splitMinZ > view.splitMaxZ || splitMaxZ < view.splitMinZ)
+                    view.viewport = IntRect::ZERO;
+                else
+                    octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(shadowMap.shadowCasters[view.casterListIdx]), view.shadowFrustum, NF_GEOMETRY | NF_CAST_SHADOWS);
+            }
         }
 
         // Skip view? (no geometry, out of range or point light face not in view)

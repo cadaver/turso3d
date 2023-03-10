@@ -164,8 +164,8 @@ public:
     void SetShadowMap(Texture* shadowMap, const IntRect& shadowRect = IntRect::ZERO);
     /// Init the correct number of shadow views but do not setup them yet. Called by Renderer. Must be called from the same thread for all lights because new Camera nodes are allocated on first call, which uses the non-threadsafe NodeImpl allocator.
     void InitShadowViews();
-    /// Setup the camera and parameters for a shadow view. Directional light shadow view should be supplied the scene bounds for focusing. Called by Renderer.
-    void SetupShadowView(size_t viewIndex, Camera* mainCamera, const BoundingBox* geometryBounds = nullptr);
+    /// Setup the camera and parameters for a shadow view. Directional light shadow view should be supplied the scene bounds for focusing. Return false if the view is empty and should not render. Called by Renderer.
+    bool SetupShadowView(size_t viewIndex, Camera* mainCamera, const BoundingBox* geometryBounds = nullptr);
     /// Return shadow map.
     Texture* ShadowMap() const { return shadowMap; }
     /// Return the shadow views.
