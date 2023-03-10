@@ -162,16 +162,10 @@ public:
 
     /// Set shadow map and viewport within it. Called by Renderer.
     void SetShadowMap(Texture* shadowMap, const IntRect& shadowRect = IntRect::ZERO);
-    /// Init the correct number of shadow views but do not setup them yet. Called by Renderer. Should be called from one thread only for all lights in view because new Camera nodes are allocated on first call, which uses the non-threadsafe NodeImpl allocator.
+    /// Init the correct number of shadow views but do not setup them yet. Called by Renderer. Must be called from the same thread for all lights because new Camera nodes are allocated on first call, which uses the non-threadsafe NodeImpl allocator.
     void InitShadowViews();
-    /// Setup the camera and matrix for a shadow view. Called by Renderer.
-    void SetupShadowView(size_t viewIndex, Camera* mainCamera);
-    /// Focus a directional light view with scene geometry bounds information. Called by Renderer.
-    void FocusShadowView(size_t viewIndex, Camera* mainCamera, const BoundingBox& geometryBounds);
-    /// Center a directional light shadow camera to its split scene frustum, represented as a bounding box in shadow camera view space.
-    void CenterShadowCameraToFrustum(size_t viewIndex, const BoundingBox& shadowBox);
-    /// Finalize a shadow view's matrix and frustum.
-    void FinalizeShadowView(size_t viewIndex);
+    /// Setup the camera and parameters for a shadow view. Directional light shadow view should be supplied the scene bounds for focusing. Called by Renderer.
+    void SetupShadowView(size_t viewIndex, Camera* mainCamera, const BoundingBox* geometryBounds = nullptr);
     /// Return shadow map.
     Texture* ShadowMap() const { return shadowMap; }
     /// Return the shadow views.

@@ -1229,6 +1229,7 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
             ShadowView& view = shadowViews[i];
 
             // Directional light needs a new frustum query for each split, as the shadow cameras are typically far outside the main view
+            // But queries are only performed later when the shadow map can be focused to visible scene
             view.casterListIdx = shadowMap.freeCasterListIdx++;
             if (shadowMap.shadowCasters.size() < shadowMap.freeCasterListIdx)
                 shadowMap.shadowCasters.resize(shadowMap.freeCasterListIdx);
@@ -1238,14 +1239,6 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
                 shadowMap.shadowBatches.resize(shadowMap.freeQueueIdx);
 
             shadowMap.shadowViews.push_back(&view);
-
-            if (collectShadowCastersTasks.size() <= lightTaskIdx)
-                collectShadowCastersTasks.push_back(new MemberFunctionTask<Renderer>(this, &Renderer::CollectShadowCastersWork));
-
-            collectShadowCastersTasks[lightTaskIdx]->start = dirLight;
-            collectShadowCastersTasks[lightTaskIdx]->end = (void*)i;
-            processShadowCastersTask->AddDependency(collectShadowCastersTasks[lightTaskIdx]);
-            ++lightTaskIdx;
         }
     }
 
@@ -1363,20 +1356,10 @@ void Renderer::CollectShadowCastersWork(Task* task, unsigned)
     LightType lightType = light->GetLightType();
     std::vector<ShadowView>& shadowViews = light->ShadowViews();
 
-    size_t shadowMapIdx = lightType == LIGHT_DIRECTIONAL ? 0 : 1;
-    ShadowMap& shadowMap = shadowMaps[shadowMapIdx];
+    // Directional lights perform queries later, here only point & spot lights (in shadow atlas) are considered
+    ShadowMap& shadowMap = shadowMaps[1];
 
-    if (lightType == LIGHT_DIRECTIONAL)
-    {
-        // Directional light: perform separate query per split frustum
-        size_t i = (size_t)task->end;
-        light->SetupShadowView(i, camera);
-        ShadowView& view = shadowViews[i];
-
-        std::vector<GeometryNode*>& shadowCasters = shadowMap.shadowCasters[view.casterListIdx];
-        octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(shadowCasters), view.shadowFrustum, NF_GEOMETRY | NF_CAST_SHADOWS);
-    } 
-    else if (lightType == LIGHT_POINT)
+    if (lightType == LIGHT_POINT)
     {
         // Point light: perform only one sphere query, then check which of the point light sides are visible
         for (size_t i = 0; i < shadowViews.size(); ++i)
@@ -1492,21 +1475,22 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
 
         float splitMinZ = minZ, splitMaxZ = maxZ;
 
-        // Focus directional light shadow camera to the visible geometry combined bounds before collecting the actual geometries
+        // Focus directional light shadow camera to the visible geometry combined bounds before collecting the actual geometries, and collect shadowcasters late
         if (lightType == LIGHT_DIRECTIONAL)
         {
+            light->SetupShadowView(shadowViewIdx, camera, &geometryBounds);
             splitMinZ = Max(splitMinZ, view.splitMinZ);
             splitMaxZ = Min(splitMaxZ, view.splitMaxZ);
 
-            // Check for degenerate depth range or frustum outside split, in that case can skip view directly without the focusing calculations
-            if (splitMinZ >= splitMaxZ || splitMinZ > view.splitMaxZ || splitMaxZ < view.splitMinZ)
+            // Check for degenerate depth range or frustum outside split
+            if (splitMinZ >= splitMaxZ || splitMinZ > view.splitMaxZ || splitMaxZ < view.splitMinZ || view.viewport == IntRect::ZERO)
                 view.viewport = IntRect::ZERO;
             else
-                light->FocusShadowView(shadowViewIdx, camera, geometryBounds);
+                octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(shadowMap.shadowCasters[view.casterListIdx]), view.shadowFrustum, NF_GEOMETRY | NF_CAST_SHADOWS);
         }
 
-        // Check for skipping the view (degenerate split range, no geometry or point light face not in view)
-        if (!geometryBounds.IsDefined() || view.viewport == IntRect::ZERO)
+        // Skip view? (no geometry, out of range or point light face not in view)
+        if (view.viewport == IntRect::ZERO)
         {
             view.renderMode = RENDER_STATIC_LIGHT_CACHED;
             view.lastViewport = IntRect::ZERO;
@@ -1538,12 +1522,9 @@ void Renderer::CollectShadowBatchesWork(Task* task, unsigned)
                 bool inView = node->InView(frameNumber);
                 bool staticNode = node->IsStatic();
 
-                // Recheck shadowcaster frustum visibility for point lights (may be visible in view, but not in each cube map face) and directional light shadowcasters not in view
-                if (lightType == LIGHT_POINT || (!inView && lightType == LIGHT_DIRECTIONAL))
-                {
-                    if (!shadowFrustum.IsInsideFast(geometryBox))
-                        continue;
-                }
+                // Check shadowcaster frustum visibility for point lights; may be visible in view, but not in each cube map face
+                if (lightType == LIGHT_POINT && !shadowFrustum.IsInsideFast(geometryBox))
+                    continue;
 
                 // Furthermore, check by bounding box extrusion if out-of-view or directional light shadowcaster actually contributes to visible geometry shadowing or if it can be skipped
                 // This is done only for dynamic objects or dynamic lights' shadows; cached static shadowmap needs to render everything

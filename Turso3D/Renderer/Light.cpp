@@ -316,6 +316,8 @@ void Light::InitShadowViews()
     for (size_t i = 0; i < shadowViews.size(); ++i)
     {
         ShadowView& view = shadowViews[i];
+        view.light = this;
+
         if (!view.shadowCamera)
         {
             view.shadowCamera = new Camera();
@@ -328,12 +330,10 @@ void Light::InitShadowViews()
     shadowParameters = Vector4(0.5f / (float)shadowMap->Width(), 0.5f / (float)shadowMap->Height(), ShadowStrength(), 0.0f);
 }
 
-void Light::SetupShadowView(size_t viewIndex, Camera* mainCamera)
+void Light::SetupShadowView(size_t viewIndex, Camera* mainCamera, const BoundingBox* geometryBounds)
 {
     ShadowView& view = shadowViews[viewIndex];
     Camera* shadowCamera = view.shadowCamera;
-    view.light = this;
-
     int actualShadowMapSize = ActualShadowMapSize();
 
     switch (lightType)
@@ -353,13 +353,38 @@ void Light::SetupShadowView(size_t viewIndex, Camera* mainCamera)
         // Calculate initial position & rotation
         shadowCamera->SetTransform(mainCamera->WorldPosition() - extrusionDistance * WorldDirection(), WorldRotation());
 
-        // Calculate main camera shadowed frustum in light's view space
+        // Calculate main camera shadowed frustum in light's view space. Then convert to polyhedron and clip with visible geometry, and transform to shadow camera's space
         Frustum splitFrustum = mainCamera->WorldSplitFrustum(view.splitMinZ, view.splitMaxZ);
-        Frustum lightViewFrustum = splitFrustum.Transformed(shadowCamera->ViewMatrix());
-
-        // Fit the frustum inside a bounding box
         BoundingBox shadowBox;
-        shadowBox.Define(lightViewFrustum);
+
+        if (geometryBounds)
+        {
+            // If geometry bounds given, but is not defined (no geometry), skip rendering the view
+            if (!geometryBounds->IsDefined())
+            {
+                view.viewport = IntRect::ZERO;
+                return;
+            }
+
+            Polyhedron frustumVolume(splitFrustum);
+            frustumVolume.Clip(*geometryBounds);
+
+            // If volume became empty, skip rendering the view
+            if (frustumVolume.IsEmpty())
+            {
+                view.viewport = IntRect::ZERO;
+                return;
+            }
+
+            // Fit the clipped volume inside a bounding box
+            frustumVolume.Transform(shadowCamera->ViewMatrix());
+            shadowBox.Define(frustumVolume);
+        }
+        else
+        {
+            // If no bounds available, define the shadow space frustum bounding box directly without clipping
+            shadowBox.Define(splitFrustum.Transformed(shadowCamera->ViewMatrix()));
+        }
 
         // If shadow camera is far away from the frustum, can bring it closer for better depth precision
         /// \todo The minimum distance is somewhat arbitrary
@@ -373,8 +398,33 @@ void Light::SetupShadowView(size_t viewIndex, Camera* mainCamera)
         }
 
         shadowCamera->SetOrthographic(true);
+        shadowCamera->SetFarClip(shadowBox.max.z);
 
-        CenterShadowCameraToFrustum(viewIndex, shadowBox);
+        Vector3 center = shadowBox.Center();
+        Vector3 size = shadowBox.Size();
+
+        size.x = ceilf(sqrtf(size.x / shadowQuantize));
+        size.y = ceilf(sqrtf(size.y / shadowQuantize));
+        size.x = size.x * size.x * shadowQuantize;
+        size.y = size.y * size.y * shadowQuantize;
+
+        shadowCamera->SetOrthoSize(Vector2(size.x, size.y));
+        shadowCamera->SetZoom(1.0f);
+
+        // Center shadow camera to the view space bounding box
+        Vector3 pos(shadowCamera->WorldPosition());
+        Quaternion rot(shadowCamera->WorldRotation());
+        Vector3 adjust(center.x, center.y, 0.0f);
+        shadowCamera->Translate(rot * adjust, TS_WORLD);
+
+        // Snap to whole texels
+        {
+            Vector3 viewPos(rot.Inverse() * shadowCamera->WorldPosition());
+            float invSize = 4.0f / actualShadowMapSize;
+            Vector2 texelSize(size.x * invSize, size.y * invSize);
+            Vector3 snap(-fmodf(viewPos.x, texelSize.x), -fmodf(viewPos.y, texelSize.y), 0.0f);
+            shadowCamera->Translate(rot * snap, TS_WORLD);
+        }
     }
     break;
 
@@ -407,79 +457,6 @@ void Light::SetupShadowView(size_t viewIndex, Camera* mainCamera)
         shadowCamera->SetAspectRatio(1.0f);
         break;
     }
-
-    FinalizeShadowView(viewIndex);
-}
-
-void Light::FocusShadowView(size_t viewIndex, Camera* mainCamera, const BoundingBox& geometryBounds)
-{
-    ShadowView& view = shadowViews[viewIndex];
-    Camera* shadowCamera = view.shadowCamera;
-
-    // Calculate main camera shadowed frustum in light's view space. Then convert to polyhedron and clip with visible geometry
-    Frustum splitFrustum = mainCamera->WorldSplitFrustum(view.splitMinZ, view.splitMaxZ);
-    Polyhedron frustumVolume;
-    frustumVolume.Define(splitFrustum);
-    if (geometryBounds.IsDefined())
-    {
-        frustumVolume.Clip(geometryBounds);
-        // If volume became empty, skip rendering the view
-        if (frustumVolume.IsEmpty())
-        {
-            view.viewport = IntRect::ZERO;
-            return;
-        }
-    }
-
-    // Fit the clipped volume inside a bounding box
-    frustumVolume.Transform(shadowCamera->ViewMatrix());
-    BoundingBox shadowBox;
-    shadowBox.Define(frustumVolume);
-
-    CenterShadowCameraToFrustum(viewIndex, shadowBox);
-    FinalizeShadowView(viewIndex);
-}
-
-void Light::CenterShadowCameraToFrustum(size_t viewIndex, const BoundingBox& shadowBox)
-{
-    ShadowView& view = shadowViews[viewIndex];
-    Camera* shadowCamera = view.shadowCamera;
-    int actualShadowMapSize = ActualShadowMapSize();
-  
-    shadowCamera->SetFarClip(shadowBox.max.z);
-
-    Vector3 center = shadowBox.Center();
-    Vector3 size = shadowBox.Size();
-
-    size.x = ceilf(sqrtf(size.x / shadowQuantize));
-    size.y = ceilf(sqrtf(size.y / shadowQuantize));
-    size.x = size.x * size.x * shadowQuantize;
-    size.y = size.y * size.y * shadowQuantize;
-
-    shadowCamera->SetOrthoSize(Vector2(size.x, size.y));
-    shadowCamera->SetZoom(1.0f);
-
-    // Center shadow camera to the view space bounding box
-    Vector3 pos(shadowCamera->WorldPosition());
-    Quaternion rot(shadowCamera->WorldRotation());
-    Vector3 adjust(center.x, center.y, 0.0f);
-    shadowCamera->Translate(rot * adjust, TS_WORLD);
-
-    // Snap to whole texels
-    {
-        Vector3 viewPos(rot.Inverse() * shadowCamera->WorldPosition());
-        float invSize = 4.0f / actualShadowMapSize;
-        Vector2 texelSize(size.x * invSize, size.y * invSize);
-        Vector3 snap(-fmodf(viewPos.x, texelSize.x), -fmodf(viewPos.y, texelSize.y), 0.0f);
-        shadowCamera->Translate(rot * snap, TS_WORLD);
-    }
-}
-
-void Light::FinalizeShadowView(size_t viewIndex)
-{
-    ShadowView& view = shadowViews[viewIndex];
-    Camera* shadowCamera = view.shadowCamera;
-    int actualShadowMapSize = ActualShadowMapSize();
 
     view.shadowFrustum = shadowCamera->WorldFrustum();
 
