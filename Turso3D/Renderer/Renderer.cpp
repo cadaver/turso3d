@@ -287,16 +287,19 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
     // Enable threaded update during geometry / light gathering in case nodes' OnPrepareRender() causes further reinsertion queuing
     octree->SetThreadedUpdate(workQueue->NumThreads() > 1);
 
+    // Find the starting points for octree traversal. Include the root if it contains nodes that didn't fit elsewhere
     Octant* rootOctant = octree->Root();
     if (rootOctant->nodes.size())
         rootLevelOctants.push_back(rootOctant);
+
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
     {
         if (rootOctant->children[i])
             rootLevelOctants.push_back(rootOctant->children[i]);
     }
 
-    numPendingBatchTasks.store(rootLevelOctants.size()); // For safely keeping track of both batch + octant task progress before main batches can be sorted
+    // Keep track of both batch + octant task progress before main batches can be sorted (batch tasks will add to the counter when queued)
+    numPendingBatchTasks.store((int)rootLevelOctants.size());
     numPendingShadowViews[0].store(0);
     numPendingShadowViews[1].store(0);
 
@@ -314,13 +317,13 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
 
     workQueue->QueueTasks(rootLevelOctants.size(), reinterpret_cast<Task**>(&collectOctantsTasks[0]));
 
-    // Execute tasks until can sort the main batches. Perform that in the main thread to potentially execute faster
+    // Execute tasks until can sort the main batches. Perform that in the main thread to potentially run faster
     while (numPendingBatchTasks.load() > 0)
         workQueue->TryComplete();
 
     SortMainBatches();
 
-    // Now finish all other threaded work
+    // Finish remaining view preparation tasks (shadowcaster batches, light culling to frustum grid)
     workQueue->Complete();
 
     // No more threaded reinsertion will take place
