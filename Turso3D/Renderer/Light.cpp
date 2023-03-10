@@ -332,6 +332,8 @@ void Light::InitShadowViews()
 
 bool Light::SetupShadowView(size_t viewIndex, Camera* mainCamera, const BoundingBox* geometryBounds)
 {
+    ZoneScoped;
+
     ShadowView& view = shadowViews[viewIndex];
     Camera* shadowCamera = view.shadowCamera;
     int actualShadowMapSize = ActualShadowMapSize();

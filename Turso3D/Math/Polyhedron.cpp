@@ -3,6 +3,8 @@
 #include "Frustum.h"
 #include "Polyhedron.h"
 
+#include <tracy/Tracy.hpp>
+
 Polyhedron::Polyhedron()
 {
 }
@@ -202,6 +204,8 @@ void Polyhedron::Clip(const Plane& plane, std::vector<Vector3>& clippedVertices,
 
 void Polyhedron::Clip(const Plane& plane)
 {
+    ZoneScoped;
+
     std::vector<Vector3> clippedVertices;
     std::vector<Vector3> outFace;
     
@@ -210,15 +214,23 @@ void Polyhedron::Clip(const Plane& plane)
 
 void Polyhedron::Clip(const Frustum& frustum)
 {
+    ZoneScoped;
+
     std::vector<Vector3> clippedVertices;
     std::vector<Vector3> outFace;
     
     for (size_t i = 0; i < NUM_FRUSTUM_PLANES; ++i)
+    {
         Clip(frustum.planes[i], clippedVertices, outFace);
+        if (IsEmpty())
+            break;
+    }
 }
 
 void Polyhedron::Clip(const BoundingBox& box)
 {
+    ZoneScoped;
+
     std::vector<Vector3> clippedVertices;
     std::vector<Vector3> outFace;
     
@@ -233,10 +245,20 @@ void Polyhedron::Clip(const BoundingBox& box)
     vertices[7] = box.max;
     
     Clip(Plane(vertices[5], vertices[7], vertices[3]), clippedVertices, outFace);
+    if (IsEmpty())
+        return;
     Clip(Plane(vertices[0], vertices[2], vertices[6]), clippedVertices, outFace);
+    if (IsEmpty())
+        return;
     Clip(Plane(vertices[3], vertices[7], vertices[6]), clippedVertices, outFace);
+    if (IsEmpty())
+        return;
     Clip(Plane(vertices[4], vertices[5], vertices[1]), clippedVertices, outFace);
+    if (IsEmpty())
+        return;
     Clip(Plane(vertices[4], vertices[6], vertices[7]), clippedVertices, outFace);
+    if (IsEmpty())
+        return;
     Clip(Plane(vertices[1], vertices[3], vertices[2]), clippedVertices, outFace);
 }
 
