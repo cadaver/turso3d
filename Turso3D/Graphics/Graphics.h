@@ -36,8 +36,6 @@ public:
     /// Present the contents of the backbuffer.
     void Present();
 
-    /// Clear the current framebuffer.
-    void Clear(bool clearColor = true, bool clearDepth = true, const IntRect& clearRect = IntRect::ZERO, const Color& backgroundColor = Color::BLACK);
     /// Set the viewport rectangle.
     void SetViewport(const IntRect& viewRect);
     /// Set basic renderstates.
@@ -58,6 +56,8 @@ public:
     void SetUniform(ShaderProgram* program, const char* name, const Matrix3x4& value);
     /// Set a Matrix4 uniform. Low performance, provided for convenience.
     void SetUniform(ShaderProgram* program, const char* name, const Matrix4& value);
+    /// Clear the current framebuffer.
+    void Clear(bool clearColor = true, bool clearDepth = true, const IntRect& clearRect = IntRect::ZERO, const Color& backgroundColor = Color::BLACK);
     /// Draw a quad with current renderstate.
     void DrawQuad();
 

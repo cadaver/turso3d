@@ -196,6 +196,11 @@ void Graphics::Present()
     SDL_GL_SwapWindow(window);
 }
 
+void Graphics::SetViewport(const IntRect& viewRect)
+{
+    glViewport(viewRect.left, viewRect.top, viewRect.right - viewRect.left, viewRect.bottom - viewRect.top);
+}
+
 void Graphics::SetRenderState(BlendMode blendMode, CullMode cullMode, CompareMode depthTest, bool colorWrite, bool depthWrite)
 {
     if (blendMode != lastBlendMode)
@@ -269,6 +274,17 @@ void Graphics::SetDepthBias(float constantBias, float slopeScaleBias)
     }
 }
 
+ShaderProgram* Graphics::SetProgram(const std::string& shaderName, const std::string& vsDefines, const std::string& fsDefines)
+{
+    ResourceCache* cache = Subsystem<ResourceCache>();
+    Shader* shader = cache->LoadResource<Shader>(shaderName);
+    if (!shader)
+        return nullptr;
+
+    ShaderProgram* program = shader->CreateProgram(vsDefines, fsDefines);
+    return program->Bind() ? program : nullptr;
+}
+
 void Graphics::SetUniform(ShaderProgram* program, const char* name, float value)
 {
     if (program)
@@ -327,22 +343,6 @@ void Graphics::SetUniform(ShaderProgram* program, const char* name, const Matrix
         if (location >= 0)
             glUniformMatrix4fv(location, 1, GL_FALSE, value.Data());
     }
-}
-
-void Graphics::SetViewport(const IntRect& viewRect)
-{
-    glViewport(viewRect.left, viewRect.top, viewRect.right - viewRect.left, viewRect.bottom - viewRect.top);
-}
-
-ShaderProgram* Graphics::SetProgram(const std::string& shaderName, const std::string& vsDefines, const std::string& fsDefines)
-{
-    ResourceCache* cache = Subsystem<ResourceCache>();
-    Shader* shader = cache->LoadResource<Shader>(shaderName);
-    if (!shader)
-        return nullptr;
-
-    ShaderProgram* program = shader->CreateProgram(vsDefines, fsDefines);
-    return program->Bind() ? program : nullptr;
 }
 
 void Graphics::Clear(bool clearColor, bool clearDepth, const IntRect& clearRect, const Color& backgroundColor)
