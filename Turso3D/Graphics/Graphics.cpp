@@ -1,9 +1,13 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
+#include "../Resource/ResourceCache.h"
+#include "FrameBuffer.h"
 #include "Graphics.h"
 #include "Shader.h"
+#include "ShaderProgram.h"
 #include "Texture.h"
+#include "VertexBuffer.h"
 
 #include <SDL.h>
 #include <glew.h>
@@ -18,9 +22,66 @@ extern "C" {
 }
 #endif
 
+static const GLenum glCompareFuncs[] =
+{
+    GL_NEVER,
+    GL_LESS,
+    GL_EQUAL,
+    GL_LEQUAL,
+    GL_GREATER,
+    GL_NOTEQUAL,
+    GL_GEQUAL,
+    GL_ALWAYS,
+};
+
+static const GLenum glSrcBlend[] =
+{
+    GL_ONE,
+    GL_ONE,
+    GL_DST_COLOR,
+    GL_SRC_ALPHA,
+    GL_SRC_ALPHA,
+    GL_ONE,
+    GL_ONE_MINUS_DST_ALPHA,
+    GL_ONE,
+    GL_SRC_ALPHA
+};
+
+static const unsigned glDestBlend[] =
+{
+    GL_ZERO,
+    GL_ONE,
+    GL_ZERO,
+    GL_ONE_MINUS_SRC_ALPHA,
+    GL_ONE,
+    GL_ONE_MINUS_SRC_ALPHA,
+    GL_DST_ALPHA,
+    GL_ONE,
+    GL_ONE
+};
+
+static const unsigned glBlendOp[] =
+{
+    GL_FUNC_ADD,
+    GL_FUNC_ADD,
+    GL_FUNC_ADD,
+    GL_FUNC_ADD,
+    GL_FUNC_ADD,
+    GL_FUNC_ADD,
+    GL_FUNC_ADD,
+    GL_FUNC_REVERSE_SUBTRACT,
+    GL_FUNC_REVERSE_SUBTRACT
+};
+
 Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize) :
     window(nullptr),
     context(nullptr),
+    lastBlendMode(MAX_BLEND_MODES),
+    lastCullMode(MAX_CULL_MODES),
+    lastDepthTest(MAX_COMPARE_MODES),
+    lastColorWrite(true),
+    lastDepthWrite(true),
+    lastDepthBias(false),
     vsync(false)
 {
     RegisterSubsystem(this);
@@ -96,13 +157,16 @@ bool Graphics::Initialize()
     glEnable(GL_MULTISAMPLE);
     glClearDepth(1.0f);
     glDepthRange(0.0f, 1.0f);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_TRUE);
 
     GLuint defaultVao;
     glGenVertexArrays(1, &defaultVao);
     glBindVertexArray(defaultVao);
 
-    SetVSync(vsync);
+    DefineQuadVertexBuffer();
 
+    SetVSync(vsync);
     return true;
 }
 
@@ -132,6 +196,192 @@ void Graphics::Present()
     SDL_GL_SwapWindow(window);
 }
 
+void Graphics::SetRenderState(BlendMode blendMode, CullMode cullMode, CompareMode depthTest, bool colorWrite, bool depthWrite)
+{
+    if (blendMode != lastBlendMode)
+    {
+        if (blendMode == BLEND_REPLACE)
+            glDisable(GL_BLEND);
+        else
+        {
+            glEnable(GL_BLEND);
+            glBlendFunc(glSrcBlend[blendMode], glDestBlend[blendMode]);
+            glBlendEquation(glBlendOp[blendMode]);
+        }
+
+        lastBlendMode = blendMode;
+    }
+
+    if (cullMode != lastCullMode)
+    {
+        if (cullMode == CULL_NONE)
+            glDisable(GL_CULL_FACE);
+        else
+        {
+            // Use Direct3D convention, ie. clockwise vertices define a front face
+            glEnable(GL_CULL_FACE);
+            glCullFace(cullMode == CULL_BACK ? GL_FRONT : GL_BACK);
+        }
+
+        lastCullMode = cullMode;
+    }
+
+    if (depthTest != lastDepthTest)
+    {
+        glDepthFunc(glCompareFuncs[depthTest]);
+        lastDepthTest = depthTest;
+    }
+
+    if (colorWrite != lastColorWrite)
+    {
+        GLboolean newColorWrite = colorWrite ? GL_TRUE : GL_FALSE;
+        glColorMask(newColorWrite, newColorWrite, newColorWrite, newColorWrite);
+        lastColorWrite = colorWrite;
+    }
+
+    if (depthWrite != lastDepthWrite)
+    {
+        GLboolean newDepthWrite = depthWrite ? GL_TRUE : GL_FALSE;
+        glDepthMask(newDepthWrite);
+        lastDepthWrite = depthWrite;
+    }
+}
+
+void Graphics::SetDepthBias(float constantBias, float slopeScaleBias)
+{
+    if (constantBias <= 0.0f && slopeScaleBias <= 0.0f)
+    {
+        if (lastDepthBias)
+        {
+            glDisable(GL_POLYGON_OFFSET_FILL);
+            lastDepthBias = false;
+        }
+    }
+    else
+    {
+        if (!lastDepthBias)
+        {
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            lastDepthBias = true;
+        }
+
+        glPolygonOffset(slopeScaleBias, constantBias);
+    }
+}
+
+void Graphics::SetUniform(ShaderProgram* program, const char* name, float value)
+{
+    if (program)
+    {
+        int location = program->Uniform(name);
+        if (location >= 0)
+            glUniform1f(location, value);
+    }
+}
+
+void Graphics::SetUniform(ShaderProgram* program, const char* name, const Vector2& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(name);
+        if (location >= 0)
+            glUniform2fv(location, 1, value.Data());
+    }
+}
+
+void Graphics::SetUniform(ShaderProgram* program, const char* name, const Vector3& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(name);
+        if (location >= 0)
+            glUniform3fv(location, 1, value.Data());
+    }
+}
+
+void Graphics::SetUniform(ShaderProgram* program, const char* name, const Vector4& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(name);
+        if (location >= 0)
+            glUniform4fv(location, 1, value.Data());
+    }
+}
+
+void Graphics::SetUniform(ShaderProgram* program, const char* name, const Matrix3x4& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(name);
+        if (location >= 0)
+            glUniformMatrix3x4fv(location, 1, GL_FALSE, value.Data());
+    }
+}
+
+void Graphics::SetUniform(ShaderProgram* program, const char* name, const Matrix4& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(name);
+        if (location >= 0)
+            glUniformMatrix4fv(location, 1, GL_FALSE, value.Data());
+    }
+}
+
+void Graphics::SetViewport(const IntRect& viewRect)
+{
+    glViewport(viewRect.left, viewRect.top, viewRect.right - viewRect.left, viewRect.bottom - viewRect.top);
+}
+
+ShaderProgram* Graphics::SetProgram(const std::string& shaderName, const std::string& vsDefines, const std::string& fsDefines)
+{
+    ResourceCache* cache = Subsystem<ResourceCache>();
+    Shader* shader = cache->LoadResource<Shader>(shaderName);
+    if (!shader)
+        return nullptr;
+
+    ShaderProgram* program = shader->CreateProgram(vsDefines, fsDefines);
+    return program->Bind() ? program : nullptr;
+}
+
+void Graphics::Clear(bool clearColor, bool clearDepth, const IntRect& clearRect, const Color& backgroundColor)
+{
+    if (clearColor)
+    {
+        glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        lastColorWrite = true;
+    }
+    if (clearDepth)
+    {
+        glDepthMask(GL_TRUE);
+        lastDepthWrite = true;
+    }
+
+    GLenum glClearBits = 0;
+    if (clearColor)
+        glClearBits |= GL_COLOR_BUFFER_BIT;
+    if (clearDepth)
+        glClearBits |= GL_DEPTH_BUFFER_BIT;
+
+    if (clearRect == IntRect::ZERO)
+        glClear(glClearBits);
+    else
+    {
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(clearRect.left, clearRect.top, clearRect.right - clearRect.left, clearRect.bottom - clearRect.top);
+        glClear(glClearBits);
+        glDisable(GL_SCISSOR_TEST);
+    }
+}
+
+void Graphics::DrawQuad()
+{
+    quadVertexBuffer->Bind(0x11);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
 IntVector2 Graphics::Size() const
 {
     IntVector2 size;
@@ -150,6 +400,25 @@ bool Graphics::IsFullscreen() const
 {
     unsigned flags = SDL_GetWindowFlags(window);
     return (flags & SDL_WINDOW_FULLSCREEN) != 0;
+}
+
+void Graphics::DefineQuadVertexBuffer()
+{
+    float quadVertexData[] = {
+        // Position         // UV
+        -1.0f, 1.0f, 0.0f,  0.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,   1.0f, 0.0f,
+        -1.0f, -1.0f, 0.0f, 0.0f, 1.0f,
+        1.0f, 1.0f, 0.0f,   1.0f, 0.0f,
+        1.0f, -1.0f, 0.0f,  1.0f, 1.0f,
+        -1.0f, -1.0f, 0.0f, 0.0f, 1.0f
+    };
+
+    std::vector<VertexElement> vertexDeclaration;
+    vertexDeclaration.push_back(VertexElement(ELEM_VECTOR3, SEM_POSITION));
+    vertexDeclaration.push_back(VertexElement(ELEM_VECTOR2, SEM_TEXCOORD));
+    quadVertexBuffer = new VertexBuffer();
+    quadVertexBuffer->Define(USAGE_DEFAULT, 6, vertexDeclaration, quadVertexData);
 }
 
 void RegisterGraphicsLibrary()

@@ -3,7 +3,6 @@
 #pragma once
 
 #include "../Graphics/GraphicsDefs.h"
-#include "../IO/JSONValue.h"
 #include "../Math/Color.h"
 #include "../Math/Frustum.h"
 #include "../Object/AutoPtr.h"
@@ -161,32 +160,6 @@ public:
     /// Render transparent objects into currently set framebuffer and viewport.
     void RenderAlpha();
 
-    /// Clear the current framebuffer.
-    void Clear(bool clearColor = true, bool clearDepth = true, const IntRect& clearRect = IntRect::ZERO, const Color& backgroundColor = Color::BLACK);
-    /// Set the viewport rectangle.
-    void SetViewport(const IntRect& viewRect);
-    /// Set basic renderstates.
-    void SetRenderState(BlendMode blendMode, CullMode cullMode = CULL_BACK, CompareMode depthTest = CMP_LESS, bool colorWrite = true, bool depthWrite = true);
-    /// Set depth bias.
-    void SetDepthBias(float constantBias = 0.0f, float slopeScaleBias = 0.0f);
-
-    /// Bind a shader program for use. Return pointer on success or null otherwise.
-    ShaderProgram* SetProgram(const std::string& shaderName, const std::string& vsDefines = JSONValue::emptyString, const std::string& fsDefines = JSONValue::emptyString);
-     /// Set float uniform. Low performance, provided for convenience.
-    void SetUniform(ShaderProgram* program, const char* name, float value);
-    /// Set a Vector2 uniform. Low performance, provided for convenience.
-    void SetUniform(ShaderProgram* program, const char* name, const Vector2& value);
-    /// Set a Vector3 uniform. Low performance, provided for convenience.
-    void SetUniform(ShaderProgram* program, const char* name, const Vector3& value);
-    /// Set a Vector4 uniform. Low performance, provided for convenience.
-    void SetUniform(ShaderProgram* program, const char* name, const Vector4& value);
-    /// Set a Matrix3x4 uniform. Low performance, provided for convenience.
-    void SetUniform(ShaderProgram* program, const char* name, const Matrix3x4& value);
-    /// Set a Matrix4 uniform. Low performance, provided for convenience.
-    void SetUniform(ShaderProgram* program, const char* name, const Matrix4& value);
-    /// Draw a quad with current renderstate.
-    void DrawQuad();
-
     /// Return a shadow map texture by index for debugging.
     Texture* ShadowMapTexture(size_t index) const;
 
@@ -205,8 +178,6 @@ private:
     void RenderBatches(Camera* camera, const BatchQueue& queue);
     /// Define face selection texture for point light shadows.
     void DefineFaceSelectionTextures();
-    /// Define vertex data for rendering full-screen quads.
-    void DefineQuadVertexBuffer();
     /// Setup light cluster frustums and bounding boxes if necessary.
     void DefineClusterFrustums();
     /// Work function to collect octants.
@@ -232,6 +203,8 @@ private:
     Camera* camera;
     /// Camera frustum.
     Frustum frustum;
+    /// Cached graphics subsystem.
+    Graphics* graphics;
     /// Cached work queue subsystem.
     WorkQueue* workQueue;
     /// Camera view mask.
@@ -282,20 +255,8 @@ private:
     Material* lastMaterial;
     /// Last material uniforms assignment number.
     unsigned lastPerMaterialUniforms;
-    /// Last blend mode.
-    BlendMode lastBlendMode;
-    /// Last cull mode.
-    CullMode lastCullMode;
-    /// Last depth test.
-    CompareMode lastDepthTest;
     /// Instancing vertex arrays enabled flag.
     bool instancingEnabled;
-    /// Last color write.
-    bool lastColorWrite;
-    /// Last depth write.
-    bool lastDepthWrite;
-    /// Last depth bias enabled.
-    bool lastDepthBias;
     /// Constant depth bias multiplier.
     float depthBiasMul;
     /// Slope-scaled depth bias multiplier.
@@ -324,8 +285,6 @@ private:
     AutoPtr<UniformBuffer> lightDataBuffer;
     /// Instancing vertex buffer.
     AutoPtr<VertexBuffer> instanceVertexBuffer;
-    /// Quad vertex buffer.
-    AutoPtr<VertexBuffer> quadVertexBuffer;
     /// Cached static object shadow buffer. Note: only needed for the light atlas, not the directional light shadowmap.
     AutoPtr<RenderBuffer> staticObjectShadowBuffer;
     /// Cached static object shadow framebuffer.

@@ -341,8 +341,8 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             else
                 viewFbo->Bind();
 
-            renderer->SetViewport(IntRect(0, 0, width, height));
-            renderer->Clear(true, true, IntRect::ZERO, Color::BLACK);
+            graphics->SetViewport(IntRect(0, 0, width, height));
+            graphics->Clear(true, true, IntRect::ZERO, Color::BLACK);
             renderer->RenderOpaque();
 
             if (drawSSAO)
@@ -353,33 +353,33 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 camera->FrustumSize(nearVec, farVec);
 
                 ssaoFbo->Bind();
-                renderer->SetViewport(IntRect(0, 0, ssaoTexture->Width(), ssaoTexture->Height()));
-                ShaderProgram* program = renderer->SetProgram("Shaders/SSAO.glsl");
-                renderer->SetUniform(program, "noiseInvSize", Vector2(ssaoTexture->Width() / 4.0f, ssaoTexture->Height() / 4.0f));
-                renderer->SetUniform(program, "screenInvSize", Vector2(1.0f / colorBuffer->Width(), 1.0f / colorBuffer->Height()));
-                renderer->SetUniform(program, "frustumSize", Vector4(farVec, (float)height / (float)width));
-                renderer->SetUniform(program, "aoParameters", Vector4(0.15f, 1.0f, 0.015f, 0.15f));
-                renderer->SetUniform(program, "depthReconstruct", Vector2(farClip / (farClip - nearClip), -nearClip / (farClip - nearClip)));
+                graphics->SetViewport(IntRect(0, 0, ssaoTexture->Width(), ssaoTexture->Height()));
+                ShaderProgram* program = graphics->SetProgram("Shaders/SSAO.glsl");
+                graphics->SetUniform(program, "noiseInvSize", Vector2(ssaoTexture->Width() / 4.0f, ssaoTexture->Height() / 4.0f));
+                graphics->SetUniform(program, "screenInvSize", Vector2(1.0f / colorBuffer->Width(), 1.0f / colorBuffer->Height()));
+                graphics->SetUniform(program, "frustumSize", Vector4(farVec, (float)height / (float)width));
+                graphics->SetUniform(program, "aoParameters", Vector4(0.15f, 1.0f, 0.015f, 0.15f));
+                graphics->SetUniform(program, "depthReconstruct", Vector2(farClip / (farClip - nearClip), -nearClip / (farClip - nearClip)));
                 depthStencilBuffer->Bind(0);
                 normalBuffer->Bind(1);
                 noiseTexture->Bind(2);
-                renderer->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_ALWAYS, true, false);
-                renderer->DrawQuad();
+                graphics->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_ALWAYS, true, false);
+                graphics->DrawQuad();
                 Texture::Unbind(1);
                 Texture::Unbind(2);
 
                 viewFbo->Bind();
-                renderer->SetViewport(IntRect(0, 0, width, height));
-                program = renderer->SetProgram("Shaders/SSAOBlur.glsl");
-                renderer->SetUniform(program, "blurInvSize", Vector2(1.0f / ssaoTexture->Width(), 1.0f / ssaoTexture->Height()));
+                graphics->SetViewport(IntRect(0, 0, width, height));
+                program = graphics->SetProgram("Shaders/SSAOBlur.glsl");
+                graphics->SetUniform(program, "blurInvSize", Vector2(1.0f / ssaoTexture->Width(), 1.0f / ssaoTexture->Height()));
                 ssaoTexture->Bind(0);
-                renderer->SetRenderState(BLEND_SUBTRACT, CULL_NONE, CMP_ALWAYS, true, false);
-                renderer->DrawQuad();
+                graphics->SetRenderState(BLEND_SUBTRACT, CULL_NONE, CMP_ALWAYS, true, false);
+                graphics->DrawQuad();
                 Texture::Unbind(0);
             }
 
             viewFbo->Bind();
-            renderer->SetViewport(IntRect(0, 0, width, height));
+            graphics->SetViewport(IntRect(0, 0, width, height));
             renderer->RenderAlpha();
 
             // Optional debug render of shadowmap
@@ -393,11 +393,11 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 quadMatrix.m03 = -0.5f;
                 quadMatrix.m13 = -0.5f;
 
-                ShaderProgram* program = renderer->SetProgram("Shaders/Debug.glsl");
-                renderer->SetUniform(program, "worldViewProjMatrix", quadMatrix);
+                ShaderProgram* program = graphics->SetProgram("Shaders/Debug.glsl");
+                graphics->SetUniform(program, "worldViewProjMatrix", quadMatrix);
                 renderer->ShadowMapTexture(0)->Bind(0);
-                renderer->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_ALWAYS, true, false);
-                renderer->DrawQuad();
+                graphics->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_ALWAYS, true, false);
+                graphics->DrawQuad();
                 Texture::Unbind(0);
             }
             */

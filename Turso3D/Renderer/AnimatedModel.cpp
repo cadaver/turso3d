@@ -74,8 +74,7 @@ AnimatedModel::AnimatedModel() :
     numBones(0),
     rootBone(nullptr)
 {
-    SetFlag(NF_SKINNED_GEOMETRY, true);
-    SetFlag(NF_OCTREE_UPDATE_CALL, true);
+    SetFlag(NF_SKINNED_GEOMETRY | NF_OCTREE_UPDATE_CALL, true);
 }
 
 AnimatedModel::~AnimatedModel()
