@@ -12,8 +12,6 @@ enum FileMode
     FILE_READWRITE
 };
 
-class PackageFile;
-
 /// Filesystem file.
 class File : public Stream
 {

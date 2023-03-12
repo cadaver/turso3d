@@ -1,7 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
-#include "../IO/File.h"
+#include "../IO/Stream.h"
 #include "JSONFile.h"
 
 #include <tracy/Tracy.hpp>
