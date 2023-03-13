@@ -1,1 +1,1 @@
-cmake -G "MinGW Makefiles" %* .
+cmake -B ".build/mingw" -G "MinGW Makefiles" %* .

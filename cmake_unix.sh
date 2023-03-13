@@ -1,1 +1,1 @@
-cmake -G "Unix Makefiles" %* .
+cmake -B ".build/unix" -G "Unix Makefiles" %* .

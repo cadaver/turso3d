@@ -1,1 +1,1 @@
-cmake -G "Visual Studio 16" %* .
+cmake -B ".build/vs2019" -G "Visual Studio 16" %* .

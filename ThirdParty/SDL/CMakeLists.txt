@@ -356,7 +356,7 @@ endif()
 
 # General includes
 target_compile_definitions(sdl-build-options INTERFACE "-DUSING_GENERATED_CONFIG_H")
-target_include_directories(sdl-build-options BEFORE INTERFACE "${SDL2_BINARY_DIR}/include" "${SDL2_BINARY_DIR}/include-config-$<LOWER_CASE:$<CONFIG>>")
+target_include_directories(sdl-build-options BEFORE INTERFACE "${SDL2_SOURCE_DIR}/include")
 # Note: The clang toolset for Visual Studio does not support the '-idirafter' option.
 if(USE_GCC OR (USE_CLANG AND NOT MSVC_CLANG))
   # !!! FIXME: do we _need_ to mess with CMAKE_C_FLAGS here?
@@ -2920,7 +2920,7 @@ endif()
 
 # Generate config
 configure_file("${SDL2_SOURCE_DIR}/include/SDL_config.h.cmake"
-  "${SDL2_BINARY_DIR}/include/SDL_config.h")
+  "${SDL2_SOURCE_DIR}/include/SDL_config.h")
 
 # Prepare the flags and remove duplicates
 if(EXTRA_LDFLAGS)
@@ -2970,7 +2970,7 @@ else()
 endif()
 
 configure_file("${SDL2_SOURCE_DIR}/include/SDL_revision.h.cmake"
-  "${SDL2_BINARY_DIR}/include/SDL_revision.h")
+  "${SDL2_SOURCE_DIR}/include/SDL_revision.h")
 
 if(CMAKE_STATIC_LIBRARY_PREFIX STREQUAL "" AND CMAKE_STATIC_LIBRARY_SUFFIX STREQUAL ".lib")
   # Avoid conflict between the dll import library and the static library
@@ -3189,8 +3189,8 @@ if(NOT WINDOWS_STORE AND NOT SDL2_DISABLE_SDL2MAIN)
   add_library(SDL2main STATIC ${SDLMAIN_SOURCES})
   # alias target for in-tree builds
   add_library(SDL2::SDL2main ALIAS SDL2main)
-  target_include_directories(SDL2main BEFORE PRIVATE "${SDL2_BINARY_DIR}/include" PRIVATE "${SDL2_BINARY_DIR}/include-config-$<LOWER_CASE:$<CONFIG>>")
-  target_include_directories(SDL2main PUBLIC "$<BUILD_INTERFACE:${SDL2_BINARY_DIR}/include>" $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}> $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/SDL2>)
+  target_include_directories(SDL2main BEFORE PRIVATE "${SDL2_SOURCE_DIR}/include" PRIVATE)
+  target_include_directories(SDL2main PUBLIC "$<BUILD_INTERFACE:${SDL2_SOURCE_DIR}/include>" $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}> $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/SDL2>)
   if (WIN32)
     target_link_libraries(SDL2main PRIVATE shell32)
   endif()
@@ -3275,8 +3275,7 @@ if(SDL_SHARED)
   # FIXME: if CMAKE_VERSION >= 3.13, use target_link_options for EXTRA_LDFLAGS
   target_link_libraries(SDL2 PRIVATE ${EXTRA_LIBS} ${EXTRA_LDFLAGS} ${EXTRA_LDFLAGS_BUILD})
   target_include_directories(SDL2 PUBLIC
-      "$<BUILD_INTERFACE:${SDL2_BINARY_DIR}/include>"
-      "$<BUILD_INTERFACE:${SDL2_BINARY_DIR}/include-config-$<LOWER_CASE:$<CONFIG>>>"
+      "$<BUILD_INTERFACE:${SDL2_SOURCE_DIR}/include>"
       "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
       "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/SDL2>")
   # This picks up all the compiler options and such we've accumulated up to here.
@@ -3306,8 +3305,7 @@ if(SDL_STATIC)
   # libraries - do we need to consider this?
   target_link_libraries(SDL2-static PRIVATE ${EXTRA_LIBS} ${EXTRA_LDFLAGS})
   target_include_directories(SDL2-static PUBLIC
-      "$<BUILD_INTERFACE:${SDL2_BINARY_DIR}/include>"
-      "$<BUILD_INTERFACE:${SDL2_BINARY_DIR}/include-config-$<LOWER_CASE:$<CONFIG>>>"
+      "$<BUILD_INTERFACE:${SDL2_SOURCE_DIR}/include>"
       "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
       "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/SDL2>")
   # This picks up all the compiler options and such we've accumulated up to here.
@@ -3333,8 +3331,7 @@ if(SDL_TEST)
   set_target_properties(SDL2_test PROPERTIES
       EXPORT_NAME SDL2test)
   target_include_directories(SDL2_test PUBLIC
-      "$<BUILD_INTERFACE:${SDL2_BINARY_DIR}/include>"
-      "$<BUILD_INTERFACE:${SDL2_BINARY_DIR}/include-config-$<LOWER_CASE:$<CONFIG>>>"
+      "$<BUILD_INTERFACE:${SDL2_SOURCE_DIR}/include>"
       "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
       "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/SDL2>")
   target_link_libraries(SDL2_test PRIVATE ${EXTRA_TEST_LIBS})
@@ -3449,8 +3446,7 @@ if(NOT SDL2_DISABLE_INSTALL)
   install(
     FILES
       ${SDL2_INCLUDE_FILES}
-      "${SDL2_BINARY_DIR}/include/SDL_revision.h"
-      "${SDL2_BINARY_DIR}/include-config-$<LOWER_CASE:$<CONFIG>>/SDL_config.h"
+      "${SDL2_SOURCE_DIR}/include/SDL_revision.h"
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/SDL2)
 
   string(TOUPPER "${CMAKE_BUILD_TYPE}" UPPER_BUILD_TYPE)
