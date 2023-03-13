@@ -56,7 +56,7 @@ public:
     /// Set number of geometries. Will destroy previously set geometry and material assignments.
     void SetNumGeometries(size_t num);
 
-    /// Set geometry at index. Geometry pointers are raw pointers for safe LOD level changes on OnPrepareRender() in worker threads; a strong ref to the geometry should be held elsewhere.
+    /// Set geometry at index. %Geometry pointers are raw pointers for safe LOD level changes on OnPrepareRender() in worker threads; a strong ref to the geometry should be held elsewhere.
     void SetGeometry(size_t index, Geometry* geometry)
     {
         if (numGeometries < 2)
@@ -65,7 +65,7 @@ public:
             *(reinterpret_cast<Geometry**>(geomPtr) + index * 2) = geometry;
     } 
 
-    /// Set material at index. Material holds a strong ref and should not be changed from worker threads in OnPrepareRender().
+    /// Set material at index. %Materials hold strong refs and should not be changed from worker threads in OnPrepareRender().
     void SetMaterial(size_t index, Material* material)
     {
         if (numGeometries < 2)

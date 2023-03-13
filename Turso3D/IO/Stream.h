@@ -83,18 +83,31 @@ protected:
     std::string name;
 };
 
+/// Read a boolean.
 template<> bool Stream::Read();
+/// Read a string.
 template<> std::string Stream::Read();
+/// Read a string hash.
 template<> StringHash Stream::Read();
+/// Read a resource reference.
 template<> ResourceRef Stream::Read();
+/// Read a resource reference list.
 template<> ResourceRefList Stream::Read();
+/// Read an object reference.
 template<> ObjectRef Stream::Read();
+/// Read a JSON value.
 template<> JSONValue Stream::Read();
+/// Write a boolean.
 template<> void Stream::Write(const bool& value);
+/// Write a string.
 template<> void Stream::Write(const std::string& value);
+/// Write a string hash.
 template<> void Stream::Write(const StringHash& value);
+/// Write a resource reference.
 template<> void Stream::Write(const ResourceRef& value);
+/// Write a resource reference list.
 template<> void Stream::Write(const ResourceRefList& value);
+/// Write an object reference.
 template<> void Stream::Write(const ObjectRef& value);
+/// Write a JSON value.
 template<> void Stream::Write(const JSONValue& value);
-
