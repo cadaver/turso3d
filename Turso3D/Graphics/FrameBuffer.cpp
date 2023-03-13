@@ -203,28 +203,19 @@ void FrameBuffer::Bind(bool force)
     boundDrawBuffer = this;
 }
 
-void FrameBuffer::Blit(FrameBuffer* dest, const IntRect& destRect, FrameBuffer* src, const IntRect& srcRect, bool blitColor, bool blitDepth, TextureFilterMode filter)
+void FrameBuffer::Bind(FrameBuffer* draw, FrameBuffer* read)
 {
-    ZoneScoped;
-
-    GLenum glBlitBits = 0;
-    if (blitColor)
-        glBlitBits |= GL_COLOR_BUFFER_BIT;
-    if (blitDepth)
-        glBlitBits |= GL_DEPTH_BUFFER_BIT;
-
-    if (boundReadBuffer != src)
+    if (boundDrawBuffer != draw)
     {
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, src ? src->buffer : 0);
-        boundReadBuffer = src;
-    }
-    if (boundDrawBuffer != dest)
-    {
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dest ? dest->buffer : 0);
-        boundDrawBuffer = dest;
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw ? draw->buffer : 0);
+        boundDrawBuffer = draw;
     }
 
-    glBlitFramebuffer(srcRect.left, srcRect.top, srcRect.right, srcRect.bottom, destRect.left, destRect.top, destRect.right, destRect.bottom, glBlitBits, filter == FILTER_POINT ? GL_NEAREST : GL_LINEAR);
+    if (boundReadBuffer != read)
+    {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, read ? read->buffer : 0);
+        boundReadBuffer = read;
+    }
 }
 
 void FrameBuffer::Unbind()

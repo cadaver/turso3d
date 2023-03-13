@@ -34,9 +34,9 @@ public:
 
     /// Return the OpenGL object identifier.
     unsigned GLBuffer() const { return buffer; }
-    /// Blit from one framebuffer to another.
-    static void Blit(FrameBuffer* dest, const IntRect& destRect, FrameBuffer* src, const IntRect& srcRect, bool blitColor, bool blitDepth, TextureFilterMode filter);
-    /// Unbind the current framebuffer and return to backbuffer rendering.
+    /// Bind separate framebuffers for drawing and reading.
+    static void Bind(FrameBuffer* draw, FrameBuffer* read);
+    /// Unbind the current draw and read framebuffers and return to backbuffer rendering.
     static void Unbind();
 
 private:

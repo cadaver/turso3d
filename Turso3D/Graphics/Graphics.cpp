@@ -198,9 +198,116 @@ void Graphics::Present()
     SDL_GL_SwapWindow(window);
 }
 
+void Graphics::SetFrameBuffer(FrameBuffer* buffer)
+{
+    if (buffer)
+        buffer->Bind();
+    else
+        FrameBuffer::Unbind();
+}
+
 void Graphics::SetViewport(const IntRect& viewRect)
 {
     glViewport(viewRect.left, viewRect.top, viewRect.right - viewRect.left, viewRect.bottom - viewRect.top);
+}
+
+ShaderProgram* Graphics::SetProgram(const std::string& shaderName, const std::string& vsDefines, const std::string& fsDefines)
+{
+    ResourceCache* cache = Subsystem<ResourceCache>();
+    Shader* shader = cache->LoadResource<Shader>(shaderName);
+    if (!shader)
+        return nullptr;
+
+    ShaderProgram* program = shader->CreateProgram(vsDefines, fsDefines);
+    return program->Bind() ? program : nullptr;
+}
+
+void Graphics::SetUniformBuffer(size_t index, UniformBuffer* buffer)
+{
+    if (buffer)
+        buffer->Bind(index);
+    else
+        UniformBuffer::Unbind(index);
+}
+
+void Graphics::SetUniform(ShaderProgram* program, const char* name, float value)
+{
+    if (program)
+    {
+        int location = program->Uniform(name);
+        if (location >= 0)
+            glUniform1f(location, value);
+    }
+}
+
+void Graphics::SetUniform(ShaderProgram* program, const char* name, const Vector2& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(name);
+        if (location >= 0)
+            glUniform2fv(location, 1, value.Data());
+    }
+}
+
+void Graphics::SetUniform(ShaderProgram* program, const char* name, const Vector3& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(name);
+        if (location >= 0)
+            glUniform3fv(location, 1, value.Data());
+    }
+}
+
+void Graphics::SetUniform(ShaderProgram* program, const char* name, const Vector4& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(name);
+        if (location >= 0)
+            glUniform4fv(location, 1, value.Data());
+    }
+}
+
+void Graphics::SetUniform(ShaderProgram* program, const char* name, const Matrix3x4& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(name);
+        if (location >= 0)
+            glUniformMatrix3x4fv(location, 1, GL_FALSE, value.Data());
+    }
+}
+
+void Graphics::SetUniform(ShaderProgram* program, const char* name, const Matrix4& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(name);
+        if (location >= 0)
+            glUniformMatrix4fv(location, 1, GL_FALSE, value.Data());
+    }
+}
+
+void Graphics::SetTexture(size_t index, Texture* texture)
+{
+    if (texture)
+        texture->Bind(index);
+    else
+        Texture::Unbind(index);
+}
+
+void Graphics::SetVertexBuffer(VertexBuffer* buffer, ShaderProgram* program)
+{
+    if (buffer && program)
+        buffer->Bind(program->Attributes());
+}
+
+void Graphics::SetIndexBuffer(IndexBuffer* buffer)
+{
+    if (buffer)
+        buffer->Bind();
 }
 
 void Graphics::SetRenderState(BlendMode blendMode, CullMode cullMode, CompareMode depthTest, bool colorWrite, bool depthWrite)
@@ -276,113 +383,6 @@ void Graphics::SetDepthBias(float constantBias, float slopeScaleBias)
     }
 }
 
-ShaderProgram* Graphics::SetProgram(const std::string& shaderName, const std::string& vsDefines, const std::string& fsDefines)
-{
-    ResourceCache* cache = Subsystem<ResourceCache>();
-    Shader* shader = cache->LoadResource<Shader>(shaderName);
-    if (!shader)
-        return nullptr;
-
-    ShaderProgram* program = shader->CreateProgram(vsDefines, fsDefines);
-    return program->Bind() ? program : nullptr;
-}
-
-void Graphics::SetVertexBuffer(VertexBuffer* buffer, ShaderProgram* program)
-{
-    if (buffer && program)
-        buffer->Bind(program->Attributes());
-}
-
-void Graphics::SetIndexBuffer(IndexBuffer* buffer)
-{
-    if (buffer)
-        buffer->Bind();
-}
-
-void Graphics::SetUniformBuffer(size_t index, UniformBuffer* buffer)
-{
-    if (buffer)
-        buffer->Bind(index);
-    else
-        UniformBuffer::Unbind(index);
-}
-
-void Graphics::SetTexture(size_t index, Texture* texture)
-{
-    if (texture)
-        texture->Bind(index);
-    else
-        Texture::Unbind(index);
-}
-
-void Graphics::SetFrameBuffer(FrameBuffer* buffer)
-{
-    if (buffer)
-        buffer->Bind();
-    else
-        FrameBuffer::Unbind();
-}
-
-void Graphics::SetUniform(ShaderProgram* program, const char* name, float value)
-{
-    if (program)
-    {
-        int location = program->Uniform(name);
-        if (location >= 0)
-            glUniform1f(location, value);
-    }
-}
-
-void Graphics::SetUniform(ShaderProgram* program, const char* name, const Vector2& value)
-{
-    if (program)
-    {
-        int location = program->Uniform(name);
-        if (location >= 0)
-            glUniform2fv(location, 1, value.Data());
-    }
-}
-
-void Graphics::SetUniform(ShaderProgram* program, const char* name, const Vector3& value)
-{
-    if (program)
-    {
-        int location = program->Uniform(name);
-        if (location >= 0)
-            glUniform3fv(location, 1, value.Data());
-    }
-}
-
-void Graphics::SetUniform(ShaderProgram* program, const char* name, const Vector4& value)
-{
-    if (program)
-    {
-        int location = program->Uniform(name);
-        if (location >= 0)
-            glUniform4fv(location, 1, value.Data());
-    }
-}
-
-void Graphics::SetUniform(ShaderProgram* program, const char* name, const Matrix3x4& value)
-{
-    if (program)
-    {
-        int location = program->Uniform(name);
-        if (location >= 0)
-            glUniformMatrix3x4fv(location, 1, GL_FALSE, value.Data());
-    }
-}
-
-void Graphics::SetUniform(ShaderProgram* program, const char* name, const Matrix4& value)
-{
-    if (program)
-    {
-        int location = program->Uniform(name);
-        if (location >= 0)
-            glUniformMatrix4fv(location, 1, GL_FALSE, value.Data());
-    }
-}
-
 void Graphics::Clear(bool clearColor, bool clearDepth, const IntRect& clearRect, const Color& backgroundColor)
 {
     if (clearColor)
@@ -416,7 +416,15 @@ void Graphics::Clear(bool clearColor, bool clearDepth, const IntRect& clearRect,
 
 void Graphics::Blit(FrameBuffer* dest, const IntRect& destRect, FrameBuffer* src, const IntRect& srcRect, bool blitColor, bool blitDepth, TextureFilterMode filter)
 {
-    FrameBuffer::Blit(dest, destRect, src, srcRect, blitColor, blitDepth, filter);
+    FrameBuffer::Bind(dest, src);
+
+    GLenum glBlitBits = 0;
+    if (blitColor)
+        glBlitBits |= GL_COLOR_BUFFER_BIT;
+    if (blitDepth)
+        glBlitBits |= GL_DEPTH_BUFFER_BIT;
+
+    glBlitFramebuffer(srcRect.left, srcRect.top, srcRect.right, srcRect.bottom, destRect.left, destRect.top, destRect.right, destRect.bottom, glBlitBits, filter == FILTER_POINT ? GL_NEAREST : GL_LINEAR);
 }
 
 void Graphics::Draw(size_t drawStart, size_t drawCount)

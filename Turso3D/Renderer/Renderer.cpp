@@ -313,7 +313,7 @@ void Renderer::RenderShadowMaps()
             ShadowView* view = shadowMap.shadowViews[j];
 
             if (view->renderMode == RENDER_STATIC_LIGHT_STORE_STATIC)
-                FrameBuffer::Blit(staticObjectShadowFbo, view->viewport, shadowMap.fbo, view->viewport, false, true, FILTER_POINT);
+                graphics->Blit(staticObjectShadowFbo, view->viewport, shadowMap.fbo, view->viewport, false, true, FILTER_POINT);
         }
 
         // Rebind shadowmap
@@ -327,7 +327,7 @@ void Renderer::RenderShadowMaps()
             if (view->renderMode == RENDER_DYNAMIC_LIGHT)
                 graphics->Clear(false, true, view->viewport);
             else if (view->renderMode == RENDER_STATIC_LIGHT_RESTORE_STATIC)
-                FrameBuffer::Blit(shadowMap.fbo, view->viewport, staticObjectShadowFbo, view->viewport, false, true, FILTER_POINT);
+                graphics->Blit(shadowMap.fbo, view->viewport, staticObjectShadowFbo, view->viewport, false, true, FILTER_POINT);
         }
 
         // Finally render the dynamic objects
