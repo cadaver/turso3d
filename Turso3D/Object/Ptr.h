@@ -409,20 +409,20 @@ public:
         return *this;
     }
     
-    /// Point to the array.
-    T* operator -> () const { assert(ptr); return ptr; }
-    /// Dereference the array.
-    T& operator * () const { assert(ptr); return *ptr; }
-    /// Index the array.
-    T& operator [] (size_t index) { assert(ptr); return ptr[index]; }
-    /// Const-index the array.
-    const T& operator [] (size_t index) const { assert(ptr); return ptr[index]; }
     /// Test for equality with another shared array pointer.
     bool operator == (const SharedArrayPtr<T>& rhs) const { return ptr == rhs.ptr; }
     /// Test for inequality with another shared array pointer.
     bool operator != (const SharedArrayPtr<T>& rhs) const { return !(*this == rhs); }
-    /// Convert to bool.
-    operator bool() const { return ptr != nullptr; }
+    /// Point to the array.
+    T* operator -> () const { assert(ptr); return ptr; }
+    /// Dereference the array.
+    T& operator * () const { assert(ptr); return *ptr; }
+    /// Convert to the array element pointer.
+    operator T* () const { return Get(); }
+    /// Index the array.
+    T& operator [] (size_t index) { assert(ptr); return ptr[index]; }
+    /// Const-index the array.
+    const T& operator [] (size_t index) const { assert(ptr); return ptr[index]; }
 
     /// Release the array reference and reset to null. Destroy the array if was the last reference.
     void Reset()

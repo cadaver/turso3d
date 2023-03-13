@@ -293,7 +293,7 @@ bool Image::BeginLoad(Stream& source)
         data = new unsigned char[dataSize];
         size = IntVector3(ddsd.dwWidth, ddsd.dwHeight, Max(ddsd.dwDepth, 1));
         numLevels = ddsd.dwMipMapCount ? ddsd.dwMipMapCount : 1;
-        source.Read(data.Get(), dataSize);
+        source.Read(data, dataSize);
     }
     else if (fileID == "\253KTX")
     {
@@ -478,7 +478,7 @@ bool Image::BeginLoad(Stream& source)
         size = IntVector3(imageWidth, imageHeight, 1);
         numLevels = mipmapCount;
 
-        source.Read(data.Get(), dataSize);
+        source.Read(data, dataSize);
     }
     else
     {
@@ -502,7 +502,7 @@ bool Image::BeginLoad(Stream& source)
             // Convert RGB to RGBA as for example Direct3D 11 does not support 24-bit formats
             AutoArrayPtr<unsigned char> rgbaData(new unsigned char[4 * imageWidth * imageHeight]);
             unsigned char* src = pixelData;
-            unsigned char* dest = rgbaData.Get();
+            unsigned char* dest = rgbaData;
             for (int i = 0; i < imageWidth * imageHeight; ++i)
             {
                 *dest++ = *src++;
@@ -590,9 +590,9 @@ unsigned char* Image::DecodePixelData(Stream& source, int& width, int& height, i
     size_t dataSize = source.Size();
 
     AutoArrayPtr<unsigned char> buffer(new unsigned char[dataSize]);
-    source.Read(buffer.Get(), dataSize);
+    source.Read(buffer, dataSize);
     depth = 1;
-    return stbi_load_from_memory(buffer.Get(), (int)dataSize, &width, &height, (int *)&pixelByteSize, 0);
+    return stbi_load_from_memory(buffer, (int)dataSize, &width, &height, (int *)&pixelByteSize, 0);
 }
 
 void Image::FreePixelData(unsigned char* pixelData)
@@ -617,8 +617,8 @@ bool Image::GenerateMipImage(Image& dest) const
     IntVector3 sizeOut(Max(size.x / 2, 1), Max(size.y / 2, 1), Max(size.z / 2, 1));
     dest.SetSize(sizeOut, format);
 
-    const unsigned char* pixelDataIn = data.Get();
-    unsigned char* pixelDataOut = dest.data.Get();
+    const unsigned char* pixelDataIn = data;
+    unsigned char* pixelDataOut = dest.data;
 
     // \todo Actually support 3D images
     switch (pixelByteSize)

@@ -47,7 +47,7 @@ ShaderProgram* Shader::CreateProgram(const std::string& vsDefinesIn, const std::
 
     auto it = programs.find(hashPair);
     if (it != programs.end())
-        return it->second.Get();
+        return it->second;
     
     // If initially not found, normalize the defines and try again. Remove unused defines
     std::string vsDefines = NormalizeDefines(vsDefinesIn);
@@ -55,7 +55,7 @@ ShaderProgram* Shader::CreateProgram(const std::string& vsDefinesIn, const std::
     auto normalizedHashPair = std::make_pair(StringHash(vsDefines), StringHash(fsDefines));
     it = programs.find(normalizedHashPair);
     if (it != programs.end())
-        return it->second.Get();
+        return it->second;
 
     ShaderProgram* newVariation = new ShaderProgram(sourceCode, Name(), vsDefines, fsDefines);
     programs[hashPair] = newVariation;

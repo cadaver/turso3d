@@ -17,10 +17,10 @@ bool JSONFile::BeginLoad(Stream& source)
     
     size_t dataSize = source.Size() - source.Position();
     AutoArrayPtr<char> buffer(new char[dataSize]);
-    if (source.Read(buffer.Get(), dataSize) != dataSize)
+    if (source.Read(buffer, dataSize) != dataSize)
         return false;
     
-    const char* pos = buffer.Get();
+    const char* pos = buffer;
     const char* end = pos + dataSize;
     
     // Remove any previous content

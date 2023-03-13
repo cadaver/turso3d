@@ -59,7 +59,7 @@ CombinedBuffer* CombinedBuffer::Allocate(const std::vector<VertexElement>& eleme
 
         for (size_t i = 0; i < keyBuffers.size();)
         {
-            CombinedBuffer* buffer = keyBuffers[i].Get();
+            CombinedBuffer* buffer = keyBuffers[i];
             // Clean up expired buffers
             if (!buffer)
             {
@@ -203,6 +203,13 @@ bool Model::BeginLoad(Stream& source)
         vbDesc.vertexSize = vertexSize;
         vbDesc.vertexData = new unsigned char[vbDesc.numVertices * vertexSize];
         source.Read(&vbDesc.vertexData[0], vbDesc.numVertices * vertexSize);
+
+        if (elementMask & 1)
+        {
+            vbDesc.cpuPositionData = new Vector3[vbDesc.numVertices];
+            for (size_t j = 0; j < vbDesc.numVertices; ++j)
+                vbDesc.cpuPositionData[j] = *reinterpret_cast<Vector3*>(vbDesc.vertexData + j * vertexSize);
+        }
     }
 
     size_t numIndexBuffers = source.Read<unsigned>();
@@ -317,7 +324,7 @@ void Model::ApplyBoneMappings(const GeometryDesc& geomDesc, const std::vector<un
     if (!blendIndicesFound)
         return;
 
-    unsigned char* blendIndicesData = vbDesc.vertexData.Get() + blendIndicesOffset;
+    unsigned char* blendIndicesData = vbDesc.vertexData + blendIndicesOffset;
 
     const IndexBufferDesc& ibDesc = ibDescs[geomDesc.ibRef];
 
@@ -439,6 +446,10 @@ bool Model::EndLoad()
                 geom->drawCount = geomDesc.drawCount;
                 geom->vertexBuffer = combinedBuffer->GetVertexBuffer();
                 geom->indexBuffer = combinedBuffer->GetIndexBuffer();
+                geom->cpuPositionData = vbDescs[0].cpuPositionData;
+                geom->cpuIndexData = ibDescs[geomDesc.ibRef].indexData;
+                geom->cpuIndexSize = ibDescs[geomDesc.ibRef].indexSize;
+                geom->cpuDrawStart = geomDesc.drawStart;
                 geometries[i][j] = geom;
             }
         }
@@ -456,7 +467,7 @@ bool Model::EndLoad()
         const VertexBufferDesc& vbDesc = vbDescs[i];
         SharedPtr<VertexBuffer> vb(new VertexBuffer());
 
-        vb->Define(USAGE_DEFAULT, vbDesc.numVertices, vbDesc.vertexElements, vbDesc.vertexData.Get());
+        vb->Define(USAGE_DEFAULT, vbDesc.numVertices, vbDesc.vertexElements, vbDesc.vertexData);
         vbs.push_back(vb);
     }
 
@@ -466,7 +477,7 @@ bool Model::EndLoad()
         const IndexBufferDesc& ibDesc = ibDescs[i];
         SharedPtr<IndexBuffer> ib(new IndexBuffer());
 
-        ib->Define(USAGE_DEFAULT, ibDesc.numIndices, ibDesc.indexSize, ibDesc.indexData.Get());
+        ib->Define(USAGE_DEFAULT, ibDesc.numIndices, ibDesc.indexSize, ibDesc.indexData);
         ibs.push_back(ib);
     }
 
@@ -494,6 +505,11 @@ bool Model::EndLoad()
             else
                 LOGERROR("Out of range index buffer reference in " + Name());
             
+            geom->cpuPositionData = vbDescs[geomDesc.vbRef].cpuPositionData;
+            geom->cpuIndexData = ibDescs[geomDesc.ibRef].indexData;
+            geom->cpuIndexSize = ibDescs[geomDesc.ibRef].indexSize;
+            geom->cpuDrawStart = geomDesc.drawStart;
+
             geometries[i][j] = geom;
         }
     }
@@ -550,5 +566,5 @@ size_t Model::NumLodLevels(size_t index) const
 
 Geometry* Model::GetGeometry(size_t index, size_t lodLevel) const
 {
-    return (index < geometries.size() && lodLevel < geometries[index].size()) ? geometries[index][lodLevel].Get() : nullptr;
+    return (index < geometries.size() && lodLevel < geometries[index].size()) ? geometries[index][lodLevel] : nullptr;
 }

@@ -34,6 +34,14 @@ struct Geometry : public RefCounted
     size_t drawCount;
     /// LOD transition distance.
     float lodDistance;
+    /// CPU-side position data. Included for geometry loaded from model files, not necessarily otherwise.
+    SharedArrayPtr<Vector3> cpuPositionData;
+    /// CPU-side index data. Included for geometry loaded from model files, not necessarily otherwise.
+    SharedArrayPtr<unsigned char> cpuIndexData;
+    /// Index size for the CPU data. May be different in case combined vertex and index buffers are in use.
+    size_t cpuIndexSize;
+    /// Draw range start for the CPU data. May be different in case combined vertex and index buffers are in use.
+    size_t cpuDrawStart;
 };
 
 /// Draw call source data with optimal memory storage. 

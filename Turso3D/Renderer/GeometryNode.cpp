@@ -68,7 +68,9 @@ void SourceBatches::SetNumGeometries(size_t num)
 Geometry::Geometry() : 
     drawStart(0),
     drawCount(0),
-    lodDistance(0.0f)
+    lodDistance(0.0f),
+    cpuDrawStart(0),
+    cpuIndexSize(0)
 {
 }
 

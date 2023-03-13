@@ -107,7 +107,7 @@ void StaticModel::SetLodBias(float bias)
 
 Model* StaticModel::GetModel() const
 {
-    return model.Get();
+    return model;
 }
 
 void StaticModel::OnWorldBoundingBoxUpdate() const
@@ -129,5 +129,5 @@ void StaticModel::SetModelAttr(const ResourceRef& value)
 
 ResourceRef StaticModel::ModelAttr() const
 {
-    return ResourceRef(Model::TypeStatic(), ResourceName(model.Get()));
+    return ResourceRef(Model::TypeStatic(), ResourceName(model));
 }

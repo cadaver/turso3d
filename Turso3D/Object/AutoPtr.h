@@ -147,12 +147,12 @@ public:
     T* operator -> () const { assert(array); return array; }
     /// Dereference the array.
     T& operator * () const { assert(array); return *array; }
+    /// Convert to the array element pointer.
+    operator T* () const { return Get(); }
     /// Index the array.
     T& operator [] (size_t index) { assert(array); return array[index]; }
     /// Const-index the array.
     const T& operator [] (size_t index) const { assert(array); return array[index]; }
-    /// Convert to bool.
-    operator bool () const { return array != nullptr; }
 
     /// Return the array.
     T* Get() const { return array; }

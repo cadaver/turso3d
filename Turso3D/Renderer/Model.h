@@ -21,6 +21,8 @@ struct VertexBufferDesc
     size_t vertexSize;
     /// Vertex data.
     SharedArrayPtr<unsigned char> vertexData;
+    /// Position only version of the vertex data, to be retained after load.
+    SharedArrayPtr<Vector3> cpuPositionData;
 };
 
 /// Load-time description of an index buffer, to be uploaded on the GPU later.

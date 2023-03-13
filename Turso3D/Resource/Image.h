@@ -115,7 +115,7 @@ public:
     /// Return byte size of a pixel. Will return 0 for block compressed formats.
     size_t PixelByteSize() const { return pixelByteSizes[format]; } 
     /// Return pixel data.
-    unsigned char* Data() const { return data.Get(); }
+    unsigned char* Data() const { return data; }
     /// Return the image format.
     ImageFormat Format() const { return format; }
     /// Return whether is a compressed image.

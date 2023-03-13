@@ -254,7 +254,7 @@ AnimationState* AnimatedModel::FindAnimationState(StringHash animationNameHash) 
 
 AnimationState* AnimatedModel::GetAnimationState(size_t index) const
 {
-    return index < animationStates.size() ? animationStates[index].Get() : nullptr;
+    return index < animationStates.size() ? animationStates[index] : nullptr;
 }
 
 void AnimatedModel::OnTransformChanged()
@@ -474,7 +474,7 @@ void AnimatedModel::SetModelAttr(const ResourceRef& value)
 
 ResourceRef AnimatedModel::ModelAttr() const
 {
-    return ResourceRef(Model::TypeStatic(), ResourceName(model.Get()));
+    return ResourceRef(Model::TypeStatic(), ResourceName(model));
 }
 
 void AnimatedModel::SetAnimationStatesAttr(const JSONValue& value)

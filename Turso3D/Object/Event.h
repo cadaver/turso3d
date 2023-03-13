@@ -22,7 +22,7 @@ public:
     virtual void Invoke(Event& event) = 0;
 
     /// Return the receiver object.
-    RefCounted* Receiver() const { return receiver.Get(); }
+    RefCounted* Receiver() const { return receiver; }
 
 protected:
     /// Receiver object.
@@ -46,7 +46,7 @@ public:
     /// Invoke the handler function.
     void Invoke(Event& event) override
     {
-        T* typedReceiver = static_cast<T*>(receiver.Get());
+        T* typedReceiver = static_cast<T*>(receiver);
         U& typedEvent = static_cast<U&>(event);
         (typedReceiver->*function)(typedEvent);
     }

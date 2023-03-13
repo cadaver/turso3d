@@ -262,5 +262,5 @@ Material* Material::DefaultMaterial()
         pass->SetRenderState(BLEND_REPLACE, CMP_LESS, true, true);
     }
 
-    return defaultMaterial.Get();
+    return defaultMaterial;
 }
