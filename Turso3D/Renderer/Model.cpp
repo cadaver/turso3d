@@ -425,11 +425,11 @@ bool Model::EndLoad()
 
         std::vector<size_t> indexStarts;
 
-        combinedBuffer->FillVertices(vbDescs[0].numVertices, vbDescs[0].vertexData.Get());
+        combinedBuffer->FillVertices(vbDescs[0].numVertices, vbDescs[0].vertexData);
         for (size_t i = 0; i < ibDescs.size(); ++i)
         {
             indexStarts.push_back(combinedBuffer->UsedIndices());
-            combinedBuffer->FillIndices(ibDescs[i].numIndices, ibDescs[i].indexData.Get());
+            combinedBuffer->FillIndices(ibDescs[i].numIndices, ibDescs[i].indexData);
         }
 
         geometries.resize(geomDescs.size());
