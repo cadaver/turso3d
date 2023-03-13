@@ -41,8 +41,6 @@ public:
     bool SetData(size_t level, const IntBox& box, const ImageLevel& data);
     /// Bind to texture unit. No-op if already bound, unless force is specified. Force mode is used when editing.
     void Bind(size_t unit, bool force = false);
-    /// Unbind a texture unit.
-    static void Unbind(size_t unit);
 
     /// Return texture type.
     TextureType TexType() const { return type; }
@@ -64,24 +62,26 @@ public:
     int Multisample() const { return multisample; }
     /// Return number of mipmap levels.
     size_t NumLevels() const { return numLevels; }
+    /// Return texture filter mode.
+    TextureFilterMode FilterMode() const { return filter; }
+    /// Return texture addressing mode by index.
+    TextureAddressMode AddressMode(size_t index) const { return addressModes[index]; }
+    /// Return max anisotropy.
+    unsigned MaxAnisotropy() const { return maxAnisotropy; }
+    /// Return minimum LOD.
+    float MinLod() const { return minLod; }
+    /// Return maximum LOD.
+    float MaxLod() const { return maxLod; }
+    /// Return border color.
+    const Color& BorderColor() const { return borderColor; }
 
     /// Return the OpenGL object identifier.
     unsigned GLTexture() const { return texture; }
     /// Return the OpenGL binding target of the texture.
     unsigned GLTarget() const;
 
-    /// Texture filtering mode.
-    TextureFilterMode filter;
-    /// Texture addressing modes for each coordinate axis.
-    TextureAddressMode addressModes[3];
-    /// Maximum anisotropy.
-    unsigned maxAnisotropy;
-    /// Minimum LOD.
-    float minLod;
-    /// Maximum LOD.
-    float maxLod;
-    /// Border color. Only effective in border addressing mode.
-    Color borderColor;
+    /// Unbind a texture unit.
+    static void Unbind(size_t unit);
 
 private:
     /// Release the texture.
@@ -101,6 +101,18 @@ private:
     int multisample;
     /// Number of mipmap levels.
     size_t numLevels;
+    /// Texture filtering mode.
+    TextureFilterMode filter;
+    /// Texture addressing modes for each coordinate axis.
+    TextureAddressMode addressModes[3];
+    /// Maximum anisotropy.
+    unsigned maxAnisotropy;
+    /// Minimum LOD.
+    float minLod;
+    /// Maximum LOD.
+    float maxLod;
+    /// Border color. Only effective in border addressing mode.
+    Color borderColor;
     /// Images used for loading.
     std::vector<AutoPtr<Image> > loadImages;
 };

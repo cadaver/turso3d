@@ -34,6 +34,7 @@ public:
 
     /// Return the OpenGL object identifier.
     unsigned GLBuffer() const { return buffer; }
+
     /// Bind separate framebuffers for drawing and reading.
     static void Bind(FrameBuffer* draw, FrameBuffer* read);
     /// Unbind the current draw and read framebuffers and return to backbuffer rendering.
