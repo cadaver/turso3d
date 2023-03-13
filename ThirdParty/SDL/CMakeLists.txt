@@ -1,7 +1,3 @@
-if(${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR})
-  message(FATAL_ERROR "Prevented in-tree build. Please create a build directory outside of the SDL source code and run \"cmake -S ${CMAKE_SOURCE_DIR} -B .\" from there")
-endif()
-
 cmake_minimum_required(VERSION 3.0.0)
 project(SDL2 C CXX)
 
@@ -394,25 +390,9 @@ endif()
 
 # When defined, respect CMake's BUILD_SHARED_LIBS setting:
 set(SDL_STATIC_ENABLED_BY_DEFAULT ON)
-if (NOT DEFINED SDL_SHARED_ENABLED_BY_DEFAULT)
-  # ...unless decided already (as for EMSCRIPTEN)
-
-  set(SDL_SHARED_ENABLED_BY_DEFAULT OFF)
-
-  if (NOT DEFINED BUILD_SHARED_LIBS)
-    # No preference? Build both, just like the AC/AM configure
-    set(SDL_SHARED_ENABLED_BY_DEFAULT ON)
-
-  elseif (BUILD_SHARED_LIBS)
-    # In this case, we assume the user wants a shared lib and don't build
-    # the static one
-    set(SDL_SHARED_ENABLED_BY_DEFAULT ON)
-    set(SDL_STATIC_ENABLED_BY_DEFAULT OFF)
-  endif()
-endif()
-
+set(SDL_SHARED_ENABLED_BY_DEFAULT OFF)
 if (NOT DEFINED SDL_TEST_ENABLED_BY_DEFAULT)
-  set(SDL_TEST_ENABLED_BY_DEFAULT ON)
+  set(SDL_TEST_ENABLED_BY_DEFAULT OFF)
 endif()
 
 set(LONGESTOPTIONNAME 0)  # set_option and friends will change this.
@@ -429,7 +409,7 @@ foreach(_SUB ${SDL_SUBSYSTEMS})
 endforeach()
 
 # Allow some projects to be built conditionally.
-set_option(SDL2_DISABLE_SDL2MAIN   "Disable building/installation of SDL2main" OFF)
+set_option(SDL2_DISABLE_SDL2MAIN   "Disable building/installation of SDL2main" ON)
 set_option(SDL2_DISABLE_INSTALL    "Disable installation of SDL2" ${SDL2_SUBPROJECT})
 set_option(SDL2_DISABLE_UNINSTALL  "Disable uninstallation of SDL2" OFF)
 
@@ -499,8 +479,9 @@ set_option(SDL_COCOA               "Use Cocoa video driver" ${APPLE})
 set_option(SDL_DIRECTX             "Use DirectX for Windows audio/video" ${WINDOWS})
 set_option(SDL_XINPUT              "Use Xinput for Windows" ${WINDOWS})
 set_option(SDL_WASAPI              "Use the Windows WASAPI audio driver" ${WINDOWS})
-set_option(SDL_RENDER_D3D          "Enable the Direct3D render driver" ${WINDOWS})
-set_option(SDL_RENDER_METAL        "Enable the Metal render driver" ${APPLE})
+set_option(SDL_RENDER_DISABLED     "Disable rendering functions" ON)
+set_option(SDL_RENDER_D3D          "Enable the Direct3D render driver" OFF)
+set_option(SDL_RENDER_METAL        "Enable the Metal render driver" OFF)
 set_option(SDL_VIVANTE             "Use Vivante EGL video driver" ${UNIX_SYS})
 dep_option(SDL_VULKAN              "Enable Vulkan support" ON "ANDROID OR APPLE OR LINUX OR WINDOWS" OFF)
 set_option(SDL_METAL               "Enable Metal support" ${APPLE})
@@ -1947,7 +1928,7 @@ elseif(WINDOWS)
     list(APPEND SOURCE_FILES ${JOYSTICK_SOURCES})
 
     if(NOT WINDOWS_STORE)
-      set(SDL_JOYSTICK_RAWINPUT 1)
+      set(SDL_JOYSTICK_RAWINPUT 0)
     endif()
     if(HAVE_DINPUT_H)
       set(SDL_JOYSTICK_DINPUT 1)
@@ -1959,7 +1940,7 @@ elseif(WINDOWS)
         set(HAVE_XINPUT TRUE)
       endif()
       if(HAVE_WINDOWS_GAMING_INPUT_H)
-        set(SDL_JOYSTICK_WGI 1)
+        set(SDL_JOYSTICK_WGI 0)
       endif()
     endif()
     set(HAVE_SDL_JOYSTICK TRUE)
@@ -2937,17 +2918,9 @@ endif()
 #   endif()
 # endif()
 
-# config variables may contain generator expression, so we need to generate SDL_config.h in 2 steps:
-# 1. replace all `#cmakedefine`'s and `@abc@`
+# Generate config
 configure_file("${SDL2_SOURCE_DIR}/include/SDL_config.h.cmake"
-  "${SDL2_BINARY_DIR}/SDL_config.h.intermediate")
-# 2. Create the "include-config-${CMAKE_BUILD_TYPE}" folder (fails on older CMake versions when it does not exist)
-string(TOLOWER "${CMAKE_BUILD_TYPE}" lower_build_type)
-execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/include-config-${lower_build_type}")
-# 3. generate SDL_config in an build_type-dependent folder (which should be first in the include search path)
-file(GENERATE
-    OUTPUT "${SDL2_BINARY_DIR}/include-config-$<LOWER_CASE:$<CONFIG>>/SDL_config.h"
-    INPUT "${SDL2_BINARY_DIR}/SDL_config.h.intermediate")
+  "${SDL2_BINARY_DIR}/include/SDL_config.h")
 
 # Prepare the flags and remove duplicates
 if(EXTRA_LDFLAGS)
@@ -2998,24 +2971,6 @@ endif()
 
 configure_file("${SDL2_SOURCE_DIR}/include/SDL_revision.h.cmake"
   "${SDL2_BINARY_DIR}/include/SDL_revision.h")
-
-# Copy all non-generated headers to "${SDL2_BINARY_DIR}/include"
-# This is done to avoid the inclusion of a pre-generated SDL_config.h
-file(GLOB SDL2_INCLUDE_FILES ${SDL2_SOURCE_DIR}/include/*.h)
-set(SDL2_COPIED_INCLUDE_FILES)
-foreach(_hdr IN LISTS SDL2_INCLUDE_FILES)
-  if(_hdr MATCHES ".*(SDL_config|SDL_revision).*")
-    list(REMOVE_ITEM SDL2_INCLUDE_FILES "${_hdr}")
-  else()
-    get_filename_component(_name "${_hdr}" NAME)
-    set(_bin_hdr "${SDL2_BINARY_DIR}/include/${_name}")
-    list(APPEND SDL2_COPIED_INCLUDE_FILES "${_bin_hdr}")
-    add_custom_command(OUTPUT "${_bin_hdr}"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_hdr}" "${_bin_hdr}"
-        DEPENDS "${_hdr}")
-  endif()
-endforeach()
-list(APPEND SDL_GENERATED_HEADERS ${SDL2_COPIED_INCLUDE_FILES})
 
 if(CMAKE_STATIC_LIBRARY_PREFIX STREQUAL "" AND CMAKE_STATIC_LIBRARY_SUFFIX STREQUAL ".lib")
   # Avoid conflict between the dll import library and the static library
@@ -3160,10 +3115,6 @@ if(SDL_TESTS)
   set(HAVE_TESTS ON)
 endif()
 
-# Create target that collects all all generated include files.
-add_custom_target(sdl_headers_copy
-    DEPENDS ${SDL_GENERATED_HEADERS})
-
 ##### Info output #####
 message(STATUS "")
 message(STATUS "SDL2 was configured with the following options:")
@@ -3236,7 +3187,6 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_CFLAGS} ${EXTRA_CFLAGS_BUILD}")
 if(NOT WINDOWS_STORE AND NOT SDL2_DISABLE_SDL2MAIN)
   # Build SDLmain
   add_library(SDL2main STATIC ${SDLMAIN_SOURCES})
-  add_dependencies(SDL2main sdl_headers_copy)
   # alias target for in-tree builds
   add_library(SDL2::SDL2main ALIAS SDL2main)
   target_include_directories(SDL2main BEFORE PRIVATE "${SDL2_BINARY_DIR}/include" PRIVATE "${SDL2_BINARY_DIR}/include-config-$<LOWER_CASE:$<CONFIG>>")
@@ -3279,7 +3229,6 @@ endif()
 
 if(SDL_SHARED)
   add_library(SDL2 SHARED ${SOURCE_FILES} ${VERSION_SOURCES})
-  add_dependencies(SDL2 sdl_headers_copy)
   # alias target for in-tree builds
   add_library(SDL2::SDL2 ALIAS SDL2)
   set_target_properties(SDL2 PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
@@ -3347,7 +3296,6 @@ endif()
 
 if(SDL_STATIC)
   add_library(SDL2-static STATIC ${SOURCE_FILES})
-  add_dependencies(SDL2-static sdl_headers_copy)
   # alias target for in-tree builds
   add_library(SDL2::SDL2-static ALIAS SDL2-static)
   set_target_properties(SDL2-static PROPERTIES
@@ -3381,7 +3329,6 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSDL_BUILD_MICRO_VERSION=${SDL_MICRO_VERSIO
 if(SDL_TEST)
   file(GLOB TEST_SOURCES ${SDL2_SOURCE_DIR}/src/test/*.c)
   add_library(SDL2_test STATIC ${TEST_SOURCES})
-  add_dependencies(SDL2_test sdl_headers_copy)
   add_library(SDL2::SDL2test ALIAS SDL2_test)
   set_target_properties(SDL2_test PROPERTIES
       EXPORT_NAME SDL2test)
