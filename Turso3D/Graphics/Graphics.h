@@ -10,7 +10,10 @@
 #include "GraphicsDefs.h"
 
 class FrameBuffer;
+class IndexBuffer;
 class ShaderProgram;
+class Texture;
+class UniformBuffer;
 class VertexBuffer;
 struct SDL_Window;
 
@@ -42,8 +45,18 @@ public:
     void SetRenderState(BlendMode blendMode, CullMode cullMode = CULL_BACK, CompareMode depthTest = CMP_LESS, bool colorWrite = true, bool depthWrite = true);
     /// Set depth bias.
     void SetDepthBias(float constantBias = 0.0f, float slopeScaleBias = 0.0f);
-    /// Bind a shader program for use. Provided for convenience. Return pointer on success or null otherwise.
+    /// Bind a shader program for use. Return pointer on success or null otherwise. Provided for convenience.
     ShaderProgram* SetProgram(const std::string& shaderName, const std::string& vsDefines = JSONValue::emptyString, const std::string& fsDefines = JSONValue::emptyString);
+    /// Bind a vertex buffer for use with the specified shader program's attribute bindings. Provided for convenience.
+    void SetVertexBuffer(VertexBuffer* buffer, ShaderProgram* program);
+    /// Bind an index buffer for use. Provided for convenience.
+    void SetIndexBuffer(IndexBuffer* buffer);
+    /// Bind a uniform buffer for use in slot index. Null buffer parameter to unbind.  Provided for convenience.
+    void SetUniformBuffer(size_t index, UniformBuffer* buffer);
+    /// Bind a texture for use in texture unit. Null texture parameter to unbind.  Provided for convenience.
+    void SetTexture(size_t index, Texture* texture);
+    /// Bind a framebuffer for use. Null buffer parameter to unbind and return to backbuffer rendering.  Provided for convenience.
+    void SetFrameBuffer(FrameBuffer* buffer);
     /// Set float uniform. Low performance, provided for convenience.
     void SetUniform(ShaderProgram* program, const char* name, float value);
     /// Set a Vector2 uniform. Low performance, provided for convenience.
@@ -58,7 +71,13 @@ public:
     void SetUniform(ShaderProgram* program, const char* name, const Matrix4& value);
     /// Clear the current framebuffer.
     void Clear(bool clearColor = true, bool clearDepth = true, const IntRect& clearRect = IntRect::ZERO, const Color& backgroundColor = Color::BLACK);
-    /// Draw a quad with current renderstate.
+    /// Blit from one framebuffer to another. Provided for convenience.
+    void Blit(FrameBuffer* dest, const IntRect& destRect, FrameBuffer* src, const IntRect& srcRect, bool blitColor, bool blitDepth, TextureFilterMode filter);
+    /// Draw non-indexed triangle geometry with the currently bound vertex buffer. Provided for convenience.
+    void Draw(size_t drawStart, size_t drawCount);
+    /// Draw indexed triangle geometry with the currently bound vertex and index buffer. Provided for convenience.
+    void DrawIndexed(size_t drawStart, size_t drawCount);
+    /// Draw a quad with current renderstate. The quad vertex buffer is left bound.
     void DrawQuad();
 
     /// Return whether is initialized.

@@ -22,7 +22,7 @@ public:
     /// Return shader name concatenated from parent shader name and defines.
     const std::string& ShaderName() const { return shaderName; }
     /// Return bitmask of used vertex attributes.
-    const unsigned Attributes() const { return attributes; }
+    unsigned Attributes() const { return attributes; }
     /// Return uniform map.
     const std::map<StringHash, int>& Uniforms() const { return uniforms; }
     /// Return uniform location by name or negative if not found.

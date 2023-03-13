@@ -34,6 +34,9 @@ public:
     /// Return the OpenGL object identifier.
     unsigned GLBuffer() const { return buffer; }
 
+    /// Return the currently bound index buffer.
+    static IndexBuffer* BoundIndexBuffer();
+
 private:
     /// Create the GPU-side index buffer. Return true on success.
     bool Create(const void* data);

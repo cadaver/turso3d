@@ -337,14 +337,16 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             renderer->RenderShadowMaps();
 
             if (drawSSAO)
-                viewMRTFbo->Bind();
+                graphics->SetFrameBuffer(viewMRTFbo);
             else
-                viewFbo->Bind();
+                graphics->SetFrameBuffer(viewFbo);
 
             graphics->SetViewport(IntRect(0, 0, width, height));
             graphics->Clear(true, true, IntRect::ZERO, Color::BLACK);
+
             renderer->RenderOpaque();
 
+            // Optionally render SSAO by darkening the opaque geometry
             if (drawSSAO)
             {
                 float farClip = camera->FarClip();
@@ -352,33 +354,33 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 Vector3 nearVec, farVec;
                 camera->FrustumSize(nearVec, farVec);
 
-                ssaoFbo->Bind();
-                graphics->SetViewport(IntRect(0, 0, ssaoTexture->Width(), ssaoTexture->Height()));
                 ShaderProgram* program = graphics->SetProgram("Shaders/SSAO.glsl");
+                graphics->SetFrameBuffer(ssaoFbo);
+                graphics->SetViewport(IntRect(0, 0, ssaoTexture->Width(), ssaoTexture->Height()));
                 graphics->SetUniform(program, "noiseInvSize", Vector2(ssaoTexture->Width() / 4.0f, ssaoTexture->Height() / 4.0f));
                 graphics->SetUniform(program, "screenInvSize", Vector2(1.0f / colorBuffer->Width(), 1.0f / colorBuffer->Height()));
                 graphics->SetUniform(program, "frustumSize", Vector4(farVec, (float)height / (float)width));
                 graphics->SetUniform(program, "aoParameters", Vector4(0.15f, 1.0f, 0.015f, 0.15f));
                 graphics->SetUniform(program, "depthReconstruct", Vector2(farClip / (farClip - nearClip), -nearClip / (farClip - nearClip)));
-                depthStencilBuffer->Bind(0);
-                normalBuffer->Bind(1);
-                noiseTexture->Bind(2);
+                graphics->SetTexture(0, depthStencilBuffer);
+                graphics->SetTexture(1, normalBuffer);
+                graphics->SetTexture(2, noiseTexture);
                 graphics->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_ALWAYS, true, false);
                 graphics->DrawQuad();
-                Texture::Unbind(1);
-                Texture::Unbind(2);
+                graphics->SetTexture(1, nullptr);
+                graphics->SetTexture(2, nullptr);
 
-                viewFbo->Bind();
-                graphics->SetViewport(IntRect(0, 0, width, height));
                 program = graphics->SetProgram("Shaders/SSAOBlur.glsl");
+                graphics->SetFrameBuffer(viewFbo);
+                graphics->SetViewport(IntRect(0, 0, width, height));
                 graphics->SetUniform(program, "blurInvSize", Vector2(1.0f / ssaoTexture->Width(), 1.0f / ssaoTexture->Height()));
-                ssaoTexture->Bind(0);
+                graphics->SetTexture(0, ssaoTexture);
                 graphics->SetRenderState(BLEND_SUBTRACT, CULL_NONE, CMP_ALWAYS, true, false);
                 graphics->DrawQuad();
-                Texture::Unbind(0);
+                graphics->SetTexture(0, nullptr);
             }
 
-            viewFbo->Bind();
+            graphics->SetFrameBuffer(viewFbo);
             graphics->SetViewport(IntRect(0, 0, width, height));
             renderer->RenderAlpha();
 
@@ -395,14 +397,15 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
                 ShaderProgram* program = graphics->SetProgram("Shaders/Debug.glsl");
                 graphics->SetUniform(program, "worldViewProjMatrix", quadMatrix);
-                renderer->ShadowMapTexture(0)->Bind(0);
+                graphics->SetTexture(0, renderer->ShadowMapTexture(0));
                 graphics->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_ALWAYS, true, false);
                 graphics->DrawQuad();
-                Texture::Unbind(0);
+                graphics->SetTexture(0, nullptr);
             }
             */
 
-            FrameBuffer::Blit(nullptr, IntRect(0, 0, width, height), viewFbo, IntRect(0, 0, width, height), true, false, FILTER_POINT);
+            // Blit rendered contents to backbuffer now before presenting
+            graphics->Blit(nullptr, IntRect(0, 0, width, height), viewFbo, IntRect(0, 0, width, height), true, false, FILTER_POINT);
         }
 
         {

@@ -118,3 +118,8 @@ void IndexBuffer::Bind(bool force)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer);
     boundIndexBuffer = this;
 }
+
+IndexBuffer* IndexBuffer::BoundIndexBuffer()
+{
+    return boundIndexBuffer;
+}

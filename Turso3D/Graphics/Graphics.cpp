@@ -4,9 +4,11 @@
 #include "../Resource/ResourceCache.h"
 #include "FrameBuffer.h"
 #include "Graphics.h"
+#include "IndexBuffer.h"
 #include "Shader.h"
 #include "ShaderProgram.h"
 #include "Texture.h"
+#include "UniformBuffer.h"
 #include "VertexBuffer.h"
 
 #include <SDL.h>
@@ -285,6 +287,42 @@ ShaderProgram* Graphics::SetProgram(const std::string& shaderName, const std::st
     return program->Bind() ? program : nullptr;
 }
 
+void Graphics::SetVertexBuffer(VertexBuffer* buffer, ShaderProgram* program)
+{
+    if (buffer && program)
+        buffer->Bind(program->Attributes());
+}
+
+void Graphics::SetIndexBuffer(IndexBuffer* buffer)
+{
+    if (buffer)
+        buffer->Bind();
+}
+
+void Graphics::SetUniformBuffer(size_t index, UniformBuffer* buffer)
+{
+    if (buffer)
+        buffer->Bind(index);
+    else
+        UniformBuffer::Unbind(index);
+}
+
+void Graphics::SetTexture(size_t index, Texture* texture)
+{
+    if (texture)
+        texture->Bind(index);
+    else
+        Texture::Unbind(index);
+}
+
+void Graphics::SetFrameBuffer(FrameBuffer* buffer)
+{
+    if (buffer)
+        buffer->Bind();
+    else
+        FrameBuffer::Unbind();
+}
+
 void Graphics::SetUniform(ShaderProgram* program, const char* name, float value)
 {
     if (program)
@@ -374,6 +412,23 @@ void Graphics::Clear(bool clearColor, bool clearDepth, const IntRect& clearRect,
         glClear(glClearBits);
         glDisable(GL_SCISSOR_TEST);
     }
+}
+
+void Graphics::Blit(FrameBuffer* dest, const IntRect& destRect, FrameBuffer* src, const IntRect& srcRect, bool blitColor, bool blitDepth, TextureFilterMode filter)
+{
+    FrameBuffer::Blit(dest, destRect, src, srcRect, blitColor, blitDepth, filter);
+}
+
+void Graphics::Draw(size_t drawStart, size_t drawCount)
+{
+    glDrawArrays(GL_TRIANGLES, (GLsizei)drawStart, (GLsizei)drawCount);
+}
+
+void Graphics::DrawIndexed(size_t drawStart, size_t drawCount)
+{
+    IndexBuffer* ib = IndexBuffer::BoundIndexBuffer();
+    if (ib)
+        glDrawElements(GL_TRIANGLES, (GLsizei)drawCount, ib->IndexSize() == sizeof(unsigned short) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, (const void*)(drawStart * ib->IndexSize()));
 }
 
 void Graphics::DrawQuad()
