@@ -1,3 +1,4 @@
+.build/
 .vs/
 Docs/html
 CMakeFiles/
