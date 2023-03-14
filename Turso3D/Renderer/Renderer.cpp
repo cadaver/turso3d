@@ -274,8 +274,9 @@ void Renderer::RenderShadowMaps()
 {
     ZoneScoped;
 
-    Texture::Unbind(8);
-    Texture::Unbind(9);
+    // Unbind shadow textures before rendering to
+    Texture::Unbind(TU_DIRLIGHTSHADOW);
+    Texture::Unbind(TU_SHADOWATLAS);
 
     for (size_t i = 0; i < shadowMaps.size(); ++i)
     {
@@ -291,17 +292,17 @@ void Renderer::RenderShadowMaps()
         for (size_t j = 0; j < shadowMap.shadowViews.size(); ++j)
         {
             ShadowView* view = shadowMap.shadowViews[j];
+            Light* light = view->light;
 
             if (view->renderMode == RENDER_STATIC_LIGHT_STORE_STATIC)
             {
-                BatchQueue& batchQueue = shadowMap.shadowBatches[view->staticQueueIdx];
-
                 graphics->Clear(false, true, view->viewport);
 
+                BatchQueue& batchQueue = shadowMap.shadowBatches[view->staticQueueIdx];
                 if (batchQueue.HasBatches())
                 {
                     graphics->SetViewport(view->viewport);
-                    graphics->SetDepthBias(view->light->DepthBias() * depthBiasMul, view->light->SlopeScaleBias() * slopeScaleBiasMul);
+                    graphics->SetDepthBias(light->DepthBias() * depthBiasMul, light->SlopeScaleBias() * slopeScaleBiasMul);
                     RenderBatches(view->shadowCamera, batchQueue);
                 }
             }
@@ -334,15 +335,15 @@ void Renderer::RenderShadowMaps()
         for (size_t j = 0; j < shadowMap.shadowViews.size(); ++j)
         {
             ShadowView* view = shadowMap.shadowViews[j];
+            Light* light = view->light;
 
             if (view->renderMode != RENDER_STATIC_LIGHT_CACHED)
             {
                 BatchQueue& batchQueue = shadowMap.shadowBatches[view->dynamicQueueIdx];
-
                 if (batchQueue.HasBatches())
                 {
                     graphics->SetViewport(view->viewport);
-                    graphics->SetDepthBias(view->light->DepthBias() * depthBiasMul, view->light->SlopeScaleBias() * slopeScaleBiasMul);
+                    graphics->SetDepthBias(light->DepthBias() * depthBiasMul, light->SlopeScaleBias() * slopeScaleBiasMul);
                     RenderBatches(view->shadowCamera, batchQueue);
                 }
             }
@@ -364,13 +365,13 @@ void Renderer::RenderOpaque()
 
     if (shadowMaps.size())
     {
-        shadowMaps[0].texture->Bind(8);
-        shadowMaps[1].texture->Bind(9);
-        faceSelectionTexture1->Bind(10);
-        faceSelectionTexture2->Bind(11);
+        shadowMaps[0].texture->Bind(TU_DIRLIGHTSHADOW);
+        shadowMaps[1].texture->Bind(TU_SHADOWATLAS);
+        faceSelectionTexture1->Bind(TU_FACESELECTION1);
+        faceSelectionTexture2->Bind(TU_FACESELECTION2);
     }
 
-    clusterTexture->Bind(12);
+    clusterTexture->Bind(TU_LIGHTCLUSTERDATA);
     lightDataBuffer->Bind(UB_LIGHTDATA);
 
     RenderBatches(camera, opaqueBatches);
@@ -382,13 +383,13 @@ void Renderer::RenderAlpha()
 
     if (shadowMaps.size())
     {
-        shadowMaps[0].texture->Bind(8);
-        shadowMaps[1].texture->Bind(9);
-        faceSelectionTexture1->Bind(10);
-        faceSelectionTexture2->Bind(11);
+        shadowMaps[0].texture->Bind(TU_DIRLIGHTSHADOW);
+        shadowMaps[1].texture->Bind(TU_SHADOWATLAS);
+        faceSelectionTexture1->Bind(TU_FACESELECTION1);
+        faceSelectionTexture2->Bind(TU_FACESELECTION2);
     }
 
-    clusterTexture->Bind(12);
+    clusterTexture->Bind(TU_LIGHTCLUSTERDATA);
     lightDataBuffer->Bind(UB_LIGHTDATA);
 
     RenderBatches(camera, alphaBatches);

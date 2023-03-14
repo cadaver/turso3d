@@ -35,6 +35,13 @@ static const size_t MAX_LIGHTS = 255;
 static const size_t MAX_LIGHTS_CLUSTER = 16;
 static const size_t NUM_OCTANT_TASKS = 9;
 
+// Texture units with built-in meanings.
+static const size_t TU_DIRLIGHTSHADOW = 8;
+static const size_t TU_SHADOWATLAS = 9;
+static const size_t TU_FACESELECTION1 = 10;
+static const size_t TU_FACESELECTION2 = 11;
+static const size_t TU_LIGHTCLUSTERDATA = 12;
+
 /// Per-thread results for octant collection.
 struct ThreadOctantResult
 {
