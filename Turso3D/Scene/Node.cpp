@@ -182,8 +182,8 @@ void Node::SetParent(Node* newParent)
 {
     if (newParent)
         newParent->AddChild(this);
-    else
-        LOGERROR("Could not set null parent");
+    else if (parent)
+        parent->RemoveChild(this);
 }
 
 Node* Node::CreateChild(StringHash childType)
@@ -287,6 +287,7 @@ void Node::RemoveChild(size_t index)
     Node* child = children[index];
     // Detach from both the parent and the scene (removes id assignment)
     child->parent = nullptr;
+    child->SetFlag(NF_SPATIAL_PARENT, false);
     if (impl->scene)
         impl->scene->RemoveNode(child);
     children.erase(children.begin() + index);
@@ -298,6 +299,7 @@ void Node::RemoveAllChildren()
     {
         Node* child = *it;
         child->parent = nullptr;
+        child->SetFlag(NF_SPATIAL_PARENT, false);
         if (impl->scene)
             impl->scene->RemoveNode(child);
         it->Reset();
@@ -310,8 +312,6 @@ void Node::RemoveSelf()
 {
     if (parent)
         parent->RemoveChild(this);
-    else
-        delete this;
 }
 
 size_t Node::NumPersistentChildren() const

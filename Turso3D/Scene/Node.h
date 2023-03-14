@@ -99,7 +99,7 @@ public:
     void RemoveChild(size_t index);
     /// Remove all child nodes.
     void RemoveAllChildren();
-    /// Remove self immediately. As this will delete the node (if no other strong references exist) no operations on the node are permitted after calling this.
+    /// Remove self from the parent node. No-op if no parent. Potentially causes deletion of self, if no other strong references exist.
     void RemoveSelf();
     /// Create child node of the specified type, template version.
     template <class T> T* CreateChild() { return static_cast<T*>(CreateChild(T::TypeStatic())); }
