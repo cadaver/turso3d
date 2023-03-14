@@ -419,10 +419,6 @@ public:
     T& operator * () const { assert(ptr); return *ptr; }
     /// Convert to the array element pointer.
     operator T* () const { return Get(); }
-    /// Index the array.
-    T& operator [] (size_t index) { assert(ptr); return ptr[index]; }
-    /// Const-index the array.
-    const T& operator [] (size_t index) const { assert(ptr); return ptr[index]; }
 
     /// Release the array reference and reset to null. Destroy the array if was the last reference.
     void Reset()

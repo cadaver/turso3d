@@ -104,9 +104,9 @@ Renderer::Renderer() :
     {
         hasInstancing = true;
 
-        glVertexAttribDivisorARB(7, 1);
-        glVertexAttribDivisorARB(8, 1);
-        glVertexAttribDivisorARB(9, 1);
+        glVertexAttribDivisorARB(ATTR_TEXCOORD3, 1);
+        glVertexAttribDivisorARB(ATTR_TEXCOORD4, 1);
+        glVertexAttribDivisorARB(ATTR_TEXCOORD5, 1);
 
         instanceVertexBuffer = new VertexBuffer();
         instanceVertexElements.push_back(VertexElement(ELEM_VECTOR4, SEM_TEXCOORD, 3));
@@ -671,18 +671,18 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
         {
             if (!instancingEnabled)
             {
-                glEnableVertexAttribArray(7);
-                glEnableVertexAttribArray(8);
-                glEnableVertexAttribArray(9);
+                glEnableVertexAttribArray(ATTR_TEXCOORD3);
+                glEnableVertexAttribArray(ATTR_TEXCOORD4);
+                glEnableVertexAttribArray(ATTR_TEXCOORD5);
                 instancingEnabled = true;
             }
 
             const size_t instanceVertexSize = sizeof(Matrix3x4);
             
             instanceVertexBuffer->Bind(0);
-            glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(batch.instanceStart * instanceVertexSize));
-            glVertexAttribPointer(8, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(batch.instanceStart * instanceVertexSize + sizeof(Vector4)));
-            glVertexAttribPointer(9, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(batch.instanceStart * instanceVertexSize + 2 * sizeof(Vector4)));
+            glVertexAttribPointer(ATTR_TEXCOORD3, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(batch.instanceStart * instanceVertexSize));
+            glVertexAttribPointer(ATTR_TEXCOORD4, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(batch.instanceStart * instanceVertexSize + sizeof(Vector4)));
+            glVertexAttribPointer(ATTR_TEXCOORD5, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(batch.instanceStart * instanceVertexSize + 2 * sizeof(Vector4)));
 
             VertexBuffer* vb = geometry->vertexBuffer;
             IndexBuffer* ib = geometry->indexBuffer;
@@ -699,9 +699,9 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
         {
             if (instancingEnabled)
             {
-                glDisableVertexAttribArray(7);
-                glDisableVertexAttribArray(8);
-                glDisableVertexAttribArray(9);
+                glDisableVertexAttribArray(ATTR_TEXCOORD3);
+                glDisableVertexAttribArray(ATTR_TEXCOORD4);
+                glDisableVertexAttribArray(ATTR_TEXCOORD5);
                 instancingEnabled = false;
             }
             

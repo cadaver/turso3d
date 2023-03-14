@@ -347,12 +347,12 @@ void Attribute::ToJSON(AttributeType type, JSONValue& dest, const void* source)
 
 AttributeType Attribute::TypeFromName(const std::string& name)
 {
-    return (AttributeType)ListIndex(name, &typeNames[0], MAX_ATTR_TYPES);
+    return (AttributeType)ListIndex(name, typeNames, MAX_ATTR_TYPES);
 }
 
 AttributeType Attribute::TypeFromName(const char* name)
 {
-    return (AttributeType)ListIndex(name, &typeNames[0], MAX_ATTR_TYPES);
+    return (AttributeType)ListIndex(name, typeNames, MAX_ATTR_TYPES);
 }
 
 template<> AttributeType AttributeImpl<bool>::Type() const

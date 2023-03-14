@@ -128,7 +128,7 @@ void AnimatedModel::OnRender(size_t /*geomIndex*/, ShaderProgram* /*program*/)
 
     if (animatedModelFlags & AMF_SKINNING_BUFFER_DIRTY)
     {
-        skinMatrixBuffer->SetData(0, numBones * sizeof(Matrix3x4), &skinMatrices[0]);
+        skinMatrixBuffer->SetData(0, numBones * sizeof(Matrix3x4), skinMatrices);
         animatedModelFlags &= ~AMF_SKINNING_BUFFER_DIRTY;
     }
 

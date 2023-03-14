@@ -441,7 +441,7 @@ void Graphics::DrawIndexed(size_t drawStart, size_t drawCount)
 
 void Graphics::DrawQuad()
 {
-    quadVertexBuffer->Bind(0x11);
+    quadVertexBuffer->Bind(ATTR_POSITION | ATTR_TEXCOORD);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
@@ -461,8 +461,7 @@ IntVector2 Graphics::RenderSize() const
 
 bool Graphics::IsFullscreen() const
 {
-    unsigned flags = SDL_GetWindowFlags(window);
-    return (flags & SDL_WINDOW_FULLSCREEN) != 0;
+    return (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) != 0;
 }
 
 void Graphics::DefineQuadVertexBuffer()

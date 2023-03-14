@@ -183,7 +183,7 @@ void ShaderProgram::Create(const std::string& sourceCode, const std::vector<std:
     program = glCreateProgram();
     glAttachShader(program, vs);
     glAttachShader(program, fs);
-    for (unsigned i = 0; i < 12; ++i)
+    for (unsigned i = 0; i < MAX_VERTEX_ATTRIBUTES; ++i)
         glBindAttribLocation(program, i, attribNames[i]);
     
     glLinkProgram(program);

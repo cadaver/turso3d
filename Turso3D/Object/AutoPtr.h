@@ -149,10 +149,6 @@ public:
     T& operator * () const { assert(array); return *array; }
     /// Convert to the array element pointer.
     operator T* () const { return Get(); }
-    /// Index the array.
-    T& operator [] (size_t index) { assert(array); return array[index]; }
-    /// Const-index the array.
-    const T& operator [] (size_t index) const { assert(array); return array[index]; }
 
     /// Return the array.
     T* Get() const { return array; }
