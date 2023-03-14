@@ -83,6 +83,9 @@ public:
     /// Unbind a texture unit.
     static void Unbind(size_t unit);
 
+    /// OpenGL texture internal formats by image format.
+    static const unsigned glInternalFormats[];
+
 private:
     /// Release the texture.
     void Release();

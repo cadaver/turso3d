@@ -18,7 +18,7 @@ static const GLenum glTargets[] =
     GL_TEXTURE_CUBE_MAP
 };
 
-static const GLenum glInternalFormats[] =
+const unsigned Texture::glInternalFormats[] =
 {
     0,
     GL_R8,
@@ -51,7 +51,7 @@ static const GLenum glInternalFormats[] =
     0
 };
 
-static const GLenum glFormats[] =
+static const unsigned glFormats[] =
 {
     0,
     GL_RED,
@@ -84,7 +84,7 @@ static const GLenum glFormats[] =
     0
 };
 
-static const GLenum glDataTypes[] =
+static const unsigned glDataTypes[] =
 {
     0,
     GL_UNSIGNED_BYTE,
@@ -117,7 +117,7 @@ static const GLenum glDataTypes[] =
     0
 };
 
-static const GLenum glWrapModes[] =
+static const unsigned glWrapModes[] =
 {
     GL_REPEAT,
     GL_MIRRORED_REPEAT,

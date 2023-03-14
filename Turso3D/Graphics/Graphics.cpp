@@ -24,7 +24,7 @@ extern "C" {
 }
 #endif
 
-static const GLenum glCompareFuncs[] =
+static const unsigned glCompareFuncs[] =
 {
     GL_NEVER,
     GL_LESS,
@@ -36,7 +36,7 @@ static const GLenum glCompareFuncs[] =
     GL_ALWAYS,
 };
 
-static const GLenum glSrcBlend[] =
+static const unsigned glSrcBlend[] =
 {
     GL_ONE,
     GL_ONE,

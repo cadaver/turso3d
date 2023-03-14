@@ -3,43 +3,10 @@
 #include "../IO/Log.h"
 #include "Graphics.h"
 #include "RenderBuffer.h"
+#include "Texture.h"
 
 #include <glew.h>
 #include <tracy/Tracy.hpp>
-
-static const GLenum glInternalFormats[] =
-{
-    0,
-    GL_R8,
-    GL_RG8,
-    GL_RGBA8,
-    GL_ALPHA,
-    GL_R16,
-    GL_RG16,
-    GL_RGBA16,
-    GL_R16F,
-    GL_RG16F,
-    GL_RGBA16F,
-    GL_R32F,
-    GL_RG32F,
-    GL_RGB32F,
-    GL_RGBA32F,
-    GL_R32UI,
-    GL_RG32UI,
-    GL_RGBA32UI,
-    GL_DEPTH_COMPONENT16,
-    GL_DEPTH_COMPONENT32,
-    GL_DEPTH24_STENCIL8,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-};
-
 
 RenderBuffer::RenderBuffer() :
     buffer(0),
@@ -107,9 +74,9 @@ bool RenderBuffer::Define(const IntVector2& size_, ImageFormat format_, int mult
     glGetError();
     glBindRenderbuffer(GL_RENDERBUFFER, buffer);
     if (multisample > 1)
-        glRenderbufferStorageMultisample(GL_RENDERBUFFER, multisample, glInternalFormats[format], size.x, size.y);
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, multisample, Texture::glInternalFormats[format], size.x, size.y);
     else
-        glRenderbufferStorage(GL_RENDERBUFFER, glInternalFormats[format], size.x, size.y);
+        glRenderbufferStorage(GL_RENDERBUFFER, Texture::glInternalFormats[format], size.x, size.y);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
     // If we have an error now, the buffer was not created correctly
