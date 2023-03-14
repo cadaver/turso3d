@@ -6,6 +6,7 @@
 #include "../Math/Polyhedron.h"
 #include "../Math/Ray.h"
 #include "Camera.h"
+#include "DebugRenderer.h"
 #include "Light.h"
 #include "Octree.h"
 #include "Renderer.h"
@@ -144,6 +145,14 @@ void Light::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float ma
             dest.push_back(res);
         }
     }
+}
+
+void Light::OnRenderDebug(DebugRenderer* debug)
+{
+    if (lightType == LIGHT_SPOT)
+        debug->AddFrustum(WorldFrustum(), color);
+    else if (lightType == LIGHT_POINT)
+        debug->AddSphere(WorldSphere(), color);
 }
 
 void Light::SetLightType(LightType type)

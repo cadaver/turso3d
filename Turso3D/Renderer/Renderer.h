@@ -162,10 +162,12 @@ public:
     void PrepareView(Scene* scene, Camera* camera, bool drawShadows);
     /// Render shadowmaps before rendering the view. Last shadow framebuffer will be left bound.
     void RenderShadowMaps();
-    /// Render opaque objects into currently set framebuffer and viewport.
+    /// Render opaque objects into the currently set framebuffer and viewport.
     void RenderOpaque();
-    /// Render transparent objects into currently set framebuffer and viewport.
+    /// Render transparent objects into the currently set framebuffer and viewport.
     void RenderAlpha();
+    /// Render debug geometry for the objects in frustum into the currently set framebuffer and viewport. Requires the DebugRenderer to exist.
+    void RenderDebug();
 
     /// Return a shadow map texture by index for debugging.
     Texture* ShadowMapTexture(size_t index) const;

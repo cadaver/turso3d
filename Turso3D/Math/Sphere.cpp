@@ -108,3 +108,12 @@ void Sphere::Merge(const Sphere& sphere)
         radius = (max - center).Length();
     }
 }
+
+Vector3 Sphere::LocalPoint(float theta, float phi) const
+{
+    return Vector3(
+        radius * Sin(theta) * Sin(phi),
+        radius * Cos(phi),
+        radius * Cos(theta) * Sin(phi)
+    );
+}

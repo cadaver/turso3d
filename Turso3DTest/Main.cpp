@@ -12,6 +12,7 @@
 #include "Renderer/Animation.h"
 #include "Renderer/AnimationState.h"
 #include "Renderer/Camera.h"
+#include "Renderer/DebugRenderer.h"
 #include "Renderer/Light.h"
 #include "Renderer/Material.h"
 #include "Renderer/Model.h"
@@ -167,6 +168,8 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
     AutoPtr<Renderer> renderer = new Renderer();
     renderer->SetupShadowMaps(1024, 2048, FMT_D16);
+
+    AutoPtr<DebugRenderer> debugRenderer = new DebugRenderer();
 
     AutoPtr<FrameBuffer> viewFbo = new FrameBuffer();
     AutoPtr<FrameBuffer> viewMRTFbo = new FrameBuffer();
@@ -395,7 +398,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 quadMatrix.m03 = -0.5f;
                 quadMatrix.m13 = -0.5f;
 
-                ShaderProgram* program = graphics->SetProgram("Shaders/Debug.glsl");
+                ShaderProgram* program = graphics->SetProgram("Shaders/DebugQuad.glsl");
                 graphics->SetUniform(program, "worldViewProjMatrix", quadMatrix);
                 graphics->SetTexture(0, renderer->ShadowMapTexture(0));
                 graphics->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_ALWAYS, true, false);

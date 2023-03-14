@@ -139,6 +139,11 @@ public:
     /// Return whether has non-negative radius.
     bool IsDefined() const { return radius >= 0.0f; }
 
+    /// Return local-space point on the sphere.
+    Vector3 LocalPoint(float theta, float phi) const;
+    /// Return world-space point on the sphere.
+    Vector3 Point(float theta, float phi) const { return center + LocalPoint(theta, phi); }
+
     /// Test if a point is inside.
     Intersection IsInside(const Vector3& point) const
     {

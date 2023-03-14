@@ -441,7 +441,7 @@ void Graphics::DrawIndexed(size_t drawStart, size_t drawCount)
 
 void Graphics::DrawQuad()
 {
-    quadVertexBuffer->Bind(ATTR_POSITION | ATTR_TEXCOORD);
+    quadVertexBuffer->Bind(MASK_POSITION | MASK_TEXCOORD);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 

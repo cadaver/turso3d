@@ -504,7 +504,6 @@ void AnimatedModel::SetAnimationStatesAttr(const JSONValue& value)
 JSONValue AnimatedModel::AnimationStatesAttr() const
 {
     JSONValue states;
-    states.SetEmptyArray();
 
     /// \todo Per-bone weights not serialized
     for (auto it = animationStates.begin(); it != animationStates.end(); ++it)

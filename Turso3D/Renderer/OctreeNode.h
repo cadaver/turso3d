@@ -6,6 +6,7 @@
 #include "../Scene/SpatialNode.h"
 
 class Camera;
+class DebugRenderer;
 class Octree;
 class Ray;
 struct Octant;
@@ -33,6 +34,8 @@ public:
     virtual bool OnPrepareRender(unsigned short frameNumber, Camera* camera);
     /// Perform ray test on self and add possible hit to the result vector.
     virtual void OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance);
+    /// Add debug geometry to be rendered. Default implementation draws the bounding box.
+    virtual void OnRenderDebug(DebugRenderer* debug);
 
     /// Set whether to cast shadows. Default false on both lights and geometries.
     void SetCastShadows(bool enable);

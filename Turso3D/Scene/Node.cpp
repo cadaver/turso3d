@@ -83,20 +83,17 @@ void Node::Save(Stream& dest)
 
 void Node::LoadJSON(const JSONValue& source, ObjectResolver& resolver)
 {
-    const JSONArray& childrenArray = source["children"].GetArray();
-    if (childrenArray.size())
+    const JSONArray& childArray = source["children"].GetArray();
+    for (auto it = childArray.begin(); it != childArray.end(); ++it)
     {
-        for (auto it = childrenArray.begin(); it != childrenArray.end(); ++it)
+        const JSONValue& childJSON = *it;
+        StringHash childType(childJSON["type"].GetString());
+        unsigned childId = (unsigned)childJSON["id"].GetNumber();
+        Node* child = CreateChild(childType);
+        if (child)
         {
-            const JSONValue& childJSON = *it;
-            StringHash childType(childJSON["type"].GetString());
-            unsigned childId = (unsigned)childJSON["id"].GetNumber();
-            Node* child = CreateChild(childType);
-            if (child)
-            {
-                resolver.StoreObject(childId, child);
-                child->LoadJSON(childJSON, resolver);
-            }
+            resolver.StoreObject(childId, child);
+            child->LoadJSON(childJSON, resolver);
         }
     }
 
@@ -111,7 +108,7 @@ void Node::SaveJSON(JSONValue& dest)
 
     if (NumPersistentChildren())
     {
-        dest["children"].SetEmptyArray();
+        JSONValue& childArray = dest["children"];
         for (auto it = children.begin(); it != children.end(); ++it)
         {
             Node* child = *it;
@@ -119,7 +116,7 @@ void Node::SaveJSON(JSONValue& dest)
             {
                 JSONValue childJSON;
                 child->SaveJSON(childJSON);
-                dest["children"].Push(childJSON);
+                childArray.Push(childJSON);
             }
         }
     }

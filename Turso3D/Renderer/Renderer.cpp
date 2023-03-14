@@ -17,6 +17,7 @@
 #include "Animation.h"
 #include "Batch.h"
 #include "Camera.h"
+#include "DebugRenderer.h"
 #include "Light.h"
 #include "Material.h"
 #include "Model.h"
@@ -395,6 +396,40 @@ void Renderer::RenderAlpha()
     RenderBatches(camera, alphaBatches);
 }
 
+void Renderer::RenderDebug()
+{
+    ZoneScoped;
+
+    DebugRenderer* debug = Subsystem<DebugRenderer>();
+    if (!debug)
+        return;
+
+    debug->SetView(camera);
+
+    for (auto it = lights.begin(); it != lights.end(); ++it)
+        (*it)->OnRenderDebug(debug);
+
+    for (auto it = octantResults.begin(); it != octantResults.end(); ++it)
+    {
+        for (auto lIt = it->octants.begin(); lIt != it->octants.end(); ++lIt)
+        {
+            for (auto vIt = lIt->begin(); vIt != lIt->end(); ++vIt)
+            {
+                Octant* octant = vIt->first;
+
+                for (auto nIt = octant->nodes.begin(); nIt != octant->nodes.end(); ++nIt)
+                {
+                    OctreeNode* node = *nIt;
+                    if ((node->Flags() & NF_GEOMETRY) && node->LastFrameNumber() == frameNumber)
+                        node->OnRenderDebug(debug);
+                }
+            }
+        }
+    }
+
+    debug->Render();
+}
+
 Texture* Renderer::ShadowMapTexture(size_t index) const
 {
     return index < shadowMaps.size() ? shadowMaps[index].texture : nullptr;
@@ -718,7 +753,7 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
                 ib->Bind();
 
             if (!ib)
-                glDrawArrays(GL_TRIANGLES, (GLsizei)geometry->drawStart, (GLsizei)geometry->drawCount);
+                glDrawArrays(GL_TRIANGLES, (GLint)geometry->drawStart, (GLsizei)geometry->drawCount);
             else
                 glDrawElements(GL_TRIANGLES, (GLsizei)geometry->drawCount, ib->IndexSize() == sizeof(unsigned short) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, 
                     (const void*)(geometry->drawStart * ib->IndexSize()));

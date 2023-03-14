@@ -3,6 +3,7 @@
 #include "../Math/Ray.h"
 #include "../Scene/Scene.h"
 #include "Camera.h"
+#include "DebugRenderer.h"
 #include "Octree.h"
 #include "OctreeNode.h"
 
@@ -73,6 +74,11 @@ void OctreeNode::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, flo
         res.subObject = 0;
         dest.push_back(res);
     }
+}
+
+void OctreeNode::OnRenderDebug(DebugRenderer* debug)
+{
+    debug->AddBoundingBox(WorldBoundingBox(), Color::WHITE);
 }
 
 void OctreeNode::OnSceneSet(Scene* newScene, Scene*)

@@ -89,6 +89,8 @@ public:
     bool OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
     /// Perform ray test on self and add possible hit to the result vector.
     void OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance) override;
+    /// Add debug geometry to be rendered.
+    virtual void OnRenderDebug(DebugRenderer* debug) override;
 
     /// Set light type.
     void SetLightType(LightType type);
