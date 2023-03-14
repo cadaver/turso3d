@@ -84,14 +84,12 @@ public:
     float HitDistance(const Frustum& frustum, bool solidInside = true) const;
     /// Return hit distance to a sphere, or infinity if no hit.
     float HitDistance(const Sphere& sphere) const;
-    /// Return hit distance to a triangle, or infinity if no hit.
-    float HitDistance(const Vector3& v0, const Vector3& v1, const Vector3& v2) const;
-    /// Return hit distance to a triangle and out normal, or infinity if no hit.
-    float HitDistance(const Vector3& v0, const Vector3& v1, const Vector3& v2, Vector3* outNormal) const;
+    /// Return hit distance to a triangle and optionally normal, or infinity if no hit.
+    float HitDistance(const Vector3& v0, const Vector3& v1, const Vector3& v2, Vector3* outNormal = nullptr) const;
     /// Return hit distance to non-indexed geometry data, or infinity if no hit. Optionally return normal.
-    float HitDistance(const void* vertexData, size_t vertexSize, size_t vertexStart, size_t vertexCount, Vector3* outNormal = 0) const;
+    float HitDistance(const void* vertexData, size_t vertexSize, size_t vertexStart, size_t vertexCount, Vector3* outNormal = nullptr) const;
     /// Return hit distance to indexed geometry data, or infinity if no hit.
-    float HitDistance(const void* vertexData, size_t vertexSize, const void* indexData, size_t indexSize, size_t indexStart, size_t indexCount, Vector3* outNormal = 0) const;
+    float HitDistance(const void* vertexData, size_t vertexSize, const void* indexData, size_t indexSize, size_t indexStart, size_t indexCount, Vector3* outNormal = nullptr) const;
     /// Return whether ray is inside non-indexed geometry.
     bool InsideGeometry(const void* vertexData, size_t vertexSize, size_t vertexStart, size_t vertexCount) const;
     /// Return whether ray is inside indexed geometry.

@@ -173,11 +173,6 @@ float Ray::HitDistance(const Sphere& sphere) const
         return (-b + dSqrt) / (2.0f * a);
 }
 
-float Ray::HitDistance(const Vector3& v0, const Vector3& v1, const Vector3& v2) const
-{
-    return HitDistance(v0, v1, v2, 0);
-}
-
 float Ray::HitDistance(const Vector3& v0, const Vector3& v1, const Vector3& v2, Vector3* outNormal) const
 {
     // Based on Fast, Minimum Storage Ray/Triangle Intersection by Möller & Trumbore

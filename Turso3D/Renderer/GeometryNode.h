@@ -21,6 +21,9 @@ struct Geometry : public RefCounted
     /// Destruct.
     ~Geometry();
 
+    /// Return ray hit distance if has CPU-side data, or infinity if no hit or no data.
+    float HitDistance(const Ray& ray, Vector3* outNormal = nullptr) const;
+
     /// Last sort key for combined distance and state sorting. Used by Renderer.
     std::pair<unsigned short, unsigned short> lastSortKey;
 
@@ -34,13 +37,13 @@ struct Geometry : public RefCounted
     size_t drawCount;
     /// LOD transition distance.
     float lodDistance;
-    /// CPU-side position data. Included for geometry loaded from model files, not necessarily otherwise.
+    /// Optional CPU-side position data.
     SharedArrayPtr<Vector3> cpuPositionData;
-    /// CPU-side index data. Included for geometry loaded from model files, not necessarily otherwise.
+    /// Optional CPU-side index data.
     SharedArrayPtr<unsigned char> cpuIndexData;
-    /// Index size for the CPU data. May be different in case combined vertex and index buffers are in use.
+    /// Optional index size for the CPU data. May be different in case combined vertex and index buffers are in use.
     size_t cpuIndexSize;
-    /// Draw range start for the CPU data. May be different in case combined vertex and index buffers are in use.
+    /// Optional draw range start for the CPU data. May be different in case combined vertex and index buffers are in use.
     size_t cpuDrawStart;
 };
 
@@ -53,7 +56,7 @@ public:
     /// Destruct.
     ~SourceBatches();
 
-    /// Set number of geometries. Will destroy previously set geometry and material assignments.
+    /// Set number of geometries. Will clear previously set geometry and material assignments.
     void SetNumGeometries(size_t num);
 
     /// Set geometry at index. %Geometry pointers are raw pointers for safe LOD level changes on OnPrepareRender() in worker threads; a strong ref to the geometry should be held elsewhere.
