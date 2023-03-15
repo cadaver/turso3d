@@ -118,7 +118,7 @@ bool GeometryNode::OnPrepareRender(unsigned short frameNumber, Camera* camera)
     return true;
 }
 
-void GeometryNode::OnRender(size_t, ShaderProgram*)
+void GeometryNode::OnRender(ShaderProgram*, size_t)
 {
 }
 

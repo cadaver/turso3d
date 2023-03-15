@@ -120,7 +120,7 @@ bool AnimatedModel::OnPrepareRender(unsigned short frameNumber, Camera* camera)
     return true;
 }
 
-void AnimatedModel::OnRender(size_t /*geomIndex*/, ShaderProgram* /*program*/)
+void AnimatedModel::OnRender(ShaderProgram*, size_t)
 {
     if (!skinMatrixBuffer || !numBones)
         return;

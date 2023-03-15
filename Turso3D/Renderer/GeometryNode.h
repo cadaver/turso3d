@@ -124,7 +124,7 @@ public:
     /// Prepare object for rendering. Reset framenumber and calculate distance from camera. Called by Renderer in worker threads. Return false if should not render.
     bool OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
     /// Update GPU resources and set uniforms for rendering. Called by Renderer when geometry type is not static.
-    virtual void OnRender(size_t geomIndex, ShaderProgram* program);
+    virtual void OnRender(ShaderProgram* program, size_t geomIndex);
 
     /// Set number of geometries.
     void SetNumGeometries(size_t num);

@@ -708,7 +708,7 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
             if (!geometryBits)
                 graphics->SetUniform(program, U_WORLDMATRIX, *batch.worldTransform);
             else
-                batch.node->OnRender(batch.geomIndex, program);
+                batch.node->OnRender(program, batch.geomIndex);
 
             if (ib)
                 graphics->DrawIndexed(PT_TRIANGLE_LIST, geometry->drawStart, geometry->drawCount);
