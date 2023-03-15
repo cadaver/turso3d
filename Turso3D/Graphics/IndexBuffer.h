@@ -19,8 +19,8 @@ public:
     bool Define(ResourceUsage usage, size_t numIndices, size_t indexSize, const void* data = nullptr);
     /// Redefine buffer data either completely or partially. Return true on success.
     bool SetData(size_t firstIndex, size_t numIndices, const void* data, bool discard = false);
-    /// Bind to use. No-op if already bound, unless force is specified. Force mode is used when editing.
-    void Bind(bool force = false);
+    /// Bind to use. No-op if already bound. Used also when defining or setting data.
+    void Bind();
 
     /// Return number of indices.
     size_t NumIndices() const { return numIndices; }
@@ -34,8 +34,8 @@ public:
     /// Return the OpenGL object identifier.
     unsigned GLBuffer() const { return buffer; }
 
-    /// Return the currently bound index buffer.
-    static IndexBuffer* BoundIndexBuffer();
+    /// Return the index size of the currently bound buffer, or 0 if no buffer bound.
+    static size_t BoundIndexSize();
 
 private:
     /// Create the GPU-side index buffer. Return true on success.

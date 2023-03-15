@@ -528,13 +528,9 @@ void Graphics::DrawIndexed(PrimitiveType type, size_t drawStart, size_t drawCoun
         instancingEnabled = false;
     }
 
-    IndexBuffer* indexBuffer = IndexBuffer::BoundIndexBuffer();
-    if (indexBuffer)
-    {
-        unsigned indexSize = (unsigned)indexBuffer->IndexSize();
-
+    unsigned indexSize = (unsigned)IndexBuffer::BoundIndexSize();
+    if (indexSize)
         glDrawElements(glPrimitiveTypes[type], (GLsizei)drawCount, indexSize == sizeof(unsigned short) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, (const void*)(drawStart * indexSize));
-    }
 }
 
 void Graphics::DrawInstanced(PrimitiveType type, size_t drawStart, size_t drawCount, VertexBuffer* instanceVertexBuffer, size_t instanceStart, size_t instanceCount)
@@ -567,8 +563,9 @@ void Graphics::DrawIndexedInstanced(PrimitiveType type, size_t drawStart, size_t
     if (!hasInstancing)
         return;
 
-    IndexBuffer* indexBuffer = IndexBuffer::BoundIndexBuffer();
-    if (indexBuffer && instanceVertexBuffer)
+    unsigned indexSize = (unsigned)IndexBuffer::BoundIndexSize();
+
+    if (indexSize && instanceVertexBuffer)
     {
         if (!instancingEnabled)
         {
@@ -578,7 +575,6 @@ void Graphics::DrawIndexedInstanced(PrimitiveType type, size_t drawStart, size_t
             instancingEnabled = true;
         }
 
-        unsigned indexSize = (unsigned)indexBuffer->IndexSize();
         unsigned instanceVertexSize = (unsigned)instanceVertexBuffer->VertexSize();
 
         instanceVertexBuffer->Bind(0);

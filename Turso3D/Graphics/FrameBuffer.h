@@ -29,8 +29,8 @@ public:
     void Define(Texture* colorTexture, size_t cubeMapFace, Texture* depthStencilTexture);
     /// Define MRT textures to render to.
     void Define(const std::vector<Texture*>& colorTextures, Texture* depthStencilTexture);
-    /// Bind for rendering or for defining.
-    void Bind(bool force = false);
+    /// Bind as draw framebuffer. Used also when defining.
+    void Bind();
 
     /// Return the OpenGL object identifier.
     unsigned GLBuffer() const { return buffer; }

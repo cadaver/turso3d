@@ -9,6 +9,7 @@
 #include <tracy/Tracy.hpp>
 
 static IndexBuffer* boundIndexBuffer = nullptr;
+static size_t boundIndexSize = 0;
 
 IndexBuffer::IndexBuffer() :
     buffer(0),
@@ -60,7 +61,10 @@ void IndexBuffer::Release()
         buffer = 0;
 
         if (boundIndexBuffer == this)
+        {
             boundIndexBuffer = nullptr;
+            boundIndexSize = 0;
+        }
     }
 }
 
@@ -79,7 +83,8 @@ bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* dat
 
     if (buffer)
     {
-        Bind(true);
+        Bind();
+
         if (numIndices_ == numIndices)
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, numIndices * indexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
         else if (discard)
@@ -103,23 +108,25 @@ bool IndexBuffer::Create(const void* data)
         return false;
     }
 
-    Bind(true);
+    Bind();
+
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, numIndices * indexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
     LOGDEBUGF("Created index buffer numIndices %u indexSize %u", (unsigned)numIndices, (unsigned)indexSize);
 
     return true;
 }
 
-void IndexBuffer::Bind(bool force)
+void IndexBuffer::Bind()
 {
-    if (!buffer || (boundIndexBuffer == this && !force))
+    if (!buffer || boundIndexBuffer == this)
         return;
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer);
     boundIndexBuffer = this;
+    boundIndexSize = indexSize;
 }
 
-IndexBuffer* IndexBuffer::BoundIndexBuffer()
+size_t IndexBuffer::BoundIndexSize()
 {
-    return boundIndexBuffer;
+    return boundIndexSize;
 }

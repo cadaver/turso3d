@@ -16,8 +16,8 @@ public:
     /// Destruct.
     ~ShaderProgram();
 
-    /// Bind to use. No-op if already bound, unless force is specified. Return false if no program is successfully linked.
-    bool Bind(bool force = false);
+    /// Bind for using. No-op if already bound. Return false if program is not successfully linked.
+    bool Bind();
 
     /// Return shader name concatenated from parent shader name and defines.
     const std::string& ShaderName() const { return shaderName; }
@@ -41,9 +41,9 @@ public:
     unsigned lastPerMaterialUniforms;
 
 private:
-    /// Compile & link the shader program.
+    /// Compile & link.
     void Create(const std::string& sourceCode, const std::vector<std::string>& vsDefines, const std::vector<std::string>& fsDefines);
-    /// Release the linked shader program.
+    /// Release the program.
     void Release();
 
     /// OpenGL shader program identifier.

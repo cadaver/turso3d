@@ -23,6 +23,7 @@ static const float DEFAULT_FADE_START = 0.9f;
 static const float DEFAULT_SHADOW_MAX_DISTANCE = 250.0f;
 static const float DEFAULT_SHADOW_MAX_STRENGTH = 0.0f;
 static const float DEFAULT_SHADOW_QUANTIZE = 0.5f;
+static const float DEFAULT_SHADOW_MIN_VIEW = 10.0f;
 static const float DEFAULT_DEPTH_BIAS = 2.0f;
 static const float DEFAULT_SLOPESCALE_BIAS = 1.5f;
 
@@ -55,6 +56,7 @@ Light::Light() :
     shadowMaxDistance(DEFAULT_SHADOW_MAX_DISTANCE),
     shadowMaxStrength(DEFAULT_SHADOW_MAX_STRENGTH),
     shadowQuantize(DEFAULT_SHADOW_QUANTIZE),
+    shadowMinView(DEFAULT_SHADOW_MIN_VIEW),
     depthBias(DEFAULT_DEPTH_BIAS),
     slopeScaleBias(DEFAULT_SLOPESCALE_BIAS),
     shadowMap(nullptr)
@@ -83,6 +85,7 @@ void Light::RegisterObject()
     RegisterAttribute("shadowMaxDistance", &Light::ShadowMaxDistance, &Light::SetShadowMaxDistance, DEFAULT_SHADOW_MAX_DISTANCE);
     RegisterAttribute("shadowMaxStrength", &Light::ShadowMaxStrength, &Light::SetShadowMaxStrength, DEFAULT_SHADOW_MAX_STRENGTH);
     RegisterAttribute("shadowQuantize", &Light::ShadowQuantize, &Light::SetShadowQuantize, DEFAULT_SHADOW_QUANTIZE);
+    RegisterAttribute("shadowMinView", &Light::ShadowMinView, &Light::SetShadowMinView, DEFAULT_SHADOW_MIN_VIEW);
     RegisterAttribute("depthBias", &Light::DepthBias, &Light::SetDepthBias, DEFAULT_DEPTH_BIAS);
     RegisterAttribute("slopeScaleBias", &Light::SlopeScaleBias, &Light::SetSlopeScaleBias, DEFAULT_SLOPESCALE_BIAS);
 }
@@ -229,6 +232,12 @@ void Light::SetShadowMaxStrength(float strength)
 void Light::SetShadowQuantize(float quantize)
 {
     shadowQuantize = Max(quantize, M_EPSILON);
+}
+
+
+void Light::SetShadowMinView(float minView)
+{
+    shadowMinView = Max(minView, M_EPSILON);
 }
 
 void Light::SetDepthBias(float bias)
@@ -410,8 +419,8 @@ bool Light::SetupShadowView(size_t viewIndex, Camera* mainCamera, const Bounding
 
         size.x = ceilf(sqrtf(size.x / shadowQuantize));
         size.y = ceilf(sqrtf(size.y / shadowQuantize));
-        size.x = size.x * size.x * shadowQuantize;
-        size.y = size.y * size.y * shadowQuantize;
+        size.x = Max(size.x * size.x * shadowQuantize, shadowMinView);
+        size.y = Max(size.y * size.y * shadowQuantize, shadowMinView);
 
         shadowCamera->SetOrthoSize(Vector2(size.x, size.y));
         shadowCamera->SetZoom(1.0f);

@@ -120,7 +120,8 @@ bool VertexBuffer::SetData(size_t firstVertex, size_t numVertices_, const void* 
 
     if (buffer)
     {
-        Bind(0, true);
+        Bind(0);
+
         if (numVertices_ == numVertices)
             glBufferData(GL_ARRAY_BUFFER, numVertices * vertexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
         else if (discard)
@@ -144,7 +145,8 @@ bool VertexBuffer::Create(const void* data)
         return false;
     }
 
-    Bind(0, true);
+    Bind(0);
+
     glBufferData(GL_ARRAY_BUFFER, numVertices * vertexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
     LOGDEBUGF("Created vertex buffer numVertices %u vertexSize %u", (unsigned)numVertices, (unsigned)vertexSize);
 
@@ -154,15 +156,15 @@ bool VertexBuffer::Create(const void* data)
     return true;
 }
 
-void VertexBuffer::Bind(unsigned attributeMask, bool force)
+void VertexBuffer::Bind(unsigned attributeMask)
 {
     if (!buffer)
         return;
 
-    // Special case attributeMask 0 used when binding for setting buffer content only or for instancing. 
+    // Special case attributeMask 0 used when binding for setting buffer content only or for instancing
     if (!attributeMask)
     {
-        if (boundVertexBuffer != this || force)
+        if (boundVertexBuffer != this)
         {
             glBindBuffer(GL_ARRAY_BUFFER, buffer);
             boundVertexBuffer = this;
@@ -174,7 +176,7 @@ void VertexBuffer::Bind(unsigned attributeMask, bool force)
     attributeMask &= attributes;
 
     // If attributes already bound from this buffer, no-op
-    if (!force && attributeMask == boundAttributes && boundVertexAttribSource == this)
+    if (attributeMask == boundAttributes && boundVertexAttribSource == this)
         return;
 
     if (boundVertexBuffer != this)
@@ -205,6 +207,7 @@ void VertexBuffer::Bind(unsigned attributeMask, bool force)
 
     unsigned disableAttributes = boundAttributes & (~usedAttributes);
     unsigned disableIdx = 0;
+
     while (disableAttributes)
     {
         if (disableAttributes & 1)

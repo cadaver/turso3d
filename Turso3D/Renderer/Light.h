@@ -112,8 +112,10 @@ public:
     void SetShadowMaxDistance(float distance);
     /// Set maximum (when not faded) shadow strength (default 0 = fully dark).
     void SetShadowMaxStrength(float strength);
-    /// Set directional light shadow view quantize.
+    /// Set directional light shadow view quantization step.
     void SetShadowQuantize(float quantize);
+    /// Set directional light shadow view minimum size. This is to prevent unwanted too sharp focusing e.g. when camera is facing the ground.
+    void SetShadowMinView(float minView);
     /// Set constant depth bias for shadows.
     void SetDepthBias(float bias);
     /// Set slope-scaled depth bias for shadows.
@@ -143,8 +145,10 @@ public:
     float ShadowMaxDistance() const { return shadowMaxDistance; }
     /// Return maximum shadow strength.
     float ShadowMaxStrength() const { return shadowMaxStrength; }
-    /// Return directional light shadow view quantize.
+    /// Return directional light shadow view quantization step.
     float ShadowQuantize() const { return shadowQuantize; }
+    /// Return directional light shadow view minimum size.
+    float ShadowMinView() const { return shadowMinView; }
     /// Return effective shadow strength from current distance.
     float ShadowStrength() const;
     /// Return constant depth bias.
@@ -207,8 +211,10 @@ private:
     float shadowMaxDistance;
     /// Shadow max strength when not faded.
     float shadowMaxStrength;
-    /// Shadow view quantize for directional lights.
+    /// Shadow view quantization step for directional lights.
     float shadowQuantize;
+    /// Shadow view minimum size for directional lights.
+    float shadowMinView;
     /// Constant depth bias for shadows.
     float depthBias;
     /// Slope-sclaed depth bias for shadows.

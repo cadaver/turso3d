@@ -233,7 +233,7 @@ void ShaderProgram::Create(const std::string& sourceCode, const std::vector<std:
 
     uniforms.clear();
 
-    Bind(true);
+    Bind();
     glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &numUniforms);
 
     for (size_t i = 0; i < MAX_PRESET_UNIFORMS; ++i)
@@ -308,12 +308,12 @@ int ShaderProgram::Uniform(StringHash name) const
     return it != uniforms.end() ? it->second : -1;
 }
 
-bool ShaderProgram::Bind(bool force)
+bool ShaderProgram::Bind()
 {
     if (!program)
         return false;
 
-    if (!force && boundProgram == this)
+    if (boundProgram == this)
         return true;
 
     glUseProgram(program);

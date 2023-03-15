@@ -39,8 +39,8 @@ public:
     bool SetData(size_t level, const IntRect& rect, const ImageLevel& data);
     /// Set data for a mipmap level. Return true on success.
     bool SetData(size_t level, const IntBox& box, const ImageLevel& data);
-    /// Bind to texture unit. No-op if already bound, unless force is specified. Force mode is used when editing.
-    void Bind(size_t unit, bool force = false);
+    /// Bind to texture unit. No-op if already bound.
+    void Bind(size_t unit);
 
     /// Return texture type.
     TextureType TexType() const { return type; }
@@ -87,6 +87,8 @@ public:
     static const unsigned glInternalFormats[];
 
 private:
+    /// Force bind to the first texture unit. Used when editing.
+    void ForceBind();
     /// Release the texture.
     void Release();
 

@@ -32,7 +32,7 @@ void FrameBuffer::Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBu
 {
     ZoneScoped;
 
-    Bind(true);
+    Bind();
 
     IntVector2 size = IntVector2::ZERO;
 
@@ -71,7 +71,7 @@ void FrameBuffer::Define(Texture* colorTexture, Texture* depthStencilTexture)
 {
     ZoneScoped;
 
-    Bind(true);
+    Bind();
 
     IntVector2 size = IntVector2::ZERO;
 
@@ -110,7 +110,7 @@ void FrameBuffer::Define(Texture* colorTexture, size_t cubeMapFace, Texture* dep
 {
     ZoneScoped;
 
-    Bind(true);
+    Bind();
 
     IntVector2 size = IntVector2::ZERO;
 
@@ -149,7 +149,7 @@ void FrameBuffer::Define(const std::vector<Texture*>& colorTextures, Texture* de
 {
     ZoneScoped;
 
-    Bind(true);
+    Bind();
 
     IntVector2 size = IntVector2::ZERO;
 
@@ -194,9 +194,9 @@ void FrameBuffer::Define(const std::vector<Texture*>& colorTextures, Texture* de
     LOGDEBUGF("Defined MRT framebuffer width %d height %d", size.x, size.y);
 }
 
-void FrameBuffer::Bind(bool force)
+void FrameBuffer::Bind()
 {
-    if (!buffer || (boundDrawBuffer == this && !force))
+    if (!buffer || boundDrawBuffer == this)
         return;
 
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, buffer);

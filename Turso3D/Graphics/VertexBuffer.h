@@ -21,8 +21,8 @@ public:
     bool Define(ResourceUsage usage, size_t numVertices, const std::vector<VertexElement>& elements, const void* data = nullptr);
     /// Redefine buffer data either completely or partially. Return true on success.
     bool SetData(size_t firstVertex, size_t numVertices, const void* data, bool discard = false);
-    /// Bind to use. No-op if already bound, unless force is specified. Force mode is used when editing.
-    void Bind(unsigned attributeMask, bool force = false);
+    /// Bind to use with the specified vertex attributes. No-op if already bound. Used also when defining or setting data.
+    void Bind(unsigned attributeMask);
 
     /// Return number of vertices.
     size_t NumVertices() const { return numVertices; }
@@ -46,9 +46,6 @@ public:
     static unsigned CalculateAttributeMask(const std::vector<VertexElement>& elements);
     /// Return size of vertex element.
     static size_t VertexElementSize(const VertexElement& element);
-
-    /// Last sort key for combined distance and state sorting. Used by Renderer.
-    std::pair<unsigned short, unsigned short> lastSortKey;
 
 private:
     /// Create the GPU-side vertex buffer. Return true on success.
