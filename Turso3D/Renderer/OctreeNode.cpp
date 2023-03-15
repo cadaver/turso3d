@@ -78,7 +78,7 @@ void OctreeNode::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, flo
 
 void OctreeNode::OnRenderDebug(DebugRenderer* debug)
 {
-    debug->AddBoundingBox(WorldBoundingBox(), Color::WHITE);
+    debug->AddBoundingBox(WorldBoundingBox(), Color::GREEN, false);
 }
 
 void OctreeNode::OnSceneSet(Scene* newScene, Scene*)

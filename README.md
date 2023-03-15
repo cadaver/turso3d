@@ -4,16 +4,18 @@ Experimental 3D / game engine technology partially based on the Urho3D codebase.
 
 - OpenGL 3.2 / SDL2
 - Forward+ rendering, currently up to 255 lights in view
-- Threaded work queue to speed up animation and view preparation 
+- Threaded work queue to speed up animation and view preparation
 - Caching of static shadow maps
 - SSAO
 
 ## Test application controls
 
 - WSAD + mouse to move
-- Shift move faster
-- Space toggle scene animation
+- SHIFT move faster
+- F1-F3 switch scene preset
+- SPACE toggle scene animation
 - 1 toggle shadow modes
 - 2 toggle SSAO
-- 3 - 5 switch scene preset
+- 3 toggle shadow debug draw
+- 4 toggle scene debug draw
 - F toggle fullscreen

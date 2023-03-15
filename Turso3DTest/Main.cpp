@@ -210,6 +210,8 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     int shadowMode = 1;
     bool drawSSAO = false;
     bool animate = true;
+    bool drawDebug = false;
+    bool drawShadowDebug = false;
 
     std::string profilerOutput;
 
@@ -229,6 +231,13 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
         input->Update();
 
+        if (input->KeyPressed(SDLK_F1))
+            CreateScene(scene, 0);
+        if (input->KeyPressed(SDLK_F2))
+            CreateScene(scene, 1);
+        if (input->KeyPressed(SDLK_F3))
+            CreateScene(scene, 2);
+
         if (input->KeyPressed(SDLK_1))
         {
             ++shadowMode;
@@ -243,14 +252,15 @@ int ApplicationMain(const std::vector<std::string>& arguments)
         if (input->KeyPressed(SDLK_2))
             drawSSAO = !drawSSAO;
         if (input->KeyPressed(SDLK_3))
-            CreateScene(scene, 0);
+            drawShadowDebug = !drawShadowDebug;
         if (input->KeyPressed(SDLK_4))
-            CreateScene(scene, 1);
-        if (input->KeyPressed(SDLK_5))
-            CreateScene(scene, 2);
+            drawDebug = !drawDebug;
+        if (input->KeyPressed(SDLK_SPACE))
+            animate = !animate;
+
         if (input->KeyPressed(SDLK_f))
             graphics->SetFullscreen(!graphics->IsFullscreen());
-        
+
         IntVector2 mouseMove = input->MouseMove();
         yaw += mouseMove.x * 0.1f;
         pitch += mouseMove.y * 0.1f;
@@ -267,9 +277,6 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             camera->Translate(Vector3::LEFT * dt * moveSpeed);
         if (input->KeyDown(SDLK_d))
             camera->Translate(Vector3::RIGHT * dt * moveSpeed);
-
-        if (input->KeyPressed(SDLK_SPACE))
-            animate = !animate;
 
         if (animate)
         {
@@ -387,25 +394,39 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             graphics->SetViewport(IntRect(0, 0, width, height));
             renderer->RenderAlpha();
 
-            // Optional debug render of shadowmap
-            /*
+            // Optional render of debug geometry
+            if (drawDebug)
+            {
+                PROFILE(RenderDebug);
+                renderer->RenderDebug();
+            }
+
+            // Optional debug render of shadowmap. Draw both dir light cascades and the shadow atlas
+            if (drawShadowDebug)
             {
                 PROFILE(RenderShadowDebug);
 
                 Matrix4 quadMatrix = Matrix4::IDENTITY;
-                quadMatrix.m00 = 0.5f;
-                quadMatrix.m11 = 0.5f;
-                quadMatrix.m03 = -0.5f;
-                quadMatrix.m13 = -0.5f;
+                quadMatrix.m00 = 0.33f * 2.0f * (9.0f / 16.0f);
+                quadMatrix.m11 = 0.33f;
+                quadMatrix.m03 = -1.0f + quadMatrix.m00;
+                quadMatrix.m13 = -1.0f + quadMatrix.m11;
 
                 ShaderProgram* program = graphics->SetProgram("Shaders/DebugQuad.glsl");
                 graphics->SetUniform(program, "worldViewProjMatrix", quadMatrix);
                 graphics->SetTexture(0, renderer->ShadowMapTexture(0));
                 graphics->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_ALWAYS, true, false);
                 graphics->DrawQuad();
+
+                quadMatrix.m03 += 1.5f * quadMatrix.m00;
+                quadMatrix.m00 = 0.33f * (9.0f / 16.0f);
+
+                graphics->SetUniform(program, "worldViewProjMatrix", quadMatrix);
+                graphics->SetTexture(0, renderer->ShadowMapTexture(1));
+                graphics->DrawQuad();
+
                 graphics->SetTexture(0, nullptr);
             }
-            */
 
             // Blit rendered contents to backbuffer now before presenting
             graphics->Blit(nullptr, IntRect(0, 0, width, height), viewFbo, IntRect(0, 0, width, height), true, false, FILTER_POINT);

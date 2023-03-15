@@ -150,9 +150,9 @@ void Light::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float ma
 void Light::OnRenderDebug(DebugRenderer* debug)
 {
     if (lightType == LIGHT_SPOT)
-        debug->AddFrustum(WorldFrustum(), color);
+        debug->AddFrustum(WorldFrustum(), color, false);
     else if (lightType == LIGHT_POINT)
-        debug->AddSphere(WorldSphere(), color);
+        debug->AddSphere(WorldSphere(), color, false);
 }
 
 void Light::SetLightType(LightType type)
