@@ -26,7 +26,6 @@
 #include "Thread/ThreadUtils.h"
 
 #include <SDL.h>
-#include <glew.h>
 #include <tracy/Tracy.hpp>
 
 std::vector<StaticModel*> rotatingObjects;
