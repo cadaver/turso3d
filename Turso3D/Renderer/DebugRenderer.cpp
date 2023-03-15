@@ -1,6 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../Graphics/Graphics.h"
+#include "../Graphics/IndexBuffer.h"
 #include "../Graphics/ShaderProgram.h"
 #include "../Graphics/VertexBuffer.h"
 #include "../Math/Polyhedron.h"
@@ -17,6 +18,8 @@ DebugRenderer::DebugRenderer()
     vertexBuffer = new VertexBuffer();
     vertexElements.push_back(VertexElement(ELEM_VECTOR3, SEM_POSITION));
     vertexElements.push_back(VertexElement(ELEM_UBYTE4, SEM_COLOR));
+
+    indexBuffer = new IndexBuffer();
 }
 
 DebugRenderer::~DebugRenderer()
@@ -40,85 +43,179 @@ void DebugRenderer::AddLine(const Vector3& start, const Vector3& end, const Colo
 
 void DebugRenderer::AddLine(const Vector3& start, const Vector3& end, unsigned color, bool depthTest)
 {
-    std::vector<DebugVertex>& dest = depthTest ? vertices : noDepthVertices;
-    dest.push_back(DebugVertex(start, color));
-    dest.push_back(DebugVertex(end, color));
+    unsigned startVertex = (unsigned)vertices.size();
+
+    vertices.push_back(DebugVertex(start, color));
+    vertices.push_back(DebugVertex(end, color));
+
+    std::vector<unsigned>& dest = depthTest ? indices : noDepthIndices;
+    dest.push_back(startVertex);
+    dest.push_back(startVertex + 1);
 }
 
 void DebugRenderer::AddBoundingBox(const BoundingBox& box, const Color& color, bool depthTest)
 {
+    unsigned startVertex = (unsigned)vertices.size();
+    unsigned uintColor = color.ToUInt();
+
     const Vector3& min = box.min;
     const Vector3& max = box.max;
 
-    Vector3 v1(max.x, min.y, min.z);
-    Vector3 v2(max.x, max.y, min.z);
-    Vector3 v3(min.x, max.y, min.z);
-    Vector3 v4(min.x, min.y, max.z);
-    Vector3 v5(max.x, min.y, max.z);
-    Vector3 v6(min.x, max.y, max.z);
+    vertices.push_back(DebugVertex(min, uintColor));
+    vertices.push_back(DebugVertex(Vector3(max.x, min.y, min.z), uintColor));
+    vertices.push_back(DebugVertex(Vector3(max.x, max.y, min.z), uintColor));
+    vertices.push_back(DebugVertex(Vector3(min.x, max.y, min.z), uintColor));
+    vertices.push_back(DebugVertex(Vector3(min.x, min.y, max.z), uintColor));
+    vertices.push_back(DebugVertex(Vector3(max.x, min.y, max.z), uintColor));
+    vertices.push_back(DebugVertex(Vector3(min.x, max.y, max.z), uintColor));
+    vertices.push_back(DebugVertex(max, uintColor));
 
-    unsigned uintColor = color.ToUInt();
+    std::vector<unsigned>& dest = depthTest ? indices : noDepthIndices;
 
-    AddLine(min, v1, uintColor, depthTest);
-    AddLine(v1, v2, uintColor, depthTest);
-    AddLine(v2, v3, uintColor, depthTest);
-    AddLine(v3, min, uintColor, depthTest);
-    AddLine(v4, v5, uintColor, depthTest);
-    AddLine(v5, max, uintColor, depthTest);
-    AddLine(max, v6, uintColor, depthTest);
-    AddLine(v6, v4, uintColor, depthTest);
-    AddLine(min, v4, uintColor, depthTest);
-    AddLine(v1, v5, uintColor, depthTest);
-    AddLine(v2, max, uintColor, depthTest);
-    AddLine(v3, v6, uintColor, depthTest);
+    dest.push_back(startVertex);
+    dest.push_back(startVertex + 1);
+
+    dest.push_back(startVertex + 1);
+    dest.push_back(startVertex + 2);
+
+    dest.push_back(startVertex + 2);
+    dest.push_back(startVertex + 3);
+
+    dest.push_back(startVertex + 3);
+    dest.push_back(startVertex);
+
+    dest.push_back(startVertex + 4);
+    dest.push_back(startVertex + 5);
+
+    dest.push_back(startVertex + 5);
+    dest.push_back(startVertex + 7);
+
+    dest.push_back(startVertex + 7);
+    dest.push_back(startVertex + 6);
+
+    dest.push_back(startVertex + 6);
+    dest.push_back(startVertex + 4);
+
+    dest.push_back(startVertex + 0);
+    dest.push_back(startVertex + 4);
+
+    dest.push_back(startVertex + 1);
+    dest.push_back(startVertex + 5);
+
+    dest.push_back(startVertex + 2);
+    dest.push_back(startVertex + 7);
+
+    dest.push_back(startVertex + 3);
+    dest.push_back(startVertex + 6);
 }
 
 void DebugRenderer::AddBoundingBox(const BoundingBox& box, const Matrix3x4& transform, const Color& color, bool depthTest)
 {
+    unsigned startVertex = (unsigned)vertices.size();
+    unsigned uintColor = color.ToUInt();
+
     const Vector3& min = box.min;
     const Vector3& max = box.max;
 
-    Vector3 v0(transform * min);
-    Vector3 v1(transform * Vector3(max.x, min.y, min.z));
-    Vector3 v2(transform * Vector3(max.x, max.y, min.z));
-    Vector3 v3(transform * Vector3(min.x, max.y, min.z));
-    Vector3 v4(transform * Vector3(min.x, min.y, max.z));
-    Vector3 v5(transform * Vector3(max.x, min.y, max.z));
-    Vector3 v6(transform * Vector3(min.x, max.y, max.z));
-    Vector3 v7(transform * max);
+    vertices.push_back(DebugVertex(Vector3(transform * min), uintColor));
+    vertices.push_back(DebugVertex(Vector3(transform * Vector3(max.x, min.y, min.z)), uintColor));
+    vertices.push_back(DebugVertex(Vector3(transform * Vector3(max.x, max.y, min.z)), uintColor));
+    vertices.push_back(DebugVertex(Vector3(transform * Vector3(min.x, max.y, min.z)), uintColor));
+    vertices.push_back(DebugVertex(Vector3(transform * Vector3(min.x, min.y, max.z)), uintColor));
+    vertices.push_back(DebugVertex(Vector3(transform * Vector3(max.x, min.y, max.z)), uintColor));
+    vertices.push_back(DebugVertex(Vector3(transform * Vector3(min.x, max.y, max.z)), uintColor));
+    vertices.push_back(DebugVertex(Vector3(transform * max), uintColor));
 
-    unsigned uintColor = color.ToUInt();
+    std::vector<unsigned>& dest = depthTest ? indices : noDepthIndices;
 
-    AddLine(v0, v1, uintColor, depthTest);
-    AddLine(v1, v2, uintColor, depthTest);
-    AddLine(v2, v3, uintColor, depthTest);
-    AddLine(v3, v0, uintColor, depthTest);
-    AddLine(v4, v5, uintColor, depthTest);
-    AddLine(v5, v7, uintColor, depthTest);
-    AddLine(v7, v6, uintColor, depthTest);
-    AddLine(v6, v4, uintColor, depthTest);
-    AddLine(v0, v4, uintColor, depthTest);
-    AddLine(v1, v5, uintColor, depthTest);
-    AddLine(v2, v7, uintColor, depthTest);
-    AddLine(v3, v6, uintColor, depthTest);
+    dest.push_back(startVertex);
+    dest.push_back(startVertex + 1);
+
+    dest.push_back(startVertex + 1);
+    dest.push_back(startVertex + 2);
+
+    dest.push_back(startVertex + 2);
+    dest.push_back(startVertex + 3);
+
+    dest.push_back(startVertex + 3);
+    dest.push_back(startVertex);
+
+    dest.push_back(startVertex + 4);
+    dest.push_back(startVertex + 5);
+
+    dest.push_back(startVertex + 5);
+    dest.push_back(startVertex + 7);
+
+    dest.push_back(startVertex + 7);
+    dest.push_back(startVertex + 6);
+
+    dest.push_back(startVertex + 6);
+    dest.push_back(startVertex + 4);
+
+    dest.push_back(startVertex + 0);
+    dest.push_back(startVertex + 4);
+
+    dest.push_back(startVertex + 1);
+    dest.push_back(startVertex + 5);
+
+    dest.push_back(startVertex + 2);
+    dest.push_back(startVertex + 7);
+
+    dest.push_back(startVertex + 3);
+    dest.push_back(startVertex + 6);
 }
 
 void DebugRenderer::AddFrustum(const Frustum& frustum_, const Color& color, bool depthTest)
 {
+    unsigned startVertex = (unsigned)vertices.size();
     unsigned uintColor = color.ToUInt();
 
-    AddLine(frustum_.vertices[0], frustum_.vertices[1], uintColor, depthTest);
-    AddLine(frustum_.vertices[1], frustum_.vertices[2], uintColor, depthTest);
-    AddLine(frustum_.vertices[2], frustum_.vertices[3], uintColor, depthTest);
-    AddLine(frustum_.vertices[3], frustum_.vertices[0], uintColor, depthTest);
-    AddLine(frustum_.vertices[4], frustum_.vertices[5], uintColor, depthTest);
-    AddLine(frustum_.vertices[5], frustum_.vertices[6], uintColor, depthTest);
-    AddLine(frustum_.vertices[6], frustum_.vertices[7], uintColor, depthTest);
-    AddLine(frustum_.vertices[7], frustum_.vertices[4], uintColor, depthTest);
-    AddLine(frustum_.vertices[0], frustum_.vertices[4], uintColor, depthTest);
-    AddLine(frustum_.vertices[1], frustum_.vertices[5], uintColor, depthTest);
-    AddLine(frustum_.vertices[2], frustum_.vertices[6], uintColor, depthTest);
-    AddLine(frustum_.vertices[3], frustum_.vertices[7], uintColor, depthTest);
+    vertices.push_back(DebugVertex(frustum_.vertices[0], uintColor));
+    vertices.push_back(DebugVertex(frustum_.vertices[1], uintColor));
+    vertices.push_back(DebugVertex(frustum_.vertices[2], uintColor));
+    vertices.push_back(DebugVertex(frustum_.vertices[3], uintColor));
+    vertices.push_back(DebugVertex(frustum_.vertices[4], uintColor));
+    vertices.push_back(DebugVertex(frustum_.vertices[5], uintColor));
+    vertices.push_back(DebugVertex(frustum_.vertices[6], uintColor));
+    vertices.push_back(DebugVertex(frustum_.vertices[7], uintColor));
+
+    std::vector<unsigned>& dest = depthTest ? indices : noDepthIndices;
+
+    dest.push_back(startVertex);
+    dest.push_back(startVertex + 1);
+
+    dest.push_back(startVertex + 1);
+    dest.push_back(startVertex + 2);
+
+    dest.push_back(startVertex + 2);
+    dest.push_back(startVertex + 3);
+
+    dest.push_back(startVertex + 3);
+    dest.push_back(startVertex);
+
+    dest.push_back(startVertex + 4);
+    dest.push_back(startVertex + 5);
+
+    dest.push_back(startVertex + 5);
+    dest.push_back(startVertex + 6);
+
+    dest.push_back(startVertex + 6);
+    dest.push_back(startVertex + 7);
+
+    dest.push_back(startVertex + 7);
+    dest.push_back(startVertex + 4);
+
+    dest.push_back(startVertex);
+    dest.push_back(startVertex + 4);
+
+    dest.push_back(startVertex + 1);
+    dest.push_back(startVertex + 5);
+
+    dest.push_back(startVertex + 2);
+    dest.push_back(startVertex + 6);
+
+    dest.push_back(startVertex + 3);
+    dest.push_back(startVertex + 7);
 }
 
 void DebugRenderer::AddPolyhedron(const Polyhedron& poly, const Color& color, bool depthTest)
@@ -144,15 +241,26 @@ void DebugRenderer::AddSphere(const Sphere& sphere, const Color& color, bool dep
     {
         for (float i = 0.0f; i < 360.0f; i += 45.0f)
         {
-            Vector3 p1 = sphere.Point(i, j);
-            Vector3 p2 = sphere.Point(i + 45.0f, j);
-            Vector3 p3 = sphere.Point(i, j + 45.0f);
-            Vector3 p4 = sphere.Point(i + 45.0f, j + 45.0f);
+            unsigned startVertex = (unsigned)vertices.size();
 
-            AddLine(p1, p2, uintColor, depthTest);
-            AddLine(p3, p4, uintColor, depthTest);
-            AddLine(p1, p3, uintColor, depthTest);
-            AddLine(p2, p4, uintColor, depthTest);
+            vertices.push_back(DebugVertex(sphere.Point(i, j), uintColor));
+            vertices.push_back(DebugVertex(sphere.Point(i + 45.0f, j), uintColor));
+            vertices.push_back(DebugVertex(sphere.Point(i, j + 45.0f), uintColor));
+            vertices.push_back(DebugVertex(sphere.Point(i + 45.0f, j + 45.0f), uintColor));
+
+            std::vector<unsigned>& dest = depthTest ? indices : noDepthIndices;
+
+            dest.push_back(startVertex);
+            dest.push_back(startVertex + 1);
+
+            dest.push_back(startVertex + 2);
+            dest.push_back(startVertex + 3);
+
+            dest.push_back(startVertex);
+            dest.push_back(startVertex + 2);
+
+            dest.push_back(startVertex + 1);
+            dest.push_back(startVertex + 3);
         }
     }
 }
@@ -182,35 +290,41 @@ void DebugRenderer::Render()
 {
     ZoneScoped;
 
-    size_t totalVertices = vertices.size() + noDepthVertices.size();
-    if (!totalVertices)
-        return;
-
-    if (vertexBuffer->NumVertices() < totalVertices)
-        vertexBuffer->Define(USAGE_DYNAMIC, totalVertices, vertexElements);
+    if (vertexBuffer->NumVertices() < vertices.size())
+        vertexBuffer->Define(USAGE_DYNAMIC, vertices.size(), vertexElements);
 
     if (vertices.size())
         vertexBuffer->SetData(0, vertices.size(), &vertices[0]);
-    if (noDepthVertices.size())
-        vertexBuffer->SetData(vertices.size(), noDepthVertices.size(), &noDepthVertices[0]);
+
+    size_t totalIndices = indices.size() + noDepthIndices.size();
+    
+    if (indexBuffer->NumIndices() < totalIndices)
+        indexBuffer->Define(USAGE_DYNAMIC, totalIndices, sizeof(unsigned));
+
+    if (indices.size())
+        indexBuffer->SetData(0, indices.size(), &indices[0]);
+    if (noDepthIndices.size())
+        indexBuffer->SetData(indices.size(), noDepthIndices.size(), &noDepthIndices[0]);
 
     Graphics* graphics = Subsystem<Graphics>();
     ShaderProgram* program = graphics->SetProgram("Shaders/DebugLines.glsl");
     graphics->SetUniform(program, "viewProjMatrix", projection * view);
     graphics->SetVertexBuffer(vertexBuffer, program);
-    
-    if (vertices.size())
+    graphics->SetIndexBuffer(indexBuffer);
+
+    if (indices.size())
     {
         graphics->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_LESS, true, false);
-        glDrawArrays(GL_LINES, 0, (GLsizei)vertices.size());
+        glDrawElements(GL_LINES, indices.size(), GL_UNSIGNED_INT, 0);
     }
 
-    if (noDepthVertices.size())
+    if (noDepthIndices.size())
     {
         graphics->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_ALWAYS, true, false);
-        glDrawArrays(GL_LINES, (GLint)vertices.size(), (GLsizei)noDepthVertices.size());
+        glDrawElements(GL_LINES, noDepthIndices.size(), GL_UNSIGNED_INT, (const void*)(indices.size() * sizeof(unsigned)));
     }
 
     vertices.clear();
-    noDepthVertices.clear();
+    indices.clear();
+    noDepthIndices.clear();
 }

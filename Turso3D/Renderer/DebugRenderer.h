@@ -9,6 +9,7 @@
 
 class BoundingBox;
 class Camera;
+class IndexBuffer;
 class Polyhedron;
 class Matrix3x4;
 class Sphere;
@@ -66,18 +67,22 @@ public:
     bool IsInside(const BoundingBox& box) const { return frustum.IsInsideFast(box) == INSIDE; }
 
 private:
-    /// Vertices rendered with depth test.
+    /// Debug geometry vertices.
     std::vector<DebugVertex> vertices;
-    /// Vertices rendered without depth test.
-    std::vector<DebugVertex> noDepthVertices;
+    /// Indices rendered with depth test.
+    std::vector<unsigned> indices;
+    /// Indices rendered without depth test.
+    std::vector<unsigned> noDepthIndices;
     /// View transform.
     Matrix3x4 view;
     /// Projection transform.
     Matrix4 projection;
     /// View frustum.
     Frustum frustum;
-    /// Vertex buffer for the debug vertices.
+    /// Vertex buffer for the debug geometry.
     SharedPtr<VertexBuffer> vertexBuffer;
+    /// Index buffer for the debug geometry.
+    SharedPtr<IndexBuffer> indexBuffer;
     /// Vertex elements for the debug vertices.
     std::vector<VertexElement> vertexElements;
 };

@@ -727,7 +727,7 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
                 ib->Bind();
 
             glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)geometry->drawCount, ib->IndexSize() == sizeof(unsigned short) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, 
-                (const void*)(geometry->drawStart* ib->IndexSize()), batch.instanceCount);
+                (const void*)(geometry->drawStart * ib->IndexSize()), batch.instanceCount);
 
             it += batch.instanceCount - 1;
         }
