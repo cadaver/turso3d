@@ -24,6 +24,12 @@ extern "C" {
 }
 #endif
 
+static const unsigned glPrimitiveTypes[] =
+{
+    GL_LINES,
+    GL_TRIANGLES
+};
+
 static const unsigned glCompareFuncs[] =
 {
     GL_NEVER,
@@ -84,7 +90,9 @@ Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize) :
     lastColorWrite(true),
     lastDepthWrite(true),
     lastDepthBias(false),
-    vsync(false)
+    vsync(false),
+    hasInstancing(false),
+    instancingEnabled(false)
 {
     RegisterSubsystem(this);
     RegisterGraphicsLibrary();
@@ -166,6 +174,16 @@ bool Graphics::Initialize()
     glGenVertexArrays(1, &defaultVao);
     glBindVertexArray(defaultVao);
 
+    // Use texcoords 3-5 for instancing if supported
+    if (glVertexAttribDivisorARB)
+    {
+        hasInstancing = true;
+
+        glVertexAttribDivisorARB(ATTR_TEXCOORD3, 1);
+        glVertexAttribDivisorARB(ATTR_TEXCOORD4, 1);
+        glVertexAttribDivisorARB(ATTR_TEXCOORD5, 1);
+    }
+
     DefineQuadVertexBuffer();
 
     SetVSync(vsync);
@@ -222,12 +240,64 @@ ShaderProgram* Graphics::SetProgram(const std::string& shaderName, const std::st
     return program->Bind() ? program : nullptr;
 }
 
-void Graphics::SetUniformBuffer(size_t index, UniformBuffer* buffer)
+void Graphics::SetUniform(ShaderProgram* program, PresetUniform uniform, float value)
 {
-    if (buffer)
-        buffer->Bind(index);
-    else
-        UniformBuffer::Unbind(index);
+    if (program)
+    {
+        int location = program->Uniform(uniform);
+        if (location >= 0)
+            glUniform1f(location, value);
+    }
+}
+
+void Graphics::SetUniform(ShaderProgram* program, PresetUniform uniform, const Vector2& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(uniform);
+        if (location >= 0)
+            glUniform2fv(location, 1, value.Data());
+    }
+}
+
+void Graphics::SetUniform(ShaderProgram* program, PresetUniform uniform, const Vector3& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(uniform);
+        if (location >= 0)
+            glUniform3fv(location, 1, value.Data());
+    }
+}
+
+void Graphics::SetUniform(ShaderProgram* program, PresetUniform uniform, const Vector4& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(uniform);
+        if (location >= 0)
+            glUniform4fv(location, 1, value.Data());
+    }
+}
+
+void Graphics::SetUniform(ShaderProgram* program, PresetUniform uniform, const Matrix3x4& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(uniform);
+        if (location >= 0)
+            glUniformMatrix3x4fv(location, 1, GL_FALSE, value.Data());
+    }
+}
+
+void Graphics::SetUniform(ShaderProgram* program, PresetUniform uniform, const Matrix4& value)
+{
+    if (program)
+    {
+        int location = program->Uniform(uniform);
+        if (location >= 0)
+            glUniformMatrix4fv(location, 1, GL_FALSE, value.Data());
+    }
 }
 
 void Graphics::SetUniform(ShaderProgram* program, const char* name, float value)
@@ -288,6 +358,14 @@ void Graphics::SetUniform(ShaderProgram* program, const char* name, const Matrix
         if (location >= 0)
             glUniformMatrix4fv(location, 1, GL_FALSE, value.Data());
     }
+}
+
+void Graphics::SetUniformBuffer(size_t index, UniformBuffer* buffer)
+{
+    if (buffer)
+        buffer->Bind(index);
+    else
+        UniformBuffer::Unbind(index);
 }
 
 void Graphics::SetTexture(size_t index, Texture* texture)
@@ -427,22 +505,94 @@ void Graphics::Blit(FrameBuffer* dest, const IntRect& destRect, FrameBuffer* src
     glBlitFramebuffer(srcRect.left, srcRect.top, srcRect.right, srcRect.bottom, destRect.left, destRect.top, destRect.right, destRect.bottom, glBlitBits, filter == FILTER_POINT ? GL_NEAREST : GL_LINEAR);
 }
 
-void Graphics::Draw(size_t drawStart, size_t drawCount)
+void Graphics::Draw(PrimitiveType type, size_t drawStart, size_t drawCount)
 {
-    glDrawArrays(GL_TRIANGLES, (GLsizei)drawStart, (GLsizei)drawCount);
+    if (instancingEnabled)
+    {
+        glDisableVertexAttribArray(ATTR_TEXCOORD3);
+        glDisableVertexAttribArray(ATTR_TEXCOORD4);
+        glDisableVertexAttribArray(ATTR_TEXCOORD5);
+        instancingEnabled = false;
+    }
+
+    glDrawArrays(glPrimitiveTypes[type], (GLsizei)drawStart, (GLsizei)drawCount);
 }
 
-void Graphics::DrawIndexed(size_t drawStart, size_t drawCount)
+void Graphics::DrawIndexed(PrimitiveType type, size_t drawStart, size_t drawCount)
 {
-    IndexBuffer* ib = IndexBuffer::BoundIndexBuffer();
-    if (ib)
-        glDrawElements(GL_TRIANGLES, (GLsizei)drawCount, ib->IndexSize() == sizeof(unsigned short) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, (const void*)(drawStart * ib->IndexSize()));
+    if (instancingEnabled)
+    {
+        glDisableVertexAttribArray(ATTR_TEXCOORD3);
+        glDisableVertexAttribArray(ATTR_TEXCOORD4);
+        glDisableVertexAttribArray(ATTR_TEXCOORD5);
+        instancingEnabled = false;
+    }
+
+    IndexBuffer* indexBuffer = IndexBuffer::BoundIndexBuffer();
+    if (indexBuffer)
+    {
+        unsigned indexSize = (unsigned)indexBuffer->IndexSize();
+
+        glDrawElements(glPrimitiveTypes[type], (GLsizei)drawCount, indexSize == sizeof(unsigned short) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, (const void*)(drawStart * indexSize));
+    }
+}
+
+void Graphics::DrawInstanced(PrimitiveType type, size_t drawStart, size_t drawCount, VertexBuffer* instanceVertexBuffer, size_t instanceStart, size_t instanceCount)
+{
+    if (!hasInstancing)
+        return;
+
+    if (instanceVertexBuffer)
+    {
+        if (!instancingEnabled)
+        {
+            glEnableVertexAttribArray(ATTR_TEXCOORD3);
+            glEnableVertexAttribArray(ATTR_TEXCOORD4);
+            glEnableVertexAttribArray(ATTR_TEXCOORD5);
+            instancingEnabled = true;
+        }
+
+        unsigned instanceVertexSize = (unsigned)instanceVertexBuffer->VertexSize();
+
+        instanceVertexBuffer->Bind(0);
+        glVertexAttribPointer(ATTR_TEXCOORD3, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize));
+        glVertexAttribPointer(ATTR_TEXCOORD4, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize + sizeof(Vector4)));
+        glVertexAttribPointer(ATTR_TEXCOORD5, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize + 2 * sizeof(Vector4)));
+        glDrawArraysInstanced(glPrimitiveTypes[type], (GLint)drawStart, (GLsizei)drawCount, (GLsizei)instanceCount);
+    }
+}
+
+void Graphics::DrawIndexedInstanced(PrimitiveType type, size_t drawStart, size_t drawCount, VertexBuffer* instanceVertexBuffer, size_t instanceStart, size_t instanceCount)
+{
+    if (!hasInstancing)
+        return;
+
+    IndexBuffer* indexBuffer = IndexBuffer::BoundIndexBuffer();
+    if (indexBuffer && instanceVertexBuffer)
+    {
+        if (!instancingEnabled)
+        {
+            glEnableVertexAttribArray(ATTR_TEXCOORD3);
+            glEnableVertexAttribArray(ATTR_TEXCOORD4);
+            glEnableVertexAttribArray(ATTR_TEXCOORD5);
+            instancingEnabled = true;
+        }
+
+        unsigned indexSize = (unsigned)indexBuffer->IndexSize();
+        unsigned instanceVertexSize = (unsigned)instanceVertexBuffer->VertexSize();
+
+        instanceVertexBuffer->Bind(0);
+        glVertexAttribPointer(ATTR_TEXCOORD3, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize));
+        glVertexAttribPointer(ATTR_TEXCOORD4, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize + sizeof(Vector4)));
+        glVertexAttribPointer(ATTR_TEXCOORD5, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize + 2 * sizeof(Vector4)));
+        glDrawElementsInstanced(glPrimitiveTypes[type], (GLsizei)drawCount, indexSize == sizeof(unsigned short) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, (const void*)(drawStart * indexSize), (GLsizei)instanceCount);
+    }
 }
 
 void Graphics::DrawQuad()
 {
     quadVertexBuffer->Bind(MASK_POSITION | MASK_TEXCOORD);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    Draw(PT_TRIANGLE_LIST, 0, 6);
 }
 
 IntVector2 Graphics::Size() const

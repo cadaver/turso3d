@@ -17,6 +17,13 @@ static const size_t MAX_RENDERTARGETS = 4;
 /// Number of cube map faces.
 static const size_t MAX_CUBE_FACES = 6;
 
+/// Primitive types.
+enum PrimitiveType
+{
+    PT_LINE_LIST = 0,
+    PT_TRIANGLE_LIST
+};
+
 /// Element types for vertex elements.
 enum ElementType
 {

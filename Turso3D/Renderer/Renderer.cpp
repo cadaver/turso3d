@@ -25,7 +25,6 @@
 #include "Renderer.h"
 #include "StaticModel.h"
 
-#include <glew.h>
 #include <algorithm>
 #include <cstring>
 #include <tracy/Tracy.hpp>
@@ -85,12 +84,9 @@ void ShadowMap::Clear()
 Renderer::Renderer() :
     graphics(Subsystem<Graphics>()),
     workQueue(Subsystem<WorkQueue>()),
-
     frameNumber(0),
     clusterFrustumsDirty(true),
-    hasInstancing(false),
     lastPerMaterialUniforms(0),
-    instancingEnabled(false),
     depthBiasMul(1.0f),
     slopeScaleBiasMul(1.0f)
 {
@@ -100,15 +96,9 @@ Renderer::Renderer() :
     RegisterSubsystem(this);
     RegisterRendererLibrary();
 
-    // Use texcoords 3-5 for instancing if supported
-    if (glVertexAttribDivisorARB)
+    hasInstancing = graphics->HasInstancing();
+    if (hasInstancing)
     {
-        hasInstancing = true;
-
-        glVertexAttribDivisorARB(ATTR_TEXCOORD3, 1);
-        glVertexAttribDivisorARB(ATTR_TEXCOORD4, 1);
-        glVertexAttribDivisorARB(ATTR_TEXCOORD5, 1);
-
         instanceVertexBuffer = new VertexBuffer();
         instanceVertexElements.push_back(VertexElement(ELEM_VECTOR4, SEM_TEXCOORD, 3));
         instanceVertexElements.push_back(VertexElement(ELEM_VECTOR4, SEM_TEXCOORD, 4));
@@ -692,71 +682,38 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
         {
             const std::map<PresetUniform, Vector4>& uniformValues = material->UniformValues();
             for (auto uIt = uniformValues.begin(); uIt != uniformValues.end(); ++uIt)
-            {
-                int location = program->Uniform(uIt->first);
-                if (location >= 0)
-                    glUniform4fv(location, 1, uIt->second.Data());
-            }
+                graphics->SetUniform(program, uIt->first, uIt->second);
 
             program->lastPerMaterialUniforms = lastPerMaterialUniforms;
         }
 
         Geometry* geometry = batch.geometry;
+        VertexBuffer* vb = geometry->vertexBuffer;
+        IndexBuffer* ib = geometry->indexBuffer;
+        vb->Bind(program->Attributes());
+        if (ib)
+            ib->Bind();
 
         if (geometryBits == GEOM_INSTANCED)
         {
-            if (!instancingEnabled)
-            {
-                glEnableVertexAttribArray(ATTR_TEXCOORD3);
-                glEnableVertexAttribArray(ATTR_TEXCOORD4);
-                glEnableVertexAttribArray(ATTR_TEXCOORD5);
-                instancingEnabled = true;
-            }
-
-            const size_t instanceVertexSize = sizeof(Matrix3x4);
-            
-            instanceVertexBuffer->Bind(0);
-            glVertexAttribPointer(ATTR_TEXCOORD3, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(batch.instanceStart * instanceVertexSize));
-            glVertexAttribPointer(ATTR_TEXCOORD4, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(batch.instanceStart * instanceVertexSize + sizeof(Vector4)));
-            glVertexAttribPointer(ATTR_TEXCOORD5, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(batch.instanceStart * instanceVertexSize + 2 * sizeof(Vector4)));
-
-            VertexBuffer* vb = geometry->vertexBuffer;
-            IndexBuffer* ib = geometry->indexBuffer;
-            vb->Bind(program->Attributes());
             if (ib)
-                ib->Bind();
-
-            glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)geometry->drawCount, ib->IndexSize() == sizeof(unsigned short) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, 
-                (const void*)(geometry->drawStart * ib->IndexSize()), batch.instanceCount);
+                graphics->DrawIndexedInstanced(PT_TRIANGLE_LIST, geometry->drawStart, geometry->drawCount, instanceVertexBuffer, batch.instanceStart, batch.instanceCount);
+            else
+                graphics->DrawInstanced(PT_TRIANGLE_LIST, geometry->drawStart, geometry->drawCount, instanceVertexBuffer, batch.instanceStart, batch.instanceCount);
 
             it += batch.instanceCount - 1;
         }
         else
         {
-            if (instancingEnabled)
-            {
-                glDisableVertexAttribArray(ATTR_TEXCOORD3);
-                glDisableVertexAttribArray(ATTR_TEXCOORD4);
-                glDisableVertexAttribArray(ATTR_TEXCOORD5);
-                instancingEnabled = false;
-            }
-            
             if (!geometryBits)
-                glUniformMatrix3x4fv(program->Uniform(U_WORLDMATRIX), 1, GL_FALSE, batch.worldTransform->Data());
+                graphics->SetUniform(program, U_WORLDMATRIX, *batch.worldTransform);
             else
                 batch.node->OnRender(batch.geomIndex, program);
 
-            VertexBuffer* vb = geometry->vertexBuffer;
-            IndexBuffer* ib = geometry->indexBuffer;
-            vb->Bind(program->Attributes());
             if (ib)
-                ib->Bind();
-
-            if (!ib)
-                glDrawArrays(GL_TRIANGLES, (GLint)geometry->drawStart, (GLsizei)geometry->drawCount);
+                graphics->DrawIndexed(PT_TRIANGLE_LIST, geometry->drawStart, geometry->drawCount);
             else
-                glDrawElements(GL_TRIANGLES, (GLsizei)geometry->drawCount, ib->IndexSize() == sizeof(unsigned short) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, 
-                    (const void*)(geometry->drawStart * ib->IndexSize()));
+                graphics->Draw(PT_TRIANGLE_LIST, geometry->drawStart, geometry->drawCount);
         }
     }
 }

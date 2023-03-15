@@ -45,8 +45,18 @@ public:
     void SetViewport(const IntRect& viewRect);
     /// Bind a shader program for use. Return pointer on success or null otherwise. Low performance, provided for convenience.
     ShaderProgram* SetProgram(const std::string& shaderName, const std::string& vsDefines = JSONValue::emptyString, const std::string& fsDefines = JSONValue::emptyString);
-    /// Bind a uniform buffer for use in slot index. Null buffer parameter to unbind. Provided for convenience.
-    void SetUniformBuffer(size_t index, UniformBuffer* buffer);
+    /// Set float preset uniform.
+    void SetUniform(ShaderProgram* program, PresetUniform uniform, float value);
+    /// Set a Vector2 preset uniform.
+    void SetUniform(ShaderProgram* program, PresetUniform uniform, const Vector2& value);
+    /// Set a Vector3 preset uniform.
+    void SetUniform(ShaderProgram* program, PresetUniform uniform, const Vector3& value);
+    /// Set a Vector4 preset uniform.
+    void SetUniform(ShaderProgram* program, PresetUniform uniform, const Vector4& value);
+    /// Set a Matrix3x4 preset uniform.
+    void SetUniform(ShaderProgram* program, PresetUniform uniform, const Matrix3x4& value);
+    /// Set a Matrix4 preset uniform.
+    void SetUniform(ShaderProgram* program, PresetUniform uniform, const Matrix4& value);
     /// Set float uniform. Low performance, provided for convenience.
     void SetUniform(ShaderProgram* program, const char* name, float value);
     /// Set a Vector2 uniform. Low performance, provided for convenience.
@@ -59,6 +69,8 @@ public:
     void SetUniform(ShaderProgram* program, const char* name, const Matrix3x4& value);
     /// Set a Matrix4 uniform. Low performance, provided for convenience.
     void SetUniform(ShaderProgram* program, const char* name, const Matrix4& value);
+    /// Bind a uniform buffer for use in slot index. Null buffer parameter to unbind. Provided for convenience.
+    void SetUniformBuffer(size_t index, UniformBuffer* buffer);
     /// Bind a texture for use in texture unit. Null texture parameter to unbind.  Provided for convenience.
     void SetTexture(size_t index, Texture* texture);
     /// Bind a vertex buffer for use with the specified shader program's attribute bindings. Provided for convenience.
@@ -73,15 +85,21 @@ public:
     void Clear(bool clearColor = true, bool clearDepth = true, const IntRect& clearRect = IntRect::ZERO, const Color& backgroundColor = Color::BLACK);
     /// Blit from one framebuffer to another. The destination framebuffer will be left bound for rendering.
     void Blit(FrameBuffer* dest, const IntRect& destRect, FrameBuffer* src, const IntRect& srcRect, bool blitColor, bool blitDepth, TextureFilterMode filter);
-    /// Draw non-indexed triangle geometry with the currently bound vertex buffer. Provided for convenience.
-    void Draw(size_t drawStart, size_t drawCount);
-    /// Draw indexed triangle geometry with the currently bound vertex and index buffer. Provided for convenience.
-    void DrawIndexed(size_t drawStart, size_t drawCount);
+    /// Draw non-indexed geometry with the currently bound vertex buffer.
+    void Draw(PrimitiveType type, size_t drawStart, size_t drawCount);
+   /// Draw indexed geometry with the currently bound vertex and index buffer.
+    void DrawIndexed(PrimitiveType type, size_t drawStart, size_t drawCount);
+    /// Draw instanced non-indexed geometry with the currently bound vertex and index buffer, and the specified instance data vertex buffer.
+    void DrawInstanced(PrimitiveType type, size_t drawStart, size_t drawCount, VertexBuffer* instanceVertexBuffer, size_t instanceStart, size_t instanceCount);
+    /// Draw instanced indexed geometry with the currently bound vertex and index buffer, and the specified instance data vertex buffer.
+    void DrawIndexedInstanced(PrimitiveType type, size_t drawStart, size_t drawCount, VertexBuffer* instanceVertexBuffer, size_t instanceStart, size_t instanceCount);
     /// Draw a quad with current renderstate. The quad vertex buffer is left bound.
     void DrawQuad();
 
     /// Return whether is initialized.
     bool IsInitialized() const { return context != nullptr; }
+    /// Return whether has instancing support.
+    bool HasInstancing() const { return hasInstancing; }
     /// Return current window size.
     IntVector2 Size() const;
     /// Return current window width.
@@ -125,6 +143,10 @@ private:
     bool lastDepthBias;
     /// Vertical sync flag.
     bool vsync;
+    /// Instancing support flag.
+    bool hasInstancing;
+    /// Whether instance vertex elements are enabled.
+    bool instancingEnabled;
 };
 
 /// Register Graphics related object factories and attributes.

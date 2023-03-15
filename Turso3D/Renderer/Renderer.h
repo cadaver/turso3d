@@ -264,8 +264,6 @@ private:
     Material* lastMaterial;
     /// Last material uniforms assignment number.
     unsigned lastPerMaterialUniforms;
-    /// Instancing vertex arrays enabled flag.
-    bool instancingEnabled;
     /// Constant depth bias multiplier.
     float depthBiasMul;
     /// Slope-scaled depth bias multiplier.

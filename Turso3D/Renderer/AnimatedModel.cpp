@@ -9,7 +9,6 @@
 #include "AnimationState.h"
 #include "Model.h"
 
-#include <glew.h>
 #include <algorithm>
 #include <tracy/Tracy.hpp>
 

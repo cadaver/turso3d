@@ -8,7 +8,6 @@
 #include "Camera.h"
 #include "DebugRenderer.h"
 
-#include <glew.h>
 #include <tracy/Tracy.hpp>
 
 DebugRenderer::DebugRenderer()
@@ -315,13 +314,13 @@ void DebugRenderer::Render()
     if (indices.size())
     {
         graphics->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_LESS, true, false);
-        glDrawElements(GL_LINES, indices.size(), GL_UNSIGNED_INT, 0);
+        graphics->DrawIndexed(PT_LINE_LIST, 0, indices.size());
     }
 
     if (noDepthIndices.size())
     {
         graphics->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_ALWAYS, true, false);
-        glDrawElements(GL_LINES, noDepthIndices.size(), GL_UNSIGNED_INT, (const void*)(indices.size() * sizeof(unsigned)));
+        graphics->DrawIndexed(PT_LINE_LIST, indices.size(), noDepthIndices.size());
     }
 
     vertices.clear();
