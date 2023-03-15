@@ -394,8 +394,6 @@ void Renderer::RenderDebug()
     if (!debug)
         return;
 
-    debug->SetView(camera);
-
     for (auto it = lights.begin(); it != lights.end(); ++it)
         (*it)->OnRenderDebug(debug);
 
@@ -416,8 +414,6 @@ void Renderer::RenderDebug()
             }
         }
     }
-
-    debug->Render();
 }
 
 Texture* Renderer::ShadowMapTexture(size_t index) const

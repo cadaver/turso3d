@@ -166,7 +166,7 @@ public:
     void RenderOpaque();
     /// Render transparent objects into the currently set framebuffer and viewport.
     void RenderAlpha();
-    /// Render debug geometry for the objects in frustum into the currently set framebuffer and viewport. Requires the DebugRenderer to exist.
+    /// Add debug geometry from the objects in frustum into DebugRenderer. Note: does not automatically render, to allow more geometry to be added elsewhere.
     void RenderDebug();
 
     /// Return a shadow map texture by index for debugging.

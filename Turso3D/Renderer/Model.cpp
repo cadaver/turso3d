@@ -395,6 +395,29 @@ bool Model::EndLoad()
             break;
     }
 
+    // Create the geometry structure early and fill the CPU-side data first. Fill actual vertex and index buffers later
+    geometries.resize(geomDescs.size());
+    for (size_t i = 0; i < geomDescs.size(); ++i)
+    {
+        geometries[i].resize(geomDescs[i].size());
+        for (size_t j = 0; j < geomDescs[i].size(); ++j)
+        {
+            const GeometryDesc& geomDesc = geomDescs[i][j];
+            SharedPtr<Geometry> geom(new Geometry());
+
+            geom->lodDistance = geomDesc.lodDistance;
+            geom->drawStart = geomDesc.drawStart;
+            geom->drawCount = geomDesc.drawCount;
+            geom->cpuPositionData = vbDescs[geomDesc.vbRef].cpuPositionData;
+            geom->cpuIndexData = ibDescs[geomDesc.ibRef].indexData;
+            geom->cpuIndexSize = ibDescs[geomDesc.ibRef].indexSize;
+            geom->cpuDrawStart = geomDesc.drawStart;
+
+            geometries[i][j] = geom;
+        }
+    }
+
+    // Check if can use combined vertex / index buffers
     if (vbDescs.size() == 1 && vbDescs[0].numVertices < COMBINEDBUFFER_VERTICES && totalIndices < COMBINEDBUFFER_INDICES && hasSameIndexSize && !hasWeights)
     {
         combinedBuffer = CombinedBuffer::Allocate(vbDescs[0].vertexElements, vbDescs[0].numVertices, totalIndices);
@@ -432,25 +455,16 @@ bool Model::EndLoad()
             combinedBuffer->FillIndices(ibDescs[i].numIndices, ibDescs[i].indexData);
         }
 
-        geometries.resize(geomDescs.size());
         for (size_t i = 0; i < geomDescs.size(); ++i)
         {
-            geometries[i].resize(geomDescs[i].size());
             for (size_t j = 0; j < geomDescs[i].size(); ++j)
             {
                 const GeometryDesc& geomDesc = geomDescs[i][j];
-                SharedPtr<Geometry> geom(new Geometry());
+                Geometry* geom = geometries[i][j];
 
-                geom->lodDistance = geomDesc.lodDistance;
-                geom->drawStart = geomDesc.drawStart + indexStarts[geomDesc.ibRef];
-                geom->drawCount = geomDesc.drawCount;
                 geom->vertexBuffer = combinedBuffer->GetVertexBuffer();
                 geom->indexBuffer = combinedBuffer->GetIndexBuffer();
-                geom->cpuPositionData = vbDescs[0].cpuPositionData;
-                geom->cpuIndexData = ibDescs[geomDesc.ibRef].indexData;
-                geom->cpuIndexSize = ibDescs[geomDesc.ibRef].indexSize;
-                geom->cpuDrawStart = geomDesc.drawStart;
-                geometries[i][j] = geom;
+                geom->drawStart = geomDesc.drawStart + indexStarts[geomDesc.ibRef];
             }
         }
 
@@ -461,6 +475,7 @@ bool Model::EndLoad()
         return true;
     }
 
+    // If not, create individual buffers for this model and set them to the geometries
     std::vector<SharedPtr<VertexBuffer> > vbs;
     for (size_t i = 0; i < vbDescs.size(); ++i)
     {
@@ -481,7 +496,6 @@ bool Model::EndLoad()
         ibs.push_back(ib);
     }
 
-    // Set the buffers to each geometry
     geometries.resize(geomDescs.size());
     for (size_t i = 0; i < geomDescs.size(); ++i)
     {
@@ -489,28 +503,10 @@ bool Model::EndLoad()
         for (size_t j = 0; j < geomDescs[i].size(); ++j)
         {
             const GeometryDesc& geomDesc = geomDescs[i][j];
-            SharedPtr<Geometry> geom(new Geometry());
+            Geometry* geom = geometries[i][j];
 
-            geom->lodDistance = geomDesc.lodDistance;
-            geom->drawStart = geomDesc.drawStart;
-            geom->drawCount = geomDesc.drawCount;
-            
-            if (geomDesc.vbRef < vbs.size())
-                geom->vertexBuffer = vbs[geomDesc.vbRef];
-            else
-                LOGERROR("Out of range vertex buffer reference in " + Name());
-
-            if (geomDesc.ibRef < ibs.size())
-                geom->indexBuffer = ibs[geomDesc.ibRef];
-            else
-                LOGERROR("Out of range index buffer reference in " + Name());
-            
-            geom->cpuPositionData = vbDescs[geomDesc.vbRef].cpuPositionData;
-            geom->cpuIndexData = ibDescs[geomDesc.ibRef].indexData;
-            geom->cpuIndexSize = ibDescs[geomDesc.ibRef].indexSize;
-            geom->cpuDrawStart = geomDesc.drawStart;
-
-            geometries[i][j] = geom;
+            geom->vertexBuffer = vbs[geomDesc.vbRef];
+            geom->indexBuffer = ibs[geomDesc.ibRef];
         }
     }
 

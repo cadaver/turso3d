@@ -289,6 +289,10 @@ void DebugRenderer::Render()
 {
     ZoneScoped;
 
+    // Early-out if no geometry to render
+    if (!vertices.size())
+        return;
+
     if (vertexBuffer->NumVertices() < vertices.size())
         vertexBuffer->Define(USAGE_DYNAMIC, vertices.size(), vertexElements);
 

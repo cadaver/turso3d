@@ -3,11 +3,14 @@
 #include "../Graphics/GraphicsDefs.h"
 #include "../Graphics/UniformBuffer.h"
 #include "../IO/Log.h"
+#include "../Math/Ray.h"
 #include "../Resource/ResourceCache.h"
 #include "AnimatedModel.h"
 #include "Animation.h"
 #include "AnimationState.h"
+#include "DebugRenderer.h"
 #include "Model.h"
+#include "Octree.h"
 
 #include <algorithm>
 #include <tracy/Tracy.hpp>
@@ -133,6 +136,62 @@ void AnimatedModel::OnRender(ShaderProgram*, size_t)
 
     skinMatrixBuffer->Bind(UB_SKINMATRICES);
 }
+
+void AnimatedModel::OnRenderDebug(DebugRenderer* debug)
+{
+    debug->AddBoundingBox(WorldBoundingBox(), Color::GREEN, false);
+
+    for (size_t i = 0; i < numBones; ++i)
+    {
+        // Skip the root bone, as it has no sensible connection point
+        Bone* bone = bones[i];
+        if (bone != rootBone)
+            debug->AddLine(bone->WorldPosition(), bone->SpatialParent()->WorldPosition(), Color::WHITE, false);
+    }
+}
+
+void AnimatedModel::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance_)
+{
+    if (ray.HitDistance(WorldBoundingBox()) < maxDistance_ && model)
+    {
+        RaycastResult res;
+        res.distance = M_INFINITY;
+
+        // Perform raycast against each bone in its local space
+        const std::vector<ModelBone>& modelBones = model->Bones();
+
+        for (size_t i = 0; i < numBones; ++i)
+        {
+            if (!modelBones[i].active)
+                continue;
+
+            const Matrix3x4& transform = bones[i]->WorldTransform();
+            Ray localRay = ray.Transformed(transform.Inverse());
+            float localDistance = localRay.HitDistance(modelBones[i].boundingBox);
+
+            if (localDistance < M_INFINITY)
+            {
+                // If has a hit, transform it back to world space
+                Vector3 hitPosition = transform * (localRay.origin + localDistance * localRay.direction);
+                float hitDistance = (hitPosition - ray.origin).Length();
+
+                if (hitDistance < maxDistance_ && hitDistance < res.distance)
+                {
+                    res.position = hitPosition;
+                    /// \todo Hit normal not calculated correctly
+                    res.normal = -ray.direction;
+                    res.distance = hitDistance;
+                    res.node = this;
+                    res.subObject = i;
+                }
+            }
+        }
+
+        if (res.distance < maxDistance_)
+            dest.push_back(res);
+    }
+}
+
 
 void AnimatedModel::SetModel(Model* model_)
 {

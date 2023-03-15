@@ -152,24 +152,26 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     if (arguments.size() > 1 && arguments[1].find("nothreads") != std::string::npos)
         useThreads = false;
 
+    // Create subsystems that don't depend on the application window / OpenGL context
     AutoPtr<WorkQueue> workQueue = new WorkQueue(useThreads ? 0 : 1);
-
     AutoPtr<Profiler> profiler = new Profiler();
     AutoPtr<Log> log = new Log();
     AutoPtr<ResourceCache> cache = new ResourceCache();
     cache->AddResourceDir(ExecutableDir() + "Data");
 
+    // Create the Graphics subsystem to open the application window and initialize OpenGL
     AutoPtr<Graphics> graphics = new Graphics("Turso3D renderer test", IntVector2(1920, 1080));
     if (!graphics->Initialize())
         return 1;
 
+    // Create subsystems that depend on the application window / OpenGL
     AutoPtr<Input> input = new Input(graphics->Window());
-
     AutoPtr<Renderer> renderer = new Renderer();
-    renderer->SetupShadowMaps(1024, 2048, FMT_D16);
-
     AutoPtr<DebugRenderer> debugRenderer = new DebugRenderer();
 
+    renderer->SetupShadowMaps(1024, 2048, FMT_D16);
+    
+    // Rendertarget textures
     AutoPtr<FrameBuffer> viewFbo = new FrameBuffer();
     AutoPtr<FrameBuffer> viewMRTFbo = new FrameBuffer();
     AutoPtr<FrameBuffer> ssaoFbo = new FrameBuffer();
@@ -178,6 +180,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     AutoPtr<Texture> depthStencilBuffer = new Texture();
     AutoPtr<Texture> ssaoTexture = new Texture();
 
+    // Random noise texture for SSAO
     unsigned char noiseData[4 * 4 * 4];
     for (int i = 0; i < 4 * 4; ++i)
     {
@@ -195,6 +198,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     noiseTexture->Define(TEX_2D, IntVector2(4, 4), FMT_RGBA8, 1, 1, &noiseDataLevel);
     noiseTexture->DefineSampler(FILTER_POINT);
 
+    // Create the scene and camera. Camera is created outside scene so it's not disturbed by scene clears
     AutoPtr<Scene> scene = new Scene();
     CreateScene(scene, 0);
 
@@ -214,6 +218,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
     std::string profilerOutput;
 
+    // Main loop
     while (!input->ShouldExit() && !input->KeyPressed(27))
     {
         ZoneScoped;
@@ -228,6 +233,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
         profiler->BeginFrame();
 
+        // Check for input and scene switch / debug render options
         input->Update();
 
         if (input->KeyPressed(SDLK_F1))
@@ -260,6 +266,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
         if (input->KeyPressed(SDLK_f))
             graphics->SetFullscreen(!graphics->IsFullscreen());
 
+        // Camera movement
         IntVector2 mouseMove = input->MouseMove();
         yaw += mouseMove.x * 0.1f;
         pitch += mouseMove.y * 0.1f;
@@ -277,6 +284,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
         if (input->KeyDown(SDLK_d))
             camera->Translate(Vector3::RIGHT * dt * moveSpeed);
 
+        // Scene animation
         if (animate)
         {
             ZoneScopedN("MoveObjects");
@@ -307,6 +315,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             }
         }
 
+        // Recreate rendertarget textures if window resolution changed
         int width = graphics->RenderWidth();
         int height = graphics->RenderHeight();
 
@@ -326,6 +335,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             viewMRTFbo->Define(mrt, depthStencilBuffer);
         }
 
+        // Similarly recreate SSAO texture if needed
         if (drawSSAO && (ssaoTexture->Width() != colorBuffer->Width() / 2 || ssaoTexture->Height() != colorBuffer->Height() / 2))
         {
             ssaoTexture->Define(TEX_2D, IntVector2(colorBuffer->Width() / 2, colorBuffer->Height() / 2), FMT_R32F, 1, 1);
@@ -335,16 +345,31 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
         camera->SetAspectRatio((float)width / (float)height);
 
+        // Collect geometries and lights in frustum. Also set debug renderer to use the correct camera view
         {
             PROFILE(PrepareView);
             renderer->PrepareView(scene, camera, shadowMode > 0);
+            debugRenderer->SetView(camera);
         }
         
+        // Raycast into the scene using the camera forward vector. If has a hit, draw a small debug sphere at the hit location
+        {
+            PROFILE(Raycast);
+
+            Ray cameraRay(camera->WorldPosition(), camera->WorldDirection());
+            RaycastResult res = scene->FindChild<Octree>()->RaycastSingle(cameraRay, NF_GEOMETRY);
+            if (res.node)
+                debugRenderer->AddSphere(Sphere(res.position, 0.05f), Color::WHITE, true);
+        }
+
+        // Now render the scene, starting with shadowmaps and opaque geometries
         {
             PROFILE(RenderView);
 
             renderer->RenderShadowMaps();
 
+            // The default opaque shaders can write both color (first RT) and view-space normals (second RT).
+            // If going to render SSAO, bind both rendertargets, else just the color RT
             if (drawSSAO)
                 graphics->SetFrameBuffer(viewMRTFbo);
             else
@@ -355,7 +380,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
             renderer->RenderOpaque();
 
-            // Optionally render SSAO by darkening the opaque geometry
+            // Optional SSAO effect. First sample the normals and depth buffer, then apply a blurred SSAO result that darkens the opaque geometry
             if (drawSSAO)
             {
                 float farClip = camera->FarClip();
@@ -389,22 +414,18 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 graphics->SetTexture(0, nullptr);
             }
 
+            // Render alpha geometry. Now only the color rendertarget is needed
             graphics->SetFrameBuffer(viewFbo);
             graphics->SetViewport(IntRect(0, 0, width, height));
             renderer->RenderAlpha();
 
             // Optional render of debug geometry
             if (drawDebug)
-            {
-                PROFILE(RenderDebug);
                 renderer->RenderDebug();
-            }
 
             // Optional debug render of shadowmap. Draw both dir light cascades and the shadow atlas
             if (drawShadowDebug)
             {
-                PROFILE(RenderShadowDebug);
-
                 Matrix4 quadMatrix = Matrix4::IDENTITY;
                 quadMatrix.m00 = 0.33f * 2.0f * (9.0f / 16.0f);
                 quadMatrix.m11 = 0.33f;
@@ -426,6 +447,9 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
                 graphics->SetTexture(0, nullptr);
             }
+
+            // Render debug geometry if any
+            debugRenderer->Render();
 
             // Blit rendered contents to backbuffer now before presenting
             graphics->Blit(nullptr, IntRect(0, 0, width, height), viewFbo, IntRect(0, 0, width, height), true, false, FILTER_POINT);

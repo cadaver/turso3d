@@ -22,6 +22,8 @@ public:
 
     /// Prepare object for rendering. Reset framenumber and calculate distance from camera, and check for LOD level changes. Called by Renderer in worker threads. Return false if should not render.
     bool OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
+    /// Perform ray test on self and add possible hit to the result vector.
+    void OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance) override;
 
     /// Set the model resource.
     void SetModel(Model* model);

@@ -31,7 +31,7 @@ struct DebugVertex
     unsigned color;
 };
 
-/// Debug geometry renderer
+/// Debug line geometry rendering subsystem.
 class DebugRenderer : public Object
 {
     OBJECT(DebugRenderer);
