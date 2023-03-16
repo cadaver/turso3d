@@ -61,7 +61,7 @@ public:
     /// Longest call since start.
     long long totalMaxTime;
     /// Call count since start.
-    int totalCount;
+    long long totalCount;
 };
 
 /// Hierarchical performance profiler subsystem.
