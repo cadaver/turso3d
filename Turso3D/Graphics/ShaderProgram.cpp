@@ -32,7 +32,7 @@ const char* attribNames[] =
 void CommentOutFunction(std::string& code, const std::string& signature)
 {
     size_t startPos = code.find(signature);
-    unsigned braceLevel = 0;
+    size_t braceLevel = 0;
     if (startPos == std::string::npos)
         return;
 
@@ -45,7 +45,7 @@ void CommentOutFunction(std::string& code, const std::string& signature)
         else if (code[i] == '}')
         {
             --braceLevel;
-            if (braceLevel == 0)
+            if (!braceLevel)
             {
                 code.insert(i + 1, "*/");
                 return;
@@ -66,8 +66,8 @@ int NumberPostfix(const std::string& string)
 }
 
 ShaderProgram::ShaderProgram(const std::string& sourceCode, const std::string& shaderName_, const std::string& vsDefines, const std::string& fsDefines) :
-    program(0),
-    lastPerMaterialUniforms(0)
+    lastPerMaterialUniforms(0),
+    program(0)
 {
     assert(Object::Subsystem<Graphics>()->IsInitialized());
 

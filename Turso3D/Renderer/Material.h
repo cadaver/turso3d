@@ -70,6 +70,8 @@ public:
     std::pair<unsigned short, unsigned short> lastSortKey;
 
 private:
+    /// Parent material.
+    Material* parent;
     /// Blend mode.
     BlendMode blendMode;
     /// Depth test mode.
@@ -78,8 +80,6 @@ private:
     bool colorWrite;
     /// Depth write flag.
     bool depthWrite;
-    /// Parent material.
-    WeakPtr<Material> parent;
     /// Cached shader variations.
     SharedPtr<ShaderProgram> shaderPrograms[MAX_SHADER_VARIATIONS];
     /// Shader resource.

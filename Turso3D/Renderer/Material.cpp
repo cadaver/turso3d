@@ -32,10 +32,10 @@ std::string Material::globalFSDefines;
 
 Pass::Pass(Material* parent_) :
     parent(parent_),
-    colorWrite(true),
-    depthWrite(true),
+    blendMode(BLEND_REPLACE),
     depthTest(CMP_LESS),
-    blendMode(BLEND_REPLACE)
+    colorWrite(true),
+    depthWrite(true)
 {
 }
 
