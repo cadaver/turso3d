@@ -423,6 +423,8 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             if (drawDebug)
                 renderer->RenderDebug();
 
+            debugRenderer->Render();
+
             // Optional debug render of shadowmap. Draw both dir light cascades and the shadow atlas
             if (drawShadowDebug)
             {
@@ -447,9 +449,6 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
                 graphics->SetTexture(0, nullptr);
             }
-
-            // Render debug geometry if any
-            debugRenderer->Render();
 
             // Blit rendered contents to backbuffer now before presenting
             graphics->Blit(nullptr, IntRect(0, 0, width, height), viewFbo, IntRect(0, 0, width, height), true, false, FILTER_POINT);
