@@ -209,7 +209,7 @@ void Profiler::OutputResults(ProfilerBlock* block, std::string& output, size_t d
                 float frame = block->intervalTime / currentInterval / 1000.0f;
                 float all = block->intervalTime / 1000.0f;
 
-                sprintf(line, "%s %5u %8.3f %8.3f %8.3f %9.3f\n", indentedName, Min(block->intervalCount, 99999),
+                sprintf(line, "%s %5d %8.3f %8.3f %8.3f %9.3f\n", indentedName, Min(block->intervalCount, 99999),
                     avg, max, frame, all);
             }
             else
@@ -222,7 +222,7 @@ void Profiler::OutputResults(ProfilerBlock* block, std::string& output, size_t d
                 float totalMax = block->totalMaxTime / 1000.0f;
                 float totalAll = block->totalTime / 1000.0f;
 
-                sprintf(line, "%s %5u %8.3f %8.3f %9.3f  %7u %9.3f %9.3f %11.3f\n", indentedName, Min(block->frameCount, 99999),
+                sprintf(line, "%s %5d %8.3f %8.3f %9.3f  %7u %9.3f %9.3f %11.3f\n", indentedName, Min(block->frameCount, 99999),
                     avg, max, all, Min(block->totalCount, 99999), totalAvg, totalMax, totalAll);
             }
 

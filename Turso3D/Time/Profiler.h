@@ -43,25 +43,25 @@ public:
     /// Current frame's longest call.
     long long maxTime;
     /// Current frame's call count.
-    unsigned count;
+    int count;
     /// Previous frame's accumulated time.
     long long frameTime;
     /// Previous frame's longest call.
     long long frameMaxTime;
     /// Previous frame's call count.
-    unsigned frameCount;
+    int frameCount;
     /// Current interval's accumulated time.
     long long intervalTime;
     /// Current interval's longest call.
     long long intervalMaxTime;
     /// Current interval's call count.
-    unsigned intervalCount;
+    int intervalCount;
     /// Accumulated time since start.
     long long totalTime;
     /// Longest call since start.
     long long totalMaxTime;
     /// Call count since start.
-    unsigned totalCount;
+    int totalCount;
 };
 
 /// Hierarchical performance profiler subsystem.

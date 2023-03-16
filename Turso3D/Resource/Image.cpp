@@ -291,7 +291,7 @@ bool Image::BeginLoad(Stream& source)
 
         size_t dataSize = source.Size() - source.Position();
         data = new unsigned char[dataSize];
-        size = IntVector3(ddsd.dwWidth, ddsd.dwHeight, Max(ddsd.dwDepth, 1));
+        size = IntVector3(ddsd.dwWidth, ddsd.dwHeight, Max((int)ddsd.dwDepth, 1));
         numLevels = ddsd.dwMipMapCount ? ddsd.dwMipMapCount : 1;
         source.Read(data, dataSize);
     }
