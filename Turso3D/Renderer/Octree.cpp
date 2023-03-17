@@ -78,7 +78,7 @@ Octree::Octree() :
     root.Initialize(nullptr, BoundingBox(-DEFAULT_OCTREE_SIZE, DEFAULT_OCTREE_SIZE), DEFAULT_OCTREE_LEVELS);
 
     // Have at least 1 task for reinsert processing
-    reinsertTasks.push_back(new MemberFunctionTask<Octree>(this, &Octree::CheckReinsertWork));
+    reinsertTasks.push_back(new ReinsertNodesTask(this, &Octree::CheckReinsertWork));
     reinsertQueues.resize(workQueue->NumThreads());
 }
 
@@ -129,7 +129,7 @@ void Octree::Update(unsigned short frameNumber_)
                 end = updateQueue.size();
 
             if (reinsertTasks.size() <= taskIdx)
-                reinsertTasks.push_back(new MemberFunctionTask<Octree>(this, &Octree::CheckReinsertWork));
+                reinsertTasks.push_back(new ReinsertNodesTask(this, &Octree::CheckReinsertWork));
             reinsertTasks[taskIdx]->start = &updateQueue[0] + start;
             reinsertTasks[taskIdx]->end = &updateQueue[0] + end;
             ++taskIdx;
@@ -475,12 +475,13 @@ void Octree::CollectNodes(std::vector<std::pair<OctreeNode*, float> >& result, O
     }
 }
 
-void Octree::CheckReinsertWork(Task* task, unsigned threadIndex_)
+void Octree::CheckReinsertWork(Task* task_, unsigned threadIndex_)
 {
     ZoneScoped;
 
-    OctreeNode** start = reinterpret_cast<OctreeNode**>(task->start);
-    OctreeNode** end = reinterpret_cast<OctreeNode**>(task->end);
+    ReinsertNodesTask* task = static_cast<ReinsertNodesTask*>(task_);
+    OctreeNode** start = task->start;
+    OctreeNode** end = task->end;
     std::vector<OctreeNode*>& reinsertQueue = reinsertQueues[threadIndex_];
 
     for (; start != end; ++start)

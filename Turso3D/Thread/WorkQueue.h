@@ -28,10 +28,6 @@ struct Task
         numDependencies.fetch_add(1);
     }
 
-    /// Data start pointer, task-specific meaning.
-    void* start;
-    /// Data end pointer, task-specific meaning.
-    void* end;
     /// Dependent tasks.
     std::vector<Task*> dependentTasks;
     /// Dependency counter. Once zero, this task will be automatically queue itself.
@@ -44,11 +40,9 @@ struct FunctionTask : public Task
     typedef void (*WorkFunctionPtr)(Task*, unsigned);
 
     /// Construct.
-    FunctionTask(WorkFunctionPtr function_, void* start_ = nullptr, void* end_ = nullptr) :
+    FunctionTask(WorkFunctionPtr function_) :
         function(function_)
     {
-        start = start_;
-        end = end_;
     }
 
     /// Call the work function. Thread index 0 is the main thread.
@@ -67,12 +61,10 @@ template<class T> struct MemberFunctionTask : public Task
     typedef void (T::* MemberWorkFunctionPtr)(Task*, unsigned);
 
     /// Construct.
-    MemberFunctionTask(T* object_, MemberWorkFunctionPtr function_, void* start_ = nullptr, void* end_ = nullptr) :
+    MemberFunctionTask(T* object_, MemberWorkFunctionPtr function_) :
         object(object_),
         function(function_)
     {
-        start = start_;
-        end = end_;
     }
 
     /// Call the work function. Thread index 0 is the main thread.

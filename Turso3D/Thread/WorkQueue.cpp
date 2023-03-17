@@ -7,9 +7,7 @@
 
 thread_local unsigned WorkQueue::threadIndex = 0;
 
-Task::Task() :
-    start(nullptr),
-    end(nullptr)
+Task::Task()
 {
     numDependencies.store(0);
 }

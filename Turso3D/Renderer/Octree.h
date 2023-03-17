@@ -13,7 +13,7 @@ class Octree;
 class OctreeNode;
 class Ray;
 class WorkQueue;
-struct Task;
+struct ReinsertNodesTask;
 
 /// Structure for raycast query results.
 struct RaycastResult
@@ -273,11 +273,26 @@ private:
     /// Cached %WorkQueue subsystem.
     WorkQueue* workQueue;
     /// Tasks for threaded reinsert execution.
-    std::vector<AutoPtr<Task> > reinsertTasks;
+    std::vector<AutoPtr<ReinsertNodesTask> > reinsertTasks;
     /// Intermediate reinsert queues for threaded execution.
     std::vector<std::vector<OctreeNode*> > reinsertQueues;
     /// RaycastSingle initial coarse result.
     mutable std::vector<std::pair<OctreeNode*, float> > initialRayResult;
     /// RaycastSingle final result.
     mutable std::vector<RaycastResult> finalRayResult;
+};
+
+/// Task for octree nodes reinsertion.
+struct ReinsertNodesTask : public MemberFunctionTask<Octree>
+{
+    /// Construct.
+    ReinsertNodesTask(Octree* object_, MemberWorkFunctionPtr function_) :
+        MemberFunctionTask<Octree>(object_, function_)
+    {
+    }
+
+    /// Start pointer.
+    OctreeNode** start;
+    /// End pointer.
+    OctreeNode** end;
 };

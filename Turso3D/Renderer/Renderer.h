@@ -25,6 +25,11 @@ class ShaderProgram;
 class Texture;
 class UniformBuffer;
 class VertexBuffer;
+struct CollectOctantsTask;
+struct CollectBatchesTask;
+struct CollectShadowBatchesTask;
+struct CollectShadowCastersTask;
+struct CullLightsTask;
 struct Octant;
 struct ShadowView;
 
@@ -48,18 +53,18 @@ struct ThreadOctantResult
     /// Clear for the next frame.
     void Clear();
 
-    /// Octant list current position.
-    std::list<std::vector<std::pair<Octant*, unsigned char> > >::iterator octantListIt;
     /// Node accumulator. When full, queue the next batch collection task.
     size_t nodeAcc;
+    /// Starting octant index for current task.
+    size_t taskOctantIdx;
     /// Batch collection task index.
     size_t batchTaskIdx;
-    /// Intermediate octant lists. Stored inside a std::list so that batch collection tasks can begin early without iterator invalidation.
-    std::list<std::vector<std::pair<Octant*, unsigned char> > > octants;
+    /// Intermediate octant list.
+    std::vector<std::pair<Octant*, unsigned char> > octants;
     /// Intermediate light list.
     std::vector<Light*> lights;
     /// Tasks for main view batches collection, queued by the octant collection task when it finishes.
-    std::vector<AutoPtr<Task> > collectBatchesTasks;
+    std::vector<AutoPtr<CollectBatchesTask> > collectBatchesTasks;
 };
 
 /// Per-thread results for batch collection.
@@ -269,17 +274,17 @@ private:
     /// Slope-scaled depth bias multiplier.
     float slopeScaleBiasMul;
     /// Tasks for octant collection.
-    AutoPtr<Task> collectOctantsTasks[NUM_OCTANT_TASKS];
+    AutoPtr<CollectOctantsTask> collectOctantsTasks[NUM_OCTANT_TASKS];
     /// Task for light processing.
     AutoPtr<Task> processLightsTask;
     /// Tasks for shadow light processing.
-    std::vector<AutoPtr<Task> > collectShadowCastersTasks;
+    std::vector<AutoPtr<CollectShadowCastersTask> > collectShadowCastersTasks;
     /// Task for queuing shadow views for further processing.
     AutoPtr<Task> processShadowCastersTask;
     /// Tasks for shadow batch processing.
-    std::vector<AutoPtr<Task> > collectShadowBatchesTasks;
+    std::vector<AutoPtr<CollectShadowBatchesTask> > collectShadowBatchesTasks;
     /// Tasks for light grid culling.
-    AutoPtr<Task> cullLightsTasks[NUM_CLUSTER_Z];
+    AutoPtr<CullLightsTask> cullLightsTasks[NUM_CLUSTER_Z];
     /// Face selection UV indirection texture 1.
     AutoPtr<Texture> faceSelectionTexture1;
     /// Face selection UV indirection texture 2.
@@ -312,6 +317,75 @@ private:
     AutoArrayPtr<LightData> lightData;
     /// Per-view uniform data CPU copy.
     PerViewUniforms perViewData;
+};
+
+/// Task for collecting octants.
+struct CollectOctantsTask : public MemberFunctionTask<Renderer>
+{
+    /// Construct.
+    CollectOctantsTask(Renderer* object_, MemberWorkFunctionPtr function_) :
+        MemberFunctionTask<Renderer>(object_, function_)
+    {
+    }
+
+    /// Starting point octant.
+    Octant* startOctant;
+    /// Result index.
+    size_t subtreeIdx;
+};
+
+/// Task for collecting geometry batches from octants.
+struct CollectBatchesTask : public MemberFunctionTask<Renderer>
+{
+    /// Construct.
+    CollectBatchesTask(Renderer* object_, MemberWorkFunctionPtr function_) :
+        MemberFunctionTask<Renderer>(object_, function_)
+    {
+    }
+
+    /// %Octant list with plane masks.
+    std::vector<std::pair<Octant*, unsigned char > > octants;
+};
+
+/// Task for collecting shadowcasters of a specific light.
+struct CollectShadowCastersTask : public MemberFunctionTask<Renderer>
+{
+    /// Construct.
+    CollectShadowCastersTask(Renderer* object_, MemberWorkFunctionPtr function_) :
+        MemberFunctionTask<Renderer>(object_, function_)
+    {
+    }
+
+    /// %Light.
+    Light* light;
+};
+
+/// Task for collecting shadow batches of a specific shadow view.
+struct CollectShadowBatchesTask : public MemberFunctionTask<Renderer>
+{
+    /// Construct.
+    CollectShadowBatchesTask(Renderer* object_, MemberWorkFunctionPtr function_) :
+        MemberFunctionTask<Renderer>(object_, function_)
+    {
+    }
+
+    /// Shadow map index.
+    size_t shadowMapIdx;
+    /// Shadow view index within shadow map.
+    size_t viewIdx;
+};
+
+/// Task for culling lights to a specific Z-slice of the frustum grid.
+struct CullLightsTask : public MemberFunctionTask<Renderer>
+{
+    /// Construct.
+    CullLightsTask(Renderer* object_, MemberWorkFunctionPtr function_) :
+        MemberFunctionTask<Renderer>(object_, function_)
+    {
+    }
+
+    /// Z-slice.
+    size_t z;
 };
 
 /// Register Renderer related object factories and attributes.
