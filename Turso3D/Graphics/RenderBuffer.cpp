@@ -26,15 +26,6 @@ RenderBuffer::~RenderBuffer()
     Release();
 }
 
-void RenderBuffer::Release()
-{
-    if (buffer)
-    {
-        glDeleteRenderbuffers(1, &buffer);
-        buffer = 0;
-    }
-}
-
 bool RenderBuffer::Define(const IntVector2& size_, ImageFormat format_, int multisample_)
 {
     ZoneScoped;
@@ -93,4 +84,13 @@ bool RenderBuffer::Define(const IntVector2& size_, ImageFormat format_, int mult
     LOGDEBUGF("Created renderbuffer width %d height %d format %d", size.x, size.y, (int)format);
 
     return true;
+}
+
+void RenderBuffer::Release()
+{
+    if (buffer)
+    {
+        glDeleteRenderbuffers(1, &buffer);
+        buffer = 0;
+    }
 }

@@ -91,20 +91,6 @@ bool VertexBuffer::Define(ResourceUsage usage_, size_t numVertices_, const std::
     return Create(data);
 }
 
-void VertexBuffer::Release()
-{
-    if (buffer)
-    {
-        glDeleteBuffers(1, &buffer);
-        buffer = 0;
-
-        if (boundVertexBuffer == this)
-            boundVertexBuffer = nullptr;
-        if (boundVertexAttribSource == this)
-            boundVertexAttribSource = nullptr;
-    }
-}
-
 bool VertexBuffer::SetData(size_t firstVertex, size_t numVertices_, const void* data, bool discard)
 {
     if (!data)
@@ -132,26 +118,6 @@ bool VertexBuffer::SetData(size_t firstVertex, size_t numVertices_, const void* 
         else
             glBufferSubData(GL_ARRAY_BUFFER, firstVertex * vertexSize, numVertices_ * vertexSize, data);
     }
-
-    return true;
-}
-
-bool VertexBuffer::Create(const void* data)
-{
-    glGenBuffers(1, &buffer);
-    if (!buffer)
-    {
-        LOGERROR("Failed to create vertex buffer");
-        return false;
-    }
-
-    Bind(0);
-
-    glBufferData(GL_ARRAY_BUFFER, numVertices * vertexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
-    LOGDEBUGF("Created vertex buffer numVertices %u vertexSize %u", (unsigned)numVertices, (unsigned)vertexSize);
-
-    if (boundVertexAttribSource == this)
-        boundVertexAttribSource = nullptr;
 
     return true;
 }
@@ -238,4 +204,38 @@ unsigned VertexBuffer::CalculateAttributeMask(const std::vector<VertexElement>& 
 size_t VertexBuffer::VertexElementSize(const VertexElement& element)
 {
     return elementSizes[element.type];
+}
+
+bool VertexBuffer::Create(const void* data)
+{
+    glGenBuffers(1, &buffer);
+    if (!buffer)
+    {
+        LOGERROR("Failed to create vertex buffer");
+        return false;
+    }
+
+    Bind(0);
+
+    glBufferData(GL_ARRAY_BUFFER, numVertices * vertexSize, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+    LOGDEBUGF("Created vertex buffer numVertices %u vertexSize %u", (unsigned)numVertices, (unsigned)vertexSize);
+
+    if (boundVertexAttribSource == this)
+        boundVertexAttribSource = nullptr;
+
+    return true;
+}
+
+void VertexBuffer::Release()
+{
+    if (buffer)
+    {
+        glDeleteBuffers(1, &buffer);
+        buffer = 0;
+
+        if (boundVertexBuffer == this)
+            boundVertexBuffer = nullptr;
+        if (boundVertexAttribSource == this)
+            boundVertexAttribSource = nullptr;
+    }
 }

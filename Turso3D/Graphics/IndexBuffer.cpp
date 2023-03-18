@@ -53,21 +53,6 @@ bool IndexBuffer::Define(ResourceUsage usage_, size_t numIndices_, size_t indexS
     return Create(data);
 }
 
-void IndexBuffer::Release()
-{
-    if (buffer)
-    {
-        glDeleteBuffers(1, &buffer);
-        buffer = 0;
-
-        if (boundIndexBuffer == this)
-        {
-            boundIndexBuffer = nullptr;
-            boundIndexSize = 0;
-        }
-    }
-}
-
 bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* data, bool discard)
 {
     if (!data)
@@ -99,6 +84,22 @@ bool IndexBuffer::SetData(size_t firstIndex, size_t numIndices_, const void* dat
     return true;
 }
 
+void IndexBuffer::Bind()
+{
+    if (!buffer || boundIndexBuffer == this)
+        return;
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer);
+    boundIndexBuffer = this;
+    boundIndexSize = indexSize;
+}
+
+size_t IndexBuffer::BoundIndexSize()
+{
+    return boundIndexSize;
+}
+
+
 bool IndexBuffer::Create(const void* data)
 {
     glGenBuffers(1, &buffer);
@@ -116,17 +117,17 @@ bool IndexBuffer::Create(const void* data)
     return true;
 }
 
-void IndexBuffer::Bind()
+void IndexBuffer::Release()
 {
-    if (!buffer || boundIndexBuffer == this)
-        return;
+    if (buffer)
+    {
+        glDeleteBuffers(1, &buffer);
+        buffer = 0;
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer);
-    boundIndexBuffer = this;
-    boundIndexSize = indexSize;
-}
-
-size_t IndexBuffer::BoundIndexSize()
-{
-    return boundIndexSize;
+        if (boundIndexBuffer == this)
+        {
+            boundIndexBuffer = nullptr;
+            boundIndexSize = 0;
+        }
+    }
 }

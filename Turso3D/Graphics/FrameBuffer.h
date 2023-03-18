@@ -21,7 +21,7 @@ public:
     /// Destruct.
     ~FrameBuffer();
 
-    /// Define renderbuffers to render to.
+    /// Define renderbuffers to render to. Leave buffer(s) null for color-only or depth-only rendering.
     void Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBuffer);
     /// Define textures to render to. Leave texture(s) null for color-only or depth-only rendering.
     void Define(Texture* colorTexture, Texture* depthStencilTexture);
@@ -29,7 +29,7 @@ public:
     void Define(Texture* colorTexture, size_t cubeMapFace, Texture* depthStencilTexture);
     /// Define MRT textures to render to.
     void Define(const std::vector<Texture*>& colorTextures, Texture* depthStencilTexture);
-    /// Bind as draw framebuffer. Used also when defining.
+    /// Bind as draw framebuffer. No-op if already bound. Used also when defining.
     void Bind();
 
     /// Return the OpenGL object identifier.

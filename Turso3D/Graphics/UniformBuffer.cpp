@@ -45,21 +45,6 @@ bool UniformBuffer::Define(ResourceUsage usage_, size_t size_, const void* data)
     return Create(data);
 }
 
-void UniformBuffer::Release()
-{
-    if (buffer)
-    {
-        glDeleteBuffers(1, &buffer);
-        buffer = 0;
-
-        for (size_t i = 0; i < MAX_CONSTANT_BUFFER_SLOTS; ++i)
-        {
-            if (boundUniformBuffers[i] == this)
-                boundUniformBuffers[i] = nullptr;
-        }
-    }
-}
-
 bool UniformBuffer::SetData(size_t offset, size_t numBytes, const void* data, bool discard)
 {
     if (!numBytes)
@@ -93,6 +78,24 @@ bool UniformBuffer::SetData(size_t offset, size_t numBytes, const void* data, bo
     return true;
 }
 
+void UniformBuffer::Bind(size_t index)
+{
+    if (!buffer || boundUniformBuffers[index] == this)
+        return;
+
+    glBindBufferRange(GL_UNIFORM_BUFFER, (GLuint)index, buffer, 0, size);
+    boundUniformBuffers[index] = this;
+}
+
+void UniformBuffer::Unbind(size_t index)
+{
+    if (boundUniformBuffers[index])
+    {
+        glBindBufferRange(GL_UNIFORM_BUFFER, (GLuint)index, 0, 0, 0);
+        boundUniformBuffers[index] = nullptr;
+    }
+}
+
 bool UniformBuffer::Create(const void* data)
 {
     glGenBuffers(1, &buffer);
@@ -109,20 +112,17 @@ bool UniformBuffer::Create(const void* data)
     return true;
 }
 
-void UniformBuffer::Bind(size_t index, bool force)
+void UniformBuffer::Release()
 {
-    if (!buffer || (boundUniformBuffers[index] == this && !force))
-        return;
-
-    glBindBufferRange(GL_UNIFORM_BUFFER, (GLuint)index, buffer, 0, size);
-    boundUniformBuffers[index] = this;
-}
-
-void UniformBuffer::Unbind(size_t index)
-{
-    if (boundUniformBuffers[index])
+    if (buffer)
     {
-        glBindBufferRange(GL_UNIFORM_BUFFER, (GLuint)index, 0, 0, 0);
-        boundUniformBuffers[index] = nullptr;
+        glDeleteBuffers(1, &buffer);
+        buffer = 0;
+
+        for (size_t i = 0; i < MAX_CONSTANT_BUFFER_SLOTS; ++i)
+        {
+            if (boundUniformBuffers[i] == this)
+                boundUniformBuffers[i] = nullptr;
+        }
     }
 }

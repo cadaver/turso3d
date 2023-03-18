@@ -212,27 +212,6 @@ bool Texture::EndLoad()
     return success;
 }
 
-void Texture::ForceBind()
-{
-    boundTextures[0] = nullptr;
-    Bind(0);
-}
-
-void Texture::Release()
-{
-    if (texture)
-    {
-        glDeleteTextures(1, &texture);
-        texture = 0;
-
-        for (size_t i = 0; i < MAX_TEXTURE_UNITS; ++i)
-        {
-            if (boundTextures[i] == this)
-                boundTextures[i] = nullptr;
-        }
-    }
-}
-
 bool Texture::Define(TextureType type_, const IntVector2& size_, ImageFormat format_, int multisample_, size_t numLevels_, const ImageLevel* initialData)
 {
     return Define(type_, IntVector3(size_.x, size_.y, 1), format_, multisample_, numLevels_, initialData);
@@ -548,4 +527,25 @@ void Texture::Unbind(size_t unit)
 unsigned Texture::GLTarget() const
 {
     return glTargets[type];
+}
+
+void Texture::ForceBind()
+{
+    boundTextures[0] = nullptr;
+    Bind(0);
+}
+
+void Texture::Release()
+{
+    if (texture)
+    {
+        glDeleteTextures(1, &texture);
+        texture = 0;
+
+        for (size_t i = 0; i < MAX_TEXTURE_UNITS; ++i)
+        {
+            if (boundTextures[i] == this)
+                boundTextures[i] = nullptr;
+        }
+    }
 }

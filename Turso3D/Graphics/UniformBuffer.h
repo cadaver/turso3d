@@ -19,8 +19,8 @@ public:
     bool Define(ResourceUsage usage, size_t size, const void* data = nullptr);
     /// Redefine buffer data either completely or partially. Return true on success.
     bool SetData(size_t offset, size_t numBytes, const void* data, bool discard = false);
-    /// Bind to use at a specific shader slot. No-op if already bound, unless force is specified.
-    void Bind(size_t index, bool force = false);
+    /// Bind to use at a specific shader slot. No-op if already bound.
+    void Bind(size_t index);
 
     /// Return size of buffer in bytes.
     size_t Size() const { return size; }
