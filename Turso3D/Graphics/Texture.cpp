@@ -129,7 +129,6 @@ static const unsigned glWrapModes[] =
 Texture::Texture() :
     texture(0),
     type(TEX_2D),
-    usage(USAGE_DEFAULT),
     size(IntVector3::ZERO),
     format(FMT_NONE),
     multisample(0),

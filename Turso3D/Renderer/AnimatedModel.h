@@ -85,7 +85,7 @@ public:
     static void RegisterObject();
 
     /// Do animation processing before octree reinsertion, if should update without regard to visibility. Called by Octree in worker threads. Must be opted-in by setting NF_OCTREE_UPDATE_CALL flag.
-    virtual void OnOctreeUpdate(unsigned short frameNumber);
+    void OnOctreeUpdate(unsigned short frameNumber) override;
     /// Prepare object for rendering. Reset framenumber and calculate distance from camera, check for LOD level changes, and update animation / skinning if necessary. Called by Renderer in worker threads. Return false if should not render.
     bool OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
     /// Update GPU resources and set uniforms for rendering. Called by Renderer when geometry type is not static.

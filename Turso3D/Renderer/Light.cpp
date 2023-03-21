@@ -426,7 +426,6 @@ bool Light::SetupShadowView(size_t viewIndex, Camera* mainCamera, const Bounding
         shadowCamera->SetZoom(1.0f);
 
         // Center shadow camera to the view space bounding box
-        Vector3 pos(shadowCamera->WorldPosition());
         Quaternion rot(shadowCamera->WorldRotation());
         Vector3 adjust(center.x, center.y, 0.0f);
         shadowCamera->Translate(rot * adjust, TS_WORLD);

@@ -96,8 +96,6 @@ private:
     unsigned texture;
     /// Texture type.
     TextureType type;
-    /// Texture usage mode.
-    ResourceUsage usage;
     /// Texture dimensions in pixels.
     IntVector3 size;
     /// Image format.

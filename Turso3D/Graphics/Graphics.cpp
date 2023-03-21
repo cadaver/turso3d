@@ -113,7 +113,16 @@ Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize) :
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
-    window = SDL_CreateWindow(windowTitle, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, windowSize.x, windowSize.y, SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
+    SDL_DisplayMode desktopMode;
+    SDL_GetDesktopDisplayMode(0, &desktopMode);
+
+    IntVector2 initialSize = windowSize;
+
+    // If window size not specified or larger than desktop, use desktop size instead
+    if (!initialSize.x || !initialSize.y || initialSize.x > desktopMode.w || initialSize.y > desktopMode.h)
+        initialSize = IntVector2(desktopMode.w, desktopMode.h);
+
+    window = SDL_CreateWindow(windowTitle, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, initialSize.x, initialSize.y, SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
 }
 
 Graphics::~Graphics()
