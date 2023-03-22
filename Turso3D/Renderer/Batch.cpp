@@ -61,15 +61,17 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode 
     for (auto it = batches.begin(); it < batches.end() - 1; ++it)
     {
         // Check if batch is static geometry and can be converted to instanced
-        if (it->programBits & SP_GEOMETRYBITS)
+        if (it->programBits)
             continue;
 
-        bool hasInstances = false;
+        Pass* currentPass = it->pass;
+        Geometry* currentGeometry = it->geometry;
         size_t start = instanceTransforms.size();
+        bool hasInstances = false;
 
         for (auto next = it + 1; next < batches.end(); ++next)
         {
-            if (next->programBits == it->programBits && next->pass == it->pass && next->geometry == it->geometry)
+            if (next->pass == currentPass && next->geometry == currentGeometry && !next->programBits)
             {
                 if (!hasInstances)
                 {
