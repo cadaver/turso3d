@@ -90,9 +90,9 @@ protected:
     float distance;
     /// Max distance for rendering.
     float maxDistance;
-    /// Current octree for octree nodes.
+    /// Current octree.
     Octree* octree;
-    /// Current octant in octree for octree nodes.
+    /// Current octant in octree.
     Octant* octant;
 
 private:

@@ -9,7 +9,6 @@ class Node;
 class Octree;
 class Scene;
 class ObjectResolver;
-struct Octant;
 
 static const unsigned short NF_ENABLED = 0x1;
 static const unsigned short NF_TEMPORARY = 0x2;
