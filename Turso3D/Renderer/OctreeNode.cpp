@@ -11,10 +11,10 @@ OctreeNode::OctreeNode() :
     lastFrameNumber(0),
     lastUpdateFrameNumber(0),
     distance(0.0f),
-    maxDistance(0.0f)
+    maxDistance(0.0f),
+    octree(nullptr),
+    octant(nullptr)
 {
-    octree = nullptr;
-    octant = nullptr;
     SetFlag(NF_BOUNDING_BOX_DIRTY, true);
 }
 
