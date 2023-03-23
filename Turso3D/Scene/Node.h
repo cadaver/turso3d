@@ -3,7 +3,7 @@
 #pragma once
 
 #include "../Object/Serializable.h"
-#include "../Math/Quaternion.h"
+#include "../Math/Matrix3x4.h"
 
 class Node;
 class Octree;
@@ -30,8 +30,8 @@ static const unsigned short NF_CUSTOM_GEOMETRY = 0xc000;
 static const unsigned char LAYER_DEFAULT = 0x0;
 static const unsigned LAYERMASK_ALL = 0xffffffff;
 
-/// Less time-critical implementation part to speed up linear processing of renderable nodes.
-struct NodeImpl
+/// Node information split up to speed up linear processing of renderable nodes.
+struct NodeInfo
 {
     /// Parent scene.
     Scene* scene;
@@ -43,15 +43,39 @@ struct NodeImpl
     StringHash nameHash;
 };
 
+/// Local transform of a scene node.
+struct LocalTransform
+{
+    /// Construct undefined.
+    LocalTransform()
+    {
+    }
+
+    /// Construct with values.
+    LocalTransform(const Vector3& newPosition, const Quaternion& newRotation, const Vector3& newScale) :
+        position(newPosition),
+        rotation(newRotation),
+        scale(newScale)
+    {
+    }
+
+    /// Parent space position.
+    Vector3 position;
+    /// Parent space rotation.
+    Quaternion rotation;
+    /// Parent space scale.
+    Vector3 scale;
+};
+
 /// Base class for scene nodes.
 class Node : public Serializable
 {
     OBJECT(Node);
     
 public:
-    /// Construct.
+    /// Construct. Reserve space in the scene node data arrays.
     Node();
-    /// Destruct. Destroy any child nodes.
+    /// Destruct. Destroy any child nodes. Free up space in the scene node data arrays.
     ~Node();
     
     /// Register factory and attributes.
@@ -66,7 +90,7 @@ public:
     /// Save as JSON data.
     void SaveJSON(JSONValue& dest) override;
     /// Return unique id within the scene, or 0 if not in a scene.
-    unsigned Id() const override { return impl->id; }
+    unsigned Id() const override { return nodeInfos[arrayIdx].id; }
 
     /// Save as JSON text data to a binary stream. Return true on success.
     bool SaveJSON(Stream& dest);
@@ -108,9 +132,9 @@ public:
     template <class T> T* CreateChild(const char* childName) { return static_cast<T*>(CreateChild(T::TypeStatic(), childName)); }
 
     /// Return name.
-    const std::string& Name() const { return impl->name; }
+    const std::string& Name() const { return nodeInfos[arrayIdx].name; }
     /// Return hash of name.
-    const StringHash& NameHash() const { return impl->nameHash; }
+    const StringHash& NameHash() const { return nodeInfos[arrayIdx].nameHash; }
     /// Return layer.
     unsigned char Layer() const { return layer; }
     /// Return bitmask corresponding to layer.
@@ -122,7 +146,7 @@ public:
     /// Return parent node.
     Node* Parent() const { return parent; }
     /// Return the scene that the node belongs to.
-    Scene* ParentScene() const { return impl->scene; }
+    Scene* ParentScene() const { return nodeInfos[arrayIdx].scene; }
     /// Return number of immediate child nodes.
     size_t NumChildren() const { return children.size(); }
     /// Return number of immediate child nodes that are not temporary.
@@ -186,18 +210,28 @@ protected:
     /// Handle the enabled status changing.
     virtual void OnEnabledChanged(bool newEnabled);
 
+    /// Index to NodeInfo and transform structures. Note: also non-spatial nodes will be assigned a slot, in practice the overwhelming majority of nodes in a scene will be spatial.
+    unsigned arrayIdx;
+
 private:
-    /// Node implementation.
-    NodeImpl* impl;
-    /// Parent node.
-    Node* parent;
     /// %Node flags. Used to hold several boolean values (some subclass-specific) to reduce memory use.
     mutable unsigned short flags;
     /// Layer number.
     unsigned char layer;
+    /// Parent node.
+    Node* parent;
 
 protected:
     /// Child nodes.
     std::vector<SharedPtr<Node> > children;
+
+    /// %Node infos.
+    static std::vector<NodeInfo> nodeInfos;
+    /// %Node local transforms.
+    static std::vector<LocalTransform> localTransforms;
+    /// %Node world transforms.
+    static std::vector<Matrix3x4> worldTransforms;
+    /// Array index-to-node mappings. Needed when removing nodes.
+    static std::vector<Node*> indexToNode;
 };
 

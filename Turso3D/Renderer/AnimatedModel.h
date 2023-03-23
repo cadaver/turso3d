@@ -45,9 +45,9 @@ public:
     /// Set bone parent space transform without dirtying the hierarchy.
     void SetTransformSilent(const Vector3& position_, const Quaternion& rotation_, const Vector3& scale_)
     {
-        position = position_;
-        rotation = rotation_;
-        scale = scale_;
+        localTransforms[arrayIdx].position = position_;
+        localTransforms[arrayIdx].rotation = rotation_;
+        localTransforms[arrayIdx].scale = scale_;
     }
 
     /// Return the animated model.

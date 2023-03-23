@@ -8,16 +8,26 @@
 #include "Scene.h"
 
 static std::vector<SharedPtr<Node> > noChildren;
-static Allocator<NodeImpl> nodeImplAllocator;
+std::vector<NodeInfo> Node::nodeInfos;
+std::vector<LocalTransform> Node::localTransforms;
+std::vector<Matrix3x4> Node::worldTransforms;
+std::vector<Node*> Node::indexToNode;
 
 Node::Node() :
-    impl(nodeImplAllocator.Allocate()),
     parent(nullptr),
     flags(NF_ENABLED),
     layer(LAYER_DEFAULT)
 {
-    impl->scene = nullptr;
-    impl->id = 0;
+    // Reserve space in node structures
+    arrayIdx = (unsigned)nodeInfos.size();
+
+    nodeInfos.resize(arrayIdx + 1);
+    localTransforms.resize(arrayIdx + 1);
+    worldTransforms.resize(arrayIdx + 1);
+    indexToNode.push_back(this);
+
+    nodeInfos[arrayIdx].scene = nullptr;
+    nodeInfos[arrayIdx].id = 0;
 }
 
 Node::~Node()
@@ -25,9 +35,24 @@ Node::~Node()
     RemoveAllChildren();
     // At the time of destruction the node should not have a parent, or be in a scene
     assert(!parent);
-    assert(!impl->scene);
+    assert(!ParentScene());
 
-    nodeImplAllocator.Free(impl);
+    // Free up space in node structures. Swap with last if needed
+    size_t newSize = nodeInfos.size() - 1;
+
+    if (arrayIdx != newSize)
+    {
+        std::swap(nodeInfos[arrayIdx], nodeInfos[newSize]);
+        std::swap(localTransforms[arrayIdx], localTransforms[newSize]);
+        std::swap(worldTransforms[arrayIdx], worldTransforms[newSize]);
+        std::swap(indexToNode[arrayIdx], indexToNode[newSize]);
+        indexToNode[arrayIdx]->arrayIdx = arrayIdx;
+    }
+
+    nodeInfos.resize(newSize);
+    localTransforms.resize(newSize);
+    worldTransforms.resize(newSize);
+    indexToNode.resize(newSize);
 }
 
 void Node::RegisterObject()
@@ -43,6 +68,8 @@ void Node::Load(Stream& source, ObjectResolver& resolver)
 {
     // Load child nodes before own attributes to enable e.g. AnimatedModel to set bones at load time
     size_t numChildren = source.ReadVLE();
+    children.reserve(numChildren);
+
     for (size_t i = 0; i < numChildren; ++i)
     {
         StringHash childType(source.Read<StringHash>());
@@ -84,6 +111,8 @@ void Node::Save(Stream& dest)
 void Node::LoadJSON(const JSONValue& source, ObjectResolver& resolver)
 {
     const JSONArray& childArray = source["children"].GetArray();
+    children.reserve(childArray.size());
+
     for (auto it = childArray.begin(); it != childArray.end(); ++it)
     {
         const JSONValue& childJSON = *it;
@@ -133,14 +162,14 @@ bool Node::SaveJSON(Stream& dest)
 
 void Node::SetName(const std::string& newName)
 {
-    impl->name = newName;
-    impl->nameHash = StringHash(newName);
+    nodeInfos[arrayIdx].name = newName;
+    nodeInfos[arrayIdx].nameHash = StringHash(newName);
 }
 
 void Node::SetName(const char* newName)
 {
-    impl->name = newName;
-    impl->nameHash = StringHash(newName);
+    nodeInfos[arrayIdx].name = newName;
+    nodeInfos[arrayIdx].nameHash = StringHash(newName);
 }
 
 void Node::SetLayer(unsigned char newLayer)
@@ -257,8 +286,8 @@ void Node::AddChild(Node* child)
     children.push_back(child);
     child->parent = this;
     child->OnParentSet(this, oldParent);
-    if (impl->scene)
-        impl->scene->AddNode(child);
+    if (nodeInfos[arrayIdx].scene)
+        nodeInfos[arrayIdx].scene->AddNode(child);
 }
 
 void Node::RemoveChild(Node* child)
@@ -285,8 +314,8 @@ void Node::RemoveChild(size_t index)
     // Detach from both the parent and the scene (removes id assignment)
     child->parent = nullptr;
     child->SetFlag(NF_SPATIAL_PARENT, false);
-    if (impl->scene)
-        impl->scene->RemoveNode(child);
+    if (nodeInfos[arrayIdx].scene)
+        nodeInfos[arrayIdx].scene->RemoveNode(child);
     children.erase(children.begin() + index);
 }
 
@@ -297,8 +326,8 @@ void Node::RemoveAllChildren()
         Node* child = *it;
         child->parent = nullptr;
         child->SetFlag(NF_SPATIAL_PARENT, false);
-        if (impl->scene)
-            impl->scene->RemoveNode(child);
+        if (nodeInfos[arrayIdx].scene)
+            nodeInfos[arrayIdx].scene->RemoveNode(child);
         it->Reset();
     }
 
@@ -345,7 +374,7 @@ Node* Node::FindChild(const char* childName, bool recursive) const
     for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
-        if (child->impl->name == childName)
+        if (nodeInfos[child->arrayIdx].name == childName)
             return child;
         else if (recursive && child->children.size())
         {
@@ -363,7 +392,7 @@ Node* Node::FindChild(StringHash childNameHash, bool recursive) const
     for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
-        if (child->impl->nameHash == childNameHash)
+        if (nodeInfos[child->arrayIdx].nameHash == childNameHash)
             return child;
         else if (recursive && child->children.size())
         {
@@ -404,7 +433,7 @@ Node* Node::FindChildOfType(StringHash childType, const char* childName, bool re
     for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
-        if ((child->Type() == childType || DerivedFrom(child->Type(), childType)) && child->impl->name == childName)
+        if ((child->Type() == childType || DerivedFrom(child->Type(), childType)) && nodeInfos[child->arrayIdx].name == childName)
             return child;
         else if (recursive && child->children.size())
         {
@@ -422,7 +451,7 @@ Node* Node::FindChildOfType(StringHash childType, StringHash childNameHash, bool
     for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
-        if ((child->Type() == childType || DerivedFrom(child->Type(), childType)) && child->impl->nameHash == childNameHash)
+        if ((child->Type() == childType || DerivedFrom(child->Type(), childType)) && nodeInfos[child->arrayIdx].nameHash == childNameHash)
             return child;
         else if (recursive && child->children.size())
         {
@@ -478,14 +507,14 @@ void Node::FindChildrenByLayer(std::vector<Node*>& result, unsigned layerMask, b
 
 void Node::SetScene(Scene* newScene)
 {
-    Scene* oldScene = impl->scene;
-    impl->scene = newScene;
-    OnSceneSet(impl->scene, oldScene);
+    Scene* oldScene = nodeInfos[arrayIdx].scene;
+    nodeInfos[arrayIdx].scene = newScene;
+    OnSceneSet(newScene, oldScene);
 }
 
 void Node::SetId(unsigned newId)
 {
-    impl->id = newId;
+    nodeInfos[arrayIdx].id = newId;
 }
 
 void Node::SkipHierarchy(Stream& source)

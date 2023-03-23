@@ -19,7 +19,7 @@ class SpatialNode : public Node
     OBJECT(SpatialNode);
 
 public:
-    /// Construct.
+    /// Construct. Reset transforms.
     SpatialNode();
 
     /// Register factory and attributes.
@@ -81,15 +81,15 @@ public:
     /// Return the parent spatial node, or null if it is not spatial.
     SpatialNode* SpatialParent() const { return TestFlag(NF_SPATIAL_PARENT) ? static_cast<SpatialNode*>(Parent()) : nullptr; }
     /// Return position in parent space.
-    const Vector3& Position() const { return position; }
+    const Vector3& Position() const { return localTransforms[arrayIdx].position; }
     /// Return rotation in parent space.
-    const Quaternion& Rotation() const { return rotation; }
+    const Quaternion& Rotation() const { return localTransforms[arrayIdx].rotation; }
     /// Return forward direction in parent space.
-    Vector3 Direction() const { return rotation * Vector3::FORWARD; }
+    Vector3 Direction() const { return localTransforms[arrayIdx].rotation * Vector3::FORWARD; }
     /// Return scale in parent space.
-    const Vector3& Scale() const { return scale; }
+    const Vector3& Scale() const { return localTransforms[arrayIdx].scale; }
     /// Return transform matrix in parent space.
-    Matrix3x4 Transform() const { return Matrix3x4(position, rotation, scale); }
+    Matrix3x4 Transform() const { return Matrix3x4(localTransforms[arrayIdx].position, localTransforms[arrayIdx].rotation, localTransforms[arrayIdx].scale); }
     /// Return position in world space.
     Vector3 WorldPosition() const { return WorldTransform().Translation(); }
     /// Return rotation in world space.
@@ -105,15 +105,15 @@ public:
         if (TestFlag(NF_WORLD_TRANSFORM_DIRTY))
         {
             if (TestFlag(NF_SPATIAL_PARENT))
-                worldTransform = static_cast<SpatialNode*>(Parent())->WorldTransform() * Matrix3x4(position, rotation, scale);
+                worldTransforms[arrayIdx] = static_cast<SpatialNode*>(Parent())->WorldTransform() * Matrix3x4(localTransforms[arrayIdx].position, localTransforms[arrayIdx].rotation, localTransforms[arrayIdx].scale);
             else
             {
-                worldTransform.SetRotation(rotation.RotationMatrix().Scaled(scale));
-                worldTransform.SetTranslation(position);
+                worldTransforms[arrayIdx].SetRotation(localTransforms[arrayIdx].rotation.RotationMatrix().Scaled(localTransforms[arrayIdx].scale));
+                worldTransforms[arrayIdx].SetTranslation(localTransforms[arrayIdx].position);
             }
             SetFlag(NF_WORLD_TRANSFORM_DIRTY, false);
         }
-        return worldTransform; 
+        return worldTransforms[arrayIdx];
     }
 
     /// Convert a local space position to world space.
@@ -132,15 +132,4 @@ protected:
     void OnParentSet(Node* newParent, Node* oldParent) override;
     /// Handle the transform matrix changing.
     virtual void OnTransformChanged();
-
-    /// Parent space position.
-    Vector3 position;
-    /// Parent space rotation.
-    Quaternion rotation;
-    /// Parent space scale.
-    Vector3 scale;
-
-private:
-    /// World transform matrix.
-    mutable Matrix3x4 worldTransform;
 };

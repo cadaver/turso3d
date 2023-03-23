@@ -384,7 +384,6 @@ void AnimatedModel::CreateBones()
         RemoveBones();
 
     numBones = (unsigned short)modelBones.size();
-
     bones = new Bone*[numBones];
     skinMatrices = new Matrix3x4[numBones];
 
