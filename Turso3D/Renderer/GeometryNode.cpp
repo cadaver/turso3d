@@ -65,7 +65,7 @@ void SourceBatches::SetNumGeometries(size_t num)
         SetMaterial(i, Material::DefaultMaterial());
 }
 
-Geometry::Geometry() : 
+Geometry::Geometry() :
     drawStart(0),
     drawCount(0),
     lodDistance(0.0f),
@@ -89,25 +89,12 @@ float Geometry::HitDistance(const Ray& ray, Vector3* outNormal) const
         return ray.HitDistance(cpuPositionData, sizeof(Vector3), cpuDrawStart, drawCount, outNormal);
 }
 
-GeometryNode::GeometryNode()
+GeometryDrawable::GeometryDrawable()
 {
-    SetFlag(NF_GEOMETRY, true);
+    SetFlag(DF_GEOMETRY, true);
 }
 
-GeometryNode::~GeometryNode()
-{
-}
-
-void GeometryNode::RegisterObject()
-{
-    RegisterFactory<GeometryNode>();
-    RegisterDerivedType<GeometryNode, OctreeNode>();
-    CopyBaseAttributes<GeometryNode, OctreeNode>();
-    RegisterMixedRefAttribute("materials", &GeometryNode::MaterialsAttr, &GeometryNode::SetMaterialsAttr,
-        ResourceRefList(Material::TypeStatic()));
-}
-
-bool GeometryNode::OnPrepareRender(unsigned short frameNumber, Camera* camera)
+bool GeometryDrawable::OnPrepareRender(unsigned short frameNumber, Camera* camera)
 {
     distance = camera->Distance(WorldPosition());
 
@@ -118,13 +105,22 @@ bool GeometryNode::OnPrepareRender(unsigned short frameNumber, Camera* camera)
     return true;
 }
 
-void GeometryNode::OnRender(ShaderProgram*, size_t)
+void GeometryDrawable::OnRender(ShaderProgram*, size_t)
 {
+}
+
+void GeometryNode::RegisterObject()
+{
+    RegisterDerivedType<GeometryNode, OctreeNode>();
+    CopyBaseAttributes<GeometryNode, OctreeNode>();
+    RegisterMixedRefAttribute("materials", &GeometryNode::MaterialsAttr, &GeometryNode::SetMaterialsAttr,
+        ResourceRefList(Material::TypeStatic()));
 }
 
 void GeometryNode::SetNumGeometries(size_t num)
 {
-    batches.SetNumGeometries(num);
+    GeometryDrawable* geomDrawable = static_cast<GeometryDrawable*>(drawable);
+    geomDrawable->batches.SetNumGeometries(num);
 }
 
 void GeometryNode::SetGeometry(size_t index, Geometry* geometry)
@@ -135,8 +131,9 @@ void GeometryNode::SetGeometry(size_t index, Geometry* geometry)
         return;
     }
 
-    if (index < batches.NumGeometries())
-        batches.SetGeometry(index, geometry);
+    GeometryDrawable* geomDrawable = static_cast<GeometryDrawable*>(drawable);
+    if (index < geomDrawable->batches.NumGeometries())
+        geomDrawable->batches.SetGeometry(index, geometry);
 }
 
 void GeometryNode::SetMaterial(Material* material)
@@ -144,8 +141,9 @@ void GeometryNode::SetMaterial(Material* material)
     if (!material)
         material = Material::DefaultMaterial();
 
-    for (size_t i = 0; i < batches.NumGeometries(); ++i)
-        batches.SetMaterial(i, material);
+    GeometryDrawable* geomDrawable = static_cast<GeometryDrawable*>(drawable);
+    for (size_t i = 0; i < geomDrawable->batches.NumGeometries(); ++i)
+        geomDrawable->batches.SetMaterial(i, material);
 }
 
 void GeometryNode::SetMaterial(size_t index, Material* material)
@@ -153,8 +151,9 @@ void GeometryNode::SetMaterial(size_t index, Material* material)
     if (!material)
         material = Material::DefaultMaterial();
 
-    if (index < batches.NumGeometries())
-        batches.SetMaterial(index, material);
+    GeometryDrawable* geomDrawable = static_cast<GeometryDrawable*>(drawable);
+    if (index < geomDrawable->batches.NumGeometries())
+        geomDrawable->batches.SetMaterial(index, material);
 }
 
 void GeometryNode::SetMaterialsAttr(const ResourceRefList& value)
@@ -168,7 +167,8 @@ ResourceRefList GeometryNode::MaterialsAttr() const
 {
     ResourceRefList ret(Material::TypeStatic());
     
-    for (size_t i = 0; i < batches.NumGeometries(); ++i)
+    GeometryDrawable* geomDrawable = static_cast<GeometryDrawable*>(drawable);
+    for (size_t i = 0; i < geomDrawable->batches.NumGeometries(); ++i)
         ret.names.push_back(ResourceName(GetMaterial(i)));
 
     return ret;

@@ -7,50 +7,35 @@
 #include "Octree.h"
 #include "OctreeNode.h"
 
-OctreeNode::OctreeNode() :
+Drawable::Drawable() :
+    owner(nullptr),
+    octant(nullptr),
+    flags(0),
+    layer(LAYER_DEFAULT),
     lastFrameNumber(0),
     lastUpdateFrameNumber(0),
     distance(0.0f),
-    maxDistance(0.0f),
-    octree(nullptr),
-    octant(nullptr)
+    maxDistance(0.0f)
 {
-    SetFlag(NF_BOUNDING_BOX_DIRTY, true);
+    SetFlag(DF_BOUNDING_BOX_DIRTY, true);
 }
 
-OctreeNode::~OctreeNode()
-{
-    RemoveFromOctree();
-}
-
-void OctreeNode::RegisterObject()
-{
-    CopyBaseAttributes<OctreeNode, SpatialNode>();
-    RegisterDerivedType<OctreeNode, SpatialNode>();
-    RegisterAttribute("castShadows", &OctreeNode::CastShadows, &OctreeNode::SetCastShadows, false);
-    RegisterAttribute("maxDistance", &OctreeNode::MaxDistance, &OctreeNode::SetMaxDistance, 0.0f);
-}
-
-void OctreeNode::SetCastShadows(bool enable)
-{
-    if (TestFlag(NF_CAST_SHADOWS) != enable)
-    {
-        SetFlag(NF_CAST_SHADOWS, enable);
-        // Reinsert into octree so that cached shadow map invalidation is handled
-        OnTransformChanged();
-    }
-}
-
-void OctreeNode::SetMaxDistance(float distance_)
-{
-    maxDistance = Max(distance_, 0.0f);
-}
-
-void OctreeNode::OnOctreeUpdate(unsigned short)
+Drawable::~Drawable()
 {
 }
 
-bool OctreeNode::OnPrepareRender(unsigned short frameNumber, Camera* camera)
+void Drawable::OnWorldBoundingBoxUpdate() const
+{
+    // The Drawable base class does not have a defined size, so represent as a point
+    worldBoundingBox.Define(WorldPosition());
+    SetFlag(DF_BOUNDING_BOX_DIRTY, false);
+}
+
+void Drawable::OnOctreeUpdate(unsigned short)
+{
+}
+
+bool Drawable::OnPrepareRender(unsigned short frameNumber, Camera* camera)
 {
     distance = camera->Distance(WorldBoundingBox().Center());
 
@@ -61,7 +46,7 @@ bool OctreeNode::OnPrepareRender(unsigned short frameNumber, Camera* camera)
     return true;
 }
 
-void OctreeNode::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance_)
+void Drawable::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance_)
 {
     float hitDistance = ray.HitDistance(WorldBoundingBox());
     if (hitDistance < maxDistance_)
@@ -70,15 +55,62 @@ void OctreeNode::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, flo
         res.position = ray.origin + hitDistance * ray.direction;
         res.normal = -ray.direction;
         res.distance = hitDistance;
-        res.node = this;
+        res.drawable = this;
+        res.node = owner;
         res.subObject = 0;
         dest.push_back(res);
     }
 }
 
-void OctreeNode::OnRenderDebug(DebugRenderer* debug)
+void Drawable::OnRenderDebug(DebugRenderer* debug)
 {
     debug->AddBoundingBox(WorldBoundingBox(), Color::GREEN, false);
+}
+
+void Drawable::SetOwner(OctreeNode* owner_)
+{
+    owner = owner_;
+}
+
+
+OctreeNode::OctreeNode() :
+    octree(nullptr),
+    drawable(nullptr)
+{
+}
+
+void OctreeNode::RegisterObject()
+{
+    CopyBaseAttributes<OctreeNode, SpatialNode>();
+    RegisterDerivedType<OctreeNode, SpatialNode>();
+    RegisterAttribute("static", &OctreeNode::IsStatic, &OctreeNode::SetStatic, false);
+    RegisterAttribute("castShadows", &OctreeNode::CastShadows, &OctreeNode::SetCastShadows, false);
+    RegisterAttribute("maxDistance", &OctreeNode::MaxDistance, &OctreeNode::SetMaxDistance, 0.0f);
+}
+
+void OctreeNode::SetStatic(bool enable)
+{
+    if (enable != IsStatic())
+    {
+        drawable->SetFlag(DF_STATIC, enable);
+        // Handle possible octree reinsertion
+        OnTransformChanged();
+    }
+}
+
+void OctreeNode::SetCastShadows(bool enable)
+{
+    if (drawable->TestFlag(DF_CAST_SHADOWS) != enable)
+    {
+        drawable->SetFlag(DF_CAST_SHADOWS, enable);
+        // Reinsert into octree so that cached shadow map invalidation is handled
+        OnTransformChanged();
+    }
+}
+
+void OctreeNode::SetMaxDistance(float distance_)
+{
+    drawable->maxDistance = Max(distance_, 0.0f);
 }
 
 void OctreeNode::OnSceneSet(Scene* newScene, Scene*)
@@ -92,30 +124,24 @@ void OctreeNode::OnSceneSet(Scene* newScene, Scene*)
         octree = newScene->FindChild<Octree>();
         // Transform may not be final yet. Schedule update but do not insert into octree yet
         if (octree && IsEnabled())
-            octree->QueueUpdate(this);
+            octree->QueueUpdate(drawable);
     }
 }
 
 void OctreeNode::OnTransformChanged()
 {
     SpatialNode::OnTransformChanged();
-    SetFlag(NF_BOUNDING_BOX_DIRTY, true);
-    if (octree && (Flags() & (NF_OCTREE_REINSERT_QUEUED | NF_ENABLED)) == NF_ENABLED)
-        octree->QueueUpdate(this);
-}
+    drawable->SetFlag(DF_WORLD_TRANSFORM_DIRTY | DF_BOUNDING_BOX_DIRTY, true);
 
-void OctreeNode::OnWorldBoundingBoxUpdate() const
-{
-    // The OctreeNode base class does not have a defined size, so represent as a point
-    worldBoundingBox.Define(WorldPosition());
-    SetFlag(NF_BOUNDING_BOX_DIRTY, false);
+    if (drawable->octant && !drawable->TestFlag(DF_OCTREE_REINSERT_QUEUED))
+        octree->QueueUpdate(drawable);
 }
 
 void OctreeNode::RemoveFromOctree()
 {
     if (octree)
     {
-        octree->RemoveNode(this);
+        octree->RemoveDrawable(drawable);
         octree = nullptr;
     }
 }
@@ -125,8 +151,13 @@ void OctreeNode::OnEnabledChanged(bool newEnabled)
     if (octree)
     {
         if (newEnabled)
-            octree->QueueUpdate(this);
+            octree->QueueUpdate(drawable);
         else
-            octree->RemoveNode(this);
+            octree->RemoveDrawable(drawable);
     }
+}
+
+void OctreeNode::OnLayerChanged(unsigned char newLayer)
+{
+    drawable->layer = newLayer;
 }

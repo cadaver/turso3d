@@ -44,9 +44,119 @@ static const char* lightTypeNames[] =
     0
 };
 
+static Allocator<LightDrawable> drawableAllocator;
+
+LightDrawable::LightDrawable()
+{
+    SetFlag(DF_LIGHT, true);
+}
+
+void LightDrawable::OnWorldBoundingBoxUpdate() const
+{
+    Light* light = static_cast<Light*>(owner);
+
+    switch (light->lightType)
+    {
+    case LIGHT_DIRECTIONAL:
+        // Directional light always sets humongous bounding box not affected by transform
+        worldBoundingBox.Define(-M_MAX_FLOAT, M_MAX_FLOAT);
+        break;
+
+    case LIGHT_POINT:
+    {
+        const Vector3& center = WorldPosition();
+        Vector3 edge(light->range, light->range, light->range);
+        worldBoundingBox.Define(center - edge, center + edge);
+    }
+    break;
+
+    case LIGHT_SPOT:
+        worldBoundingBox.Define(light->WorldFrustum());
+        break;
+    }
+
+    SetFlag(DF_BOUNDING_BOX_DIRTY, false);
+}
+
+bool LightDrawable::OnPrepareRender(unsigned short frameNumber, Camera* camera)
+{
+    Light* light = static_cast<Light*>(owner);
+
+    switch (light->lightType)
+    {
+    case LIGHT_DIRECTIONAL:
+        distance = 0.0f;
+        break;
+
+    case LIGHT_SPOT:
+        distance = camera->Distance(WorldPosition() + 0.5f * light->range * WorldDirection());
+        break;
+
+    case LIGHT_POINT:
+        distance = camera->Distance(WorldPosition());
+        break;
+    }
+
+    if (maxDistance > 0.0f && distance > maxDistance)
+        return false;
+
+    // If there was a discontinuity in rendering the light, assume cached shadow map content lost
+    if (!WasInView(frameNumber))
+        light->SetShadowMap(nullptr);
+
+    lastFrameNumber = frameNumber;
+    return true;
+}
+
+void LightDrawable::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance_)
+{
+    Light* light = static_cast<Light*>(owner);
+
+    if (light->lightType == LIGHT_SPOT)
+    {
+        float hitDistance = ray.HitDistance(light->WorldFrustum());
+        if (hitDistance <= maxDistance_)
+        {
+            RaycastResult res;
+            res.position = ray.origin + hitDistance * ray.direction;
+            res.normal = -ray.direction;
+            res.distance = hitDistance;
+            res.drawable = this;
+            res.node = owner;
+            res.subObject = 0;
+            dest.push_back(res);
+        }
+    }
+    else if (light->lightType == LIGHT_POINT)
+    {
+        float hitDistance = ray.HitDistance(light->WorldSphere());
+        if (hitDistance <= maxDistance_)
+        {
+            RaycastResult res;
+            res.position = ray.origin + hitDistance * ray.direction;
+            res.normal = -ray.direction;
+            res.distance = hitDistance;
+            res.drawable = this;
+            res.node = owner;
+            res.subObject = 0;
+            dest.push_back(res);
+        }
+    }
+}
+
+void LightDrawable::OnRenderDebug(DebugRenderer* debug)
+{
+    Light* light = static_cast<Light*>(owner);
+
+    if (light->lightType == LIGHT_SPOT)
+        debug->AddFrustum(light->WorldFrustum(), light->color, false);
+    else if (light->lightType == LIGHT_POINT)
+        debug->AddSphere(light->WorldSphere(), light->color, false);
+}
+
 Light::Light() :
-    lightType(DEFAULT_LIGHTTYPE),
     color(DEFAULT_COLOR),
+    lightType(DEFAULT_LIGHTTYPE),
     range(DEFAULT_RANGE),
     fov(DEFAULT_SPOT_FOV),
     fadeStart(DEFAULT_FADE_START),
@@ -61,11 +171,16 @@ Light::Light() :
     slopeScaleBias(DEFAULT_SLOPESCALE_BIAS),
     shadowMap(nullptr)
 {
-    SetFlag(NF_LIGHT, true);
+    drawable = drawableAllocator.Allocate();
+    drawable->SetOwner(this);
+    worldTransform = drawable->WorldTransformPtr();
 }
 
 Light::~Light()
 {
+    RemoveFromOctree();
+    drawableAllocator.Free(static_cast<LightDrawable*>(drawable));
+    drawable = nullptr;
 }
 
 void Light::RegisterObject()
@@ -88,74 +203,6 @@ void Light::RegisterObject()
     RegisterAttribute("shadowMinView", &Light::ShadowMinView, &Light::SetShadowMinView, DEFAULT_SHADOW_MIN_VIEW);
     RegisterAttribute("depthBias", &Light::DepthBias, &Light::SetDepthBias, DEFAULT_DEPTH_BIAS);
     RegisterAttribute("slopeScaleBias", &Light::SlopeScaleBias, &Light::SetSlopeScaleBias, DEFAULT_SLOPESCALE_BIAS);
-}
-
-bool Light::OnPrepareRender(unsigned short frameNumber, Camera* camera)
-{
-    switch (lightType)
-    {
-    case LIGHT_DIRECTIONAL:
-        distance = 0.0f;
-        break;
-
-    case LIGHT_SPOT:
-        distance = camera->Distance(WorldPosition() + 0.5f * range * WorldDirection());
-        break;
-
-    case LIGHT_POINT:
-        distance = camera->Distance(WorldPosition());
-        break;
-    }
-
-    if (maxDistance > 0.0f && distance > maxDistance)
-        return false;
-
-    // If there was a discontinuity in rendering the light, assume cached shadow map content lost
-    if (!WasInView(frameNumber))
-        SetShadowMap(nullptr);
-
-    lastFrameNumber = frameNumber;
-    return true;
-}
-
-void Light::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance_)
-{
-    if (lightType == LIGHT_SPOT)
-    {
-        float hitDistance = ray.HitDistance(WorldFrustum());
-        if (hitDistance <= maxDistance_)
-        {
-            RaycastResult res;
-            res.position = ray.origin + hitDistance * ray.direction;
-            res.normal = -ray.direction;
-            res.distance = hitDistance;
-            res.node = this;
-            res.subObject = 0;
-            dest.push_back(res);
-        }
-    }
-    else if (lightType == LIGHT_POINT)
-    {
-        float hitDistance = ray.HitDistance(WorldSphere());
-        if (hitDistance <= maxDistance_)
-        {
-            RaycastResult res;
-            res.position = ray.origin + hitDistance * ray.direction;
-            res.normal = -ray.direction;
-            res.distance = hitDistance;
-            res.node = this;
-            res.subObject = 0;
-            dest.push_back(res);
-        }
-    }
-}
-
-void Light::OnRenderDebug(DebugRenderer* debug)
-{
-    if (lightType == LIGHT_SPOT)
-        debug->AddFrustum(WorldFrustum(), color, false);
-    else if (lightType == LIGHT_POINT)
-        debug->AddSphere(WorldSphere(), color, false);
 }
 
 void Light::SetLightType(LightType type)
@@ -262,9 +309,9 @@ IntVector2 Light::TotalShadowMapSize() const
 
 Color Light::EffectiveColor() const
 {
-    if (maxDistance > 0.0f)
+    if (drawable->MaxDistance() > 0.0f)
     {
-        float scaledDistance = distance / maxDistance;
+        float scaledDistance = drawable->Distance() / drawable->MaxDistance();
         if (scaledDistance >= shadowFadeStart)
             return color.Lerp(Color::BLACK, (scaledDistance - fadeStart) / (1.0f - fadeStart));
     }
@@ -279,7 +326,7 @@ float Light::ShadowStrength() const
 
     if (lightType != LIGHT_DIRECTIONAL && shadowMaxDistance > 0.0f)
     {
-        float scaledDistance = distance / shadowMaxDistance;
+        float scaledDistance = drawable->Distance() / shadowMaxDistance;
         if (scaledDistance >= shadowFadeStart)
             return Lerp(shadowMaxStrength, 1.0f, (scaledDistance - shadowFadeStart) / (1.0f - shadowFadeStart));
     }
@@ -526,31 +573,6 @@ bool Light::SetupShadowView(size_t viewIndex, Camera* mainCamera, const Bounding
     }
 
     return true;
-}
-
-void Light::OnWorldBoundingBoxUpdate() const
-{
-    switch (lightType)
-    {
-    case LIGHT_DIRECTIONAL:
-        // Directional light always sets humongous bounding box not affected by transform
-        worldBoundingBox.Define(-M_MAX_FLOAT, M_MAX_FLOAT);
-        break;
-        
-    case LIGHT_POINT:
-        {
-            const Vector3& center = WorldPosition();
-            Vector3 edge(range, range, range);
-            worldBoundingBox.Define(center - edge, center + edge);
-        }
-        break;
-        
-    case LIGHT_SPOT:
-        worldBoundingBox.Define(WorldFrustum());
-        break;
-    }
-
-    SetFlag(NF_BOUNDING_BOX_DIRTY, false);
 }
 
 void Light::SetLightTypeAttr(int type)

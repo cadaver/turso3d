@@ -8,7 +8,7 @@
 
 #include <vector>
 
-class GeometryNode;
+class GeometryDrawable;
 class Pass;
 struct Geometry;
 
@@ -44,8 +44,8 @@ struct Batch
 
     union
     {
-        /// Owner object, for complex rendering like skinning.
-        GeometryNode* node;
+        /// Associated drawable. Called into for complex rendering like skinning.
+        GeometryDrawable* drawable;
         /// Pointer to world transform matrix for static geometry rendering.
         const Matrix3x4* worldTransform;
         /// Instance count if instanced.

@@ -29,7 +29,7 @@
 #include <cstring>
 #include <tracy/Tracy.hpp>
 
-static const size_t NODES_PER_BATCH_TASK = 128;
+static const size_t DRAWABLES_PER_BATCH_TASK = 128;
 
 inline bool CompareLights(Light* lhs, Light* rhs)
 {
@@ -38,7 +38,7 @@ inline bool CompareLights(Light* lhs, Light* rhs)
 
 void ThreadOctantResult::Clear()
 {
-    nodeAcc = 0;
+    drawableAcc = 0;
     taskOctantIdx = 0;
     batchTaskIdx = 0;
     lights.clear();
@@ -221,7 +221,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
 
     // Find the starting points for octree traversal. Include the root if it contains nodes that didn't fit elsewhere
     Octant* rootOctant = octree->Root();
-    if (rootOctant->nodes.size())
+    if (rootOctant->drawables.size())
         rootLevelOctants.push_back(rootOctant);
 
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
@@ -396,18 +396,18 @@ void Renderer::RenderDebug()
         return;
 
     for (auto it = lights.begin(); it != lights.end(); ++it)
-        (*it)->OnRenderDebug(debug);
+        (*it)->GetDrawable()->OnRenderDebug(debug);
 
     for (auto it = octantResults.begin(); it != octantResults.end(); ++it)
     {
         for (auto oIt = it->octants.begin(); oIt != it->octants.end(); ++oIt)
         {
             Octant* octant = oIt->first;
-            for (auto nIt = octant->nodes.begin(); nIt != octant->nodes.end(); ++nIt)
+            for (auto dIt = octant->drawables.begin(); dIt != octant->drawables.end(); ++dIt)
             {
-                OctreeNode* node = *nIt;
-                if ((node->Flags() & NF_GEOMETRY) && node->LastFrameNumber() == frameNumber)
-                    node->OnRenderDebug(debug);
+                Drawable* drawable = *dIt;
+                if (drawable->TestFlag(DF_GEOMETRY) && drawable->LastFrameNumber() == frameNumber)
+                    drawable->OnRenderDebug(debug);
             }
         }
     }
@@ -427,17 +427,17 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
             return;
     }
 
-    for (auto it = octant->nodes.begin(); it != octant->nodes.end(); ++it)
+    for (auto it = octant->drawables.begin(); it != octant->drawables.end(); ++it)
     {
-        OctreeNode* node = *it;
-        unsigned short flags = node->Flags();
-        if (flags & NF_LIGHT)
+        Drawable* drawable = *it;
+
+        if (drawable->TestFlag(DF_LIGHT))
         {
-            if ((node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
+            if ((drawable->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(drawable->WorldBoundingBox(), planeMask)))
             {
-                if (node->OnPrepareRender(frameNumber, camera))
+                if (drawable->OnPrepareRender(frameNumber, camera))
                 {
-                    Light* light = static_cast<Light*>(node);
+                    Light* light = static_cast<Light*>(drawable->Owner());
                     result.lights.push_back(light);
                 }
             }
@@ -446,13 +446,13 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         else
         {
             result.octants.push_back(std::make_pair(octant, planeMask));
-            result.nodeAcc += octant->nodes.size();
+            result.drawableAcc += octant->drawables.size();
             break;
         }
     }
 
     // Setup and queue batches collection task if over the node limit now. Note: if not threaded, defer to the end
-    if (threaded && result.nodeAcc >= NODES_PER_BATCH_TASK)
+    if (threaded && result.drawableAcc >= DRAWABLES_PER_BATCH_TASK)
     {
         if (result.collectBatchesTasks.size() <= result.batchTaskIdx)
             result.collectBatchesTasks.push_back(new CollectBatchesTask(this, &Renderer::CollectBatchesWork));
@@ -464,7 +464,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         numPendingBatchTasks.fetch_add(1);
         workQueue->QueueTask(batchTask);
 
-        result.nodeAcc = 0;
+        result.drawableAcc = 0;
         result.taskOctantIdx = result.octants.size();
         ++result.batchTaskIdx;
     }
@@ -696,7 +696,7 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
             if (!geometryBits)
                 graphics->SetUniform(program, U_WORLDMATRIX, *batch.worldTransform);
             else
-                batch.node->OnRender(program, batch.geomIndex);
+                batch.drawable->OnRender(program, batch.geomIndex);
 
             if (ib)
                 graphics->DrawIndexed(PT_TRIANGLE_LIST, geometry->drawStart, geometry->drawCount);
@@ -811,7 +811,7 @@ void Renderer::CollectOctantsWork(Task* task_, unsigned)
     CollectOctantsAndLights(octant, result, workQueue->NumThreads() > 1, octant != octree->Root());
 
     // Queue final batch task for leftover nodes if needed
-    if (result.nodeAcc)
+    if (result.drawableAcc)
     {
         if (result.collectBatchesTasks.size() <= result.batchTaskIdx)
             result.collectBatchesTasks.push_back(new CollectBatchesTask(this, &Renderer::CollectBatchesWork));
@@ -998,18 +998,17 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
     {
         Octant* octant = it->first;
         unsigned char planeMask = it->second;
-        std::vector<OctreeNode*>& nodes = octant->nodes;
+        std::vector<Drawable*>& drawables = octant->drawables;
 
-        for (auto nIt = nodes.begin(); nIt != nodes.end(); ++nIt)
+        for (auto dIt = drawables.begin(); dIt != drawables.end(); ++dIt)
         {
-            OctreeNode* node = *nIt;
-            unsigned short flags = node->Flags();
+            Drawable* drawable = *dIt;
 
-            if ((flags & NF_GEOMETRY) && (node->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(node->WorldBoundingBox(), planeMask)))
+            if (drawable->TestFlag(DF_GEOMETRY) && (drawable->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(drawable->WorldBoundingBox(), planeMask)))
             {
-                if (node->OnPrepareRender(frameNumber, camera))
+                if (drawable->OnPrepareRender(frameNumber, camera))
                 {
-                    const BoundingBox& geometryBox = node->WorldBoundingBox();
+                    const BoundingBox& geometryBox = drawable->WorldBoundingBox();
                     result.geometryBounds.Merge(geometryBox);
 
                     Vector3 center = geometryBox.Center();
@@ -1020,12 +1019,10 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
                     result.minZ = Min(result.minZ, viewCenterZ - viewEdgeZ);
                     result.maxZ = Max(result.maxZ, viewCenterZ + viewEdgeZ);
  
-                    GeometryNode* geometryNode = static_cast<GeometryNode*>(node);
-
                     Batch newBatch;
 
-                    unsigned short distance = (unsigned short)(geometryNode->Distance() * farClipMul);
-                    const SourceBatches& batches = geometryNode->Batches();
+                    unsigned short distance = (unsigned short)(drawable->Distance() * farClipMul);
+                    const SourceBatches& batches = static_cast<GeometryDrawable*>(drawable)->batches;
                     size_t numGeometries = batches.NumGeometries();
         
                     for (size_t j = 0; j < numGeometries; ++j)
@@ -1035,13 +1032,13 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
                         // Assume opaque first
                         newBatch.pass = material->GetPass(PASS_OPAQUE);
                         newBatch.geometry = batches.GetGeometry(j);
-                        newBatch.programBits = (unsigned char)geometryNode->GetGeometryType();
+                        newBatch.programBits = (unsigned char)(drawable->Flags() & DF_GEOMETRY_TYPE_BITS);
                         newBatch.geomIndex = (unsigned char)j;
 
                         if (!newBatch.programBits)
-                            newBatch.worldTransform = &node->WorldTransform();
+                            newBatch.worldTransform = &drawable->WorldTransform();
                         else
-                            newBatch.node = geometryNode;
+                            newBatch.drawable = static_cast<GeometryDrawable*>(drawable);
 
                         if (newBatch.pass)
                         {
@@ -1066,7 +1063,7 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
                             if (!newBatch.pass)
                                 continue;
 
-                            newBatch.distance = node->Distance();
+                            newBatch.distance = drawable->Distance();
                             alphaQueue.push_back(newBatch);
                         }
                     }
@@ -1106,8 +1103,8 @@ void Renderer::CollectShadowCastersWork(Task* task, unsigned)
             }
         }
 
-        std::vector<GeometryNode*>& shadowCasters = shadowMap.shadowCasters[shadowViews[0].casterListIdx];
-        octree->FindNodes(reinterpret_cast<std::vector<OctreeNode*>&>(shadowCasters), light->WorldSphere(), NF_GEOMETRY | NF_CAST_SHADOWS);
+        std::vector<Drawable*>& shadowCasters = shadowMap.shadowCasters[shadowViews[0].casterListIdx];
+        octree->FindDrawables(shadowCasters, light->WorldSphere(), DF_GEOMETRY | DF_CAST_SHADOWS);
     }
     else if (lightType == LIGHT_SPOT)
     {
@@ -1115,8 +1112,8 @@ void Renderer::CollectShadowCastersWork(Task* task, unsigned)
         light->SetupShadowView(0, camera);
         ShadowView& view = shadowViews[0];
 
-        std::vector<GeometryNode*>& shadowCasters = shadowMap.shadowCasters[view.casterListIdx];
-        octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(shadowCasters), view.shadowFrustum, NF_GEOMETRY | NF_CAST_SHADOWS);
+        std::vector<Drawable*>& shadowCasters = shadowMap.shadowCasters[view.casterListIdx];
+        octree->FindDrawablesMasked(shadowCasters, view.shadowFrustum, DF_GEOMETRY | DF_CAST_SHADOWS);
     }
 }
 
@@ -1220,7 +1217,7 @@ void Renderer::CollectShadowBatchesWork(Task* task_, unsigned)
                 if (splitMinZ >= splitMaxZ || splitMinZ > view.splitMaxZ || splitMaxZ < view.splitMinZ)
                     view.viewport = IntRect::ZERO;
                 else
-                    octree->FindNodesMasked(reinterpret_cast<std::vector<OctreeNode*>&>(shadowMap.shadowCasters[view.casterListIdx]), view.shadowFrustum, NF_GEOMETRY | NF_CAST_SHADOWS);
+                    octree->FindDrawablesMasked(shadowMap.shadowCasters[view.casterListIdx], view.shadowFrustum, DF_GEOMETRY | DF_CAST_SHADOWS);
             }
         }
 
@@ -1234,7 +1231,7 @@ void Renderer::CollectShadowBatchesWork(Task* task_, unsigned)
         {
             const Frustum& shadowFrustum = view.shadowFrustum;
             const Matrix3x4& lightView = view.shadowCamera->ViewMatrix();
-            const std::vector<GeometryNode*>& initialShadowCasters = shadowMap.shadowCasters[view.casterListIdx];
+            const std::vector<Drawable*>& initialShadowCasters = shadowMap.shadowCasters[view.casterListIdx];
 
             bool dynamicOrDirLight = lightType == LIGHT_DIRECTIONAL || !light->IsStatic();
             bool dynamicCastersMoved = false;
@@ -1251,11 +1248,11 @@ void Renderer::CollectShadowBatchesWork(Task* task_, unsigned)
 
             for (auto it = initialShadowCasters.begin(); it != initialShadowCasters.end(); ++it)
             {
-                GeometryNode* node = *it;
-                const BoundingBox& geometryBox = node->WorldBoundingBox();
+                Drawable* drawable = *it;
+                const BoundingBox& geometryBox = drawable->WorldBoundingBox();
 
-                bool inView = node->InView(frameNumber);
-                bool staticNode = node->IsStatic();
+                bool inView = drawable->InView(frameNumber);
+                bool staticNode = drawable->Flags() & DF_STATIC;
 
                 // Check shadowcaster frustum visibility for point lights; may be visible in view, but not in each cube map face
                 if (lightType == LIGHT_POINT && !shadowFrustum.IsInsideFast(geometryBox))
@@ -1300,7 +1297,7 @@ void Renderer::CollectShadowBatchesWork(Task* task_, unsigned)
                 // If not in view, let the node prepare itself for render now
                 if (!inView)
                 {
-                    if (!node->OnPrepareRender(frameNumber, camera))
+                    if (!drawable->OnPrepareRender(frameNumber, camera))
                         continue;
                 }
 
@@ -1309,18 +1306,18 @@ void Renderer::CollectShadowBatchesWork(Task* task_, unsigned)
                 if (staticNode)
                 {
                     ++staticShadowCasters;
-                    if (node->LastUpdateFrameNumber() == frameNumber)
+                    if (drawable->LastUpdateFrameNumber() == frameNumber)
                         staticCastersMoved = true;
                 }
                 else
                 {
-                    if (node->LastUpdateFrameNumber() == frameNumber)
+                    if (drawable->LastUpdateFrameNumber() == frameNumber)
                         dynamicCastersMoved = true;
                 }
 
                 // If did not allocate a static queue, just put everything to dynamic
                 BatchQueue& dest = destStatic ? (staticNode ? *destStatic : *destDynamic) : *destDynamic;
-                const SourceBatches& batches = node->Batches();
+                const SourceBatches& batches = static_cast<GeometryDrawable*>(drawable)->batches;
                 size_t numGeometries = batches.NumGeometries();
 
                 Batch newBatch;
@@ -1333,13 +1330,13 @@ void Renderer::CollectShadowBatchesWork(Task* task_, unsigned)
                         continue;
 
                     newBatch.geometry = batches.GetGeometry(j);
-                    newBatch.programBits = (unsigned char)node->GetGeometryType();
+                    newBatch.programBits = (unsigned char)(drawable->Flags() & DF_GEOMETRY_TYPE_BITS);
                     newBatch.geomIndex = (unsigned char)j;
 
                     if (!newBatch.programBits)
-                        newBatch.worldTransform = &node->WorldTransform();
+                        newBatch.worldTransform = &drawable->WorldTransform();
                     else
-                        newBatch.node = node;
+                        newBatch.drawable = static_cast<GeometryDrawable*>(drawable);
 
                     dest.batches.push_back(newBatch);
                 }

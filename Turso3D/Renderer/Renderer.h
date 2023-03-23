@@ -14,7 +14,7 @@
 
 class Camera;
 class FrameBuffer;
-class GeometryNode;
+class GeometryDrawable;
 class Graphics;
 class Light;
 class Material;
@@ -53,8 +53,8 @@ struct ThreadOctantResult
     /// Clear for the next frame.
     void Clear();
 
-    /// Node accumulator. When full, queue the next batch collection task.
-    size_t nodeAcc;
+    /// Drawable accumulator. When full, queue the next batch collection task.
+    size_t drawableAcc;
     /// Starting octant index for current task.
     size_t taskOctantIdx;
     /// Batch collection task index.
@@ -126,7 +126,7 @@ struct ShadowMap
     /// Shadow batch queues used by the shadow views.
     std::vector<BatchQueue> shadowBatches;
     /// Intermediate shadowcaster lists for processing.
-    std::vector<std::vector<GeometryNode*> > shadowCasters;
+    std::vector<std::vector<Drawable*> > shadowCasters;
     /// Instancing transforms for shadowcasters.
     std::vector<Matrix3x4> instanceTransforms;
 };
@@ -233,7 +233,7 @@ private:
     bool clusterFrustumsDirty;
     /// Instancing supported flag.
     bool hasInstancing;
-    /// Root-level octants, used as a starting point for octant and batch collection. The root octant is included if it also contains nodes.
+    /// Root-level octants, used as a starting point for octant and batch collection. The root octant is included if it also contains drawables.
     std::vector<Octant*> rootLevelOctants;
     /// Counter for batch collection tasks remaining. When zero, main batch sorting can begin while other tasks go on.
     std::atomic<int> numPendingBatchTasks;

@@ -8,27 +8,41 @@
 class Camera;
 class DebugRenderer;
 class Octree;
+class OctreeNode;
 class Ray;
 struct Octant;
 struct RaycastResult;
 
-/// Base class for scene nodes that insert themselves to the octree for rendering.
-class OctreeNode : public SpatialNode
+static const unsigned short DF_STATIC_GEOMETRY = 0x0;
+static const unsigned short DF_SKINNED_GEOMETRY = 0x1;
+static const unsigned short DF_INSTANCED_GEOMETRY = 0x2;
+static const unsigned short DF_CUSTOM_GEOMETRY = 0x3;
+static const unsigned short DF_GEOMETRY_TYPE_BITS = 0x3;
+static const unsigned short DF_LIGHT = 0x4;
+static const unsigned short DF_GEOMETRY = 0x8;
+static const unsigned short DF_STATIC = 0x10;
+static const unsigned short DF_CAST_SHADOWS = 0x20;
+static const unsigned short DF_HAS_LOD_LEVELS = 0x40;
+static const unsigned short DF_OCTREE_UPDATE_CALL = 0x80;
+static const unsigned short DF_WORLD_TRANSFORM_DIRTY = 0x100;
+static const unsigned short DF_BOUNDING_BOX_DIRTY = 0x200;
+static const unsigned short DF_OCTREE_REINSERT_QUEUED = 0x400;
+
+/// Base class for drawables that are inserted to the octree. These are managed by their scene node.
+class Drawable
 {
     friend class Octree;
-
-    OBJECT(OctreeNode);
+    friend class OctreeNode;
 
 public:
     /// Construct.
-    OctreeNode();
-    /// Destruct. Remove self from the octree.
-    ~OctreeNode();
+    Drawable();
+    /// Destruct.
+    virtual ~Drawable();
 
-    /// Register attributes.
-    static void RegisterObject();
-
-    /// Do processing before octree reinsertion, e.g. animation. Called by Octree in worker threads. Must be opted-in by setting NF_OCTREE_UPDATE_CALL flag.
+    /// Recalculate the world space bounding box.
+    virtual void OnWorldBoundingBoxUpdate() const;
+    /// Do processing before octree reinsertion, e.g. animation. Called by Octree in worker threads. Must be opted-in by setting DF_OCTREE_UPDATE_CALL flag.
     virtual void OnOctreeUpdate(unsigned short frameNumber);
     /// Prepare object for rendering. Reset framenumber and calculate distance from camera. Called by Renderer in worker threads. Return false if should not render.
     virtual bool OnPrepareRender(unsigned short frameNumber, Camera* camera);
@@ -37,18 +51,39 @@ public:
     /// Add debug geometry to be rendered. Default implementation draws the bounding box.
     virtual void OnRenderDebug(DebugRenderer* debug);
 
-    /// Set whether to cast shadows. Default false on both lights and geometries.
-    void SetCastShadows(bool enable);
-    /// Set max distance for rendering. 0 is unlimited.
-    void SetMaxDistance(float distance);
-    
-    /// Return world space bounding box. Update if necessary. 
-    const BoundingBox& WorldBoundingBox() const { if (TestFlag(NF_BOUNDING_BOX_DIRTY)) OnWorldBoundingBoxUpdate(); return worldBoundingBox; }
-    /// Return whether casts shadows.
-    bool CastShadows() const { return TestFlag(NF_CAST_SHADOWS); }
-    /// Return current octree this node resides in.
-    Octree* GetOctree() const { return octree; }
-    /// Return current octree octant this node resides in.
+    /// Set the owner node.
+    void SetOwner(OctreeNode* owner);
+
+    /// Return world space bounding box. Update if necessary.
+    const BoundingBox& WorldBoundingBox() const { if (TestFlag(DF_BOUNDING_BOX_DIRTY)) OnWorldBoundingBoxUpdate(); return worldBoundingBox; }
+    /// Return position in world space.
+    Vector3 WorldPosition() const { return WorldTransform().Translation(); }
+    /// Return rotation in world space.
+    Quaternion WorldRotation() const { return WorldTransform().Rotation(); }
+    /// Return forward direction in world space.
+    Vector3 WorldDirection() const { return WorldRotation() * Vector3::FORWARD; }
+    /// Return scale in world space. As it is calculated from the world transform matrix, it may not be meaningful or accurate in all cases.
+    Vector3 WorldScale() const { return WorldTransform().Scale(); }
+
+    /// Return world transform matrix.
+    const Matrix3x4& WorldTransform() const
+    {
+        if (TestFlag(DF_WORLD_TRANSFORM_DIRTY))
+        {
+            reinterpret_cast<SpatialNode*>(owner)->UpdateWorldTransform();
+            SetFlag(DF_WORLD_TRANSFORM_DIRTY, false);
+        }
+
+        return worldTransform;
+    }
+
+    /// Return flags.
+    unsigned short Flags() const { return flags; }
+    /// Return bitmask corresponding to layer.
+    unsigned LayerMask() const { return 1 << layer; }
+    /// Return the owner node.
+    OctreeNode* Owner() const { return owner; }
+    /// Return current octree octant this drawable resides in.
     Octant* GetOctant() const { return octant; }
     /// Return distance from camera in the current view.
     float Distance() const { return distance; }
@@ -58,11 +93,18 @@ public:
     unsigned short LastFrameNumber() const { return lastFrameNumber; }
     /// Return last frame number when was reinserted to octree (moved or animated.) The frames are counted by Renderer internally and have no significance outside it.
     unsigned short LastUpdateFrameNumber() const { return lastUpdateFrameNumber; }
+    /// Set bit flag. Called internally.
+    void SetFlag(unsigned short bit, bool set) const { if (set) flags |= bit; else flags &= ~bit; }
+    /// Test bit flag. Called internally.
+    bool TestFlag(unsigned short bit) const { return (flags & bit) != 0; }
+    /// Return pointer to the world transform matrix. Scene node will update it instead of maintaining its own copy.
+    Matrix3x4* WorldTransformPtr() const { return &worldTransform; }
+
     /// Check whether is marked in view this frame.
     bool InView(unsigned short frameNumber) { return lastFrameNumber == frameNumber; }
 
     /// Check whether was in view last frame, compared to the current.
-    bool WasInView(unsigned short frameNumber)
+    bool WasInView(unsigned short frameNumber) const
     {
         unsigned short previousFrameNumber = frameNumber - 1;
         if (!previousFrameNumber)
@@ -71,31 +113,86 @@ public:
     }
 
 protected:
+    /// World transform matrix.
+    mutable Matrix3x4 worldTransform;
+    /// World space bounding box.
+    mutable BoundingBox worldBoundingBox;
+    /// Owner scene node.
+    OctreeNode* owner;
+    /// Current octree octant.
+    Octant* octant;
+    /// %Drawable flags. Used to hold several boolean values to reduce memory use.
+    mutable unsigned short flags;
+    /// Layer number. Copy of the node layer.
+    unsigned char layer;
+    /// Last frame number when was visible.
+    unsigned short lastFrameNumber;
+    /// Last frame number when was reinserted to octree or other change (LOD etc.) happened.
+    unsigned short lastUpdateFrameNumber;
+    /// Distance from camera in the current view.
+    float distance;
+    /// Max distance for rendering.
+    float maxDistance;
+};
+
+/// Base class for scene nodes that insert drawables to the octree for rendering.
+class OctreeNode : public SpatialNode
+{
+    friend class Octree;
+
+    OBJECT(OctreeNode);
+
+public:
+    /// Construct.
+    OctreeNode();
+
+    /// Register attributes.
+    static void RegisterObject();
+
+    /// Set whether is static. Used for optimizations. A static node should not move after scene load. Default false.
+    void SetStatic(bool enable);
+    /// Set whether to cast shadows. Default false on both lights and geometries.
+    void SetCastShadows(bool enable);
+    /// Set max distance for rendering. 0 is unlimited.
+    void SetMaxDistance(float distance);
+    
+    /// Return drawable's world space bounding box. Update if necessary. 
+    const BoundingBox& WorldBoundingBox() const { return drawable->WorldBoundingBox(); }
+    /// Return whether is static.
+    bool IsStatic() const { return drawable->TestFlag(DF_STATIC); }
+    /// Return whether casts shadows.
+    bool CastShadows() const { return drawable->TestFlag(DF_CAST_SHADOWS); }
+    /// Return current octree this node resides in.
+    Octree* GetOctree() const { return octree; }
+    /// Return the drawable for internal use.
+    Drawable* GetDrawable() const { return drawable; }
+    /// Return distance from camera in the current view.
+    float Distance() const { return drawable->Distance(); }
+    /// Return max distance for rendering, or 0 for unlimited.
+    float MaxDistance() const { return drawable->MaxDistance(); }
+    /// Return last frame number when was visible. The frames are counted by Renderer internally and have no significance outside it.
+    unsigned short LastFrameNumber() const { return drawable->LastFrameNumber(); }
+    /// Return last frame number when was reinserted to octree (moved or animated.) The frames are counted by Renderer internally and have no significance outside it.
+    unsigned short LastUpdateFrameNumber() const { return drawable->LastUpdateFrameNumber(); }
+    /// Check whether is marked in view this frame.
+    bool InView(unsigned short frameNumber) { return drawable->InView(frameNumber); }
+    /// Check whether was in view last frame, compared to the current.
+    bool WasInView(unsigned short frameNumber) const { return drawable->WasInView(frameNumber); }
+
+protected:
     /// Search for an octree from the scene root and add self to it.
     void OnSceneSet(Scene* newScene, Scene* oldScene) override;
     /// Handle the transform matrix changing.
     void OnTransformChanged() override;
     /// Handle the enabled status changing.
     void OnEnabledChanged(bool newEnabled) override;
-    /// Recalculate the world space bounding box.
-    virtual void OnWorldBoundingBoxUpdate() const;
-
-    /// World space bounding box.
-    mutable BoundingBox worldBoundingBox;
-    /// Last frame number when was visible.
-    unsigned short lastFrameNumber;
-    /// Last frame number when was reinserted to octree or other change (LOD etc.) happened
-    unsigned short lastUpdateFrameNumber;
-    /// Distance from camera in the current view.
-    float distance;
-    /// Max distance for rendering.
-    float maxDistance;
-    /// Current octree.
-    Octree* octree;
-    /// Current octant in octree.
-    Octant* octant;
-
-private:
+    /// Handle the layer changing.
+    void OnLayerChanged(unsigned char newLayer) override;
     /// Remove from the current octree.
     void RemoveFromOctree();
+
+    /// Current octree.
+    Octree* octree;
+    /// This node's drawable.
+    Drawable* drawable;
 };

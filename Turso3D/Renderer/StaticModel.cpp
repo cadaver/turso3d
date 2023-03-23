@@ -11,28 +11,66 @@
 
 static Vector3 DOT_SCALE(1 / 3.0f, 1 / 3.0f, 1 / 3.0f);
 
-StaticModel::StaticModel() :
+static Allocator<StaticModelDrawable> drawableAllocator;
+
+StaticModelDrawable::StaticModelDrawable() :
     lodBias(1.0f)
 {
 }
 
-StaticModel::~StaticModel()
+void StaticModelDrawable::OnWorldBoundingBoxUpdate() const
 {
+    if (model)
+    {
+        worldBoundingBox = model->LocalBoundingBox().Transformed(WorldTransform());
+        SetFlag(DF_BOUNDING_BOX_DIRTY, false);
+    }
+    else
+        Drawable::OnWorldBoundingBoxUpdate();
 }
 
-void StaticModel::RegisterObject()
+void StaticModelDrawable::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance_)
 {
-    RegisterFactory<StaticModel>();
-    // Copy base attributes from OctreeNode instead of GeometryNode, as the model attribute needs to be set first so that
-    // there is the correct amount of materials to assign
-    CopyBaseAttributes<StaticModel, OctreeNode>();
-    RegisterDerivedType<StaticModel, GeometryNode>();
-    RegisterMixedRefAttribute("model", &StaticModel::ModelAttr, &StaticModel::SetModelAttr, ResourceRef(Model::TypeStatic()));
-    CopyBaseAttribute<StaticModel, GeometryNode>("materials");
-    RegisterAttribute("lodBias", &StaticModel::LodBias, &StaticModel::SetLodBias, 1.0f);
+    if (ray.HitDistance(WorldBoundingBox()) < maxDistance_)
+    {
+        RaycastResult res;
+        res.distance = M_INFINITY;
+
+        // Perform model raycast in its local space
+        const Matrix3x4& transform = WorldTransform();
+        Ray localRay = ray.Transformed(transform.Inverse());
+
+        size_t numGeometries = batches.NumGeometries();
+
+        for (size_t i = 0; i < numGeometries; ++i)
+        {
+            Geometry* geom = batches.GetGeometry(i);
+            float localDistance = geom->HitDistance(localRay, &res.normal);
+
+            if (localDistance < M_INFINITY)
+            {
+                // If has a hit, transform it back to world space
+                Vector3 hitPosition = transform * (localRay.origin + localDistance * localRay.direction);
+                float hitDistance = (hitPosition - ray.origin).Length();
+
+                if (hitDistance < maxDistance_ && hitDistance < res.distance)
+                {
+                    res.position = hitPosition;
+                    res.normal = (transform * Vector4(res.normal, 0.0f)).Normalized();
+                    res.distance = hitDistance;
+                    res.drawable = this;
+                    res.node = owner;
+                    res.subObject = i;
+                }
+            }
+        }
+
+        if (res.distance < maxDistance_)
+            dest.push_back(res);
+    }
 }
 
-bool StaticModel::OnPrepareRender(unsigned short frameNumber, Camera* camera)
+bool StaticModelDrawable::OnPrepareRender(unsigned short frameNumber, Camera* camera)
 {
     distance = camera->Distance(WorldBoundingBox().Center());
 
@@ -46,7 +84,7 @@ bool StaticModel::OnPrepareRender(unsigned short frameNumber, Camera* camera)
         lastUpdateFrameNumber = 0;
 
     // Find out the new LOD level if model has LODs
-    if (Flags() & NF_HAS_LOD_LEVELS)
+    if (Flags() & DF_HAS_LOD_LEVELS)
     {
         float lodDistance = camera->LodDistance(distance, WorldScale().DotProduct(DOT_SCALE), lodBias);
         size_t numGeometries = batches.NumGeometries();
@@ -74,52 +112,43 @@ bool StaticModel::OnPrepareRender(unsigned short frameNumber, Camera* camera)
     return true;
 }
 
-void StaticModel::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance_)
+StaticModel::StaticModel()
 {
-    if (ray.HitDistance(WorldBoundingBox()) < maxDistance_)
+    drawable = drawableAllocator.Allocate();
+    drawable->SetOwner(this);
+    worldTransform = drawable->WorldTransformPtr();
+}
+
+StaticModel::~StaticModel()
+{
+    if (drawable)
     {
-        RaycastResult res;
-        res.distance = M_INFINITY;
-
-        // Perform model raycast in its local space
-        const Matrix3x4& transform = WorldTransform();
-        Ray localRay = ray.Transformed(transform.Inverse());
-
-        size_t numGeometries = batches.NumGeometries();
-
-        for (size_t i = 0; i < numGeometries; ++i)
-        {
-            Geometry* geom = batches.GetGeometry(i);
-            float localDistance = geom->HitDistance(localRay, &res.normal);
-
-            if (localDistance < M_INFINITY)
-            {
-                // If has a hit, transform it back to world space
-                Vector3 hitPosition = transform * (localRay.origin + localDistance * localRay.direction);
-                float hitDistance = (hitPosition - ray.origin).Length();
-           
-                if (hitDistance < maxDistance_ && hitDistance < res.distance)
-                {
-                    res.position = hitPosition;
-                    res.normal = (transform * Vector4(res.normal, 0.0f)).Normalized();
-                    res.distance = hitDistance;
-                    res.node = this;
-                    res.subObject = i;
-                }
-            }
-        }
-
-        if (res.distance < maxDistance_)
-            dest.push_back(res);
+        RemoveFromOctree();
+        drawableAllocator.Free(static_cast<StaticModelDrawable*>(drawable));
+        drawable = nullptr;
     }
 }
 
-void StaticModel::SetModel(Model* model_)
+void StaticModel::RegisterObject()
+{
+    RegisterFactory<StaticModel>();
+    // Copy base attributes from OctreeNode instead of GeometryNode, as the model attribute needs to be set first so that
+    // there is the correct amount of materials to assign
+    CopyBaseAttributes<StaticModel, OctreeNode>();
+    RegisterDerivedType<StaticModel, GeometryNode>();
+    RegisterMixedRefAttribute("model", &StaticModel::ModelAttr, &StaticModel::SetModelAttr, ResourceRef(Model::TypeStatic()));
+    CopyBaseAttribute<StaticModel, GeometryNode>("materials");
+    RegisterAttribute("lodBias", &StaticModel::LodBias, &StaticModel::SetLodBias, 1.0f);
+}
+
+void StaticModel::SetModel(Model* model)
 {
     ZoneScoped;
 
-    model = model_;
-    SetFlag(NF_HAS_LOD_LEVELS, false);
+    StaticModelDrawable* modelDrawable = static_cast<StaticModelDrawable*>(drawable);
+
+    modelDrawable->model = model;
+    modelDrawable->SetFlag(DF_HAS_LOD_LEVELS, false);
 
     if (model)
     {
@@ -129,7 +158,7 @@ void StaticModel::SetModel(Model* model_)
         {
             SetGeometry(i, model->GetGeometry(i, 0));
             if (model->NumLodLevels(i) > 1)
-                SetFlag(NF_HAS_LOD_LEVELS, true);
+                modelDrawable->SetFlag(DF_HAS_LOD_LEVELS, true);
         }
     }
     else
@@ -143,23 +172,13 @@ void StaticModel::SetModel(Model* model_)
 
 void StaticModel::SetLodBias(float bias)
 {
-    lodBias = Max(bias, M_EPSILON);
+    StaticModelDrawable* modelDrawable = static_cast<StaticModelDrawable*>(drawable);
+    modelDrawable->lodBias = Max(bias, M_EPSILON);
 }
 
 Model* StaticModel::GetModel() const
 {
-    return model;
-}
-
-void StaticModel::OnWorldBoundingBoxUpdate() const
-{
-    if (model)
-    {
-        worldBoundingBox = model->LocalBoundingBox().Transformed(WorldTransform());
-        SetFlag(NF_BOUNDING_BOX_DIRTY, false);
-    }
-    else
-        OctreeNode::OnWorldBoundingBoxUpdate();
+    return static_cast<StaticModelDrawable*>(drawable)->model;
 }
 
 void StaticModel::SetModelAttr(const ResourceRef& value)
@@ -170,5 +189,5 @@ void StaticModel::SetModelAttr(const ResourceRef& value)
 
 ResourceRef StaticModel::ModelAttr() const
 {
-    return ResourceRef(Model::TypeStatic(), ResourceName(model));
+    return ResourceRef(Model::TypeStatic(), ResourceName(GetModel()));
 }

@@ -71,9 +71,30 @@ struct ShadowView
     size_t lastNumGeometries;
 };
 
+/// %Light drawable
+class LightDrawable : public Drawable
+{
+public:
+    /// Construct.
+    LightDrawable();
+
+    /// Recalculate the world space bounding box.
+    virtual void OnWorldBoundingBoxUpdate() const override;
+    /// Prepare object for rendering. Reset framenumber and calculate distance from camera. Called by Renderer in worker threads. Return false if should not render.
+    bool OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
+    /// Perform ray test on self and add possible hit to the result vector.
+    void OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance) override;
+    /// Add debug geometry to be rendered.
+    virtual void OnRenderDebug(DebugRenderer* debug) override;
+
+    /// \todo Move the data here from Light
+};
+
 /// Dynamic light scene node.
 class Light : public OctreeNode
 {
+    friend class LightDrawable;
+
     OBJECT(Light);
     
 public:
@@ -84,13 +105,6 @@ public:
 
     /// Register factory and attributes.
     static void RegisterObject();
-
-    /// Prepare object for rendering. Reset framenumber and calculate distance from camera. Called by Renderer in worker threads. Return false if should not render.
-    bool OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
-    /// Perform ray test on self and add possible hit to the result vector.
-    void OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance) override;
-    /// Add debug geometry to be rendered.
-    virtual void OnRenderDebug(DebugRenderer* debug) override;
 
     /// Set light type.
     void SetLightType(LightType type);
@@ -180,10 +194,6 @@ public:
     const IntRect& ShadowRect() const { return shadowRect; }
     /// Return shadow map offset and depth parameters.
     const Vector4& ShadowParameters() const { return shadowParameters; }
-
-protected:
-    /// Recalculate the world space bounding box.
-    virtual void OnWorldBoundingBoxUpdate() const override;
 
 private:
     /// Set light type as int. Used in serialization.

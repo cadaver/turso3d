@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "../Math/Matrix3x4.h"
 #include "Node.h"
 
 /// Transform space for translations and rotations.
@@ -18,8 +19,10 @@ class SpatialNode : public Node
     OBJECT(SpatialNode);
 
 public:
-    /// Construct. Reset transforms.
+    /// Construct.
     SpatialNode();
+    /// Destruct.
+    ~SpatialNode();
 
     /// Register factory and attributes.
     static void RegisterObject();
@@ -56,8 +59,6 @@ public:
     void SetWorldTransform(const Vector3& newPosition, const Quaternion& newRotation, const Vector3& newScale);
     /// Set transform in world space.
     void SetWorldTransform(const Vector3& newPosition, const Quaternion& newRotation, float newScale);
-    /// Set whether is static. Used for optimizations. A static node should not move after scene load. Default false.
-    void SetStatic(bool enable);
     /// Move the scene node in the chosen transform space.
     void Translate(const Vector3& delta, TransformSpace space = TS_LOCAL);
     /// Rotate the scene node in the chosen transform space.
@@ -80,15 +81,15 @@ public:
     /// Return the parent spatial node, or null if it is not spatial.
     SpatialNode* SpatialParent() const { return TestFlag(NF_SPATIAL_PARENT) ? static_cast<SpatialNode*>(Parent()) : nullptr; }
     /// Return position in parent space.
-    const Vector3& Position() const { return localTransforms[arrayIdx].position; }
+    const Vector3& Position() const { return position; }
     /// Return rotation in parent space.
-    const Quaternion& Rotation() const { return localTransforms[arrayIdx].rotation; }
+    const Quaternion& Rotation() const { return rotation; }
     /// Return forward direction in parent space.
-    Vector3 Direction() const { return localTransforms[arrayIdx].rotation * Vector3::FORWARD; }
+    Vector3 Direction() const { return rotation * Vector3::FORWARD; }
     /// Return scale in parent space.
-    const Vector3& Scale() const { return localTransforms[arrayIdx].scale; }
+    const Vector3& Scale() const { return scale; }
     /// Return transform matrix in parent space.
-    Matrix3x4 Transform() const { return Matrix3x4(localTransforms[arrayIdx].position, localTransforms[arrayIdx].rotation, localTransforms[arrayIdx].scale); }
+    Matrix3x4 Transform() const { return Matrix3x4(position, rotation, scale); }
     /// Return position in world space.
     Vector3 WorldPosition() const { return WorldTransform().Translation(); }
     /// Return rotation in world space.
@@ -100,19 +101,32 @@ public:
     
     /// Return world transform matrix.
     const Matrix3x4& WorldTransform() const 
-    { 
+    {
+        // Create world transform matrix on demand if not specifically handled in subclass
+        if (!worldTransform)
+        {
+            worldTransform = new Matrix3x4();
+            SetFlag(NF_OWN_WORLD_TRANSFORM, true);
+        }
+
+        UpdateWorldTransform();
+        return *worldTransform;
+    }
+
+    /// Update the world transform matrix. Called internally.
+    void UpdateWorldTransform() const
+    {
         if (TestFlag(NF_WORLD_TRANSFORM_DIRTY))
         {
             if (TestFlag(NF_SPATIAL_PARENT))
-                worldTransforms[arrayIdx] = static_cast<SpatialNode*>(Parent())->WorldTransform() * Matrix3x4(localTransforms[arrayIdx].position, localTransforms[arrayIdx].rotation, localTransforms[arrayIdx].scale);
+                *worldTransform = static_cast<SpatialNode*>(Parent())->WorldTransform() * Matrix3x4(position, rotation, scale);
             else
             {
-                worldTransforms[arrayIdx].SetRotation(localTransforms[arrayIdx].rotation.RotationMatrix().Scaled(localTransforms[arrayIdx].scale));
-                worldTransforms[arrayIdx].SetTranslation(localTransforms[arrayIdx].position);
+                (*worldTransform).SetRotation(rotation.RotationMatrix().Scaled(scale));
+                (*worldTransform).SetTranslation(position);
             }
             SetFlag(NF_WORLD_TRANSFORM_DIRTY, false);
         }
-        return worldTransforms[arrayIdx];
     }
 
     /// Convert a local space position to world space.
@@ -123,12 +137,19 @@ public:
     Vector3 WorldToLocal(const Vector3& point) const { return WorldTransform().Inverse() * point; }
     /// Convert a world space vector (either position or direction) to world space.
     Vector3 WorldToLocal(const Vector4& vector) const { return WorldTransform().Inverse() * vector; }
-    /// Return whether is static.
-    bool IsStatic() const { return TestFlag(NF_STATIC); }
 
 protected:
     /// Handle being assigned to a new parent node.
     void OnParentSet(Node* newParent, Node* oldParent) override;
     /// Handle the transform matrix changing.
     virtual void OnTransformChanged();
+
+    /// Parent space position.
+    Vector3 position;
+    /// Parent space rotation.
+    Quaternion rotation;
+    /// Parent space scale.
+    Vector3 scale;
+    /// World transform matrix. May be contained in another object in subclasses. Allocated on demand if necessary.
+    mutable Matrix3x4* worldTransform;
 };

@@ -15,11 +15,14 @@
 #include <algorithm>
 #include <tracy/Tracy.hpp>
 
+static Allocator<AnimatedModelDrawable> drawableAllocator;
+
 Bone::Bone() :
-    model(nullptr),
+    drawable(nullptr),
     animationEnabled(true),
     numChildBones(0)
 {
+    worldTransform = &worldTransformMatrix;
 }
 
 Bone::~Bone()
@@ -34,9 +37,9 @@ void Bone::RegisterObject()
     RegisterAttribute("animationEnabled", &Bone::AnimationEnabled, &Bone::SetAnimationEnabled);
 }
 
-void Bone::SetAnimatedModel(AnimatedModel* model_)
+void Bone::SetDrawable(AnimatedModelDrawable* drawable_)
 {
-    model = model_;
+    drawable = drawable_;
 }
 
 void Bone::SetAnimationEnabled(bool enable)
@@ -61,8 +64,8 @@ void Bone::OnTransformChanged()
 
     // Avoid duplicate dirtying calls if model's skinning is already dirty. Do not signal changes either during animation update,
     // as the model will set the hierarchy dirty when finished. This is also used to optimize when only the model node moves.
-    if (model && !(model->AnimatedModelFlags() & (AMF_IN_ANIMATION_UPDATE | AMF_SKINNING_DIRTY)))
-        model->OnBoneTransformChanged();
+    if (drawable && !(drawable->AnimatedModelFlags() & (AMF_IN_ANIMATION_UPDATE | AMF_SKINNING_DIRTY)))
+        drawable->OnBoneTransformChanged();
 }
 
 inline bool CompareAnimationStates(const SharedPtr<AnimationState>& lhs, const SharedPtr<AnimationState>& rhs)
@@ -70,47 +73,62 @@ inline bool CompareAnimationStates(const SharedPtr<AnimationState>& lhs, const S
     return lhs->BlendLayer() < rhs->BlendLayer();
 }
 
-AnimatedModel::AnimatedModel() :
+AnimatedModelDrawable::AnimatedModelDrawable() :
     updateInvisible(false),
     animatedModelFlags(0),
     numBones(0),
     rootBone(nullptr)
 {
-    SetFlag(NF_SKINNED_GEOMETRY | NF_OCTREE_UPDATE_CALL, true);
+    SetFlag(DF_SKINNED_GEOMETRY | DF_OCTREE_UPDATE_CALL, true);
 }
 
-AnimatedModel::~AnimatedModel()
+void AnimatedModelDrawable::OnWorldBoundingBoxUpdate() const
 {
-    RemoveBones();
+    if (model && numBones)
+    {
+        // Recalculate bounding box from bone only if they moved individually
+        if (animatedModelFlags & AMF_BONE_BOUNDING_BOX_DIRTY)
+        {
+            const std::vector<ModelBone>& modelBones = model->Bones();
+
+            if (modelBones[0].active)
+                worldBoundingBox = modelBones[0].boundingBox.Transformed(bones[0]->WorldTransform());
+            else
+                worldBoundingBox.Undefine();
+
+            for (size_t i = 1; i < numBones; ++i)
+            {
+                if (modelBones[i].active)
+                    worldBoundingBox.Merge(modelBones[i].boundingBox.Transformed(bones[i]->WorldTransform()));
+            }
+
+            boneBoundingBox = worldBoundingBox.Transformed(WorldTransform().Inverse());
+            animatedModelFlags &= ~AMF_BONE_BOUNDING_BOX_DIRTY;
+        }
+        else
+            worldBoundingBox = boneBoundingBox.Transformed(WorldTransform());
+
+        SetFlag(DF_BOUNDING_BOX_DIRTY, false);
+    }
+    else
+        Drawable::OnWorldBoundingBoxUpdate();
 }
 
-void AnimatedModel::RegisterObject()
-{
-    RegisterFactory<AnimatedModel>();
-    CopyBaseAttributes<AnimatedModel, OctreeNode>();
-    RegisterDerivedType<AnimatedModel, StaticModel>();
-    RegisterMixedRefAttribute("model", &AnimatedModel::ModelAttr, &AnimatedModel::SetModelAttr, ResourceRef(Model::TypeStatic()));
-    CopyBaseAttribute<AnimatedModel, StaticModel>("materials");
-    CopyBaseAttribute<AnimatedModel, StaticModel>("lodBias");
-    RegisterAttribute("updateInvisible", &AnimatedModel::UpdateInvisible, &AnimatedModel::SetUpdateInvisible, false);
-    RegisterMixedRefAttribute("animationStates", &AnimatedModel::AnimationStatesAttr, &AnimatedModel::SetAnimationStatesAttr);
-}
-
-void AnimatedModel::OnOctreeUpdate(unsigned short frameNumber)
+void AnimatedModelDrawable::OnOctreeUpdate(unsigned short frameNumber)
 {
     if (updateInvisible || WasInView(frameNumber))
     {
         if (animatedModelFlags & AMF_ANIMATION_DIRTY)
             UpdateAnimation();
-        
+
         if (animatedModelFlags & AMF_SKINNING_DIRTY)
             UpdateSkinning();
     }
 }
 
-bool AnimatedModel::OnPrepareRender(unsigned short frameNumber, Camera* camera)
+bool AnimatedModelDrawable::OnPrepareRender(unsigned short frameNumber, Camera* camera)
 {
-    if (!StaticModel::OnPrepareRender(frameNumber, camera))
+    if (!StaticModelDrawable::OnPrepareRender(frameNumber, camera))
         return false;
 
     // Update animation here too if just came into view and animation / skinning is still dirty
@@ -123,7 +141,7 @@ bool AnimatedModel::OnPrepareRender(unsigned short frameNumber, Camera* camera)
     return true;
 }
 
-void AnimatedModel::OnRender(ShaderProgram*, size_t)
+void AnimatedModelDrawable::OnRender(ShaderProgram*, size_t)
 {
     if (!skinMatrixBuffer || !numBones)
         return;
@@ -137,7 +155,7 @@ void AnimatedModel::OnRender(ShaderProgram*, size_t)
     skinMatrixBuffer->Bind(UB_SKINMATRICES);
 }
 
-void AnimatedModel::OnRenderDebug(DebugRenderer* debug)
+void AnimatedModelDrawable::OnRenderDebug(DebugRenderer* debug)
 {
     debug->AddBoundingBox(WorldBoundingBox(), Color::GREEN, false);
 
@@ -150,7 +168,7 @@ void AnimatedModel::OnRenderDebug(DebugRenderer* debug)
     }
 }
 
-void AnimatedModel::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance_)
+void AnimatedModelDrawable::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance_)
 {
     if (ray.HitDistance(WorldBoundingBox()) < maxDistance_ && model)
     {
@@ -181,7 +199,8 @@ void AnimatedModel::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, 
                     /// \todo Hit normal not calculated correctly
                     res.normal = -ray.direction;
                     res.distance = hitDistance;
-                    res.node = this;
+                    res.drawable = this;
+                    res.node = owner;
                     res.subObject = i;
                 }
             }
@@ -192,183 +211,7 @@ void AnimatedModel::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, 
     }
 }
 
-
-void AnimatedModel::SetModel(Model* model_)
-{
-    ZoneScoped;
-
-    StaticModel::SetModel(model_);
-    CreateBones();
-}
-
-void AnimatedModel::SetUpdateInvisible(bool enable)
-{
-    updateInvisible = enable;
-}
-
-AnimationState* AnimatedModel::AddAnimationState(Animation* animation)
-{
-    if (!animation || !numBones)
-        return nullptr;
-
-    // Check for not adding twice
-    AnimationState* existing = FindAnimationState(animation);
-    if (existing)
-        return existing;
-
-    SharedPtr<AnimationState> newState(new AnimationState(this, animation));
-    animationStates.push_back(newState);
-    OnAnimationOrderChanged();
-
-    return newState;
-}
-
-void AnimatedModel::RemoveAnimationState(Animation* animation)
-{
-    if (animation)
-        RemoveAnimationState(animation->NameHash());
-}
-
-void AnimatedModel::RemoveAnimationState(const std::string& animationName)
-{
-    RemoveAnimationState(StringHash(animationName));
-}
-
-void AnimatedModel::RemoveAnimationState(StringHash animationNameHash)
-{
-    for (auto it = animationStates.begin(); it != animationStates.end(); ++it)
-    {
-        AnimationState* state = *it;
-        Animation* animation = state->GetAnimation();
-        // Check both the animation and the resource name
-        if (animation->NameHash() == animationNameHash || animation->AnimationNameHash() == animationNameHash)
-        {
-            animationStates.erase(it);
-            OnAnimationChanged();
-            return;
-        }
-    }
-}
-
-void AnimatedModel::RemoveAnimationState(AnimationState* state)
-{
-    for (auto it = animationStates.begin(); it != animationStates.end(); ++it)
-    {
-        if (*it == state)
-        {
-            animationStates.erase(it);
-            OnAnimationChanged();
-            return;
-        }
-    }
-}
-
-void AnimatedModel::RemoveAnimationState(size_t index)
-{
-    if (index < animationStates.size())
-    {
-        animationStates.erase(animationStates.begin() + index);
-        OnAnimationChanged();
-    }
-}
-
-void AnimatedModel::RemoveAllAnimationStates()
-{
-    if (animationStates.size())
-    {
-        animationStates.clear();
-        OnAnimationChanged();
-    }
-}
-
-AnimationState* AnimatedModel::FindAnimationState(Animation* animation) const
-{
-    for (auto it = animationStates.begin(); it != animationStates.end(); ++it)
-    {
-        if ((*it)->GetAnimation() == animation)
-            return *it;
-    }
-
-    return nullptr;
-}
-
-AnimationState* AnimatedModel::FindAnimationState(const std::string& animationName) const
-{
-    return GetAnimationState(StringHash(animationName));
-}
-
-AnimationState* AnimatedModel::FindAnimationState(StringHash animationNameHash) const
-{
-    for (auto it = animationStates.begin(); it != animationStates.end(); ++it)
-    {
-        Animation* animation = (*it)->GetAnimation();
-        // Check both the animation and the resource name
-        if (animation->NameHash() == animationNameHash || animation->AnimationNameHash() == animationNameHash)
-            return *it;
-    }
-
-    return nullptr;
-}
-
-AnimationState* AnimatedModel::GetAnimationState(size_t index) const
-{
-    return index < animationStates.size() ? animationStates[index] : nullptr;
-}
-
-void AnimatedModel::OnTransformChanged()
-{
-    // To improve performance set skinning dirty now, so the bone nodes will not redundantly signal transform changes back
-    animatedModelFlags |= AMF_SKINNING_DIRTY;
-
-    // If have other children than the root bone, dirty the hierarchy normally. Otherwise optimize
-    if (children.size() > 1)
-        SpatialNode::OnTransformChanged();
-    else
-    {
-        SetBoneTransformsDirty();
-        SetFlag(NF_WORLD_TRANSFORM_DIRTY, true);
-    }
-
-    SetFlag(NF_BOUNDING_BOX_DIRTY, true);
-    if (octree && (Flags() & (NF_OCTREE_REINSERT_QUEUED | NF_ENABLED)) == NF_ENABLED)
-        octree->QueueUpdate(this);
-
-    OctreeNode::OnTransformChanged();
-}
-
-void AnimatedModel::OnWorldBoundingBoxUpdate() const
-{
-    if (model && numBones)
-    {
-        // Recalculate bounding box from bone only if they moved individually
-        if (animatedModelFlags & AMF_BONE_BOUNDING_BOX_DIRTY)
-        {
-            const std::vector<ModelBone>& modelBones = model->Bones();
-
-            if (modelBones[0].active)
-                worldBoundingBox = modelBones[0].boundingBox.Transformed(bones[0]->WorldTransform());
-            else
-                worldBoundingBox.Undefine();
-
-            for (size_t i = 1; i < numBones; ++i)
-            {
-                if (modelBones[i].active)
-                    worldBoundingBox.Merge(modelBones[i].boundingBox.Transformed(bones[i]->WorldTransform()));
-            }
-
-            boneBoundingBox = worldBoundingBox.Transformed(WorldTransform().Inverse());
-            animatedModelFlags &= ~AMF_BONE_BOUNDING_BOX_DIRTY;
-        }
-        else
-            worldBoundingBox = boneBoundingBox.Transformed(WorldTransform());
-
-        SetFlag(NF_BOUNDING_BOX_DIRTY, false);
-    }
-    else
-        OctreeNode::OnWorldBoundingBoxUpdate();
-}
-
-void AnimatedModel::CreateBones()
+void AnimatedModelDrawable::CreateBones()
 {
     ZoneScoped;
 
@@ -384,6 +227,7 @@ void AnimatedModel::CreateBones()
         RemoveBones();
 
     numBones = (unsigned short)modelBones.size();
+
     bones = new Bone*[numBones];
     skinMatrices = new Matrix3x4[numBones];
 
@@ -391,7 +235,7 @@ void AnimatedModel::CreateBones()
     {
         const ModelBone& modelBone = modelBones[i];
 
-        Bone* existingBone = FindChild<Bone>(modelBone.nameHash, true);
+        Bone* existingBone = owner->FindChild<Bone>(modelBone.nameHash, true);
         if (existingBone)
         {
             bones[i] = existingBone;
@@ -403,7 +247,7 @@ void AnimatedModel::CreateBones()
             bones[i]->SetTransform(modelBone.initialPosition, modelBone.initialRotation, modelBone.initialScale);
         }
 
-        bones[i]->SetAnimatedModel(this);
+        bones[i]->SetDrawable(this);
     }
 
     // Loop through bones again to set the correct parents
@@ -412,7 +256,7 @@ void AnimatedModel::CreateBones()
         const ModelBone& desc = modelBones[i];
         if (desc.parentIndex == i)
         {
-            bones[i]->SetParent(this);
+            bones[i]->SetParent(owner);
             rootBone = bones[i];
         }
         else
@@ -431,13 +275,13 @@ void AnimatedModel::CreateBones()
     OnBoneTransformChanged();
 }
 
-void AnimatedModel::UpdateAnimation()
+void AnimatedModelDrawable::UpdateAnimation()
 {
     ZoneScoped;
 
     if (animatedModelFlags & AMF_ANIMATION_ORDER_DIRTY)
         std::sort(animationStates.begin(), animationStates.end(), CompareAnimationStates);
-    
+
     animatedModelFlags |= AMF_IN_ANIMATION_UPDATE | AMF_BONE_BOUNDING_BOX_DIRTY;
 
     // Reset bones to initial pose, then apply animations
@@ -457,7 +301,7 @@ void AnimatedModel::UpdateAnimation()
         if (state->Enabled())
             state->Apply();
     }
-    
+
     // Dirty the bone hierarchy now. This will also dirty and queue reinsertion for attached models
     SetBoneTransformsDirty();
 
@@ -470,14 +314,14 @@ void AnimatedModel::UpdateAnimation()
     // Else just dirty the skinning
     if (!updateInvisible)
     {
-        if (octree && (Flags() & (NF_OCTREE_REINSERT_QUEUED | NF_ENABLED)) == NF_ENABLED)
+        if (octree && (Flags() & (DF_OCTREE_REINSERT_QUEUED | NF_ENABLED)) == NF_ENABLED)
             octree->QueueUpdate(this);
     }
-    
+
     animatedModelFlags |= AMF_SKINNING_DIRTY;
 }
 
-void AnimatedModel::UpdateSkinning()
+void AnimatedModelDrawable::UpdateSkinning()
 {
     ZoneScoped;
 
@@ -490,7 +334,7 @@ void AnimatedModel::UpdateSkinning()
     animatedModelFlags |= AMF_SKINNING_BUFFER_DIRTY;
 }
 
-void AnimatedModel::SetBoneTransformsDirty()
+void AnimatedModelDrawable::SetBoneTransformsDirty()
 {
     for (size_t i = 0; i < numBones; ++i)
     {
@@ -502,15 +346,15 @@ void AnimatedModel::SetBoneTransformsDirty()
     }
 }
 
-void AnimatedModel::RemoveBones()
+void AnimatedModelDrawable::RemoveBones()
 {
     if (!numBones)
         return;
 
     // Do not signal transform changes back to the model during deletion
     for (size_t i = 0; i < numBones; ++i)
-        bones[i]->SetAnimatedModel(nullptr);
-    
+        bones[i]->SetDrawable(nullptr);
+
     if (rootBone)
     {
         rootBone->RemoveSelf();
@@ -523,6 +367,201 @@ void AnimatedModel::RemoveBones()
     numBones = 0;
 }
 
+AnimatedModel::AnimatedModel()
+{
+    drawable = drawableAllocator.Allocate();
+    drawable->SetOwner(this);
+    worldTransform = drawable->WorldTransformPtr();
+}
+
+AnimatedModel::~AnimatedModel()
+{
+    static_cast<AnimatedModelDrawable*>(drawable)->RemoveBones();
+    RemoveFromOctree();
+    drawableAllocator.Free(static_cast<AnimatedModelDrawable*>(drawable));
+    drawable = nullptr;
+}
+
+void AnimatedModel::RegisterObject()
+{
+    RegisterFactory<AnimatedModel>();
+    CopyBaseAttributes<AnimatedModel, OctreeNode>();
+    RegisterDerivedType<AnimatedModel, StaticModel>();
+    RegisterMixedRefAttribute("model", &AnimatedModel::ModelAttr, &AnimatedModel::SetModelAttr, ResourceRef(Model::TypeStatic()));
+    CopyBaseAttribute<AnimatedModel, StaticModel>("materials");
+    CopyBaseAttribute<AnimatedModel, StaticModel>("lodBias");
+    RegisterAttribute("updateInvisible", &AnimatedModel::UpdateInvisible, &AnimatedModel::SetUpdateInvisible, false);
+    RegisterMixedRefAttribute("animationStates", &AnimatedModel::AnimationStatesAttr, &AnimatedModel::SetAnimationStatesAttr);
+}
+
+void AnimatedModel::SetModel(Model* model_)
+{
+    ZoneScoped;
+
+    StaticModel::SetModel(model_);
+    static_cast<AnimatedModelDrawable*>(drawable)->CreateBones();
+}
+
+void AnimatedModel::SetUpdateInvisible(bool enable)
+{
+    AnimatedModelDrawable* modelDrawable = static_cast<AnimatedModelDrawable*>(drawable);
+    modelDrawable->updateInvisible = enable;
+}
+
+AnimationState* AnimatedModel::AddAnimationState(Animation* animation)
+{
+    AnimatedModelDrawable* modelDrawable = static_cast<AnimatedModelDrawable*>(drawable);
+
+    if (!animation || !modelDrawable->numBones)
+        return nullptr;
+
+    // Check for not adding twice
+    AnimationState* existing = FindAnimationState(animation);
+    if (existing)
+        return existing;
+
+    SharedPtr<AnimationState> newState(new AnimationState(modelDrawable, animation));
+    modelDrawable->animationStates.push_back(newState);
+    modelDrawable->OnAnimationOrderChanged();
+
+    return newState;
+}
+
+void AnimatedModel::RemoveAnimationState(Animation* animation)
+{
+    if (animation)
+        RemoveAnimationState(animation->NameHash());
+}
+
+void AnimatedModel::RemoveAnimationState(const std::string& animationName)
+{
+    RemoveAnimationState(StringHash(animationName));
+}
+
+void AnimatedModel::RemoveAnimationState(StringHash animationNameHash)
+{
+    AnimatedModelDrawable* modelDrawable = static_cast<AnimatedModelDrawable*>(drawable);
+
+    for (auto it = modelDrawable->animationStates.begin(); it != modelDrawable->animationStates.end(); ++it)
+    {
+        AnimationState* state = *it;
+        Animation* animation = state->GetAnimation();
+        // Check both the animation and the resource name
+        if (animation->NameHash() == animationNameHash || animation->AnimationNameHash() == animationNameHash)
+        {
+            modelDrawable->animationStates.erase(it);
+            modelDrawable->OnAnimationChanged();
+            return;
+        }
+    }
+}
+
+void AnimatedModel::RemoveAnimationState(AnimationState* state)
+{
+    AnimatedModelDrawable* modelDrawable = static_cast<AnimatedModelDrawable*>(drawable);
+
+    for (auto it = modelDrawable->animationStates.begin(); it != modelDrawable->animationStates.end(); ++it)
+    {
+        if (*it == state)
+        {
+            modelDrawable->animationStates.erase(it);
+            modelDrawable->OnAnimationChanged();
+            return;
+        }
+    }
+}
+
+void AnimatedModel::RemoveAnimationState(size_t index)
+{
+    AnimatedModelDrawable* modelDrawable = static_cast<AnimatedModelDrawable*>(drawable);
+
+    if (index < modelDrawable->animationStates.size())
+    {
+        modelDrawable->animationStates.erase(modelDrawable->animationStates.begin() + index);
+        modelDrawable->OnAnimationChanged();
+    }
+}
+
+void AnimatedModel::RemoveAllAnimationStates()
+{
+    AnimatedModelDrawable* modelDrawable = static_cast<AnimatedModelDrawable*>(drawable);
+
+    if (modelDrawable->animationStates.size())
+    {
+        modelDrawable->animationStates.clear();
+        modelDrawable->OnAnimationChanged();
+    }
+}
+
+AnimationState* AnimatedModel::FindAnimationState(Animation* animation) const
+{
+    AnimatedModelDrawable* modelDrawable = static_cast<AnimatedModelDrawable*>(drawable);
+
+    for (auto it = modelDrawable->animationStates.begin(); it != modelDrawable->animationStates.end(); ++it)
+    {
+        if ((*it)->GetAnimation() == animation)
+            return *it;
+    }
+
+    return nullptr;
+}
+
+AnimationState* AnimatedModel::FindAnimationState(const std::string& animationName) const
+{
+    return GetAnimationState(StringHash(animationName));
+}
+
+AnimationState* AnimatedModel::FindAnimationState(StringHash animationNameHash) const
+{
+    AnimatedModelDrawable* modelDrawable = static_cast<AnimatedModelDrawable*>(drawable);
+
+    for (auto it = modelDrawable->animationStates.begin(); it != modelDrawable->animationStates.end(); ++it)
+    {
+        Animation* animation = (*it)->GetAnimation();
+        // Check both the animation and the resource name
+        if (animation->NameHash() == animationNameHash || animation->AnimationNameHash() == animationNameHash)
+            return *it;
+    }
+
+    return nullptr;
+}
+
+AnimationState* AnimatedModel::GetAnimationState(size_t index) const
+{
+    AnimatedModelDrawable* modelDrawable = static_cast<AnimatedModelDrawable*>(drawable);
+
+    return index < modelDrawable->animationStates.size() ? modelDrawable->animationStates[index] : nullptr;
+}
+
+void AnimatedModel::OnSceneSet(Scene* newScene, Scene* oldScene)
+{
+    OctreeNode::OnSceneSet(newScene, oldScene);
+
+    // Set octree also directly to the drawable so it can queue itself
+    static_cast<AnimatedModelDrawable*>(drawable)->octree = octree;
+}
+
+void AnimatedModel::OnTransformChanged()
+{
+    AnimatedModelDrawable* modelDrawable = static_cast<AnimatedModelDrawable*>(drawable);
+
+    // To improve performance set skinning dirty now, so the bone nodes will not redundantly signal transform changes back
+    modelDrawable->animatedModelFlags |= AMF_SKINNING_DIRTY;
+
+    // If have other children than the root bone, dirty the hierarchy normally. Otherwise optimize
+    if (children.size() > 1)
+        SpatialNode::OnTransformChanged();
+    else
+    {
+        modelDrawable->SetBoneTransformsDirty();
+        SetFlag(NF_WORLD_TRANSFORM_DIRTY, true);
+    }
+
+    modelDrawable->SetFlag(DF_BOUNDING_BOX_DIRTY, true);
+    if (octree && modelDrawable->octant && !modelDrawable->TestFlag(DF_OCTREE_REINSERT_QUEUED))
+        octree->QueueUpdate(modelDrawable);
+}
+
 void AnimatedModel::SetModelAttr(const ResourceRef& value)
 {
     ResourceCache* cache = Subsystem<ResourceCache>();
@@ -531,7 +570,7 @@ void AnimatedModel::SetModelAttr(const ResourceRef& value)
 
 ResourceRef AnimatedModel::ModelAttr() const
 {
-    return ResourceRef(Model::TypeStatic(), ResourceName(model));
+    return ResourceRef(Model::TypeStatic(), ResourceName(GetModel()));
 }
 
 void AnimatedModel::SetAnimationStatesAttr(const JSONValue& value)
@@ -560,10 +599,11 @@ void AnimatedModel::SetAnimationStatesAttr(const JSONValue& value)
 
 JSONValue AnimatedModel::AnimationStatesAttr() const
 {
+    AnimatedModelDrawable* modelDrawable = static_cast<AnimatedModelDrawable*>(drawable);
     JSONValue states;
 
     /// \todo Per-bone weights not serialized
-    for (auto it = animationStates.begin(); it != animationStates.end(); ++it)
+    for (auto it = modelDrawable->animationStates.begin(); it != modelDrawable->animationStates.end(); ++it)
     {
         AnimationState* animState = *it;
         JSONValue state;

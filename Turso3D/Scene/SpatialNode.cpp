@@ -2,12 +2,20 @@
 
 #include "SpatialNode.h"
 
-SpatialNode::SpatialNode()
+SpatialNode::SpatialNode() :
+    worldTransform(nullptr)
 {
-    localTransforms[arrayIdx] = LocalTransform(Vector3::ZERO, Quaternion::IDENTITY, Vector3::ONE);
-    worldTransforms[arrayIdx] = Matrix3x4::IDENTITY;
+    position = Vector3::ZERO;
+    rotation = Quaternion::IDENTITY;
+    scale = Vector3::ONE;
 
-    SetFlag(NF_SPATIAL, true);
+    SetFlag(NF_SPATIAL | NF_WORLD_TRANSFORM_DIRTY, true);
+}
+
+SpatialNode::~SpatialNode()
+{
+    if (TestFlag(NF_OWN_WORLD_TRANSFORM))
+        delete worldTransform;
 }
 
 void SpatialNode::RegisterObject()
@@ -18,37 +26,37 @@ void SpatialNode::RegisterObject()
     RegisterRefAttribute("position", &SpatialNode::Position, &SpatialNode::SetPosition, Vector3::ZERO);
     RegisterRefAttribute("rotation", &SpatialNode::Rotation, &SpatialNode::SetRotation, Quaternion::IDENTITY);
     RegisterRefAttribute("scale", &SpatialNode::Scale, &SpatialNode::SetScale, Vector3::ONE);
-    RegisterAttribute("static", &SpatialNode::IsStatic, &SpatialNode::SetStatic, false);
 }
 
 void SpatialNode::SetPosition(const Vector3& newPosition)
 {
-    localTransforms[arrayIdx].position = newPosition;
+    position = newPosition;
     OnTransformChanged();
 }
 
 void SpatialNode::SetRotation(const Quaternion& newRotation)
 {
-    localTransforms[arrayIdx].rotation = newRotation;
+    rotation = newRotation;
     OnTransformChanged();
 }
 
 void SpatialNode::SetDirection(const Vector3& newDirection)
 {
-    localTransforms[arrayIdx].rotation = Quaternion(Vector3::FORWARD, newDirection);
+    rotation = Quaternion(Vector3::FORWARD, newDirection);
     OnTransformChanged();
 }
 
 void SpatialNode::SetScale(const Vector3& newScale)
 {
-    localTransforms[arrayIdx].scale = newScale;
+    scale = newScale;
+
     // Make sure scale components never go to exactly zero, to prevent problems with decomposing the world matrix
-    if (localTransforms[arrayIdx].scale.x == 0.0f)
-        localTransforms[arrayIdx].scale.x = M_EPSILON;
-    if (localTransforms[arrayIdx].scale.y == 0.0f)
-        localTransforms[arrayIdx].scale.y = M_EPSILON;
-    if (localTransforms[arrayIdx].scale.z == 0.0f)
-        localTransforms[arrayIdx].scale.z = M_EPSILON;
+    if (scale.x == 0.0f)
+        scale.x = M_EPSILON;
+    if (scale.y == 0.0f)
+        scale.y = M_EPSILON;
+    if (scale.z == 0.0f)
+        scale.z = M_EPSILON;
 
     OnTransformChanged();
 }
@@ -60,16 +68,16 @@ void SpatialNode::SetScale(float newScale)
 
 void SpatialNode::SetTransform(const Vector3& newPosition, const Quaternion& newRotation)
 {
-    localTransforms[arrayIdx].position = newPosition;
-    localTransforms[arrayIdx].rotation = newRotation;
+    position = newPosition;
+    rotation = newRotation;
     OnTransformChanged();
 }
 
 void SpatialNode::SetTransform(const Vector3& newPosition, const Quaternion& newRotation, const Vector3& newScale)
 {
-    localTransforms[arrayIdx].position = newPosition;
-    localTransforms[arrayIdx].rotation = newRotation;
-    localTransforms[arrayIdx].scale = newScale;
+    position = newPosition;
+    rotation = newRotation;
+    scale = newScale;
     OnTransformChanged();
 }
 
@@ -139,34 +147,24 @@ void SpatialNode::SetWorldTransform(const Vector3& newPosition, const Quaternion
     SetWorldTransform(newPosition, newRotation, Vector3(newScale, newScale, newScale));
 }
 
-void SpatialNode::SetStatic(bool enable)
-{
-    if (enable != IsStatic())
-    {
-        SetFlag(NF_STATIC, enable);
-        // Handle possible octree reinsertion
-        OnTransformChanged();
-    }
-}
-
 void SpatialNode::Translate(const Vector3& delta, TransformSpace space)
 {
     switch (space)
     {
     case TS_LOCAL:
         // Note: local space translation disregards local scale for scale-independent movement speed
-        localTransforms[arrayIdx].position += localTransforms[arrayIdx].rotation * delta;
+        position += rotation * delta;
         break;
 
     case TS_PARENT:
-        localTransforms[arrayIdx].position += delta;
+        position += delta;
         break;
 
     case TS_WORLD:
         if (!TestFlag(NF_SPATIAL_PARENT))
-            localTransforms[arrayIdx].position += delta;
+            position += delta;
         else
-            localTransforms[arrayIdx].position += SpatialParent()->WorldTransform().Inverse() * Vector4(delta, 0.0f);
+            position += SpatialParent()->WorldTransform().Inverse() * Vector4(delta, 0.0f);
         break;
     }
 
@@ -178,27 +176,27 @@ void SpatialNode::Rotate(const Quaternion& delta, TransformSpace space)
     switch (space)
     {
     case TS_LOCAL:
-        localTransforms[arrayIdx].rotation = (localTransforms[arrayIdx].rotation * delta);
+        rotation = (rotation * delta);
         break;
 
     case TS_PARENT:
-        localTransforms[arrayIdx].rotation = (delta * localTransforms[arrayIdx].rotation);
+        rotation = (delta * rotation);
         break;
 
     case TS_WORLD:
         if (!TestFlag(NF_SPATIAL_PARENT))
         {
-            localTransforms[arrayIdx].rotation = (delta * localTransforms[arrayIdx].rotation);
+            rotation = (delta * rotation);
         }
         else
         {
             Quaternion worldRotation = WorldRotation();
-            localTransforms[arrayIdx].rotation = localTransforms[arrayIdx].rotation * worldRotation.Inverse() * delta * worldRotation;
+            rotation = rotation * worldRotation.Inverse() * delta * worldRotation;
         }
         break;
     }
 
-    localTransforms[arrayIdx].rotation.Normalize();
+    rotation.Normalize();
     OnTransformChanged();
 }
 
@@ -206,38 +204,38 @@ void SpatialNode::RotateAround(const Vector3& point, const Quaternion& delta, Tr
 {
     SpatialNode* parentNode = SpatialParent();
     Vector3 parentSpacePoint;
-    Quaternion oldRotation = localTransforms[arrayIdx].rotation;
+    Quaternion oldRotation = rotation;
 
     switch (space)
     {
     case TS_LOCAL:
         parentSpacePoint = Transform() * point;
-        localTransforms[arrayIdx].rotation = (localTransforms[arrayIdx].rotation * delta);
+        rotation = (rotation * delta);
         break;
 
     case TS_PARENT:
         parentSpacePoint = point;
-        localTransforms[arrayIdx].rotation = (delta * localTransforms[arrayIdx].rotation);
+        rotation = (delta * rotation);
         break;
 
     case TS_WORLD:
         if (!parentNode)
         {
             parentSpacePoint = point;
-            localTransforms[arrayIdx].rotation = (delta * localTransforms[arrayIdx].rotation);
+            rotation = (delta * rotation);
         }
         else
         {
             parentSpacePoint = parentNode->WorldTransform().Inverse() * point;
             Quaternion worldRotation = WorldRotation();
-            localTransforms[arrayIdx].rotation = localTransforms[arrayIdx].rotation * worldRotation.Inverse() * delta * worldRotation;
+            rotation = rotation * worldRotation.Inverse() * delta * worldRotation;
         }
         break;
     }
 
-    Vector3 oldRelativePos = oldRotation.Inverse() * (localTransforms[arrayIdx].position - parentSpacePoint);
-    localTransforms[arrayIdx].rotation.Normalize();
-    localTransforms[arrayIdx].position = localTransforms[arrayIdx].rotation * oldRelativePos + parentSpacePoint;
+    Vector3 oldRelativePos = oldRotation.Inverse() * (position - parentSpacePoint);
+    rotation.Normalize();
+    position = rotation * oldRelativePos + parentSpacePoint;
     OnTransformChanged();
 }
 
@@ -296,7 +294,7 @@ void SpatialNode::ApplyScale(float delta)
 
 void SpatialNode::ApplyScale(const Vector3& delta)
 {
-    localTransforms[arrayIdx].scale *= delta;
+    scale *= delta;
     OnTransformChanged();
 }
 

@@ -8,7 +8,7 @@
 #include <vector>
 
 class Animation;
-class AnimatedModel;
+class AnimatedModelDrawable;
 class Bone;
 class SpatialNode;
 struct AnimationTrack;
@@ -35,8 +35,8 @@ struct AnimationStateTrack
 class AnimationState : public RefCounted
 {
 public:
-    /// Construct with animated model and animation pointers.
-    AnimationState(AnimatedModel* model, Animation* animation);
+    /// Construct with animated model drawable and animation pointers.
+    AnimationState(AnimatedModelDrawable* drawable, Animation* animation);
     /// Construct with root scene node and animation pointers.
     AnimationState(SpatialNode* node, Animation* animation);
     /// Destruct.
@@ -65,10 +65,6 @@ public:
 
     /// Return animation.
     Animation* GetAnimation() const { return animation; }
-    /// Return animated model this state belongs to (model mode.)
-    AnimatedModel* Model() const { return model; }
-    /// Return root scene node this state controls (node hierarchy mode.)
-    SpatialNode* RootNode() const;
     /// Return start bone.
     Bone* StartBone() const { return startBone; }
     /// Return per-bone blending weight by track index.
@@ -105,8 +101,8 @@ private:
     /// Apply animation to a scene node hierarchy.
     void ApplyToNodes();
 
-    /// Animated model (model mode.)
-    AnimatedModel* model;
+    /// Animated model drawable (model mode.)
+    AnimatedModelDrawable* drawable;
     /// Root scene node (node hierarchy mode.)
     WeakPtr<SpatialNode> rootNode;
     /// %Animation resource.

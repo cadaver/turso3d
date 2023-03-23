@@ -17,15 +17,15 @@ AnimationStateTrack::~AnimationStateTrack()
 {
 }
 
-AnimationState::AnimationState(AnimatedModel* model_, Animation* animation_) :
-    model(model_),
+AnimationState::AnimationState(AnimatedModelDrawable* drawable_, Animation* animation_) :
+    drawable(drawable_),
     animation(animation_),
     looped(false),
     weight(0.0f),
     time(0.0f),
     blendLayer(0)
 {
-    assert(model);
+    assert(drawable);
     assert(animation);
 
     // Set default start bone (use all tracks.)
@@ -77,11 +77,11 @@ AnimationState::~AnimationState()
 
 void AnimationState::SetStartBone(Bone* startBone_)
 {
-    if (!model)
+    if (!drawable)
         return;
 
     if (!startBone_)
-        startBone_ = model->RootBone();
+        startBone_ = drawable->RootBone();
 
     // Do not reassign if the start bone did not actually change, and we already have valid bone nodes
     if (startBone_ == startBone && !stateTracks.empty())
@@ -112,7 +112,7 @@ void AnimationState::SetStartBone(Bone* startBone_)
             stateTracks.push_back(stateTrack);
     }
 
-    model->OnAnimationOrderChanged();
+    drawable->OnAnimationOrderChanged();
 }
 
 void AnimationState::SetLooped(bool looped_)
@@ -123,14 +123,14 @@ void AnimationState::SetLooped(bool looped_)
 void AnimationState::SetWeight(float weight_)
 {
     // Weight can only be set in model mode. In node animation it is hardcoded to full
-    if (!model)
+    if (!drawable)
         return;
 
     weight_ = Clamp(weight_, 0.0f, 1.0f);
     if (weight_ != weight)
     {
         weight = weight_;
-        model->OnAnimationChanged();
+        drawable->OnAnimationChanged();
     }
 }
 
@@ -140,8 +140,8 @@ void AnimationState::SetTime(float time_)
     if (time_ != time)
     {
         time = time_;
-        if (model && weight > 0.0f)
-            model->OnAnimationChanged();
+        if (drawable && weight > 0.0f)
+            drawable->OnAnimationChanged();
     }
 }
 
@@ -155,8 +155,8 @@ void AnimationState::SetBoneWeight(size_t index, float weight_, bool recursive)
     if (weight_ != stateTracks[index].weight)
     {
         stateTracks[index].weight = weight_;
-        if (model)
-            model->OnAnimationChanged();
+        if (drawable)
+            drawable->OnAnimationChanged();
     }
 
     if (recursive && stateTracks[index].node)
@@ -215,14 +215,9 @@ void AnimationState::SetBlendLayer(unsigned char layer)
     if (layer != blendLayer)
     {
         blendLayer = layer;
-        if (model)
-            model->OnAnimationOrderChanged();
+        if (drawable)
+            drawable->OnAnimationOrderChanged();
     }
-}
-
-SpatialNode* AnimationState::RootNode() const
-{
-    return rootNode;
 }
 
 float AnimationState::BoneWeight(size_t index) const
@@ -282,7 +277,7 @@ float AnimationState::Length() const
 
 void AnimationState::Apply()
 {
-    if (model)
+    if (drawable)
         ApplyToModel();
     else
         ApplyToNodes();

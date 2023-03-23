@@ -199,10 +199,10 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     noiseTexture->DefineSampler(FILTER_POINT);
 
     // Create the scene and camera. Camera is created outside scene so it's not disturbed by scene clears
-    AutoPtr<Camera> camera = new Camera();
     AutoPtr<Scene> scene = new Scene();
     CreateScene(scene, 0);
 
+    AutoPtr<Camera> camera = new Camera();
     camera->SetPosition(Vector3(0.0f, 20.0f, -75.0f));
 
     float yaw = 0.0f, pitch = 20.0f;
@@ -357,7 +357,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             PROFILE(Raycast);
 
             Ray cameraRay(camera->WorldPosition(), camera->WorldDirection());
-            RaycastResult res = scene->FindChild<Octree>()->RaycastSingle(cameraRay, NF_GEOMETRY);
+            RaycastResult res = scene->FindChild<Octree>()->RaycastSingle(cameraRay, DF_GEOMETRY);
             if (res.node)
                 debugRenderer->AddSphere(Sphere(res.position, 0.05f), Color::WHITE, true);
         }
@@ -464,9 +464,6 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
         FrameMark;
     }
-
-    scene->Clear();
-    camera.Reset();
 
     printf("%s", profilerOutput.c_str());
 

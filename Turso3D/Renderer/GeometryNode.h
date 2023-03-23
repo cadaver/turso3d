@@ -107,24 +107,30 @@ private:
     size_t numGeometries;
 };
 
+/// Base class for drawables that contain geometry to be rendered.
+class GeometryDrawable : public Drawable
+{
+public:
+    /// Construct.
+    GeometryDrawable();
+
+    /// Prepare object for rendering. Reset framenumber and calculate distance from camera. Called by Renderer in worker threads. Return false if should not render.
+    bool OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
+    /// Update GPU resources and set uniforms for rendering. Called by Renderer when geometry type is not static.
+    virtual void OnRender(ShaderProgram* program, size_t geomIndex);
+
+    /// Draw call source data.
+    SourceBatches batches;
+};
+
 /// Base class for scene nodes that contain geometry to be rendered.
 class GeometryNode : public OctreeNode
 {
     OBJECT(GeometryNode);
 
 public:
-    /// Construct.
-    GeometryNode();
-    /// Destruct.
-    ~GeometryNode();
-
     /// Register factory and attributes.
     static void RegisterObject();
-
-    /// Prepare object for rendering. Reset framenumber and calculate distance from camera. Called by Renderer in worker threads. Return false if should not render.
-    bool OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
-    /// Update GPU resources and set uniforms for rendering. Called by Renderer when geometry type is not static.
-    virtual void OnRender(ShaderProgram* program, size_t geomIndex);
 
     /// Set number of geometries.
     void SetNumGeometries(size_t num);
@@ -136,22 +142,19 @@ public:
     void SetMaterial(size_t index, Material* material);
 
     /// Return geometry type.
-    GeometryType GetGeometryType() const { return (GeometryType)(Flags() >> 14); }
+    GeometryType GetGeometryType() const { return (GeometryType)(drawable->Flags() & DF_GEOMETRY_TYPE_BITS); }
     /// Return number of geometries / batches.
-    size_t NumGeometries() const { return batches.NumGeometries(); }
+    size_t NumGeometries() const { return static_cast<GeometryDrawable*>(drawable)->batches.NumGeometries(); }
     /// Return geometry by index.
-    Geometry* GetGeometry(size_t index) const { return batches.GetGeometry(index); }
+    Geometry* GetGeometry(size_t index) const { return static_cast<GeometryDrawable*>(drawable)->batches.GetGeometry(index); }
     /// Return material by geometry index.
-    Material* GetMaterial(size_t index) const { return batches.GetMaterial(index); }
+    Material* GetMaterial(size_t index) const { return static_cast<GeometryDrawable*>(drawable)->batches.GetMaterial(index); }
     /// Return the draw call source data for direct access
-    const SourceBatches& Batches() const { return batches; }
+    const SourceBatches& Batches() const { return static_cast<GeometryDrawable*>(drawable)->batches; }
 
 protected:
     /// Set materials list. Used in serialization.
     void SetMaterialsAttr(const ResourceRefList& value);
     /// Return materials list. Used in serialization.
     ResourceRefList MaterialsAttr() const;
-
-    /// Draw call source data.
-    SourceBatches batches;
 };

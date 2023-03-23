@@ -139,6 +139,8 @@ private:
     /// Return clipping plane attribute as vector. Used in serialization.
     Vector4 ClipPlaneAttr() const;
 
+    /// World transform matrix.
+    mutable Matrix3x4 worldTransformMatrix;
     /// Cached view matrix.
     mutable Matrix3x4 viewMatrix;
     /// Cached world forward direction.

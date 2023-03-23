@@ -19,15 +19,15 @@ bool CompareRaycastResults(const RaycastResult& lhs, const RaycastResult& rhs)
     return lhs.distance < rhs.distance;
 }
 
-bool CompareNodeDistances(const std::pair<OctreeNode*, float>& lhs, const std::pair<OctreeNode*, float>& rhs)
+bool CompareDrawableDistances(const std::pair<Drawable*, float>& lhs, const std::pair<Drawable*, float>& rhs)
 {
     return lhs.second < rhs.second;
 }
 
-bool CompareOctantNodes(OctreeNode* lhs, OctreeNode* rhs)
+bool CompareDrawables(Drawable* lhs, Drawable* rhs)
 {
-    unsigned short lhsFlags = lhs->Flags() & (NF_LIGHT | NF_GEOMETRY);
-    unsigned short rhsFlags = rhs->Flags() & (NF_LIGHT | NF_GEOMETRY);
+    unsigned short lhsFlags = lhs->Flags() & (DF_LIGHT | DF_GEOMETRY);
+    unsigned short rhsFlags = rhs->Flags() & (DF_LIGHT | DF_GEOMETRY);
     if (lhsFlags != rhsFlags)
         return lhsFlags < rhsFlags;
     else
@@ -43,7 +43,7 @@ void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigne
     level = level_;
     sortDirty = false;
     parent = parent_;
-    numNodes = 0;
+    numDrawables = 0;
 
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
         children[i] = nullptr;
@@ -78,7 +78,7 @@ Octree::Octree() :
     root.Initialize(nullptr, BoundingBox(-DEFAULT_OCTREE_SIZE, DEFAULT_OCTREE_SIZE), DEFAULT_OCTREE_LEVELS);
 
     // Have at least 1 task for reinsert processing
-    reinsertTasks.push_back(new ReinsertNodesTask(this, &Octree::CheckReinsertWork));
+    reinsertTasks.push_back(new ReinsertDrawablesTask(this, &Octree::CheckReinsertWork));
     reinsertQueues.resize(workQueue->NumThreads());
 }
 
@@ -88,11 +88,12 @@ Octree::~Octree()
     // Note: the threaded queues cannot have nodes that were never inserted, only nodes that should be moved
     for (auto it = updateQueue.begin(); it != updateQueue.end(); ++it)
     {
-        OctreeNode* node = *it;
-        if (node && node->octree == this && !node->octant)
+        Drawable* drawable = *it;
+        if (drawable)
         {
-            node->octree = nullptr;
-            node->SetFlag(NF_OCTREE_REINSERT_QUEUED, false);
+            drawable->octant = nullptr;
+            drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
+            drawable->Owner()->octree = nullptr;
         }
     }
 
@@ -129,7 +130,7 @@ void Octree::Update(unsigned short frameNumber_)
                 end = updateQueue.size();
 
             if (reinsertTasks.size() <= taskIdx)
-                reinsertTasks.push_back(new ReinsertNodesTask(this, &Octree::CheckReinsertWork));
+                reinsertTasks.push_back(new ReinsertDrawablesTask(this, &Octree::CheckReinsertWork));
             reinsertTasks[taskIdx]->start = &updateQueue[0] + start;
             reinsertTasks[taskIdx]->end = &updateQueue[0] + end;
             ++taskIdx;
@@ -141,8 +142,7 @@ void Octree::Update(unsigned short frameNumber_)
         SetThreadedUpdate(false);
 
         for (auto it = reinsertQueues.begin(); it != reinsertQueues.end(); ++it)
-            ReinsertNodes(*it);
-
+            ReinsertDrawables(*it);
     }
     else if (updateQueue.size())
     {
@@ -150,7 +150,7 @@ void Octree::Update(unsigned short frameNumber_)
         reinsertTasks[0]->start = &updateQueue[0];
         reinsertTasks[0]->end = &updateQueue[0] + updateQueue.size();
         reinsertTasks[0]->Complete(0);
-        ReinsertNodes(reinsertQueues[0]);
+        ReinsertDrawables(reinsertQueues[0]);
     }
 
     updateQueue.clear();
@@ -159,7 +159,7 @@ void Octree::Update(unsigned short frameNumber_)
     for (auto it = sortDirtyOctants.begin(); it != sortDirtyOctants.end(); ++it)
     {
         Octant* octant = *it;
-        std::sort(octant->nodes.begin(), octant->nodes.end(), CompareOctantNodes);
+        std::sort(octant->drawables.begin(), octant->drawables.end(), CompareDrawables);
         octant->sortDirty = false;
     }
 
@@ -172,7 +172,7 @@ void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
 
     // Collect nodes to the root and delete all child octants
     updateQueue.clear();
-    CollectNodes(updateQueue, &root);
+    CollectDrawables(updateQueue, &root);
     DeleteChildOctants(&root, false);
     allocator.Reset();
     root.Initialize(nullptr, boundingBox, (unsigned char)Clamp(numLevels, 1, MAX_OCTREE_LEVELS));
@@ -190,7 +190,7 @@ void Octree::Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigne
     ZoneScoped;
 
     result.clear();
-    CollectNodes(result, const_cast<Octant*>(&root), ray, nodeFlags, maxDistance, layerMask);
+    CollectDrawables(result, const_cast<Octant*>(&root), ray, nodeFlags, maxDistance, layerMask);
     std::sort(result.begin(), result.end(), CompareRaycastResults);
 }
 
@@ -200,8 +200,8 @@ RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, fl
 
     // Get first the potential hits
     initialRayResult.clear();
-    CollectNodes(initialRayResult, const_cast<Octant*>(&root), ray, nodeFlags, maxDistance, layerMask);
-    std::sort(initialRayResult.begin(), initialRayResult.end(), CompareNodeDistances);
+    CollectDrawables(initialRayResult, const_cast<Octant*>(&root), ray, nodeFlags, maxDistance, layerMask);
+    std::sort(initialRayResult.begin(), initialRayResult.end(), CompareDrawableDistances);
 
     // Then perform actual per-node ray tests and early-out when possible
     finalRayResult.clear();
@@ -235,30 +235,31 @@ RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, fl
     }
 }
 
-void Octree::FindNodesMasked(std::vector<OctreeNode*>& result, const Frustum& frustum, unsigned short nodeFlags, unsigned layerMask) const
+void Octree::FindDrawablesMasked(std::vector<Drawable*>& result, const Frustum& frustum, unsigned short drawableFlags, unsigned layerMask) const
 {
     ZoneScoped;
 
-    CollectNodesMasked(result, const_cast<Octant*>(&root), frustum, nodeFlags, layerMask);
+    CollectDrawablesMasked(result, const_cast<Octant*>(&root), frustum, drawableFlags, layerMask);
 }
 
-void Octree::RemoveNode(OctreeNode* node)
+void Octree::RemoveDrawable(Drawable* drawable)
 {
-    assert(node);
+    if (!drawable)
+        return;
 
-    RemoveNode(node, node->octant);
-    if (node->TestFlag(NF_OCTREE_REINSERT_QUEUED))
+    RemoveDrawable(drawable, drawable->octant);
+    if (drawable->TestFlag(DF_OCTREE_REINSERT_QUEUED))
     {
-        RemoveNodeFromQueue(node, updateQueue);
+        RemoveDrawableFromQueue(drawable, updateQueue);
 
         // Remove also from threaded queues if was left over before next update
         for (size_t i = 0; i < reinsertQueues.size(); ++i)
-            RemoveNodeFromQueue(node, reinsertQueues[i]);
+            RemoveDrawableFromQueue(drawable, reinsertQueues[i]);
 
-        node->SetFlag(NF_OCTREE_REINSERT_QUEUED, false);
+        drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
     }
 
-    node->octant = nullptr;
+    drawable->octant = nullptr;
 }
 
 void Octree::SetBoundingBoxAttr(const BoundingBox& value)
@@ -282,20 +283,20 @@ int Octree::NumLevelsAttr() const
     return root.level;
 }
 
-void Octree::ReinsertNodes(std::vector<OctreeNode*>& nodes)
+void Octree::ReinsertDrawables(std::vector<Drawable*>& drawables)
 {
-    for (auto it = nodes.begin(); it != nodes.end(); ++it)
+    for (auto it = drawables.begin(); it != drawables.end(); ++it)
     {
-        OctreeNode* node = *it;
+        Drawable* drawable = *it;
 
-        const BoundingBox& box = node->WorldBoundingBox();
-        Octant* oldOctant = node->octant;
+        const BoundingBox& box = drawable->WorldBoundingBox();
+        Octant* oldOctant = drawable->octant;
         Octant* newOctant = &root;
         Vector3 boxSize = box.Size();
 
         for (;;)
         {
-            // If node does not fit fully inside root octant, must remain in it
+            // If drawable does not fit fully inside root octant, must remain in it
             bool insertHere = (newOctant == &root) ?
                 (newOctant->cullingBox.IsInside(box) != INSIDE || newOctant->FitBoundingBox(box, boxSize)) :
                 newOctant->FitBoundingBox(box, boxSize);
@@ -304,10 +305,10 @@ void Octree::ReinsertNodes(std::vector<OctreeNode*>& nodes)
             {
                 if (newOctant != oldOctant)
                 {
-                    // Add first, then remove, because node count going to zero deletes the octree branch in question
-                    AddNode(node, newOctant);
+                    // Add first, then remove, because drawable count going to zero deletes the octree branch in question
+                    AddDrawable(drawable, newOctant);
                     if (oldOctant)
-                        RemoveNode(node, oldOctant);
+                        RemoveDrawable(drawable, oldOctant);
                 }
                 break;
             }
@@ -315,17 +316,17 @@ void Octree::ReinsertNodes(std::vector<OctreeNode*>& nodes)
                 newOctant = CreateChildOctant(newOctant, newOctant->ChildIndex(box.Center()));
         }
 
-        node->SetFlag(NF_OCTREE_REINSERT_QUEUED, false);
+        drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
     }
 
-    nodes.clear();
+    drawables.clear();
 }
 
-void Octree::RemoveNodeFromQueue(OctreeNode* node, std::vector<OctreeNode*>& nodes)
+void Octree::RemoveDrawableFromQueue(Drawable* drawable, std::vector<Drawable*>& drawables)
 {
-    for (auto it = nodes.begin(); it != nodes.end(); ++it)
+    for (auto it = drawables.begin(); it != drawables.end(); ++it)
     {
-        if ((*it) == node)
+        if ((*it) == drawable)
         {
             *it = nullptr;
             break;
@@ -372,16 +373,16 @@ void Octree::DeleteChildOctant(Octant* octant, size_t index)
 
 void Octree::DeleteChildOctants(Octant* octant, bool deletingOctree)
 {
-    for (auto it = octant->nodes.begin(); it != octant->nodes.end(); ++it)
+    for (auto it = octant->drawables.begin(); it != octant->drawables.end(); ++it)
     {
-        OctreeNode* node = *it;
-        node->octant = nullptr;
-        node->SetFlag(NF_OCTREE_REINSERT_QUEUED, false);
+        Drawable* drawable = *it;
+        drawable->octant = nullptr;
+        drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
         if (deletingOctree)
-            node->octree = nullptr;
+            drawable->Owner()->octree = nullptr;
     }
-    octant->nodes.clear();
-    octant->numNodes = 0;
+    octant->drawables.clear();
+    octant->numDrawables = 0;
 
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
     {
@@ -396,82 +397,80 @@ void Octree::DeleteChildOctants(Octant* octant, bool deletingOctree)
         allocator.Free(octant);
 }
 
-void Octree::CollectNodes(std::vector<OctreeNode*>& result, Octant* octant) const
+void Octree::CollectDrawables(std::vector<Drawable*>& result, Octant* octant) const
 {
-    result.insert(result.end(), octant->nodes.begin(), octant->nodes.end());
+    result.insert(result.end(), octant->drawables.begin(), octant->drawables.end());
 
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
     {
         if (octant->children[i])
-            CollectNodes(result, octant->children[i]);
+            CollectDrawables(result, octant->children[i]);
     }
 }
 
-void Octree::CollectNodes(std::vector<OctreeNode*>& result, Octant* octant, unsigned short nodeFlags, unsigned layerMask) const
+void Octree::CollectDrawables(std::vector<Drawable*>& result, Octant* octant, unsigned short drawableFlags, unsigned layerMask) const
 {
-    std::vector<OctreeNode*>& octantNodes = octant->nodes;
+    std::vector<Drawable*>& drawables = octant->drawables;
 
-    for (auto it = octantNodes.begin(); it != octantNodes.end(); ++it)
+    for (auto it = drawables.begin(); it != drawables.end(); ++it)
     {
-        OctreeNode* node = *it;
-        if ((node->Flags() & nodeFlags) == nodeFlags && (node->LayerMask() & layerMask))
-            result.push_back(node);
+        Drawable* drawable = *it;
+        if ((drawable->Flags() & drawableFlags) == drawableFlags && (drawable->LayerMask() & layerMask))
+            result.push_back(drawable);
     }
 
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
     {
         if (octant->children[i])
-            CollectNodes(result, octant->children[i], nodeFlags, layerMask);
+            CollectDrawables(result, octant->children[i], drawableFlags, layerMask);
     }
 }
 
-void Octree::CollectNodes(std::vector<RaycastResult>& result, Octant* octant, const Ray& ray, unsigned short nodeFlags, 
-    float maxDistance, unsigned layerMask) const
+void Octree::CollectDrawables(std::vector<RaycastResult>& result, Octant* octant, const Ray& ray, unsigned short drawableFlags, float maxDistance, unsigned layerMask) const
 {
     float octantDist = ray.HitDistance(octant->cullingBox);
     if (octantDist >= maxDistance)
         return;
 
-    std::vector<OctreeNode*>& octantNodes = octant->nodes;
+    std::vector<Drawable*>& drawables = octant->drawables;
 
-    for (auto it = octantNodes.begin(); it != octantNodes.end(); ++it)
+    for (auto it = drawables.begin(); it != drawables.end(); ++it)
     {
-        OctreeNode* node = *it;
-        if ((node->Flags() & nodeFlags) == nodeFlags && (node->LayerMask() & layerMask))
-            node->OnRaycast(result, ray, maxDistance);
+        Drawable* drawable = *it;
+        if ((drawable->Flags() & drawableFlags) == drawableFlags && (drawable->LayerMask() & layerMask))
+            drawable->OnRaycast(result, ray, maxDistance);
     }
 
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
     {
         if (octant->children[i])
-            CollectNodes(result, octant->children[i], ray, nodeFlags, maxDistance, layerMask);
+            CollectDrawables(result, octant->children[i], ray, drawableFlags, maxDistance, layerMask);
     }
 }
 
-void Octree::CollectNodes(std::vector<std::pair<OctreeNode*, float> >& result, Octant* octant, const Ray& ray, unsigned short nodeFlags,
-    float maxDistance, unsigned layerMask) const
+void Octree::CollectDrawables(std::vector<std::pair<Drawable*, float> >& result, Octant* octant, const Ray& ray, unsigned short drawableFlags, float maxDistance, unsigned layerMask) const
 {
     float octantDist = ray.HitDistance(octant->cullingBox);
     if (octantDist >= maxDistance)
         return;
 
-    std::vector<OctreeNode*>& octantNodes = octant->nodes;
+    std::vector<Drawable*>& drawables = octant->drawables;
 
-    for (auto it = octantNodes.begin(); it != octantNodes.end(); ++it)
+    for (auto it = drawables.begin(); it != drawables.end(); ++it)
     {
-        OctreeNode* node = *it;
-        if ((node->Flags() & nodeFlags) == nodeFlags && (node->LayerMask() & layerMask))
+        Drawable* drawable = *it;
+        if ((drawable->Flags() & drawableFlags) == drawableFlags && (drawable->LayerMask() & layerMask))
         {
-            float distance = ray.HitDistance(node->WorldBoundingBox());
+            float distance = ray.HitDistance(drawable->WorldBoundingBox());
             if (distance < maxDistance)
-                result.push_back(std::make_pair(node, distance));
+                result.push_back(std::make_pair(drawable, distance));
         }
     }
 
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
     {
         if (octant->children[i])
-            CollectNodes(result, octant->children[i], ray, nodeFlags, maxDistance, layerMask);
+            CollectDrawables(result, octant->children[i], ray, drawableFlags, maxDistance, layerMask);
     }
 }
 
@@ -479,29 +478,29 @@ void Octree::CheckReinsertWork(Task* task_, unsigned threadIndex_)
 {
     ZoneScoped;
 
-    ReinsertNodesTask* task = static_cast<ReinsertNodesTask*>(task_);
-    OctreeNode** start = task->start;
-    OctreeNode** end = task->end;
-    std::vector<OctreeNode*>& reinsertQueue = reinsertQueues[threadIndex_];
+    ReinsertDrawablesTask* task = static_cast<ReinsertDrawablesTask*>(task_);
+    Drawable** start = task->start;
+    Drawable** end = task->end;
+    std::vector<Drawable*>& reinsertQueue = reinsertQueues[threadIndex_];
 
     for (; start != end; ++start)
     {
         // If node was removed before update could happen, a null pointer will be in its place
-        OctreeNode* node = *start;
-        if (!node)
+        Drawable* drawable = *start;
+        if (!drawable)
             continue;
 
-        if (node->TestFlag(NF_OCTREE_UPDATE_CALL))
-            node->OnOctreeUpdate(frameNumber);
+        if (drawable->TestFlag(DF_OCTREE_UPDATE_CALL))
+            drawable->OnOctreeUpdate(frameNumber);
 
-        node->lastUpdateFrameNumber = frameNumber;
+        drawable->lastUpdateFrameNumber = frameNumber;
 
         // Do nothing if still fits the current octant
-        const BoundingBox& box = node->WorldBoundingBox();
-        Octant* oldOctant = node->octant;
+        const BoundingBox& box = drawable->WorldBoundingBox();
+        Octant* oldOctant = drawable->octant;
         if (!oldOctant || oldOctant->cullingBox.IsInside(box) != INSIDE)
-            reinsertQueue.push_back(node);
+            reinsertQueue.push_back(drawable);
         else
-            node->SetFlag(NF_OCTREE_REINSERT_QUEUED, false);
+            drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
     }
 }
