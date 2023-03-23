@@ -33,6 +33,7 @@ Node::Node() :
 Node::~Node()
 {
     RemoveAllChildren();
+
     // At the time of destruction the node should not have a parent, or be in a scene
     assert(!parent);
     assert(!ParentScene());
@@ -286,8 +287,10 @@ void Node::AddChild(Node* child)
     children.push_back(child);
     child->parent = this;
     child->OnParentSet(this, oldParent);
-    if (nodeInfos[arrayIdx].scene)
-        nodeInfos[arrayIdx].scene->AddNode(child);
+
+    Scene* scene = ParentScene();
+    if (scene)
+        scene->AddNode(child);
 }
 
 void Node::RemoveChild(Node* child)
@@ -314,21 +317,29 @@ void Node::RemoveChild(size_t index)
     // Detach from both the parent and the scene (removes id assignment)
     child->parent = nullptr;
     child->SetFlag(NF_SPATIAL_PARENT, false);
-    if (nodeInfos[arrayIdx].scene)
-        nodeInfos[arrayIdx].scene->RemoveNode(child);
+
+    Scene* scene = ParentScene();
+    if (scene)
+        scene->RemoveNode(child);
+
     children.erase(children.begin() + index);
 }
 
 void Node::RemoveAllChildren()
 {
-    for (auto it = children.begin(); it != children.end(); ++it)
+    Scene* scene = ParentScene();
+
+    // Remove in reverse order to limit node structure swaps
+    for (size_t i = children.size() - 1; i < children.size(); --i)
     {
-        Node* child = *it;
+        Node* child = children[i];
         child->parent = nullptr;
         child->SetFlag(NF_SPATIAL_PARENT, false);
-        if (nodeInfos[arrayIdx].scene)
-            nodeInfos[arrayIdx].scene->RemoveNode(child);
-        it->Reset();
+        
+        if (scene)
+            scene->RemoveNode(child);
+
+        children[i].Reset();
     }
 
     children.clear();
@@ -374,7 +385,7 @@ Node* Node::FindChild(const char* childName, bool recursive) const
     for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
-        if (nodeInfos[child->arrayIdx].name == childName)
+        if (child->Name() == childName)
             return child;
         else if (recursive && child->children.size())
         {
@@ -392,7 +403,7 @@ Node* Node::FindChild(StringHash childNameHash, bool recursive) const
     for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
-        if (nodeInfos[child->arrayIdx].nameHash == childNameHash)
+        if (child->NameHash() == childNameHash)
             return child;
         else if (recursive && child->children.size())
         {
@@ -433,7 +444,7 @@ Node* Node::FindChildOfType(StringHash childType, const char* childName, bool re
     for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
-        if ((child->Type() == childType || DerivedFrom(child->Type(), childType)) && nodeInfos[child->arrayIdx].name == childName)
+        if ((child->Type() == childType || DerivedFrom(child->Type(), childType)) && child->Name() == childName)
             return child;
         else if (recursive && child->children.size())
         {
@@ -451,7 +462,7 @@ Node* Node::FindChildOfType(StringHash childType, StringHash childNameHash, bool
     for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
-        if ((child->Type() == childType || DerivedFrom(child->Type(), childType)) && nodeInfos[child->arrayIdx].nameHash == childNameHash)
+        if ((child->Type() == childType || DerivedFrom(child->Type(), childType)) && child->NameHash() == childNameHash)
             return child;
         else if (recursive && child->children.size())
         {
