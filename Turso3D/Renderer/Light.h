@@ -71,7 +71,7 @@ struct ShadowView
     size_t lastNumGeometries;
 };
 
-/// %Light drawable
+/// %Light drawable.
 class LightDrawable : public Drawable
 {
 public:

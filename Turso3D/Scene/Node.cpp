@@ -43,6 +43,8 @@ void Node::Load(Stream& source, ObjectResolver& resolver)
 {
     // Load child nodes before own attributes to enable e.g. AnimatedModel to set bones at load time
     size_t numChildren = source.ReadVLE();
+    children.reserve(numChildren);
+
     for (size_t i = 0; i < numChildren; ++i)
     {
         StringHash childType(source.Read<StringHash>());
@@ -84,6 +86,8 @@ void Node::Save(Stream& dest)
 void Node::LoadJSON(const JSONValue& source, ObjectResolver& resolver)
 {
     const JSONArray& childArray = source["children"].GetArray();
+    children.reserve(childArray.size());
+
     for (auto it = childArray.begin(); it != childArray.end(); ++it)
     {
         const JSONValue& childJSON = *it;

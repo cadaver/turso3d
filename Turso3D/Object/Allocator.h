@@ -8,6 +8,8 @@
 struct AllocatorBlock;
 struct AllocatorNode;
 
+static const size_t DEFAULT_ALLOCATOR_INITIAL_CAPACITY = 16;
+
 /// %Allocator memory block.
 struct AllocatorBlock
 {
@@ -31,7 +33,7 @@ struct AllocatorNode
 };
 
 /// Initialize a fixed-size allocator with the node size and initial capacity.
-AllocatorBlock* AllocatorInitialize(size_t nodeSize, size_t initialCapacity = 1);
+AllocatorBlock* AllocatorInitialize(size_t nodeSize, size_t initialCapacity = DEFAULT_ALLOCATOR_INITIAL_CAPACITY);
 /// Uninitialize a fixed-size allocator. Frees all blocks in the chain.
 void AllocatorUninitialize(AllocatorBlock* allocator);
 /// Allocate a node. Creates a new block if necessary.
@@ -43,8 +45,8 @@ void AllocatorFree(AllocatorBlock* allocator, void* node);
 template <class T> class Allocator
 {
 public:
-    /// Construct with optional initial capacity.
-    Allocator(size_t capacity = 0) :
+    /// Construct with initial capacity.
+    Allocator(size_t capacity = DEFAULT_ALLOCATOR_INITIAL_CAPACITY) :
         allocator(nullptr)
     {
         if (capacity)
