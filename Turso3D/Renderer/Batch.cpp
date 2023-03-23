@@ -64,31 +64,30 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode 
         if (it->programBits)
             continue;
 
-        Pass* currentPass = it->pass;
-        Geometry* currentGeometry = it->geometry;
         size_t start = instanceTransforms.size();
-        bool hasInstances = false;
+        auto next = it + 1;
 
-        for (auto next = it + 1; next < batches.end(); ++next)
+        if (next->pass == it->pass && next->geometry == it->geometry && !next->programBits)
         {
-            if (next->pass == currentPass && next->geometry == currentGeometry && !next->programBits)
+            // Convert to instances if at least one batch with same state found, then loop for more of the same
+            it->programBits = SP_INSTANCED;
+            instanceTransforms.push_back(*it->worldTransform);
+            instanceTransforms.push_back(*next->worldTransform);
+            ++next;
+
+            for (; next < batches.end(); ++next)
             {
-                if (!hasInstances)
-                {
-                    instanceTransforms.push_back(*it->worldTransform);
-                    hasInstances = true;
-                }
-                
-                instanceTransforms.push_back(*next->worldTransform);
+                if (next->pass == it->pass && next->geometry == it->geometry && !next->programBits)
+                    instanceTransforms.push_back(*next->worldTransform);
+                else
+                    break;
             }
-            else
-                break;
         }
 
-        if (hasInstances)
+        // Finalize the conversion by writing instance start and count
+        if (it->programBits)
         {
             size_t count = instanceTransforms.size() - start;
-            it->programBits |= SP_INSTANCED;
             it->instanceStart = (unsigned)start;
             it->instanceCount = (unsigned)count;
             it += count - 1;
