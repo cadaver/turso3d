@@ -173,7 +173,6 @@ Light::Light() :
 {
     drawable = drawableAllocator.Allocate();
     drawable->SetOwner(this);
-    worldTransform = drawable->WorldTransformPtr();
 }
 
 Light::~Light()

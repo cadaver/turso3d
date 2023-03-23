@@ -35,7 +35,6 @@ Camera::Camera() :
     useReflection(false),
     useClipping(false)
 {
-    worldTransform = &worldTransformMatrix;
     reflectionMatrix = reflectionPlane.ReflectionMatrix();
 }
 

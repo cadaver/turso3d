@@ -63,8 +63,6 @@ protected:
     void OnTransformChanged() override;
 
 private:
-    /// World transform matrix.
-    mutable Matrix3x4 worldTransformMatrix;
     /// Animated model drawable associated with.
     AnimatedModelDrawable* drawable;
     /// Animation enabled flag.

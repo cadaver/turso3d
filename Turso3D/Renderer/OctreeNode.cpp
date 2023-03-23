@@ -70,6 +70,7 @@ void Drawable::OnRenderDebug(DebugRenderer* debug)
 void Drawable::SetOwner(OctreeNode* owner_)
 {
     owner = owner_;
+    worldTransform = const_cast<Matrix3x4*>(&owner_->WorldTransform());
 }
 
 

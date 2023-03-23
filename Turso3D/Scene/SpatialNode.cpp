@@ -1,9 +1,12 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
+#include "../Object/Allocator.h"
 #include "SpatialNode.h"
 
+static Allocator<Matrix3x4> worldMatrixAllocator;
+
 SpatialNode::SpatialNode() :
-    worldTransform(nullptr)
+    worldTransform(worldMatrixAllocator.Allocate())
 {
     position = Vector3::ZERO;
     rotation = Quaternion::IDENTITY;
@@ -14,8 +17,7 @@ SpatialNode::SpatialNode() :
 
 SpatialNode::~SpatialNode()
 {
-    if (TestFlag(NF_OWN_WORLD_TRANSFORM))
-        delete worldTransform;
+    worldMatrixAllocator.Free(worldTransform);
 }
 
 void SpatialNode::RegisterObject()

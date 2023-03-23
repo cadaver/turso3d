@@ -116,7 +116,6 @@ StaticModel::StaticModel()
 {
     drawable = drawableAllocator.Allocate();
     drawable->SetOwner(this);
-    worldTransform = drawable->WorldTransformPtr();
 }
 
 StaticModel::~StaticModel()

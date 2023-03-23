@@ -22,7 +22,6 @@ Bone::Bone() :
     animationEnabled(true),
     numChildBones(0)
 {
-    worldTransform = &worldTransformMatrix;
 }
 
 Bone::~Bone()
@@ -371,7 +370,6 @@ AnimatedModel::AnimatedModel()
 {
     drawable = drawableAllocator.Allocate();
     drawable->SetOwner(this);
-    worldTransform = drawable->WorldTransformPtr();
 }
 
 AnimatedModel::~AnimatedModel()

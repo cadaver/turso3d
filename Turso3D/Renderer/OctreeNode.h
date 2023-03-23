@@ -74,7 +74,7 @@ public:
             SetFlag(DF_WORLD_TRANSFORM_DIRTY, false);
         }
 
-        return worldTransform;
+        return *worldTransform;
     }
 
     /// Return flags.
@@ -97,8 +97,6 @@ public:
     void SetFlag(unsigned short bit, bool set) const { if (set) flags |= bit; else flags &= ~bit; }
     /// Test bit flag. Called internally.
     bool TestFlag(unsigned short bit) const { return (flags & bit) != 0; }
-    /// Return pointer to the world transform matrix. Scene node will update it instead of maintaining its own copy.
-    Matrix3x4* WorldTransformPtr() const { return &worldTransform; }
 
     /// Check whether is marked in view this frame.
     bool InView(unsigned short frameNumber) { return lastFrameNumber == frameNumber; }
@@ -113,10 +111,10 @@ public:
     }
 
 protected:
-    /// World transform matrix.
-    mutable Matrix3x4 worldTransform;
     /// World space bounding box.
     mutable BoundingBox worldBoundingBox;
+    /// Owner scene node's world transform matrix.
+    Matrix3x4* worldTransform;
     /// Owner scene node.
     OctreeNode* owner;
     /// Current octree octant.

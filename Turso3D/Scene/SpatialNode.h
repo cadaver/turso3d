@@ -102,13 +102,6 @@ public:
     /// Return world transform matrix.
     const Matrix3x4& WorldTransform() const 
     {
-        // Create world transform matrix on demand if not specifically handled in subclass
-        if (!worldTransform)
-        {
-            worldTransform = new Matrix3x4();
-            SetFlag(NF_OWN_WORLD_TRANSFORM, true);
-        }
-
         UpdateWorldTransform();
         return *worldTransform;
     }
