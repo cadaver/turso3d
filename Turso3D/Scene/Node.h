@@ -2,11 +2,9 @@
 
 #pragma once
 
-#include "../Object/Serializable.h"
 #include "../Math/Matrix3x4.h"
+#include "../Object/Serializable.h"
 
-class Node;
-class Octree;
 class Scene;
 class ObjectResolver;
 
