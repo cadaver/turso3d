@@ -119,6 +119,9 @@ public:
     /// Update GPU resources and set uniforms for rendering. Called by Renderer when geometry type is not static.
     virtual void OnRender(ShaderProgram* program, size_t geomIndex);
 
+    /// Return geometry type.
+    GeometryType GetGeometryType() const { return (GeometryType)(Flags() & DF_GEOMETRY_TYPE_BITS); }
+
     /// Draw call source data.
     SourceBatches batches;
 };

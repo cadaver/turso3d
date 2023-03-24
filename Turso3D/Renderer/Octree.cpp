@@ -91,7 +91,7 @@ Octree::~Octree()
         Drawable* drawable = *it;
         if (drawable)
         {
-            drawable->octant = nullptr;
+            drawable->SetOctant(nullptr);
             drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
             drawable->Owner()->octree = nullptr;
         }
@@ -247,7 +247,7 @@ void Octree::RemoveDrawable(Drawable* drawable)
     if (!drawable)
         return;
 
-    RemoveDrawable(drawable, drawable->octant);
+    RemoveDrawable(drawable, drawable->GetOctant());
     if (drawable->TestFlag(DF_OCTREE_REINSERT_QUEUED))
     {
         RemoveDrawableFromQueue(drawable, updateQueue);
@@ -259,7 +259,7 @@ void Octree::RemoveDrawable(Drawable* drawable)
         drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
     }
 
-    drawable->octant = nullptr;
+    drawable->SetOctant(nullptr);
 }
 
 void Octree::SetBoundingBoxAttr(const BoundingBox& value)
@@ -290,7 +290,7 @@ void Octree::ReinsertDrawables(std::vector<Drawable*>& drawables)
         Drawable* drawable = *it;
 
         const BoundingBox& box = drawable->WorldBoundingBox();
-        Octant* oldOctant = drawable->octant;
+        Octant* oldOctant = drawable->GetOctant();
         Octant* newOctant = &root;
         Vector3 boxSize = box.Size();
 
@@ -376,7 +376,7 @@ void Octree::DeleteChildOctants(Octant* octant, bool deletingOctree)
     for (auto it = octant->drawables.begin(); it != octant->drawables.end(); ++it)
     {
         Drawable* drawable = *it;
-        drawable->octant = nullptr;
+        drawable->SetOctant(nullptr);
         drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
         if (deletingOctree)
             drawable->Owner()->octree = nullptr;
@@ -485,7 +485,7 @@ void Octree::CheckReinsertWork(Task* task_, unsigned threadIndex_)
 
     for (; start != end; ++start)
     {
-        // If node was removed before update could happen, a null pointer will be in its place
+        // If drawable was removed before reinsertion could happen, a null pointer will be in its place
         Drawable* drawable = *start;
         if (!drawable)
             continue;
@@ -493,11 +493,11 @@ void Octree::CheckReinsertWork(Task* task_, unsigned threadIndex_)
         if (drawable->TestFlag(DF_OCTREE_UPDATE_CALL))
             drawable->OnOctreeUpdate(frameNumber);
 
-        drawable->lastUpdateFrameNumber = frameNumber;
+        drawable->SetLastUpdateFrameNumber(frameNumber);
 
         // Do nothing if still fits the current octant
         const BoundingBox& box = drawable->WorldBoundingBox();
-        Octant* oldOctant = drawable->octant;
+        Octant* oldOctant = drawable->GetOctant();
         if (!oldOctant || oldOctant->cullingBox.IsInside(box) != INSIDE)
             reinsertQueue.push_back(drawable);
         else

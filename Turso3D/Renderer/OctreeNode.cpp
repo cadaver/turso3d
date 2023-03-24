@@ -86,6 +86,7 @@ void OctreeNode::RegisterObject()
     RegisterDerivedType<OctreeNode, SpatialNode>();
     RegisterAttribute("static", &OctreeNode::IsStatic, &OctreeNode::SetStatic, false);
     RegisterAttribute("castShadows", &OctreeNode::CastShadows, &OctreeNode::SetCastShadows, false);
+    RegisterAttribute("updateInvisible", &OctreeNode::UpdateInvisible, &OctreeNode::SetUpdateInvisible, false);
     RegisterAttribute("maxDistance", &OctreeNode::MaxDistance, &OctreeNode::SetMaxDistance, 0.0f);
 }
 
@@ -109,9 +110,14 @@ void OctreeNode::SetCastShadows(bool enable)
     }
 }
 
+void OctreeNode::SetUpdateInvisible(bool enable)
+{
+    drawable->SetFlag(DF_UPDATE_INVISIBLE, enable);
+}
+
 void OctreeNode::SetMaxDistance(float distance_)
 {
-    drawable->maxDistance = Max(distance_, 0.0f);
+    drawable->SetMaxDistance(Max(distance_, 0.0f));
 }
 
 void OctreeNode::OnSceneSet(Scene* newScene, Scene*)
@@ -134,7 +140,7 @@ void OctreeNode::OnTransformChanged()
     SpatialNode::OnTransformChanged();
     drawable->SetFlag(DF_WORLD_TRANSFORM_DIRTY | DF_BOUNDING_BOX_DIRTY, true);
 
-    if (drawable->octant && !drawable->TestFlag(DF_OCTREE_REINSERT_QUEUED))
+    if (drawable->GetOctant() && !drawable->TestFlag(DF_OCTREE_REINSERT_QUEUED))
         octree->QueueUpdate(drawable);
 }
 
@@ -160,5 +166,5 @@ void OctreeNode::OnEnabledChanged(bool newEnabled)
 
 void OctreeNode::OnLayerChanged(unsigned char newLayer)
 {
-    drawable->layer = newLayer;
+    drawable->SetLayer(newLayer);
 }

@@ -1252,7 +1252,7 @@ void Renderer::CollectShadowBatchesWork(Task* task_, unsigned)
                 const BoundingBox& geometryBox = drawable->WorldBoundingBox();
 
                 bool inView = drawable->InView(frameNumber);
-                bool staticNode = drawable->Flags() & DF_STATIC;
+                bool staticNode = drawable->TestFlag(DF_STATIC);
 
                 // Check shadowcaster frustum visibility for point lights; may be visible in view, but not in each cube map face
                 if (lightType == LIGHT_POINT && !shadowFrustum.IsInsideFast(geometryBox))

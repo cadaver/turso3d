@@ -73,7 +73,6 @@ inline bool CompareAnimationStates(const SharedPtr<AnimationState>& lhs, const S
 }
 
 AnimatedModelDrawable::AnimatedModelDrawable() :
-    updateInvisible(false),
     animatedModelFlags(0),
     numBones(0),
     rootBone(nullptr)
@@ -115,7 +114,7 @@ void AnimatedModelDrawable::OnWorldBoundingBoxUpdate() const
 
 void AnimatedModelDrawable::OnOctreeUpdate(unsigned short frameNumber)
 {
-    if (updateInvisible || WasInView(frameNumber))
+    if (TestFlag(DF_UPDATE_INVISIBLE) || WasInView(frameNumber))
     {
         if (animatedModelFlags & AMF_ANIMATION_DIRTY)
             UpdateAnimation();
@@ -311,9 +310,9 @@ void AnimatedModelDrawable::UpdateAnimation()
 
     // If updating only when visible, queue octree reinsertion for next frame. This also ensures shadowmap rendering happens correctly
     // Else just dirty the skinning
-    if (!updateInvisible)
+    if (!TestFlag(DF_UPDATE_INVISIBLE))
     {
-        if (octree && (Flags() & (DF_OCTREE_REINSERT_QUEUED | NF_ENABLED)) == NF_ENABLED)
+        if (octree && octant && !TestFlag(DF_OCTREE_REINSERT_QUEUED))
             octree->QueueUpdate(this);
     }
 
@@ -388,7 +387,6 @@ void AnimatedModel::RegisterObject()
     RegisterMixedRefAttribute("model", &AnimatedModel::ModelAttr, &AnimatedModel::SetModelAttr, ResourceRef(Model::TypeStatic()));
     CopyBaseAttribute<AnimatedModel, StaticModel>("materials");
     CopyBaseAttribute<AnimatedModel, StaticModel>("lodBias");
-    RegisterAttribute("updateInvisible", &AnimatedModel::UpdateInvisible, &AnimatedModel::SetUpdateInvisible, false);
     RegisterMixedRefAttribute("animationStates", &AnimatedModel::AnimationStatesAttr, &AnimatedModel::SetAnimationStatesAttr);
 }
 
@@ -398,12 +396,6 @@ void AnimatedModel::SetModel(Model* model_)
 
     StaticModel::SetModel(model_);
     static_cast<AnimatedModelDrawable*>(drawable)->CreateBones();
-}
-
-void AnimatedModel::SetUpdateInvisible(bool enable)
-{
-    AnimatedModelDrawable* modelDrawable = static_cast<AnimatedModelDrawable*>(drawable);
-    modelDrawable->updateInvisible = enable;
 }
 
 AnimationState* AnimatedModel::AddAnimationState(Animation* animation)

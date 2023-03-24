@@ -22,18 +22,16 @@ static const unsigned short DF_LIGHT = 0x4;
 static const unsigned short DF_GEOMETRY = 0x8;
 static const unsigned short DF_STATIC = 0x10;
 static const unsigned short DF_CAST_SHADOWS = 0x20;
-static const unsigned short DF_HAS_LOD_LEVELS = 0x40;
-static const unsigned short DF_OCTREE_UPDATE_CALL = 0x80;
-static const unsigned short DF_WORLD_TRANSFORM_DIRTY = 0x100;
-static const unsigned short DF_BOUNDING_BOX_DIRTY = 0x200;
-static const unsigned short DF_OCTREE_REINSERT_QUEUED = 0x400;
+static const unsigned short DF_UPDATE_INVISIBLE = 0x40;
+static const unsigned short DF_HAS_LOD_LEVELS = 0x80;
+static const unsigned short DF_OCTREE_UPDATE_CALL = 0x100;
+static const unsigned short DF_WORLD_TRANSFORM_DIRTY = 0x200;
+static const unsigned short DF_BOUNDING_BOX_DIRTY = 0x400;
+static const unsigned short DF_OCTREE_REINSERT_QUEUED = 0x800;
 
 /// Base class for drawables that are inserted to the octree. These are managed by their scene node.
 class Drawable
 {
-    friend class Octree;
-    friend class OctreeNode;
-
 public:
     /// Construct.
     Drawable();
@@ -53,30 +51,17 @@ public:
 
     /// Set the owner node.
     void SetOwner(OctreeNode* owner);
+    /// Set new octant.
+    void SetOctant(Octant* newOctant) { octant = newOctant; }
+    /// Set layer to match the owner node.
+    void SetLayer(unsigned char newLayer) { layer = newLayer; }
+    /// Set new maximum render distance.
+    void SetMaxDistance(float newDistance) { maxDistance = newDistance; }
+    /// Mark updated on the frame.
+    void SetLastUpdateFrameNumber(unsigned short frameNumber) { lastUpdateFrameNumber = frameNumber; }
 
     /// Return world space bounding box. Update if necessary.
     const BoundingBox& WorldBoundingBox() const { if (TestFlag(DF_BOUNDING_BOX_DIRTY)) OnWorldBoundingBoxUpdate(); return worldBoundingBox; }
-    /// Return position in world space.
-    Vector3 WorldPosition() const { return WorldTransform().Translation(); }
-    /// Return rotation in world space.
-    Quaternion WorldRotation() const { return WorldTransform().Rotation(); }
-    /// Return forward direction in world space.
-    Vector3 WorldDirection() const { return WorldRotation() * Vector3::FORWARD; }
-    /// Return scale in world space. As it is calculated from the world transform matrix, it may not be meaningful or accurate in all cases.
-    Vector3 WorldScale() const { return WorldTransform().Scale(); }
-
-    /// Return world transform matrix.
-    const Matrix3x4& WorldTransform() const
-    {
-        if (TestFlag(DF_WORLD_TRANSFORM_DIRTY))
-        {
-            reinterpret_cast<SpatialNode*>(owner)->UpdateWorldTransform();
-            SetFlag(DF_WORLD_TRANSFORM_DIRTY, false);
-        }
-
-        return *worldTransform;
-    }
-
     /// Return flags.
     unsigned short Flags() const { return flags; }
     /// Return bitmask corresponding to layer.
@@ -93,13 +78,29 @@ public:
     unsigned short LastFrameNumber() const { return lastFrameNumber; }
     /// Return last frame number when was reinserted to octree (moved or animated.) The frames are counted by Renderer internally and have no significance outside it.
     unsigned short LastUpdateFrameNumber() const { return lastUpdateFrameNumber; }
-    /// Set bit flag. Called internally.
-    void SetFlag(unsigned short bit, bool set) const { if (set) flags |= bit; else flags &= ~bit; }
-    /// Test bit flag. Called internally.
-    bool TestFlag(unsigned short bit) const { return (flags & bit) != 0; }
-
     /// Check whether is marked in view this frame.
     bool InView(unsigned short frameNumber) { return lastFrameNumber == frameNumber; }
+    /// Return position in world space.
+    Vector3 WorldPosition() const { return WorldTransform().Translation(); }
+    /// Return rotation in world space.
+    Quaternion WorldRotation() const { return WorldTransform().Rotation(); }
+    /// Return forward direction in world space.
+    Vector3 WorldDirection() const { return WorldRotation() * Vector3::FORWARD; }
+    /// Return scale in world space. As it is calculated from the world transform matrix, it may not be meaningful or accurate in all cases.
+    Vector3 WorldScale() const { return WorldTransform().Scale(); }
+
+    /// Return world transform matrix. Update if necessary
+    const Matrix3x4& WorldTransform() const
+    {
+        if (TestFlag(DF_WORLD_TRANSFORM_DIRTY))
+        {
+            SetFlag(DF_WORLD_TRANSFORM_DIRTY, false);
+            // Update the shared world transform as necessary, then return
+            return reinterpret_cast<SpatialNode*>(owner)->WorldTransform();
+        }
+        else
+            return *worldTransform;
+    }
 
     /// Check whether was in view last frame, compared to the current.
     bool WasInView(unsigned short frameNumber) const
@@ -109,6 +110,11 @@ public:
             --previousFrameNumber;
         return lastFrameNumber == previousFrameNumber;
     }
+
+    /// Set bit flag. Called internally.
+    void SetFlag(unsigned short bit, bool set) const { if (set) flags |= bit; else flags &= ~bit; }
+    /// Test bit flag. Called internally.
+    bool TestFlag(unsigned short bit) const { return (flags & bit) != 0; }
 
 protected:
     /// World space bounding box.
@@ -151,6 +157,8 @@ public:
     void SetStatic(bool enable);
     /// Set whether to cast shadows. Default false on both lights and geometries.
     void SetCastShadows(bool enable);
+    /// Set whether to update animation when invisible. Default false for better performance.
+    void SetUpdateInvisible(bool enable);
     /// Set max distance for rendering. 0 is unlimited.
     void SetMaxDistance(float distance);
     
@@ -160,6 +168,8 @@ public:
     bool IsStatic() const { return drawable->TestFlag(DF_STATIC); }
     /// Return whether casts shadows.
     bool CastShadows() const { return drawable->TestFlag(DF_CAST_SHADOWS); }
+    /// Return whether updates animation when invisible. Not relevant for non-animating geometry.
+    bool UpdateInvisible() const { return drawable->TestFlag(DF_UPDATE_INVISIBLE); }
     /// Return current octree this node resides in.
     Octree* GetOctree() const { return octree; }
     /// Return the drawable for internal use.

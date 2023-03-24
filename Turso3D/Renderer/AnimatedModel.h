@@ -138,14 +138,14 @@ public:
     size_t NumBones() const { return numBones; }
     /// Return all bone scene nodes.
     const AutoArrayPtr<Bone*>& Bones() const { return bones; }
+    /// Return all animation states.
+    const std::vector<SharedPtr<AnimationState> >& AnimationStates() const { return animationStates; }
     /// Return the internal dirty status flags.
     unsigned char AnimatedModelFlags() { return animatedModelFlags; }
 
 protected:
     /// Combined bounding box of the bones in model space, used for quick updates when only the node moves without animation
     mutable BoundingBox boneBoundingBox;
-    /// Update when invisible flag.
-    bool updateInvisible;
     /// Internal dirty status flags.
     mutable unsigned char animatedModelFlags;
     /// Number of bones.
@@ -180,8 +180,6 @@ public:
 
     /// Set the model resource and create / acquire bone scene nodes.
     void SetModel(Model* model);
-    /// Set whether to update animation when invisible. Default false for better performance.
-    void SetUpdateInvisible(bool enable);
     /// Add an animation and return the created animation state.
     AnimationState* AddAnimationState(Animation* animation);
     /// Remove an animation by animation pointer.
@@ -197,16 +195,14 @@ public:
     /// Remove all animations.
     void RemoveAllAnimationStates();
 
-    /// Return whether updates animation when invisible.
-    bool UpdateInvisible() const { return static_cast<AnimatedModelDrawable*>(drawable)->updateInvisible; }
     /// Return the root bone.
-    Bone* RootBone() const { return static_cast<AnimatedModelDrawable*>(drawable)->rootBone; }
+    Bone* RootBone() const { return static_cast<AnimatedModelDrawable*>(drawable)->RootBone(); }
     /// Return number of bones.
-    size_t NumBones() const { return static_cast<AnimatedModelDrawable*>(drawable)->numBones; }
+    size_t NumBones() const { return static_cast<AnimatedModelDrawable*>(drawable)->NumBones(); }
     /// Return all bone scene nodes.
-    const AutoArrayPtr<Bone*>& Bones() const { return static_cast<AnimatedModelDrawable*>(drawable)->bones; }
+    const AutoArrayPtr<Bone*>& Bones() const { return static_cast<AnimatedModelDrawable*>(drawable)->Bones(); }
     /// Return all animation states.
-    const std::vector<SharedPtr<AnimationState> >& AnimationStates() const { return static_cast<AnimatedModelDrawable*>(drawable)->animationStates; }
+    const std::vector<SharedPtr<AnimationState> >& AnimationStates() const { return static_cast<AnimatedModelDrawable*>(drawable)->AnimationStates(); }
     /// Return number of animation states.
     size_t NumAnimationStates() const { return static_cast<AnimatedModelDrawable*>(drawable)->animationStates.size(); }
     /// Return animation state by index.

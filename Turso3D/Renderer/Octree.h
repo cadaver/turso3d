@@ -96,11 +96,11 @@ public:
         }
         else
         {
-            drawable->lastUpdateFrameNumber = frameNumber;
+            drawable->SetLastUpdateFrameNumber(frameNumber);
 
             // Do nothing if still fits the current octant
             const BoundingBox& box = drawable->WorldBoundingBox();
-            Octant* oldOctant = drawable->octant;
+            Octant* oldOctant = drawable->GetOctant();
             if (!oldOctant || oldOctant->cullingBox.IsInside(box) != INSIDE)
             {
                 reinsertQueues[WorkQueue::ThreadIndex()].push_back(drawable);
@@ -146,7 +146,7 @@ private:
     void AddDrawable(Drawable* drawable, Octant* octant)
     {
         octant->drawables.push_back(drawable);
-        drawable->octant = octant;
+        drawable->SetOctant(octant);
 
         if (!octant->sortDirty)
         {

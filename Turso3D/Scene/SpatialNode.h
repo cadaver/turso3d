@@ -98,16 +98,17 @@ public:
     Vector3 WorldDirection() const { return WorldRotation() * Vector3::FORWARD; }
     /// Return scale in world space. As it is calculated from the world transform matrix, it may not be meaningful or accurate in all cases.
     Vector3 WorldScale() const { return WorldTransform().Scale(); }
-    
-    /// Return world transform matrix.
-    const Matrix3x4& WorldTransform() const 
-    {
-        UpdateWorldTransform();
-        return *worldTransform;
-    }
+    /// Convert a local space position to world space.
+    Vector3 LocalToWorld(const Vector3& point) const { return WorldTransform() * point; }
+    /// Convert a local space vector (either position or direction) to world space.
+    Vector3 LocalToWorld(const Vector4& vector) const { return WorldTransform() * vector; }
+    /// Convert a world space position to local space.
+    Vector3 WorldToLocal(const Vector3& point) const { return WorldTransform().Inverse() * point; }
+    /// Convert a world space vector (either position or direction) to world space.
+    Vector3 WorldToLocal(const Vector4& vector) const { return WorldTransform().Inverse() * vector; }
 
-    /// Update the world transform matrix. Called internally.
-    void UpdateWorldTransform() const
+    /// Return world transform matrix. Update if necessary.
+    const Matrix3x4& WorldTransform() const
     {
         if (TestFlag(NF_WORLD_TRANSFORM_DIRTY))
         {
@@ -120,16 +121,9 @@ public:
             }
             SetFlag(NF_WORLD_TRANSFORM_DIRTY, false);
         }
-    }
 
-    /// Convert a local space position to world space.
-    Vector3 LocalToWorld(const Vector3& point) const { return WorldTransform() * point; }
-    /// Convert a local space vector (either position or direction) to world space.
-    Vector3 LocalToWorld(const Vector4& vector) const { return WorldTransform() * vector; }
-    /// Convert a world space position to local space.
-    Vector3 WorldToLocal(const Vector3& point) const { return WorldTransform().Inverse() * point; }
-    /// Convert a world space vector (either position or direction) to world space.
-    Vector3 WorldToLocal(const Vector4& vector) const { return WorldTransform().Inverse() * vector; }
+        return *worldTransform;
+    }
 
 protected:
     /// Handle being assigned to a new parent node.
