@@ -137,6 +137,6 @@ protected:
     Quaternion rotation;
     /// Parent space scale.
     Vector3 scale;
-    /// World transform matrix. May be contained in another object in subclasses. Allocated on demand if necessary.
+    /// World transform matrix. Allocated from a block allocator to keep the memory footprint of scene nodes and drawables smaller.
     mutable Matrix3x4* worldTransform;
 };
