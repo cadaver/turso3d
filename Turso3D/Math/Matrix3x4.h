@@ -65,15 +65,13 @@ public:
     /// Construct from translation, rotation and uniform scale.
     Matrix3x4(const Vector3& translation, const Quaternion& rotation, float scale)
     {
-        SetRotation(rotation.ScaledRotationMatrix(scale));
-        SetTranslation(translation);
+        SetTransform(translation, rotation, scale);
     }
 
     /// Construct from translation, rotation and nonuniform scale.
     Matrix3x4(const Vector3& translation, const Quaternion& rotation, const Vector3& scale)
     {
-        SetRotation(rotation.ScaledRotationMatrix(scale));
-        SetTranslation(translation);
+        SetTransform(translation, rotation, scale);
     }
 
     /// Construct by parsing a string.
@@ -239,6 +237,40 @@ public:
         m00 = rotation.m00; m01 = rotation.m01; m02 = rotation.m02;
         m10 = rotation.m10; m11 = rotation.m11; m12 = rotation.m12;
         m20 = rotation.m20; m21 = rotation.m21; m22 = rotation.m22;
+    }
+
+    /// Set full transform from a translation vector, rotation quaternion and uniform scale
+    void SetTransform(const Vector3& translation, const Quaternion& rotation, float scale)
+    {
+        m00 = (1.0f - 2.0f * rotation.y * rotation.y - 2.0f * rotation.z * rotation.z) * scale;
+        m01 = (2.0f * rotation.x * rotation.y - 2.0f * rotation.w * rotation.z) * scale;
+        m02 = (2.0f * rotation.x * rotation.z + 2.0f * rotation.w * rotation.y) * scale;
+        m03 = translation.x;
+        m10 = (2.0f * rotation.x * rotation.y + 2.0f * rotation.w * rotation.z) * scale;
+        m11 = (1.0f - 2.0f * rotation.x * rotation.x - 2.0f * rotation.z * rotation.z) * scale;
+        m12 = (2.0f * rotation.y * rotation.z - 2.0f * rotation.w * rotation.x) * scale;
+        m13 = translation.y;
+        m20 = (2.0f * rotation.x * rotation.z - 2.0f * rotation.w * rotation.y) * scale;
+        m21 = (2.0f * rotation.y * rotation.z + 2.0f * rotation.w * rotation.x) * scale;
+        m22 = (1.0f - 2.0f * rotation.x * rotation.x - 2.0f * rotation.y * rotation.y) * scale;
+        m23 = translation.z;
+    }
+
+    /// Set full transform from a translation vector, rotation quaternion and scale vector.
+    void SetTransform(const Vector3& translation, const Quaternion& rotation, const Vector3& scale)
+    {
+        m00 = (1.0f - 2.0f * rotation.y * rotation.y - 2.0f * rotation.z * rotation.z) * scale.x;
+        m01 = (2.0f * rotation.x * rotation.y - 2.0f * rotation.w * rotation.z) * scale.y;
+        m02 = (2.0f * rotation.x * rotation.z + 2.0f * rotation.w * rotation.y) * scale.z;
+        m03 = translation.x;
+        m10 = (2.0f * rotation.x * rotation.y + 2.0f * rotation.w * rotation.z) * scale.x;
+        m11 = (1.0f - 2.0f * rotation.x * rotation.x - 2.0f * rotation.z * rotation.z) * scale.y;
+        m12 = (2.0f * rotation.y * rotation.z - 2.0f * rotation.w * rotation.x) * scale.z;
+        m13 = translation.y;
+        m20 = (2.0f * rotation.x * rotation.z - 2.0f * rotation.w * rotation.y) * scale.x;
+        m21 = (2.0f * rotation.y * rotation.z + 2.0f * rotation.w * rotation.x) * scale.y;
+        m22 = (1.0f - 2.0f * rotation.x * rotation.x - 2.0f * rotation.y * rotation.y) * scale.z;
+        m23 = translation.z;
     }
     
     /// Set scaling elements.

@@ -116,8 +116,7 @@ public:
                 *worldTransform = static_cast<SpatialNode*>(Parent())->WorldTransform() * Matrix3x4(position, rotation, scale);
             else
             {
-                (*worldTransform).SetRotation(rotation.RotationMatrix().Scaled(scale));
-                (*worldTransform).SetTranslation(position);
+                (*worldTransform).SetTransform(position, rotation, scale);
             }
             SetFlag(NF_WORLD_TRANSFORM_DIRTY, false);
         }
