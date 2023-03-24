@@ -96,7 +96,7 @@ public:
         }
         else
         {
-            drawable->SetLastUpdateFrameNumber(frameNumber);
+            drawable->lastUpdateFrameNumber = frameNumber;
 
             // Do nothing if still fits the current octant
             const BoundingBox& box = drawable->WorldBoundingBox();
@@ -146,7 +146,7 @@ private:
     void AddDrawable(Drawable* drawable, Octant* octant)
     {
         octant->drawables.push_back(drawable);
-        drawable->SetOctant(octant);
+        drawable->octant = octant;
 
         if (!octant->sortDirty)
         {

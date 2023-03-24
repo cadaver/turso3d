@@ -88,10 +88,10 @@ public:
     bool OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
     /// Update GPU resources and set uniforms for rendering. Called by Renderer when geometry type is not static.
     void OnRender(ShaderProgram* program, size_t geomIndex) override;
-    /// Add debug geometry to be rendered.
-    void OnRenderDebug(DebugRenderer* debug) override;
     /// Perform ray test on self and add possible hit to the result vector.
     void OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance) override;
+    /// Add debug geometry to be rendered.
+    void OnRenderDebug(DebugRenderer* debug) override;
 
     /// Set bounding box and skinning dirty and queue octree reinsertion when any of the bones move.
     void OnBoneTransformChanged()
@@ -217,7 +217,7 @@ public:
 protected:
     /// Search for an octree from the scene root and add self to it.
     void OnSceneSet(Scene* newScene, Scene* oldScene) override;
-    /// Handle the transform matrix changing.
+    /// Handle the transform matrix changing. Queue octree reinsertion and skinning update for the drawable.
     void OnTransformChanged() override;
 
 private:

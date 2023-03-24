@@ -16,7 +16,7 @@ class Camera;
 class FrameBuffer;
 class GeometryDrawable;
 class Graphics;
-class Light;
+class LightDrawable;
 class Material;
 class Octree;
 class RenderBuffer;
@@ -61,8 +61,8 @@ struct ThreadOctantResult
     size_t batchTaskIdx;
     /// Intermediate octant list.
     std::vector<std::pair<Octant*, unsigned char> > octants;
-    /// Intermediate light list.
-    std::vector<Light*> lights;
+    /// Intermediate light drawable list.
+    std::vector<LightDrawable*> lights;
     /// Tasks for main view batches collection, queued by the octant collection task when it finishes.
     std::vector<AutoPtr<CollectBatchesTask> > collectBatchesTasks;
 };
@@ -180,8 +180,8 @@ public:
 private:
     /// Collect octants and lights from the octree recursively. Queue batch collection tasks while ongoing.
     void CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, bool threaded, bool recursive, unsigned char planeMask = 0x3f);
-    /// Allocate shadow map for light. Return true on success.
-    bool AllocateShadowMap(Light* light);
+    /// Allocate shadow map for a light. Return true on success.
+    bool AllocateShadowMap(LightDrawable* light);
     /// Sort main opaque and alpha batch queues.
     void SortMainBatches();
     /// Sort all batch queues of a shadowmap.
@@ -250,9 +250,9 @@ private:
     /// Combined bounding box of the visible geometries.
     BoundingBox geometryBounds;
     /// Brightest directional light in frustum.
-    Light* dirLight;
+    LightDrawable* dirLight;
     /// Accepted point and spot lights in frustum.
-    std::vector<Light*> lights;
+    std::vector<LightDrawable*> lights;
     /// Shadow maps.
     std::vector<ShadowMap> shadowMaps;
     /// Opaque batches.
@@ -357,7 +357,7 @@ struct CollectShadowCastersTask : public MemberFunctionTask<Renderer>
     }
 
     /// %Light.
-    Light* light;
+    LightDrawable* light;
 };
 
 /// Task for collecting shadow batches of a specific shadow view.

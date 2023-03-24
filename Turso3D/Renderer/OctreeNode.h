@@ -32,6 +32,9 @@ static const unsigned short DF_OCTREE_REINSERT_QUEUED = 0x800;
 /// Base class for drawables that are inserted to the octree. These are managed by their scene node.
 class Drawable
 {
+    friend class Octree;
+    friend class OctreeNode;
+
 public:
     /// Construct.
     Drawable();
@@ -51,14 +54,6 @@ public:
 
     /// Set the owner node.
     void SetOwner(OctreeNode* owner);
-    /// Set new octant.
-    void SetOctant(Octant* newOctant) { octant = newOctant; }
-    /// Set layer to match the owner node.
-    void SetLayer(unsigned char newLayer) { layer = newLayer; }
-    /// Set new maximum render distance.
-    void SetMaxDistance(float newDistance) { maxDistance = newDistance; }
-    /// Mark updated on the frame.
-    void SetLastUpdateFrameNumber(unsigned short frameNumber) { lastUpdateFrameNumber = frameNumber; }
 
     /// Return world space bounding box. Update if necessary.
     const BoundingBox& WorldBoundingBox() const { if (TestFlag(DF_BOUNDING_BOX_DIRTY)) OnWorldBoundingBoxUpdate(); return worldBoundingBox; }
@@ -74,6 +69,8 @@ public:
     float Distance() const { return distance; }
     /// Return max distance for rendering, or 0 for unlimited.
     float MaxDistance() const { return maxDistance; }
+    /// Return whether is static.
+    bool IsStatic() const { return TestFlag(DF_STATIC); }
     /// Return last frame number when was visible. The frames are counted by Renderer internally and have no significance outside it.
     unsigned short LastFrameNumber() const { return lastFrameNumber; }
     /// Return last frame number when was reinserted to octree (moved or animated.) The frames are counted by Renderer internally and have no significance outside it.
@@ -190,8 +187,10 @@ public:
 protected:
     /// Search for an octree from the scene root and add self to it.
     void OnSceneSet(Scene* newScene, Scene* oldScene) override;
-    /// Handle the transform matrix changing.
+    /// Handle the transform matrix changing. Queue octree reinsertion for the drawable.
     void OnTransformChanged() override;
+    /// Handle the bounding box changing. Only queue octree reinsertion, does not dirty the node hierarchy.
+    void OnBoundingBoxChanged();
     /// Handle the enabled status changing.
     void OnEnabledChanged(bool newEnabled) override;
     /// Handle the layer changing.

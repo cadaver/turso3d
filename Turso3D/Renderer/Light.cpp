@@ -46,115 +46,7 @@ static const char* lightTypeNames[] =
 
 static Allocator<LightDrawable> drawableAllocator;
 
-LightDrawable::LightDrawable()
-{
-    SetFlag(DF_LIGHT, true);
-}
-
-void LightDrawable::OnWorldBoundingBoxUpdate() const
-{
-    Light* light = static_cast<Light*>(owner);
-
-    switch (light->lightType)
-    {
-    case LIGHT_DIRECTIONAL:
-        // Directional light always sets humongous bounding box not affected by transform
-        worldBoundingBox.Define(-M_MAX_FLOAT, M_MAX_FLOAT);
-        break;
-
-    case LIGHT_POINT:
-    {
-        const Vector3& center = WorldPosition();
-        Vector3 edge(light->range, light->range, light->range);
-        worldBoundingBox.Define(center - edge, center + edge);
-    }
-    break;
-
-    case LIGHT_SPOT:
-        worldBoundingBox.Define(light->WorldFrustum());
-        break;
-    }
-
-    SetFlag(DF_BOUNDING_BOX_DIRTY, false);
-}
-
-bool LightDrawable::OnPrepareRender(unsigned short frameNumber, Camera* camera)
-{
-    Light* light = static_cast<Light*>(owner);
-
-    switch (light->lightType)
-    {
-    case LIGHT_DIRECTIONAL:
-        distance = 0.0f;
-        break;
-
-    case LIGHT_SPOT:
-        distance = camera->Distance(WorldPosition() + 0.5f * light->range * WorldDirection());
-        break;
-
-    case LIGHT_POINT:
-        distance = camera->Distance(WorldPosition());
-        break;
-    }
-
-    if (maxDistance > 0.0f && distance > maxDistance)
-        return false;
-
-    // If there was a discontinuity in rendering the light, assume cached shadow map content lost
-    if (!WasInView(frameNumber))
-        light->SetShadowMap(nullptr);
-
-    lastFrameNumber = frameNumber;
-    return true;
-}
-
-void LightDrawable::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance_)
-{
-    Light* light = static_cast<Light*>(owner);
-
-    if (light->lightType == LIGHT_SPOT)
-    {
-        float hitDistance = ray.HitDistance(light->WorldFrustum());
-        if (hitDistance <= maxDistance_)
-        {
-            RaycastResult res;
-            res.position = ray.origin + hitDistance * ray.direction;
-            res.normal = -ray.direction;
-            res.distance = hitDistance;
-            res.drawable = this;
-            res.node = owner;
-            res.subObject = 0;
-            dest.push_back(res);
-        }
-    }
-    else if (light->lightType == LIGHT_POINT)
-    {
-        float hitDistance = ray.HitDistance(light->WorldSphere());
-        if (hitDistance <= maxDistance_)
-        {
-            RaycastResult res;
-            res.position = ray.origin + hitDistance * ray.direction;
-            res.normal = -ray.direction;
-            res.distance = hitDistance;
-            res.drawable = this;
-            res.node = owner;
-            res.subObject = 0;
-            dest.push_back(res);
-        }
-    }
-}
-
-void LightDrawable::OnRenderDebug(DebugRenderer* debug)
-{
-    Light* light = static_cast<Light*>(owner);
-
-    if (light->lightType == LIGHT_SPOT)
-        debug->AddFrustum(light->WorldFrustum(), light->color, false);
-    else if (light->lightType == LIGHT_POINT)
-        debug->AddSphere(light->WorldSphere(), light->color, false);
-}
-
-Light::Light() :
+LightDrawable::LightDrawable() :
     color(DEFAULT_COLOR),
     lightType(DEFAULT_LIGHTTYPE),
     range(DEFAULT_RANGE),
@@ -171,132 +63,105 @@ Light::Light() :
     slopeScaleBias(DEFAULT_SLOPESCALE_BIAS),
     shadowMap(nullptr)
 {
-    drawable = drawableAllocator.Allocate();
-    drawable->SetOwner(this);
+    SetFlag(DF_LIGHT, true);
 }
 
-Light::~Light()
+void LightDrawable::OnWorldBoundingBoxUpdate() const
 {
-    RemoveFromOctree();
-    drawableAllocator.Free(static_cast<LightDrawable*>(drawable));
-    drawable = nullptr;
-}
-
-void Light::RegisterObject()
-{
-    RegisterFactory<Light>();
-
-    CopyBaseAttributes<Light, OctreeNode>();
-    RegisterDerivedType<Light, OctreeNode>();
-    RegisterAttribute("lightType", &Light::LightTypeAttr, &Light::SetLightTypeAttr, (int)DEFAULT_LIGHTTYPE, lightTypeNames);
-    RegisterRefAttribute("color", &Light::GetColor, &Light::SetColor, DEFAULT_COLOR);
-    RegisterAttribute("range", &Light::Range, &Light::SetRange, DEFAULT_RANGE);
-    RegisterAttribute("fov", &Light::Fov, &Light::SetFov, DEFAULT_SPOT_FOV);
-    RegisterAttribute("fadeStart", &Light::FadeStart, &Light::SetFadeStart, DEFAULT_FADE_START);
-    RegisterAttribute("shadowMapSize", &Light::ShadowMapSize, &Light::SetShadowMapSize, DEFAULT_SHADOWMAP_SIZE);
-    RegisterAttribute("shadowFadeStart", &Light::ShadowFadeStart, &Light::SetShadowFadeStart, DEFAULT_FADE_START);
-    RegisterAttribute("shadowCascadeSplit", &Light::ShadowCascadeSplit, &Light::SetShadowCascadeSplit, DEFAULT_SHADOW_CASCADE_SPLIT);
-    RegisterAttribute("shadowMaxDistance", &Light::ShadowMaxDistance, &Light::SetShadowMaxDistance, DEFAULT_SHADOW_MAX_DISTANCE);
-    RegisterAttribute("shadowMaxStrength", &Light::ShadowMaxStrength, &Light::SetShadowMaxStrength, DEFAULT_SHADOW_MAX_STRENGTH);
-    RegisterAttribute("shadowQuantize", &Light::ShadowQuantize, &Light::SetShadowQuantize, DEFAULT_SHADOW_QUANTIZE);
-    RegisterAttribute("shadowMinView", &Light::ShadowMinView, &Light::SetShadowMinView, DEFAULT_SHADOW_MIN_VIEW);
-    RegisterAttribute("depthBias", &Light::DepthBias, &Light::SetDepthBias, DEFAULT_DEPTH_BIAS);
-    RegisterAttribute("slopeScaleBias", &Light::SlopeScaleBias, &Light::SetSlopeScaleBias, DEFAULT_SLOPESCALE_BIAS);
-}
-
-void Light::SetLightType(LightType type)
-{
-    if (type != lightType)
+    switch (lightType)
     {
-        lightType = type;
+    case LIGHT_DIRECTIONAL:
+        // Directional light always sets humongous bounding box not affected by transform
+        worldBoundingBox.Define(-M_MAX_FLOAT, M_MAX_FLOAT);
+        break;
 
-        // Bounding box will change
-        OctreeNode::OnTransformChanged();
+    case LIGHT_POINT:
+    {
+        const Vector3& center = WorldPosition();
+        Vector3 edge(range, range, range);
+        worldBoundingBox.Define(center - edge, center + edge);
+    }
+    break;
+
+    case LIGHT_SPOT:
+        worldBoundingBox.Define(WorldFrustum());
+        break;
+    }
+
+    SetFlag(DF_BOUNDING_BOX_DIRTY, false);
+}
+
+bool LightDrawable::OnPrepareRender(unsigned short frameNumber, Camera* camera)
+{
+    switch (lightType)
+    {
+    case LIGHT_DIRECTIONAL:
+        distance = 0.0f;
+        break;
+
+    case LIGHT_SPOT:
+        distance = camera->Distance(WorldPosition() + 0.5f * range * WorldDirection());
+        break;
+
+    case LIGHT_POINT:
+        distance = camera->Distance(WorldPosition());
+        break;
+    }
+
+    if (maxDistance > 0.0f && distance > maxDistance)
+        return false;
+
+    // If there was a discontinuity in rendering the light, assume cached shadow map content lost
+    if (!WasInView(frameNumber))
+        SetShadowMap(nullptr);
+
+    lastFrameNumber = frameNumber;
+    return true;
+}
+
+void LightDrawable::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance_)
+{
+    if (lightType == LIGHT_SPOT)
+    {
+        float hitDistance = ray.HitDistance(WorldFrustum());
+        if (hitDistance <= maxDistance_)
+        {
+            RaycastResult res;
+            res.position = ray.origin + hitDistance * ray.direction;
+            res.normal = -ray.direction;
+            res.distance = hitDistance;
+            res.drawable = this;
+            res.node = owner;
+            res.subObject = 0;
+            dest.push_back(res);
+        }
+    }
+    else if (lightType == LIGHT_POINT)
+    {
+        float hitDistance = ray.HitDistance(WorldSphere());
+        if (hitDistance <= maxDistance_)
+        {
+            RaycastResult res;
+            res.position = ray.origin + hitDistance * ray.direction;
+            res.normal = -ray.direction;
+            res.distance = hitDistance;
+            res.drawable = this;
+            res.node = owner;
+            res.subObject = 0;
+            dest.push_back(res);
+        }
     }
 }
 
-void Light::SetColor(const Color& color_)
+void LightDrawable::OnRenderDebug(DebugRenderer* debug)
 {
-    color = color_;
+    if (lightType == LIGHT_SPOT)
+        debug->AddFrustum(WorldFrustum(), color, false);
+    else if (lightType == LIGHT_POINT)
+        debug->AddSphere(WorldSphere(), color, false);
 }
 
-void Light::SetRange(float range_)
-{
-    range_ = Max(range_, 0.0f);
-    if (range_ != range)
-    {
-        range = range_;
-        // Bounding box will change
-        OctreeNode::OnTransformChanged();
-    }
-}
-
-void Light::SetFov(float fov_)
-{
-    fov_ = Clamp(fov_, 0.0f, 180.0f);
-    if (fov_ != fov)
-    {
-        fov = fov_;
-        // Bounding box will change
-        OctreeNode::OnTransformChanged();
-    }
-}
-
-void Light::SetFadeStart(float start)
-{
-    fadeStart = Clamp(start, 0.0f, 1.0f - M_EPSILON);
-}
-
-void Light::SetShadowMapSize(int size)
-{
-    if (size < 1)
-        size = 1;
-
-    shadowMapSize = NextPowerOfTwo(size);
-}
-
-void Light::SetShadowFadeStart(float start)
-{
-    shadowFadeStart = Clamp(start, 0.0f, 1.0f - M_EPSILON);
-}
-
-void Light::SetShadowCascadeSplit(float split)
-{
-    shadowCascadeSplit = Clamp(split, M_EPSILON, 1.0f - M_EPSILON);
-}
-
-void Light::SetShadowMaxDistance(float distance_)
-{
-    shadowMaxDistance = Max(distance_, 0.0f);
-}
-
-void Light::SetShadowMaxStrength(float strength)
-{
-    shadowMaxStrength = Clamp(strength, 0.0f, 1.f);
-}
-
-void Light::SetShadowQuantize(float quantize)
-{
-    shadowQuantize = Max(quantize, M_EPSILON);
-}
-
-
-void Light::SetShadowMinView(float minView)
-{
-    shadowMinView = Max(minView, M_EPSILON);
-}
-
-void Light::SetDepthBias(float bias)
-{
-    depthBias = Max(bias, 0.0f);
-}
-
-void Light::SetSlopeScaleBias(float bias)
-{
-    slopeScaleBias = Max(bias, 0.0f);
-}
-
-IntVector2 Light::TotalShadowMapSize() const
+IntVector2 LightDrawable::TotalShadowMapSize() const
 {
     if (lightType == LIGHT_DIRECTIONAL)
         return IntVector2(shadowMapSize * 2, shadowMapSize);
@@ -306,11 +171,11 @@ IntVector2 Light::TotalShadowMapSize() const
         return IntVector2(shadowMapSize, shadowMapSize);
 }
 
-Color Light::EffectiveColor() const
+Color LightDrawable::EffectiveColor() const
 {
-    if (drawable->MaxDistance() > 0.0f)
+    if (maxDistance > 0.0f)
     {
-        float scaledDistance = drawable->Distance() / drawable->MaxDistance();
+        float scaledDistance = distance / maxDistance;
         if (scaledDistance >= shadowFadeStart)
             return color.Lerp(Color::BLACK, (scaledDistance - fadeStart) / (1.0f - fadeStart));
     }
@@ -318,14 +183,14 @@ Color Light::EffectiveColor() const
     return color;
 }
 
-float Light::ShadowStrength() const
+float LightDrawable::ShadowStrength() const
 {
-    if (!CastShadows())
+    if (!TestFlag(DF_CAST_SHADOWS))
         return 1.0f;
 
     if (lightType != LIGHT_DIRECTIONAL && shadowMaxDistance > 0.0f)
     {
-        float scaledDistance = drawable->Distance() / shadowMaxDistance;
+        float scaledDistance = distance / shadowMaxDistance;
         if (scaledDistance >= shadowFadeStart)
             return Lerp(shadowMaxStrength, 1.0f, (scaledDistance - shadowFadeStart) / (1.0f - shadowFadeStart));
     }
@@ -333,14 +198,14 @@ float Light::ShadowStrength() const
     return shadowMaxStrength;
 }
 
-Vector2 Light::ShadowCascadeSplits() const
+Vector2 LightDrawable::ShadowCascadeSplits() const
 {
     return Vector2(shadowCascadeSplit * shadowMaxDistance, shadowMaxDistance);
 }
 
-size_t Light::NumShadowViews() const
+size_t LightDrawable::NumShadowViews() const
 {
-    if (!CastShadows())
+    if (!TestFlag(DF_CAST_SHADOWS))
         return 0;
     else if (lightType == LIGHT_DIRECTIONAL)
         return 2;
@@ -350,7 +215,7 @@ size_t Light::NumShadowViews() const
         return 1;
 }
 
-Frustum Light::WorldFrustum() const
+Frustum LightDrawable::WorldFrustum() const
 {
     const Matrix3x4& transform = WorldTransform();
     Matrix3x4 frustumTransform(transform.Translation(), transform.Rotation(), 1.0f);
@@ -359,12 +224,12 @@ Frustum Light::WorldFrustum() const
     return ret;
 }
 
-Sphere Light::WorldSphere() const
+Sphere LightDrawable::WorldSphere() const
 {
     return Sphere(WorldPosition(), range);
 }
 
-void Light::SetShadowMap(Texture* shadowMap_, const IntRect& shadowRect_)
+void LightDrawable::SetShadowMap(Texture* shadowMap_, const IntRect& shadowRect_)
 {
     if (!shadowMap)
         shadowViews.clear();
@@ -373,7 +238,7 @@ void Light::SetShadowMap(Texture* shadowMap_, const IntRect& shadowRect_)
     shadowRect = shadowRect_;
 }
 
-void Light::InitShadowViews()
+void LightDrawable::InitShadowViews()
 {
     shadowViews.resize(NumShadowViews());
 
@@ -394,7 +259,7 @@ void Light::InitShadowViews()
     shadowParameters = Vector4(0.5f / (float)shadowMap->Width(), 0.5f / (float)shadowMap->Height(), ShadowStrength(), 0.0f);
 }
 
-bool Light::SetupShadowView(size_t viewIndex, Camera* mainCamera, const BoundingBox* geometryBounds)
+bool LightDrawable::SetupShadowView(size_t viewIndex, Camera* mainCamera, const BoundingBox* geometryBounds)
 {
     ZoneScoped;
 
@@ -574,6 +439,143 @@ bool Light::SetupShadowView(size_t viewIndex, Camera* mainCamera, const Bounding
     return true;
 }
 
+Light::Light()
+{
+    drawable = drawableAllocator.Allocate();
+    drawable->SetOwner(this);
+}
+
+Light::~Light()
+{
+    RemoveFromOctree();
+    drawableAllocator.Free(static_cast<LightDrawable*>(drawable));
+    drawable = nullptr;
+}
+
+void Light::RegisterObject()
+{
+    RegisterFactory<Light>();
+
+    CopyBaseAttributes<Light, OctreeNode>();
+    RegisterDerivedType<Light, OctreeNode>();
+    RegisterAttribute("lightType", &Light::LightTypeAttr, &Light::SetLightTypeAttr, (int)DEFAULT_LIGHTTYPE, lightTypeNames);
+    RegisterRefAttribute("color", &Light::GetColor, &Light::SetColor, DEFAULT_COLOR);
+    RegisterAttribute("range", &Light::Range, &Light::SetRange, DEFAULT_RANGE);
+    RegisterAttribute("fov", &Light::Fov, &Light::SetFov, DEFAULT_SPOT_FOV);
+    RegisterAttribute("fadeStart", &Light::FadeStart, &Light::SetFadeStart, DEFAULT_FADE_START);
+    RegisterAttribute("shadowMapSize", &Light::ShadowMapSize, &Light::SetShadowMapSize, DEFAULT_SHADOWMAP_SIZE);
+    RegisterAttribute("shadowFadeStart", &Light::ShadowFadeStart, &Light::SetShadowFadeStart, DEFAULT_FADE_START);
+    RegisterAttribute("shadowCascadeSplit", &Light::ShadowCascadeSplit, &Light::SetShadowCascadeSplit, DEFAULT_SHADOW_CASCADE_SPLIT);
+    RegisterAttribute("shadowMaxDistance", &Light::ShadowMaxDistance, &Light::SetShadowMaxDistance, DEFAULT_SHADOW_MAX_DISTANCE);
+    RegisterAttribute("shadowMaxStrength", &Light::ShadowMaxStrength, &Light::SetShadowMaxStrength, DEFAULT_SHADOW_MAX_STRENGTH);
+    RegisterAttribute("shadowQuantize", &Light::ShadowQuantize, &Light::SetShadowQuantize, DEFAULT_SHADOW_QUANTIZE);
+    RegisterAttribute("shadowMinView", &Light::ShadowMinView, &Light::SetShadowMinView, DEFAULT_SHADOW_MIN_VIEW);
+    RegisterAttribute("depthBias", &Light::DepthBias, &Light::SetDepthBias, DEFAULT_DEPTH_BIAS);
+    RegisterAttribute("slopeScaleBias", &Light::SlopeScaleBias, &Light::SetSlopeScaleBias, DEFAULT_SLOPESCALE_BIAS);
+}
+
+void Light::SetLightType(LightType type)
+{
+    LightDrawable* lightDrawable = static_cast<LightDrawable*>(drawable);
+
+    if (type != lightDrawable->lightType)
+    {
+        lightDrawable->lightType = type;
+        OnBoundingBoxChanged();
+    }
+}
+
+void Light::SetColor(const Color& color_)
+{
+    LightDrawable* lightDrawable = static_cast<LightDrawable*>(drawable);
+    lightDrawable->color = color_;
+}
+
+void Light::SetRange(float range_)
+{
+    LightDrawable* lightDrawable = static_cast<LightDrawable*>(drawable);
+
+    range_ = Max(range_, 0.0f);
+    if (range_ != lightDrawable->range)
+    {
+        lightDrawable->range = range_;
+        OnBoundingBoxChanged();
+    }
+}
+
+void Light::SetFov(float fov_)
+{
+    LightDrawable* lightDrawable = static_cast<LightDrawable*>(drawable);
+
+    fov_ = Clamp(fov_, 0.0f, 180.0f);
+    if (fov_ != lightDrawable->fov)
+    {
+        lightDrawable->fov = fov_;
+        OnBoundingBoxChanged();
+    }
+}
+
+void Light::SetFadeStart(float start)
+{
+    LightDrawable* lightDrawable = static_cast<LightDrawable*>(drawable);
+    lightDrawable->fadeStart = Clamp(start, 0.0f, 1.0f - M_EPSILON);
+}
+
+void Light::SetShadowMapSize(int size)
+{
+    LightDrawable* lightDrawable = static_cast<LightDrawable*>(drawable);
+    lightDrawable->shadowMapSize = NextPowerOfTwo(Max(1, size));
+}
+
+void Light::SetShadowFadeStart(float start)
+{
+    LightDrawable* lightDrawable = static_cast<LightDrawable*>(drawable);
+    lightDrawable->shadowFadeStart = Clamp(start, 0.0f, 1.0f - M_EPSILON);
+}
+
+void Light::SetShadowCascadeSplit(float split)
+{
+    LightDrawable* lightDrawable = static_cast<LightDrawable*>(drawable);
+    lightDrawable->shadowCascadeSplit = Clamp(split, M_EPSILON, 1.0f - M_EPSILON);
+}
+
+void Light::SetShadowMaxDistance(float distance_)
+{
+    LightDrawable* lightDrawable = static_cast<LightDrawable*>(drawable);
+    lightDrawable->shadowMaxDistance = Max(distance_, 0.0f);
+}
+
+void Light::SetShadowMaxStrength(float strength)
+{
+    LightDrawable* lightDrawable = static_cast<LightDrawable*>(drawable);
+    lightDrawable->shadowMaxStrength = Clamp(strength, 0.0f, 1.f);
+}
+
+void Light::SetShadowQuantize(float quantize)
+{
+    LightDrawable* lightDrawable = static_cast<LightDrawable*>(drawable);
+    lightDrawable->shadowQuantize = Max(quantize, M_EPSILON);
+}
+
+
+void Light::SetShadowMinView(float minView)
+{
+    LightDrawable* lightDrawable = static_cast<LightDrawable*>(drawable);
+    lightDrawable->shadowMinView = Max(minView, M_EPSILON);
+}
+
+void Light::SetDepthBias(float bias)
+{
+    LightDrawable* lightDrawable = static_cast<LightDrawable*>(drawable);
+    lightDrawable->depthBias = Max(bias, 0.0f);
+}
+
+void Light::SetSlopeScaleBias(float bias)
+{
+    LightDrawable* lightDrawable = static_cast<LightDrawable*>(drawable);
+    lightDrawable->slopeScaleBias = Max(bias, 0.0f);
+}
+
 void Light::SetLightTypeAttr(int type)
 {
     if (type <= LIGHT_SPOT)
@@ -582,5 +584,5 @@ void Light::SetLightTypeAttr(int type)
 
 int Light::LightTypeAttr() const
 {
-    return (int)lightType;
+    return (int)(static_cast<LightDrawable*>(drawable)->lightType);
 }

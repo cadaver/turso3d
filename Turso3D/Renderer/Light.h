@@ -11,7 +11,7 @@
 
 class Camera;
 class GeometryNode;
-class Light;
+class LightDrawable;
 class Texture;
 struct ShadowView;
 
@@ -41,8 +41,8 @@ struct ShadowView
     {
     }
 
-    /// Light associated with the view.
-    Light* light;
+    /// %Light drawable associated with the view.
+    LightDrawable* light;
     /// Viewport within the shadow map.
     IntRect viewport;
     /// Shadow camera.
@@ -74,6 +74,8 @@ struct ShadowView
 /// %Light drawable.
 class LightDrawable : public Drawable
 {
+    friend class Light;
+
 public:
     /// Construct.
     LightDrawable();
@@ -85,55 +87,7 @@ public:
     /// Perform ray test on self and add possible hit to the result vector.
     void OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance) override;
     /// Add debug geometry to be rendered.
-    virtual void OnRenderDebug(DebugRenderer* debug) override;
-
-    /// \todo Move the data here from Light
-};
-
-/// Dynamic light scene node.
-class Light : public OctreeNode
-{
-    friend class LightDrawable;
-
-    OBJECT(Light);
-    
-public:
-    /// Construct.
-    Light();
-    /// Destruct.
-    virtual ~Light();
-
-    /// Register factory and attributes.
-    static void RegisterObject();
-
-    /// Set light type.
-    void SetLightType(LightType type);
-    /// Set color. Alpha component contains specular intensity.
-    void SetColor(const Color& color);
-    /// Set range.
-    void SetRange(float range);
-    /// Set spotlight field of view.
-    void SetFov(float fov);
-    /// Set fade start distance, where 1 represents max draw distance. Only has effect when max draw distance has been defined.
-    void SetFadeStart(float start);
-    /// Set shadow map face resolution in pixels.
-    void SetShadowMapSize(int size);
-    /// Set light shadow fade start distance, where 1 represents shadow max distance.
-    void SetShadowFadeStart(float start);
-    /// Set the directional light cascade split distance, where 1 represents shadow max distance.
-    void SetShadowCascadeSplit(float split);
-    /// Set maximum distance for shadow rendering.
-    void SetShadowMaxDistance(float distance);
-    /// Set maximum (when not faded) shadow strength (default 0 = fully dark).
-    void SetShadowMaxStrength(float strength);
-    /// Set directional light shadow view quantization step.
-    void SetShadowQuantize(float quantize);
-    /// Set directional light shadow view minimum size. This is to prevent unwanted too sharp focusing e.g. when camera is facing the ground.
-    void SetShadowMinView(float minView);
-    /// Set constant depth bias for shadows.
-    void SetDepthBias(float bias);
-    /// Set slope-scaled depth bias for shadows.
-    void SetSlopeScaleBias(float bias);
+    void OnRenderDebug(DebugRenderer* debug) override;
 
     /// Return light type.
     LightType GetLightType() const { return lightType; }
@@ -196,11 +150,6 @@ public:
     const Vector4& ShadowParameters() const { return shadowParameters; }
 
 private:
-    /// Set light type as int. Used in serialization.
-    void SetLightTypeAttr(int lightType);
-    /// Return light type as int. Used in serialization.
-    int LightTypeAttr() const;
-    
     /// Light type.
     LightType lightType;
     /// Light color.
@@ -237,4 +186,89 @@ private:
     std::vector<ShadowView> shadowViews;
     /// Shadow mapping parameters.
     Vector4 shadowParameters;
+};
+
+/// Dynamic light scene node.
+class Light : public OctreeNode
+{
+    OBJECT(Light);
+    
+public:
+    /// Construct.
+    Light();
+    /// Destruct.
+    virtual ~Light();
+
+    /// Register factory and attributes.
+    static void RegisterObject();
+
+    /// Set light type.
+    void SetLightType(LightType type);
+    /// Set color. Alpha component contains specular intensity.
+    void SetColor(const Color& color);
+    /// Set range.
+    void SetRange(float range);
+    /// Set spotlight field of view.
+    void SetFov(float fov);
+    /// Set fade start distance, where 1 represents max draw distance. Only has effect when max draw distance has been defined.
+    void SetFadeStart(float start);
+    /// Set shadow map face resolution in pixels.
+    void SetShadowMapSize(int size);
+    /// Set light shadow fade start distance, where 1 represents shadow max distance.
+    void SetShadowFadeStart(float start);
+    /// Set the directional light cascade split distance, where 1 represents shadow max distance.
+    void SetShadowCascadeSplit(float split);
+    /// Set maximum distance for shadow rendering.
+    void SetShadowMaxDistance(float distance);
+    /// Set maximum (when not faded) shadow strength (default 0 = fully dark).
+    void SetShadowMaxStrength(float strength);
+    /// Set directional light shadow view quantization step.
+    void SetShadowQuantize(float quantize);
+    /// Set directional light shadow view minimum size. This is to prevent unwanted too sharp focusing e.g. when camera is facing the ground.
+    void SetShadowMinView(float minView);
+    /// Set constant depth bias for shadows.
+    void SetDepthBias(float bias);
+    /// Set slope-scaled depth bias for shadows.
+    void SetSlopeScaleBias(float bias);
+
+    /// Return light type.
+    LightType GetLightType() const { return static_cast<LightDrawable*>(drawable)->lightType; }
+    /// Return color.
+    const Color& GetColor() const { return static_cast<LightDrawable*>(drawable)->color; }
+    /// Return range.
+    float Range() const { return static_cast<LightDrawable*>(drawable)->range; }
+    /// Return spotlight field of view.
+    float Fov() const { return static_cast<LightDrawable*>(drawable)->fov; }
+    /// Return fade start as a function of max draw distance.
+    float FadeStart() const { return static_cast<LightDrawable*>(drawable)->fadeStart; }
+    /// Return shadow map face resolution in pixels.
+    int ShadowMapSize() const { return static_cast<LightDrawable*>(drawable)->shadowMapSize; }
+    /// Return directional light shadow cascade absolute end distances.
+    Vector2 ShadowCascadeSplits() const { return static_cast<LightDrawable*>(drawable)->ShadowCascadeSplits(); }
+    /// Return light shadow fade start as a function of max shadow distance.
+    float ShadowFadeStart() const { return static_cast<LightDrawable*>(drawable)->shadowFadeStart; }
+    /// Return directional light cascade split distance as a function of max shadow distance.
+    float ShadowCascadeSplit() const { return static_cast<LightDrawable*>(drawable)->shadowCascadeSplit; }
+    /// Return maximum distance for shadow rendering.
+    float ShadowMaxDistance() const { return static_cast<LightDrawable*>(drawable)->shadowMaxDistance; }
+    /// Return maximum shadow strength.
+    float ShadowMaxStrength() const { return static_cast<LightDrawable*>(drawable)->shadowMaxStrength; }
+    /// Return directional light shadow view quantization step.
+    float ShadowQuantize() const { return static_cast<LightDrawable*>(drawable)->shadowQuantize; }
+    /// Return directional light shadow view minimum size.
+    float ShadowMinView() const { return static_cast<LightDrawable*>(drawable)->shadowMinView; }
+    /// Return constant depth bias.
+    float DepthBias() const { return static_cast<LightDrawable*>(drawable)->depthBias; }
+    /// Return slope-scaled depth bias.
+    float SlopeScaleBias() const { return static_cast<LightDrawable*>(drawable)->slopeScaleBias; }
+    /// Return spotlight world space frustum.
+    Frustum WorldFrustum() const { return static_cast<LightDrawable*>(drawable)->WorldFrustum(); }
+    /// Return point light world space sphere.
+    Sphere WorldSphere() const { return static_cast<LightDrawable*>(drawable)->WorldSphere(); }
+
+private:
+    /// Set light type as int. Used in serialization.
+    void SetLightTypeAttr(int lightType);
+    /// Return light type as int. Used in serialization.
+    int LightTypeAttr() const;
 };

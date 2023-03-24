@@ -31,7 +31,7 @@
 
 static const size_t DRAWABLES_PER_BATCH_TASK = 128;
 
-inline bool CompareLights(Light* lhs, Light* rhs)
+inline bool CompareLights(LightDrawable* lhs, LightDrawable* rhs)
 {
     return lhs->Distance() < rhs->Distance();
 }
@@ -284,7 +284,7 @@ void Renderer::RenderShadowMaps()
         for (size_t j = 0; j < shadowMap.shadowViews.size(); ++j)
         {
             ShadowView* view = shadowMap.shadowViews[j];
-            Light* light = view->light;
+            LightDrawable* light = view->light;
 
             if (view->renderMode == RENDER_STATIC_LIGHT_STORE_STATIC)
             {
@@ -327,7 +327,7 @@ void Renderer::RenderShadowMaps()
         for (size_t j = 0; j < shadowMap.shadowViews.size(); ++j)
         {
             ShadowView* view = shadowMap.shadowViews[j];
-            Light* light = view->light;
+            LightDrawable* light = view->light;
 
             if (view->renderMode != RENDER_STATIC_LIGHT_CACHED)
             {
@@ -396,7 +396,7 @@ void Renderer::RenderDebug()
         return;
 
     for (auto it = lights.begin(); it != lights.end(); ++it)
-        (*it)->GetDrawable()->OnRenderDebug(debug);
+        (*it)->OnRenderDebug(debug);
 
     for (auto it = octantResults.begin(); it != octantResults.end(); ++it)
     {
@@ -437,7 +437,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
             {
                 if (drawable->OnPrepareRender(frameNumber, camera))
                 {
-                    Light* light = static_cast<Light*>(drawable->Owner());
+                    LightDrawable* light = static_cast<LightDrawable*>(drawable);
                     result.lights.push_back(light);
                 }
             }
@@ -479,7 +479,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
     }
 }
 
-bool Renderer::AllocateShadowMap(Light* light)
+bool Renderer::AllocateShadowMap(LightDrawable* light)
 {
     size_t index = light->GetLightType() == LIGHT_DIRECTIONAL ? 0 : 1;
     ShadowMap& shadowMap = shadowMaps[index];
@@ -541,8 +541,7 @@ void Renderer::SortShadowBatches(ShadowMap& shadowMap)
     for (size_t i = 0; i < shadowMap.shadowViews.size(); ++i)
     {
         ShadowView& view = *shadowMap.shadowViews[i];
-
-        Light* light = view.light;
+        LightDrawable* light = view.light;
 
         // Check if view was discarded during shadowcaster collecting
         if (!light)
@@ -838,7 +837,7 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
     // Find the directional light if any
     for (auto it = lights.begin(); it != lights.end(); )
     {
-        Light* light = *it;
+        LightDrawable* light = *it;
         if (light->GetLightType() == LIGHT_DIRECTIONAL)
         {
             if (!dirLight || light->GetColor().Average() > dirLight->GetColor().Average())
@@ -860,7 +859,7 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
     // If shadow maps were dirtied (size or bias change) reset all allocations instead
     for (auto it = lights.begin(); it != lights.end(); ++it)
     {
-        Light* light = *it;
+        LightDrawable* light = *it;
         if (shadowMapsDirty)
             light->SetShadowMap(nullptr);
         else if (drawShadows && light->ShadowStrength() < 1.0f && light->ShadowRect() != IntRect::ZERO)
@@ -886,7 +885,7 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
     {
         ShadowMap& shadowMap = shadowMaps[1];
 
-        Light* light = lights[i];
+        LightDrawable* light = lights[i];
         float cutoff = light->GetLightType() == LIGHT_SPOT ? cosf(light->Fov() * 0.5f * M_DEGTORAD) : 0.0f;
 
         lightData[i].position = Vector4(light->WorldPosition(), 1.0f);
@@ -1079,7 +1078,7 @@ void Renderer::CollectShadowCastersWork(Task* task, unsigned)
 {
     ZoneScoped;
 
-    Light* light = static_cast<CollectShadowCastersTask*>(task)->light;
+    LightDrawable* light = static_cast<CollectShadowCastersTask*>(task)->light;
     LightType lightType = light->GetLightType();
     std::vector<ShadowView>& shadowViews = light->ShadowViews();
 
@@ -1134,14 +1133,14 @@ void Renderer::ProcessShadowCastersWork(Task*, unsigned)
 
     // Queue shadow batch collection tasks. These will also perform shadow batch sorting tasks when done
     size_t shadowTaskIdx = 0;
-    Light* lastLight = nullptr;
+    LightDrawable* lastLight = nullptr;
 
     for (size_t i = 0; i < shadowMaps.size(); ++i)
     {
         ShadowMap& shadowMap = shadowMaps[i];
         for (size_t j = 0; j < shadowMap.shadowViews.size(); ++j)
         {
-            Light* light = shadowMap.shadowViews[j]->light;
+            LightDrawable* light = shadowMap.shadowViews[j]->light;
             // For a point light, make only one task that will handle all of the views and skip rest
             if (light->GetLightType() == LIGHT_POINT && light == lastLight)
                 continue;
@@ -1176,7 +1175,7 @@ void Renderer::ProcessShadowCastersWork(Task*, unsigned)
     // Note: directional light shadow matrices may still be pending, but they are not included here
     for (size_t i = 0; i < lights.size(); ++i)
     {
-        Light* light = lights[i];
+        LightDrawable* light = lights[i];
 
         if (light->ShadowMap())
         {
@@ -1198,7 +1197,7 @@ void Renderer::CollectShadowBatchesWork(Task* task_, unsigned)
     {
         ShadowView& view = *shadowMap.shadowViews[viewIdx];
 
-        Light* light = view.light;
+        LightDrawable* light = view.light;
         LightType lightType = light->GetLightType();
 
         float splitMinZ = minZ, splitMaxZ = maxZ;
@@ -1252,7 +1251,7 @@ void Renderer::CollectShadowBatchesWork(Task* task_, unsigned)
                 const BoundingBox& geometryBox = drawable->WorldBoundingBox();
 
                 bool inView = drawable->InView(frameNumber);
-                bool staticNode = drawable->TestFlag(DF_STATIC);
+                bool staticNode = drawable->IsStatic();
 
                 // Check shadowcaster frustum visibility for point lights; may be visible in view, but not in each cube map face
                 if (lightType == LIGHT_POINT && !shadowFrustum.IsInsideFast(geometryBox))
@@ -1411,7 +1410,7 @@ void Renderer::CullLightsToFrustumWork(Task* task, unsigned)
 
     for (size_t i = 0; i < lights.size(); ++i)
     {
-        Light* light = lights[i];
+        LightDrawable* light = lights[i];
         LightType lightType = light->GetLightType();
 
         if (lightType == LIGHT_POINT)

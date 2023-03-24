@@ -91,7 +91,7 @@ Octree::~Octree()
         Drawable* drawable = *it;
         if (drawable)
         {
-            drawable->SetOctant(nullptr);
+            drawable->octant = nullptr;
             drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
             drawable->Owner()->octree = nullptr;
         }
@@ -259,7 +259,7 @@ void Octree::RemoveDrawable(Drawable* drawable)
         drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
     }
 
-    drawable->SetOctant(nullptr);
+    drawable->octant = nullptr;
 }
 
 void Octree::SetBoundingBoxAttr(const BoundingBox& value)
@@ -376,7 +376,7 @@ void Octree::DeleteChildOctants(Octant* octant, bool deletingOctree)
     for (auto it = octant->drawables.begin(); it != octant->drawables.end(); ++it)
     {
         Drawable* drawable = *it;
-        drawable->SetOctant(nullptr);
+        drawable->octant = nullptr;
         drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
         if (deletingOctree)
             drawable->Owner()->octree = nullptr;
@@ -493,7 +493,7 @@ void Octree::CheckReinsertWork(Task* task_, unsigned threadIndex_)
         if (drawable->TestFlag(DF_OCTREE_UPDATE_CALL))
             drawable->OnOctreeUpdate(frameNumber);
 
-        drawable->SetLastUpdateFrameNumber(frameNumber);
+        drawable->lastUpdateFrameNumber = frameNumber;
 
         // Do nothing if still fits the current octant
         const BoundingBox& box = drawable->WorldBoundingBox();

@@ -75,6 +75,7 @@ inline bool CompareAnimationStates(const SharedPtr<AnimationState>& lhs, const S
 AnimatedModelDrawable::AnimatedModelDrawable() :
     animatedModelFlags(0),
     numBones(0),
+    octree(nullptr),
     rootBone(nullptr)
 {
     SetFlag(DF_SKINNED_GEOMETRY | DF_OCTREE_UPDATE_CALL, true);
@@ -153,19 +154,6 @@ void AnimatedModelDrawable::OnRender(ShaderProgram*, size_t)
     skinMatrixBuffer->Bind(UB_SKINMATRICES);
 }
 
-void AnimatedModelDrawable::OnRenderDebug(DebugRenderer* debug)
-{
-    debug->AddBoundingBox(WorldBoundingBox(), Color::GREEN, false);
-
-    for (size_t i = 0; i < numBones; ++i)
-    {
-        // Skip the root bone, as it has no sensible connection point
-        Bone* bone = bones[i];
-        if (bone != rootBone)
-            debug->AddLine(bone->WorldPosition(), bone->SpatialParent()->WorldPosition(), Color::WHITE, false);
-    }
-}
-
 void AnimatedModelDrawable::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance_)
 {
     if (ray.HitDistance(WorldBoundingBox()) < maxDistance_ && model)
@@ -206,6 +194,19 @@ void AnimatedModelDrawable::OnRaycast(std::vector<RaycastResult>& dest, const Ra
 
         if (res.distance < maxDistance_)
             dest.push_back(res);
+    }
+}
+
+void AnimatedModelDrawable::OnRenderDebug(DebugRenderer* debug)
+{
+    debug->AddBoundingBox(WorldBoundingBox(), Color::GREEN, false);
+
+    for (size_t i = 0; i < numBones; ++i)
+    {
+        // Skip the root bone, as it has no sensible connection point
+        Bone* bone = bones[i];
+        if (bone != rootBone)
+            debug->AddLine(bone->WorldPosition(), bone->SpatialParent()->WorldPosition(), Color::WHITE, false);
     }
 }
 
@@ -261,7 +262,7 @@ void AnimatedModelDrawable::CreateBones()
             bones[i]->SetParent(bones[desc.parentIndex]);
     }
 
-    // Count child bones now
+    // Count child bones now for optimized transform dirtying
     for (size_t i = 0; i < modelBones.size(); ++i)
         bones[i]->CountChildBones();
 
@@ -336,11 +337,11 @@ void AnimatedModelDrawable::SetBoneTransformsDirty()
 {
     for (size_t i = 0; i < numBones; ++i)
     {
-        // If bone has only other bones as children, just set world transform dirty without going through the hierarchy
-        if (bones[i]->NumChildren() > bones[i]->NumChildBones())
-            bones[i]->OnTransformChanged();
-        else
+        // If bone has only other bones as children, just set its world transform dirty without going through the hierarchy. The whole hierarchy will be eventually updated
+        if (bones[i]->NumChildren() == bones[i]->NumChildBones())
             bones[i]->SetFlag(NF_WORLD_TRANSFORM_DIRTY, true);
+        else
+            bones[i]->OnTransformChanged();
     }
 }
 

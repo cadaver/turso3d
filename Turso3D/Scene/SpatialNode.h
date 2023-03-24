@@ -128,7 +128,7 @@ public:
 protected:
     /// Handle being assigned to a new parent node.
     void OnParentSet(Node* newParent, Node* oldParent) override;
-    /// Handle the transform matrix changing.
+    /// Handle the transform matrix changing. Dirty the world transform matrices for the node hierarchy.
     virtual void OnTransformChanged();
 
     /// Parent space position.

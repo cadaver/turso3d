@@ -95,8 +95,8 @@ void OctreeNode::SetStatic(bool enable)
     if (enable != IsStatic())
     {
         drawable->SetFlag(DF_STATIC, enable);
-        // Handle possible octree reinsertion
-        OnTransformChanged();
+        // Reinsert into octree so that cached shadow map invalidation is handled
+        OnBoundingBoxChanged();
     }
 }
 
@@ -106,7 +106,7 @@ void OctreeNode::SetCastShadows(bool enable)
     {
         drawable->SetFlag(DF_CAST_SHADOWS, enable);
         // Reinsert into octree so that cached shadow map invalidation is handled
-        OnTransformChanged();
+        OnBoundingBoxChanged();
     }
 }
 
@@ -117,7 +117,7 @@ void OctreeNode::SetUpdateInvisible(bool enable)
 
 void OctreeNode::SetMaxDistance(float distance_)
 {
-    drawable->SetMaxDistance(Max(distance_, 0.0f));
+    drawable->maxDistance = Max(distance_, 0.0f);
 }
 
 void OctreeNode::OnSceneSet(Scene* newScene, Scene*)
@@ -138,8 +138,15 @@ void OctreeNode::OnSceneSet(Scene* newScene, Scene*)
 void OctreeNode::OnTransformChanged()
 {
     SpatialNode::OnTransformChanged();
-    drawable->SetFlag(DF_WORLD_TRANSFORM_DIRTY | DF_BOUNDING_BOX_DIRTY, true);
 
+    drawable->SetFlag(DF_WORLD_TRANSFORM_DIRTY | DF_BOUNDING_BOX_DIRTY, true);
+    if (drawable->GetOctant() && !drawable->TestFlag(DF_OCTREE_REINSERT_QUEUED))
+        octree->QueueUpdate(drawable);
+}
+
+void OctreeNode::OnBoundingBoxChanged()
+{
+    drawable->SetFlag(DF_BOUNDING_BOX_DIRTY, true);
     if (drawable->GetOctant() && !drawable->TestFlag(DF_OCTREE_REINSERT_QUEUED))
         octree->QueueUpdate(drawable);
 }
@@ -166,5 +173,5 @@ void OctreeNode::OnEnabledChanged(bool newEnabled)
 
 void OctreeNode::OnLayerChanged(unsigned char newLayer)
 {
-    drawable->SetLayer(newLayer);
+    drawable->layer = newLayer;
 }
