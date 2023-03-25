@@ -129,7 +129,7 @@ void OctreeNode::OnSceneSet(Scene* newScene, Scene*)
     {
         // Octree must be attached to the scene root as a child
         octree = newScene->FindChild<Octree>();
-        // Transform may not be final yet. Schedule update but do not insert into octree yet
+        // Transform may not be final yet. Schedule insertion for next octree update
         if (octree && IsEnabled())
             octree->QueueUpdate(drawable);
     }

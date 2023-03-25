@@ -80,39 +80,14 @@ public:
     
     /// Process the queue of nodes to be reinserted. Then sort nodes inside changed octants. This will utilize worker threads.
     void Update(unsigned short frameNumber);
-    /// Resize octree.
+    /// Resize the octree.
     void Resize(const BoundingBox& boundingBox, int numLevels);
-
+    /// Enable or disable threaded update mode. In threaded mode reinsertions go to per-thread queues.
+    void SetThreadedUpdate(bool enable) { threadedUpdate = enable; }
     /// Queue octree reinsertion for a drawable.
-    void QueueUpdate(Drawable* drawable)
-    {
-        if (!drawable)
-            return;
-
-        if (!threadedUpdate)
-        {
-            updateQueue.push_back(drawable);
-            drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, true);
-        }
-        else
-        {
-            drawable->lastUpdateFrameNumber = frameNumber;
-
-            // Do nothing if still fits the current octant
-            const BoundingBox& box = drawable->WorldBoundingBox();
-            Octant* oldOctant = drawable->GetOctant();
-            if (!oldOctant || oldOctant->cullingBox.IsInside(box) != INSIDE)
-            {
-                reinsertQueues[WorkQueue::ThreadIndex()].push_back(drawable);
-                drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, true);
-            }
-        }
-    }
-
+    void QueueUpdate(Drawable* drawable);
     /// Remove a drawable from the octree.
     void RemoveDrawable(Drawable* drawable);
-    /// Enable or disable threaded update mode. In threaded mode reinsertions go to per-thread queues.
-    void SetThreadedUpdate(bool enable);
 
     /// Query for drawables with a raycast and return all results.
     void Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL) const;

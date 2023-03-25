@@ -180,11 +180,6 @@ void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
     // Nodes will be reinserted on next update
 }
 
-void Octree::SetThreadedUpdate(bool enable)
-{
-    threadedUpdate = enable;
-}
-
 void Octree::Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask) const
 {
     ZoneScoped;
@@ -240,6 +235,30 @@ void Octree::FindDrawablesMasked(std::vector<Drawable*>& result, const Frustum& 
     ZoneScoped;
 
     CollectDrawablesMasked(result, const_cast<Octant*>(&root), frustum, drawableFlags, layerMask);
+}
+
+void Octree::QueueUpdate(Drawable* drawable)
+{
+    assert(drawable);
+
+    if (!threadedUpdate)
+    {
+        updateQueue.push_back(drawable);
+        drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, true);
+    }
+    else
+    {
+        drawable->lastUpdateFrameNumber = frameNumber;
+
+        // Do nothing if still fits the current octant
+        const BoundingBox& box = drawable->WorldBoundingBox();
+        Octant* oldOctant = drawable->GetOctant();
+        if (!oldOctant || oldOctant->cullingBox.IsInside(box) != INSIDE)
+        {
+            reinsertQueues[WorkQueue::ThreadIndex()].push_back(drawable);
+            drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, true);
+        }
+    }
 }
 
 void Octree::RemoveDrawable(Drawable* drawable)
