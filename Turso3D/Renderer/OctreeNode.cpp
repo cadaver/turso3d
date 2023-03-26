@@ -56,7 +56,6 @@ void Drawable::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float
         res.normal = -ray.direction;
         res.distance = hitDistance;
         res.drawable = this;
-        res.node = owner;
         res.subObject = 0;
         dest.push_back(res);
     }

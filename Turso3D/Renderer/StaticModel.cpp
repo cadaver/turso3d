@@ -101,7 +101,6 @@ void StaticModelDrawable::OnRaycast(std::vector<RaycastResult>& dest, const Ray&
                     res.normal = (transform * Vector4(res.normal, 0.0f)).Normalized();
                     res.distance = hitDistance;
                     res.drawable = this;
-                    res.node = owner;
                     res.subObject = i;
                 }
             }

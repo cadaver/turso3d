@@ -118,8 +118,6 @@ protected:
     mutable BoundingBox worldBoundingBox;
     /// Owner scene node's world transform matrix.
     Matrix3x4* worldTransform;
-    /// Owner scene node.
-    OctreeNode* owner;
     /// Current octree octant.
     Octant* octant;
     /// %Drawable flags. Used to hold several boolean values to reduce memory use.
@@ -134,6 +132,8 @@ protected:
     float distance;
     /// Max distance for rendering.
     float maxDistance;
+    /// Owner scene node.
+    OctreeNode* owner;
 };
 
 /// Base class for scene nodes that insert drawables to the octree for rendering.

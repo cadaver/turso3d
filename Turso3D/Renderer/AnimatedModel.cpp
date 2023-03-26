@@ -186,7 +186,6 @@ void AnimatedModelDrawable::OnRaycast(std::vector<RaycastResult>& dest, const Ra
                     res.normal = -ray.direction;
                     res.distance = hitDistance;
                     res.drawable = this;
-                    res.node = owner;
                     res.subObject = i;
                 }
             }

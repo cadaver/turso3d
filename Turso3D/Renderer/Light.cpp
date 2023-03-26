@@ -131,7 +131,6 @@ void LightDrawable::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, 
             res.normal = -ray.direction;
             res.distance = hitDistance;
             res.drawable = this;
-            res.node = owner;
             res.subObject = 0;
             dest.push_back(res);
         }
@@ -146,7 +145,6 @@ void LightDrawable::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, 
             res.normal = -ray.direction;
             res.distance = hitDistance;
             res.drawable = this;
-            res.node = owner;
             res.subObject = 0;
             dest.push_back(res);
         }

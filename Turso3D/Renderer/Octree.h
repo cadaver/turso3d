@@ -26,8 +26,6 @@ struct RaycastResult
     float distance;
     /// Hit drawable.
     Drawable* drawable;
-    /// Hit node.
-    OctreeNode* node;
     /// Hit geometry index or other, subclass-specific subobject index.
     size_t subObject;
 };
@@ -42,12 +40,10 @@ struct Octant
     /// Return child octant index based on position.
     size_t ChildIndex(const Vector3& position) const { size_t ret = position.x < center.x ? 0 : 1; ret += position.y < center.y ? 0 : 2; ret += position.z < center.z ? 0 : 4; return ret; }
     
-    /// Drawables contained in the octant.
-    std::vector<Drawable*> drawables;
     /// Expanded (loose) bounding box used for culling the octant and the drawables within it.
     BoundingBox cullingBox;
-    /// Actual bounding box of the octant.
-    BoundingBox worldBoundingBox;
+    /// Drawables contained in the octant.
+    std::vector<Drawable*> drawables;
     /// Bounding box center.
     Vector3 center;
     /// Bounding box half size.
@@ -243,6 +239,8 @@ private:
     std::vector<Drawable*> updateQueue;
     /// Octants which need to have their drawables sorted.
     std::vector<Octant*> sortDirtyOctants;
+    /// Extents of the octree root level box.
+    BoundingBox worldBoundingBox;
     /// Root octant.
     Octant root;
     /// Allocator for child octants.

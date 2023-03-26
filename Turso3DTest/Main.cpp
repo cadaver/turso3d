@@ -358,7 +358,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
             Ray cameraRay(camera->WorldPosition(), camera->WorldDirection());
             RaycastResult res = scene->FindChild<Octree>()->RaycastSingle(cameraRay, DF_GEOMETRY);
-            if (res.node)
+            if (res.drawable)
                 debugRenderer->AddSphere(Sphere(res.position, 0.05f), Color::WHITE, true);
         }
 

@@ -36,10 +36,11 @@ bool CompareDrawables(Drawable* lhs, Drawable* rhs)
 
 void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigned char level_)
 {
-    worldBoundingBox = boundingBox;
+    BoundingBox worldBoundingBox = boundingBox;
+    center = worldBoundingBox.Center();
     halfSize = worldBoundingBox.HalfSize();
     cullingBox = BoundingBox(worldBoundingBox.min - halfSize, worldBoundingBox.max + halfSize);
-    center = worldBoundingBox.Center();
+
     level = level_;
     sortDirty = false;
     parent = parent_;
@@ -58,9 +59,9 @@ bool Octant::FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) cons
     else
     {
         Vector3 quarterSize = 0.5f * halfSize;
-        if (box.min.x <= worldBoundingBox.min.x - quarterSize.x || box.max.x >= worldBoundingBox.max.x + quarterSize.x ||
-            box.min.y <= worldBoundingBox.min.y - quarterSize.y || box.max.y >= worldBoundingBox.max.y + quarterSize.y ||
-            box.max.z <= worldBoundingBox.min.z - quarterSize.z || box.max.z >= worldBoundingBox.max.z + quarterSize.z)
+        if (box.min.x <= cullingBox.min.x + quarterSize.x || box.max.x >= cullingBox.max.x - quarterSize.x ||
+            box.min.y <= cullingBox.min.y + quarterSize.y || box.max.y >= cullingBox.max.y - quarterSize.y ||
+            box.max.z <= cullingBox.min.z + quarterSize.z || box.max.z >= cullingBox.max.z - quarterSize.z)
             return true;
     }
 
@@ -224,7 +225,7 @@ RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, fl
         RaycastResult emptyRes;
         emptyRes.position = emptyRes.normal = Vector3::ZERO;
         emptyRes.distance = M_INFINITY;
-        emptyRes.node = nullptr;
+        emptyRes.drawable = nullptr;
         emptyRes.subObject = 0;
         return emptyRes;
     }
@@ -283,18 +284,18 @@ void Octree::RemoveDrawable(Drawable* drawable)
 
 void Octree::SetBoundingBoxAttr(const BoundingBox& value)
 {
-    root.worldBoundingBox = value;
+    worldBoundingBox = value;
 }
 
 const BoundingBox& Octree::BoundingBoxAttr() const
 {
-    return root.worldBoundingBox;
+    return worldBoundingBox;
 }
 
 void Octree::SetNumLevelsAttr(int numLevels)
 {
     /// Setting the number of level (last attribute) triggers octree resize when deserializing
-    Resize(root.worldBoundingBox, numLevels);
+    Resize(worldBoundingBox, numLevels);
 }
 
 int Octree::NumLevelsAttr() const
@@ -358,8 +359,9 @@ Octant* Octree::CreateChildOctant(Octant* octant, size_t index)
     if (octant->children[index])
         return octant->children[index];
 
-    Vector3 newMin = octant->worldBoundingBox.min;
-    Vector3 newMax = octant->worldBoundingBox.max;
+    // Remove the culling extra from the bounding box before splitting
+    Vector3 newMin = octant->cullingBox.min + octant->halfSize;
+    Vector3 newMax = octant->cullingBox.max - octant->halfSize;
     const Vector3& oldCenter = octant->center;
 
     if (index & 1)
