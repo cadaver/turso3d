@@ -35,7 +35,7 @@ bool CompareDrawables(Drawable* lhs, Drawable* rhs)
         return lhs < rhs;
 }
 
-void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigned char level_)
+void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigned char level_, unsigned char childIndex_)
 {
     BoundingBox worldBoundingBox = boundingBox;
     center = worldBoundingBox.Center();
@@ -43,9 +43,10 @@ void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigne
     cullingBox = BoundingBox(worldBoundingBox.min - halfSize, worldBoundingBox.max + halfSize);
 
     level = level_;
+    numChildren = 0;
+    childIndex = childIndex_;
     sortDirty = false;
     parent = parent_;
-    numDrawables = 0;
 
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
         children[i] = nullptr;
@@ -82,7 +83,7 @@ Octree::Octree() :
 {
     assert(workQueue);
 
-    root.Initialize(nullptr, BoundingBox(-DEFAULT_OCTREE_SIZE, DEFAULT_OCTREE_SIZE), DEFAULT_OCTREE_LEVELS);
+    root.Initialize(nullptr, BoundingBox(-DEFAULT_OCTREE_SIZE, DEFAULT_OCTREE_SIZE), DEFAULT_OCTREE_LEVELS, 0);
 
     // Have at least 1 task for reinsert processing
     reinsertTasks.push_back(new ReinsertDrawablesTask(this, &Octree::CheckReinsertWork));
@@ -182,7 +183,7 @@ void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
     CollectDrawables(updateQueue, &root);
     DeleteChildOctants(&root, false);
     allocator.Reset();
-    root.Initialize(nullptr, boundingBox, (unsigned char)Clamp(numLevels, 1, MAX_OCTREE_LEVELS));
+    root.Initialize(nullptr, boundingBox, (unsigned char)Clamp(numLevels, 1, MAX_OCTREE_LEVELS), 0);
 
     // Nodes will be reinserted on next update
 }
@@ -360,7 +361,7 @@ void Octree::RemoveDrawableFromQueue(Drawable* drawable, std::vector<Drawable*>&
     }
 }
 
-Octant* Octree::CreateChildOctant(Octant* octant, size_t index)
+Octant* Octree::CreateChildOctant(Octant* octant, unsigned char index)
 {
     if (octant->children[index])
         return octant->children[index];
@@ -386,16 +387,18 @@ Octant* Octree::CreateChildOctant(Octant* octant, size_t index)
         newMax.z = oldCenter.z;
 
     Octant* child = allocator.Allocate();
-    child->Initialize(octant, BoundingBox(newMin, newMax), octant->level - 1);
+    child->Initialize(octant, BoundingBox(newMin, newMax), octant->level - 1, index);
     octant->children[index] = child;
+    ++octant->numChildren;
 
     return child;
 }
 
-void Octree::DeleteChildOctant(Octant* octant, size_t index)
+void Octree::DeleteChildOctant(Octant* octant, unsigned char index)
 {
     allocator.Free(octant->children[index]);
     octant->children[index] = nullptr;
+    --octant->numChildren;
 }
 
 void Octree::DeleteChildOctants(Octant* octant, bool deletingOctree)
@@ -409,19 +412,17 @@ void Octree::DeleteChildOctants(Octant* octant, bool deletingOctree)
             drawable->Owner()->octree = nullptr;
     }
     octant->drawables.clear();
-    octant->numDrawables = 0;
 
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
     {
         if (octant->children[i])
         {
             DeleteChildOctants(octant->children[i], deletingOctree);
+            allocator.Free(octant->children[i]);
             octant->children[i] = nullptr;
         }
     }
-
-    if (octant != &root)
-        allocator.Free(octant);
+    octant->numChildren = 0;
 }
 
 void Octree::CollectDrawables(std::vector<Drawable*>& result, Octant* octant) const

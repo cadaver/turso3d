@@ -34,11 +34,11 @@ struct RaycastResult
 struct Octant
 {
     /// Initialize parent and bounds.
-    void Initialize(Octant* parent, const BoundingBox& boundingBox, unsigned char level);
+    void Initialize(Octant* parent, const BoundingBox& boundingBox, unsigned char level, unsigned char childIndex);
     /// Test if a drawable should be inserted in this octant or if a smaller child octant should be created.
     bool FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) const;
     /// Return child octant index based on position.
-    size_t ChildIndex(const Vector3& position) const { size_t ret = position.x < center.x ? 0 : 1; ret += position.y < center.y ? 0 : 2; ret += position.z < center.z ? 0 : 4; return ret; }
+    unsigned char ChildIndex(const Vector3& position) const { unsigned char ret = position.x < center.x ? 0 : 1; ret += position.y < center.y ? 0 : 2; ret += position.z < center.z ? 0 : 4; return ret; }
     /// Add debug geometry to be rendered.
     void OnRenderDebug(DebugRenderer* debug);
 
@@ -50,16 +50,18 @@ struct Octant
     Vector3 center;
     /// Bounding box half size.
     Vector3 halfSize;
-    /// Subdivision level.
+    /// Subdivision level, decreasing for child octants.
     unsigned char level;
-    /// Drawable sort order dirty.
+    /// Number of child octants.
+    unsigned char numChildren;
+    /// The child index of this octant.
+    unsigned char childIndex;
+    /// Drawable sort order dirty flag.
     bool sortDirty;
     /// Child octants.
     Octant* children[NUM_OCTANTS];
     /// Parent octant.
     Octant* parent;
-    /// Number of drawables in this octant and the child octants combined.
-    size_t numDrawables;
 };
 
 /// Acceleration structure for rendering. Should be created as a child of the scene root.
@@ -126,16 +128,9 @@ private:
             octant->sortDirty = true;
             sortDirtyOctants.push_back(octant);
         }
-
-        // Increment the drawable count in the whole parent branch
-        while (octant)
-        {
-            ++octant->numDrawables;
-            octant = octant->parent;
-        }
     }
 
-    /// Remove drawable rom an octant.
+    /// Remove drawable from an octant.
     void RemoveDrawable(Drawable* drawable, Octant* octant)
     {
         if (!octant)
@@ -147,14 +142,12 @@ private:
             if ((*it) == drawable)
             {
                 octant->drawables.erase(it);
-                // Decrement the drawable count in the whole parent branch and erase empty octants as necessary
-                while (octant)
+
+                // Erase empty octants as necessary
+                while (!octant->drawables.size() && !octant->numChildren && octant->parent)
                 {
-                    --octant->numDrawables;
-                    Octant* next = octant->parent;
-                    if (!octant->numDrawables && next)
-                        DeleteChildOctant(next, next->ChildIndex(octant->center));
-                    octant = next;
+                    DeleteChildOctant(octant->parent, octant->childIndex);
+                    octant = octant->parent;
                 }
                 return;
             }
@@ -162,9 +155,9 @@ private:
     }
 
     /// Create a new child octant.
-    Octant* CreateChildOctant(Octant* octant, size_t index);
+    Octant* CreateChildOctant(Octant* octant, unsigned char index);
     /// Delete one child octant.
-    void DeleteChildOctant(Octant* octant, size_t index);
+    void DeleteChildOctant(Octant* octant, unsigned char index);
     /// Delete a child octant hierarchy. If not deleting the octree for good, moves any nodes back to the root octant.
     void DeleteChildOctants(Octant* octant, bool deletingOctree);
     /// Get all drawables from an octant recursively.
