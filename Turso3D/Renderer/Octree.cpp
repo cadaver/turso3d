@@ -2,6 +2,7 @@
 
 #include "../IO/Log.h"
 #include "../Math/Ray.h"
+#include "DebugRenderer.h"
 #include "Octree.h"
 
 #include <cassert>
@@ -67,6 +68,11 @@ bool Octant::FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) cons
 
     // Bounding box too small, should create a child octant
     return false;
+}
+
+void Octant::OnRenderDebug(DebugRenderer* debug)
+{
+    debug->AddBoundingBox(BoundingBox(cullingBox.min + halfSize, cullingBox.max - halfSize), Color::GRAY, true);
 }
 
 Octree::Octree() :

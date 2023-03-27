@@ -39,7 +39,9 @@ struct Octant
     bool FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) const;
     /// Return child octant index based on position.
     size_t ChildIndex(const Vector3& position) const { size_t ret = position.x < center.x ? 0 : 1; ret += position.y < center.y ? 0 : 2; ret += position.z < center.z ? 0 : 4; return ret; }
-    
+    /// Add debug geometry to be rendered.
+    void OnRenderDebug(DebugRenderer* debug);
+
     /// Expanded (loose) bounding box used for culling the octant and the drawables within it.
     BoundingBox cullingBox;
     /// Drawables contained in the octant.

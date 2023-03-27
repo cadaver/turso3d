@@ -403,6 +403,8 @@ void Renderer::RenderDebug()
         for (auto oIt = it->octants.begin(); oIt != it->octants.end(); ++oIt)
         {
             Octant* octant = oIt->first;
+            octant->OnRenderDebug(debug);
+
             for (auto dIt = octant->drawables.begin(); dIt != octant->drawables.end(); ++dIt)
             {
                 Drawable* drawable = *dIt;
