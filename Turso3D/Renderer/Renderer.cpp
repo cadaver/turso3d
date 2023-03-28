@@ -448,12 +448,12 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         else
         {
             result.octants.push_back(std::make_pair(octant, planeMask));
-            result.drawableAcc += octant->drawables.size();
+            result.drawableAcc += octant->drawables.end() - it;
             break;
         }
     }
 
-    // Setup and queue batches collection task if over the node limit now. Note: if not threaded, defer to the end
+    // Setup and queue batches collection task if over the drawable limit now. Note: if not threaded, defer to the end
     if (threaded && result.drawableAcc >= DRAWABLES_PER_BATCH_TASK)
     {
         if (result.collectBatchesTasks.size() <= result.batchTaskIdx)

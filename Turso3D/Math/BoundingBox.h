@@ -242,13 +242,6 @@ public:
     /// Test for equality with another bounding box with epsilon.
     bool Equals(const BoundingBox& box) const { return min.Equals(box.min) && max.Equals(box.max); }
     
-    /// Return transformed by a 3x3 matrix.
-    BoundingBox Transformed(const Matrix3& transform) const;
-    /// Return transformed by a 3x4 matrix.
-    BoundingBox Transformed(const Matrix3x4& transform) const;
-    /// Return projected by a 4x4 projection matrix.
-    Rect Projected(const Matrix4& projection) const;
-    
     /// Test if a point is inside.
     Intersection IsInside(const Vector3& point) const
     {
@@ -286,6 +279,25 @@ public:
     Intersection IsInside(const Sphere& sphere) const;
     /// Test if a sphere is (partially) inside or outside.
     Intersection IsInsideFast(const Sphere& sphere) const;
+    
+    /// Return closest distance of a point to the faces of the box, or 0 if inside.
+    float Distance(const Vector3 & point) const
+    {
+        Vector3 closest(
+            Max(Min(point.x, max.x), min.x),
+            Max(Min(point.y, max.y), min.y),
+            Max(Min(point.z, max.z), min.z)
+        );
+        
+        return sqrtf((point.x - closest.x) * (point.x - closest.x) + (point.y - closest.y) * (point.y - closest.y) + (point.z - closest.z) * (point.z - closest.z));
+    }
+    
+    /// Return transformed by a 3x3 matrix.
+    BoundingBox Transformed(const Matrix3 & transform) const;
+    /// Return transformed by a 3x4 matrix.
+    BoundingBox Transformed(const Matrix3x4 & transform) const;
+    /// Return projected by a 4x4 projection matrix.
+    Rect Projected(const Matrix4 & projection) const;
     
     /// Return as string.
     std::string ToString() const;
