@@ -73,7 +73,7 @@ bool Octant::FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) cons
 
 void Octant::OnRenderDebug(DebugRenderer* debug)
 {
-    debug->AddBoundingBox(BoundingBox(cullingBox.min + halfSize, cullingBox.max - halfSize), Color::GRAY, true);
+    debug->AddBoundingBox(cullingBox, Color::GRAY, true);
 }
 
 Octree::Octree() :
