@@ -260,20 +260,6 @@ Vector3 Camera::ScreenToWorldPoint(const Vector3& screenPos) const
     return ray.origin + ray.direction * screenPos.z;
 }
 
-float Camera::Distance(const Vector3& worldPos) const
-{
-    return (worldPos - WorldPosition()).Length();
-}
-
-float Camera::LodDistance(float distance, float scale_, float bias) const
-{
-    float d = Max(lodBias * bias * scale_ * zoom, M_EPSILON);
-    if (!orthographic)
-        return distance / d;
-    else
-        return orthoSize / d;
-}
-
 Quaternion Camera::FaceCameraRotation(const Vector3& position_, const Quaternion& rotation_, FaceCameraMode mode)
 {
     switch (mode)

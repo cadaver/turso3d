@@ -113,9 +113,9 @@ class Camera : public SpatialNode
     // Convert normalized screen coordinates (0.0 - 1.0) and depth to a world space point.
     Vector3 ScreenToWorldPoint(const Vector3& screenPos) const;
     /// Return distance to position.
-    float Distance(const Vector3& worldPos) const;
+    float Distance(const Vector3& worldPos) const { return (worldPos - WorldPosition()).Length(); }
     /// Return a scene node's LOD scaled distance.
-    float LodDistance(float distance, float scale, float bias) const;
+    float LodDistance(float distance, float nodeScale, float bias) const { float d = Max(lodBias * zoom * bias * nodeScale, M_EPSILON); return !orthographic ? distance / d : orthoSize / d; }
     /// Return a world rotation for facing a camera on certain axes based on the existing world rotation.
     Quaternion FaceCameraRotation(const Vector3& position, const Quaternion& rotation, FaceCameraMode mode);
     /// Get effective world transform for matrix and frustum calculations including reflection but excluding node scaling.
