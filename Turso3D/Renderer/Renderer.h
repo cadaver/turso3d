@@ -18,6 +18,7 @@ class GeometryDrawable;
 class Graphics;
 class LightDrawable;
 class Material;
+class Octant;
 class Octree;
 class RenderBuffer;
 class Scene;
@@ -30,7 +31,6 @@ struct CollectBatchesTask;
 struct CollectShadowBatchesTask;
 struct CollectShadowCastersTask;
 struct CullLightsTask;
-struct Octant;
 struct ShadowView;
 
 static const size_t NUM_CLUSTER_X = 16;

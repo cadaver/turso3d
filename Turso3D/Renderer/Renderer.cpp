@@ -221,13 +221,13 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
 
     // Find the starting points for octree traversal. Include the root if it contains nodes that didn't fit elsewhere
     Octant* rootOctant = octree->Root();
-    if (rootOctant->drawables.size())
+    if (rootOctant->Drawables().size())
         rootLevelOctants.push_back(rootOctant);
 
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
     {
-        if (rootOctant->children[i])
-            rootLevelOctants.push_back(rootOctant->children[i]);
+        if (rootOctant->Child(i))
+            rootLevelOctants.push_back(rootOctant->Child(i));
     }
 
     // Keep track of both batch + octant task progress before main batches can be sorted (batch tasks will add to the counter when queued)
@@ -406,8 +406,9 @@ void Renderer::RenderDebug()
         for (auto oIt = it->octants.begin(); oIt != it->octants.end(); ++oIt)
         {
             Octant* octant = oIt->first;
+            const std::vector<Drawable*>& drawables = octant->Drawables();
 
-            for (auto dIt = octant->drawables.begin(); dIt != octant->drawables.end(); ++dIt)
+            for (auto dIt = drawables.begin(); dIt != drawables.end(); ++dIt)
             {
                 Drawable* drawable = *dIt;
                 if (drawable->TestFlag(DF_GEOMETRY) && drawable->LastFrameNumber() == frameNumber)
@@ -431,7 +432,9 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
             return;
     }
 
-    for (auto it = octant->drawables.begin(); it != octant->drawables.end(); ++it)
+    const std::vector<Drawable*>& drawables = octant->Drawables();
+
+    for (auto it = drawables.begin(); it != drawables.end(); ++it)
     {
         Drawable* drawable = *it;
 
@@ -450,7 +453,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         else
         {
             result.octants.push_back(std::make_pair(octant, planeMask));
-            result.drawableAcc += octant->drawables.end() - it;
+            result.drawableAcc += drawables.end() - it;
             break;
         }
     }
@@ -473,12 +476,12 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         ++result.batchTaskIdx;
     }
 
-    if (recursive && octant->numChildren)
+    if (recursive && octant->HasChildren())
     {
         for (size_t i = 0; i < NUM_OCTANTS; ++i)
         {
-            if (octant->children[i])
-                CollectOctantsAndLights(octant->children[i], result, threaded, true, planeMask);
+            if (octant->Child(i))
+                CollectOctantsAndLights(octant->Child(i), result, threaded, true, planeMask);
         }
     }
 }
@@ -1001,7 +1004,7 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
     {
         Octant* octant = it->first;
         unsigned char planeMask = it->second;
-        std::vector<Drawable*>& drawables = octant->drawables;
+        const std::vector<Drawable*>& drawables = octant->Drawables();
 
         for (auto dIt = drawables.begin(); dIt != drawables.end(); ++dIt)
         {

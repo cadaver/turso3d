@@ -33,12 +33,13 @@ struct RaycastResult
 };
 
 /// %Octree cell, contains up to 8 child octants.
-struct Octant
+class Octant
 {
+    friend class Octree;
+
+public:
     /// Initialize parent and bounds.
     void Initialize(Octant* parent, const BoundingBox& boundingBox, unsigned char level, unsigned char childIndex);
-    /// Test if a drawable should be inserted in this octant or if a smaller child octant should be created.
-    bool FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) const;
     /// Return child octant index based on position.
     unsigned char ChildIndex(const Vector3& position) const { unsigned char ret = position.x < center.x ? 0 : 1; ret += position.y < center.y ? 0 : 2; ret += position.z < center.z ? 0 : 4; return ret; }
     /// Add debug geometry to be rendered.
@@ -46,6 +47,34 @@ struct Octant
 
     /// Return the culling box. Update as necessary.
     const BoundingBox& CullingBox() const;
+    /// Return drawables in this octant.
+    const std::vector<Drawable*>& Drawables() const { return drawables; }
+    /// Return whether has child octants.
+    bool HasChildren() const { return numChildren > 0; }
+    /// Return child octant by index.
+    Octant* Child(size_t index) const { return children[index]; }
+    /// Return parent octant.
+    Octant* Parent() const { return parent; }
+
+    /// Test if a drawable should be inserted in this octant or if a smaller child octant should be created.
+    bool FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) const
+    {
+        // If max split level, size always OK, otherwise check that box is at least half size of octant
+        if (level <= 1 || boxSize.x >= halfSize.x || boxSize.y >= halfSize.y || boxSize.z >= halfSize.z)
+            return true;
+        // Also check if the box can not fit inside a child octant's culling box, in that case size OK (must insert here)
+        else
+        {
+            Vector3 quarterSize = 0.5f * halfSize;
+            if (box.min.x <= fittingBox.min.x + quarterSize.x || box.max.x >= fittingBox.max.x - quarterSize.x ||
+                box.min.y <= fittingBox.min.y + quarterSize.y || box.max.y >= fittingBox.max.y - quarterSize.y ||
+                box.max.z <= fittingBox.min.z + quarterSize.z || box.max.z >= fittingBox.max.z - quarterSize.z)
+                return true;
+        }
+
+        // Bounding box too small, should create a child octant
+        return false;
+    }
 
     /// Mark culling boxes dirty down the parent hierarchy.
     void MarkCullingBoxDirty() const
@@ -64,6 +93,7 @@ struct Octant
     /// Test bit flag. Called internally.
     bool TestFlag(unsigned char bit) const { return (flags & bit) != 0; }
 
+private:
     /// Combined drawable and child octant bounding box. Used for culling tests.
     mutable BoundingBox cullingBox;
     /// Drawables contained in the octant.

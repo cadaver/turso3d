@@ -52,25 +52,6 @@ void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigne
         children[i] = nullptr;
 }
 
-bool Octant::FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) const
-{
-    // If max split level, size always OK, otherwise check that box is at least half size of octant
-    if (level <= 1 || boxSize.x >= halfSize.x || boxSize.y >= halfSize.y || boxSize.z >= halfSize.z)
-        return true;
-    // Also check if the box can not fit inside a child octant's culling box, in that case size OK (must insert here)
-    else
-    {
-        Vector3 quarterSize = 0.5f * halfSize;
-        if (box.min.x <= fittingBox.min.x + quarterSize.x || box.max.x >= fittingBox.max.x - quarterSize.x ||
-            box.min.y <= fittingBox.min.y + quarterSize.y || box.max.y >= fittingBox.max.y - quarterSize.y ||
-            box.max.z <= fittingBox.min.z + quarterSize.z || box.max.z >= fittingBox.max.z - quarterSize.z)
-            return true;
-    }
-
-    // Bounding box too small, should create a child octant
-    return false;
-}
-
 void Octant::OnRenderDebug(DebugRenderer* debug)
 {
     const BoundingBox& box = CullingBox();

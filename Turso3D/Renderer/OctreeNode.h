@@ -10,7 +10,7 @@ class DebugRenderer;
 class Octree;
 class OctreeNode;
 class Ray;
-struct Octant;
+class Octant;
 struct RaycastResult;
 
 static const unsigned short DF_STATIC_GEOMETRY = 0x0;
