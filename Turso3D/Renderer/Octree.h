@@ -40,8 +40,6 @@ class Octant
 public:
     /// Initialize parent and bounds.
     void Initialize(Octant* parent, const BoundingBox& boundingBox, unsigned char level, unsigned char childIndex);
-    /// Return child octant index based on position.
-    unsigned char ChildIndex(const Vector3& position) const { unsigned char ret = position.x < center.x ? 0 : 1; ret += position.y < center.y ? 0 : 2; ret += position.z < center.z ? 0 : 4; return ret; }
     /// Add debug geometry to be rendered.
     void OnRenderDebug(DebugRenderer* debug);
 
@@ -55,6 +53,8 @@ public:
     Octant* Child(size_t index) const { return children[index]; }
     /// Return parent octant.
     Octant* Parent() const { return parent; }
+    /// Return child octant index based on position.
+    unsigned char ChildIndex(const Vector3& position) const { unsigned char ret = position.x < center.x ? 0 : 1; ret += position.y < center.y ? 0 : 2; ret += position.z < center.z ? 0 : 4; return ret; }
 
     /// Test if a drawable should be inserted in this octant or if a smaller child octant should be created.
     bool FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) const
@@ -76,7 +76,7 @@ public:
         return false;
     }
 
-    /// Mark culling boxes dirty down the parent hierarchy.
+    /// Mark culling boxes dirty in the parent hierarchy.
     void MarkCullingBoxDirty() const
     {
         const Octant* octant = this;
@@ -268,6 +268,7 @@ private:
         if (planeMask)
         {
             planeMask = frustum.IsInsideMasked(octant->fittingBox, planeMask);
+            // Terminate if octant completely outside frustum
             if (planeMask == 0xff)
                 return;
         }

@@ -179,7 +179,7 @@ public:
 
 private:
     /// Collect octants and lights from the octree recursively. Queue batch collection tasks while ongoing.
-    void CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, bool threaded, bool recursive, unsigned char planeMask = 0x3f);
+    void CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, unsigned char planeMask = 0x3f);
     /// Allocate shadow map for a light. Return true on success.
     bool AllocateShadowMap(LightDrawable* light);
     /// Sort main opaque and alpha batch queues.

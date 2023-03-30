@@ -423,11 +423,12 @@ Texture* Renderer::ShadowMapTexture(size_t index) const
     return index < shadowMaps.size() ? shadowMaps[index].texture : nullptr;
 }
 
-void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, bool threaded, bool recursive, unsigned char planeMask)
+void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, unsigned char planeMask)
 {
     if (planeMask)
     {
         planeMask = frustum.IsInsideMasked(octant->CullingBox(), planeMask);
+        // Terminate if octant completely outside frustum
         if (planeMask == 0xff)
             return;
     }
@@ -458,8 +459,8 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         }
     }
 
-    // Setup and queue batches collection task if over the drawable limit now. Note: if not threaded, defer to the end
-    if (threaded && result.drawableAcc >= DRAWABLES_PER_BATCH_TASK)
+    // Setup and queue batches collection task if over the drawable limit now
+    if (result.drawableAcc >= DRAWABLES_PER_BATCH_TASK)
     {
         if (result.collectBatchesTasks.size() <= result.batchTaskIdx)
             result.collectBatchesTasks.push_back(new CollectBatchesTask(this, &Renderer::CollectBatchesWork));
@@ -476,12 +477,13 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         ++result.batchTaskIdx;
     }
 
-    if (recursive && octant->HasChildren())
+    // Root octant is handled separately. Otherwise recurse into child octants
+    if (octant != octree->Root() && octant->HasChildren())
     {
         for (size_t i = 0; i < NUM_OCTANTS; ++i)
         {
             if (octant->Child(i))
-                CollectOctantsAndLights(octant->Child(i), result, threaded, true, planeMask);
+                CollectOctantsAndLights(octant->Child(i), result, planeMask);
         }
     }
 }
@@ -814,7 +816,7 @@ void Renderer::CollectOctantsWork(Task* task_, unsigned)
     Octant* octant = task->startOctant;
     ThreadOctantResult& result = octantResults[task->subtreeIdx];
     
-    CollectOctantsAndLights(octant, result, workQueue->NumThreads() > 1, octant != octree->Root());
+    CollectOctantsAndLights(octant, result);
 
     // Queue final batch task for leftover nodes if needed
     if (result.drawableAcc)
