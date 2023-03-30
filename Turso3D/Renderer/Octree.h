@@ -142,6 +142,10 @@ public:
     void QueueUpdate(Drawable* drawable);
     /// Remove a drawable from the octree.
     void RemoveDrawable(Drawable* drawable);
+    /// Insert or reinsert an occluder drawable.
+    void InsertOccluder(Drawable* drawable);
+    /// Remove an occluder drawable.
+    void RemoveOccluder(Drawable* drawable);
     /// Add debug geometry to be rendered. Visualizes the whole octree.
     void OnRenderDebug(DebugRenderer* debug);
 
@@ -153,6 +157,8 @@ public:
     template <class T> void FindDrawables(std::vector<Drawable*>& result, const T& volume, unsigned short drawableFlags, unsigned layerMask = LAYERMASK_ALL) const { CollectDrawables(result, const_cast<Octant*>(&root), volume, drawableFlags, layerMask); }
     /// Query for drawables using a frustum and masked testing.
     void FindDrawablesMasked(std::vector<Drawable*>& result, const Frustum& frustum, unsigned short drawableFlags, unsigned layerMask = LAYERMASK_ALL) const;
+    /// Query for occluders using a frustum and masked testing.
+    void FindOccludersMasked(std::vector<Drawable*>& result, const Frustum& frustum, unsigned layerMask = LAYERMASK_ALL) const;
 
     /// Return whether threaded update is enabled.
     bool ThreadedUpdate() const { return threadedUpdate; }
@@ -202,7 +208,7 @@ private:
             {
                 octant->drawables.erase(it);
 
-                // Erase empty octants as necessary
+                // Erase empty octants as necessary, but never the root
                 while (!octant->drawables.size() && !octant->numChildren && octant->parent)
                 {
                     DeleteChildOctant(octant->parent, octant->childIndex);
@@ -304,6 +310,8 @@ private:
     BoundingBox worldBoundingBox;
     /// Root octant.
     Octant root;
+    /// Root octant for occluders.
+    Octant occluderRoot;
     /// Allocator for child octants.
     Allocator<Octant> allocator;
     /// Cached %WorkQueue subsystem.

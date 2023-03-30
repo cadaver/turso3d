@@ -21,6 +21,7 @@
 #include "Light.h"
 #include "Material.h"
 #include "Model.h"
+#include "Occluder.h"
 #include "Octree.h"
 #include "Renderer.h"
 #include "StaticModel.h"
@@ -171,7 +172,7 @@ void Renderer::SetShadowDepthBiasMul(float depthBiasMul_, float slopeScaleBiasMu
     shadowMapsDirty = true;
 }
 
-void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
+void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bool useOcclusion)
 {
     ZoneScoped;
 
@@ -200,6 +201,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
     opaqueBatches.Clear();
     alphaBatches.Clear();
     lights.clear();
+    occluders.clear();
     instanceTransforms.clear();
     
     minZ = M_MAX_FLOAT;
@@ -213,7 +215,11 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_)
     for (auto it = shadowMaps.begin(); it != shadowMaps.end(); ++it)
         it->Clear();
 
-    // First process moved / animated objects' octree reinsertions
+    // If needed, find occluders from the separate occluder octree. \todo Could be threaded and happen simultaneously with the regular octree update
+    if (useOcclusion)
+        octree->FindOccludersMasked(reinterpret_cast<std::vector<Drawable*>&>(occluders), frustum, viewMask);
+
+    // Process moved / animated objects' octree reinsertions
     octree->Update(frameNumber);
 
     // Enable threaded update during geometry / light gathering in case nodes' OnPrepareRender() causes further reinsertion queuing
@@ -1477,11 +1483,12 @@ void RegisterRendererLibrary()
     // Scene node base attributes are needed
     RegisterSceneLibrary();
     Octree::RegisterObject();
+    Bone::RegisterObject();
     Camera::RegisterObject();
     OctreeNode::RegisterObject();
     GeometryNode::RegisterObject();
     StaticModel::RegisterObject();
-    Bone::RegisterObject();
+    Occluder::RegisterObject();
     AnimatedModel::RegisterObject();
     Light::RegisterObject();
     Material::RegisterObject();

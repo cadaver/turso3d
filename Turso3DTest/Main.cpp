@@ -16,6 +16,7 @@
 #include "Renderer/Light.h"
 #include "Renderer/Material.h"
 #include "Renderer/Model.h"
+#include "Renderer/Occluder.h"
 #include "Renderer/Octree.h"
 #include "Renderer/Renderer.h"
 #include "Resource/ResourceCache.h"
@@ -84,6 +85,19 @@ void CreateScene(Scene* scene, int preset)
             light->SetShadowMapSize(256);
             light->SetShadowMaxDistance(200.0f);
             light->SetMaxDistance(900.0f);
+        }
+
+        {
+            StaticModel* object = scene->CreateChild<StaticModel>();
+            object->SetStatic(true);
+            object->SetPosition(Vector3(0.0f, 25.0f, 0.0f));
+            object->SetScale(50.0f);
+            object->SetModel(cache->LoadResource<Model>("Box.mdl"));
+            object->SetMaterial(cache->LoadResource<Material>("Stone.json"));
+            object->SetCastShadows(true);
+
+            Occluder* occluder = object->CreateChild<Occluder>();
+            occluder->SetModel(object->GetModel());
         }
     }
     else if (preset == 1)
@@ -348,7 +362,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
         // Collect geometries and lights in frustum. Also set debug renderer to use the correct camera view
         {
             PROFILE(PrepareView);
-            renderer->PrepareView(scene, camera, shadowMode > 0);
+            renderer->PrepareView(scene, camera, shadowMode > 0, true);
             debugRenderer->SetView(camera);
         }
         

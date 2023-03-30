@@ -18,6 +18,7 @@ class GeometryDrawable;
 class Graphics;
 class LightDrawable;
 class Material;
+class OccluderDrawable;
 class Octant;
 class Octree;
 class RenderBuffer;
@@ -164,7 +165,7 @@ public:
     /// Set global depth bias multipiers for shadow maps.
     void SetShadowDepthBiasMul(float depthBiasMul, float slopeScaleBiasMul);
     /// Prepare view for rendering. This will utilize worker threads.
-    void PrepareView(Scene* scene, Camera* camera, bool drawShadows);
+    void PrepareView(Scene* scene, Camera* camera, bool drawShadows, bool useOcclusion);
     /// Render shadowmaps before rendering the view. Last shadow framebuffer will be left bound.
     void RenderShadowMaps();
     /// Render opaque objects into the currently set framebuffer and viewport.
@@ -253,6 +254,8 @@ private:
     LightDrawable* dirLight;
     /// Accepted point and spot lights in frustum.
     std::vector<LightDrawable*> lights;
+    /// Found occluders.
+    std::vector<OccluderDrawable*> occluders;
     /// Shadow maps.
     std::vector<ShadowMap> shadowMaps;
     /// Opaque batches.

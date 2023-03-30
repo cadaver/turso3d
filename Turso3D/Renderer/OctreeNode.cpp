@@ -7,6 +7,18 @@
 #include "Octree.h"
 #include "OctreeNode.h"
 
+OctreeNodeBase::OctreeNodeBase() :
+    octree(nullptr),
+    drawable(nullptr)
+{
+}
+
+void OctreeNodeBase::OnLayerChanged(unsigned char newLayer)
+{
+    if (drawable)
+        drawable->SetLayer(newLayer);
+}
+
 Drawable::Drawable() :
     owner(nullptr),
     octant(nullptr),
@@ -66,17 +78,15 @@ void Drawable::OnRenderDebug(DebugRenderer* debug)
     debug->AddBoundingBox(WorldBoundingBox(), Color::GREEN, false);
 }
 
-void Drawable::SetOwner(OctreeNode* owner_)
+void Drawable::SetOwner(OctreeNodeBase* owner_)
 {
     owner = owner_;
     worldTransform = const_cast<Matrix3x4*>(&owner_->WorldTransform());
 }
 
-
-OctreeNode::OctreeNode() :
-    octree(nullptr),
-    drawable(nullptr)
+void Drawable::SetLayer(unsigned char newLayer)
 {
+    layer = newLayer;
 }
 
 void OctreeNode::RegisterObject()
@@ -168,9 +178,4 @@ void OctreeNode::OnEnabledChanged(bool newEnabled)
         else
             octree->RemoveDrawable(drawable);
     }
-}
-
-void OctreeNode::OnLayerChanged(unsigned char newLayer)
-{
-    drawable->layer = newLayer;
 }

@@ -286,8 +286,7 @@ Quaternion Camera::FaceCameraRotation(const Vector3& position_, const Quaternion
 
     case FC_LOOKAT_Y:
         {
-            // Make the Y-only lookat happen on an XZ plane to make sure there are no unwanted transitions
-            // or singularities
+            // Make the Y-only lookat happen on an XZ plane to make sure there are no unwanted transitions or singularities
             Vector3 lookAtVec(position_ - WorldPosition());
             lookAtVec.y = 0.0f;
 
