@@ -114,7 +114,7 @@ class Camera : public SpatialNode
     Vector2 WorldToScreenPoint(const Vector3& worldPos) const;
     // Convert normalized screen coordinates (0.0 - 1.0) and depth to a world space point.
     Vector3 ScreenToWorldPoint(const Vector3& screenPos) const;
-    /// Return depth distance (in camera's forward direction) to position.
+    /// Return distance to position.
     float Distance(const Vector3& worldPos) const;
     /// Return a scene node's LOD scaled distance.
     float LodDistance(float distance, float scale, float bias) const;

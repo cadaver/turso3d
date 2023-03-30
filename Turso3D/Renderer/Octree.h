@@ -8,6 +8,8 @@
 #include "OctreeNode.h"
 
 static const size_t NUM_OCTANTS = 8;
+static const unsigned short OF_DRAWABLES_SORT_DIRTY = 0x1;
+static const unsigned short OF_CULLING_BOX_DIRTY = 0x2;
 
 class Octree;
 class OctreeNode;
@@ -42,10 +44,32 @@ struct Octant
     /// Add debug geometry to be rendered.
     void OnRenderDebug(DebugRenderer* debug);
 
-    /// Expanded (loose) bounding box used for culling the octant and the drawables within it.
-    BoundingBox cullingBox;
+    /// Return the culling box. Update as necessary.
+    const BoundingBox& CullingBox() const;
+
+    /// Mark culling boxes dirty down the parent hierarchy.
+    void MarkCullingBoxDirty() const
+    {
+        const Octant* octant = this;
+        
+        while (octant && !octant->TestFlag(OF_CULLING_BOX_DIRTY))
+        {
+            octant->SetFlag(OF_CULLING_BOX_DIRTY, true);
+            octant = octant->parent;
+        }
+    }
+
+    /// Set bit flag. Called internally.
+    void SetFlag(unsigned char bit, bool set) const { if (set) flags |= bit; else flags &= ~bit; }
+    /// Test bit flag. Called internally.
+    bool TestFlag(unsigned char bit) const { return (flags & bit) != 0; }
+
+    /// Combined drawable and child octant bounding box. Used for culling tests.
+    mutable BoundingBox cullingBox;
     /// Drawables contained in the octant.
     std::vector<Drawable*> drawables;
+    /// Expanded (loose) bounding box used for fitting drawables within the octant.
+    BoundingBox fittingBox;
     /// Bounding box center.
     Vector3 center;
     /// Bounding box half size.
@@ -56,8 +80,8 @@ struct Octant
     unsigned char numChildren;
     /// The child index of this octant.
     unsigned char childIndex;
-    /// Drawable sort order dirty flag.
-    bool sortDirty;
+    /// Dirty flags.
+    mutable unsigned char flags;
     /// Child octants.
     Octant* children[NUM_OCTANTS];
     /// Parent octant.
@@ -88,6 +112,8 @@ public:
     void QueueUpdate(Drawable* drawable);
     /// Remove a drawable from the octree.
     void RemoveDrawable(Drawable* drawable);
+    /// Add debug geometry to be rendered. Visualizes the whole octree.
+    void OnRenderDebug(DebugRenderer* debug);
 
     /// Query for drawables with a raycast and return all results.
     void Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance = M_INFINITY, unsigned layerMask = LAYERMASK_ALL) const;
@@ -121,11 +147,12 @@ private:
     void AddDrawable(Drawable* drawable, Octant* octant)
     {
         octant->drawables.push_back(drawable);
+        octant->MarkCullingBoxDirty();
         drawable->octant = octant;
 
-        if (!octant->sortDirty)
+        if (!octant->TestFlag(OF_DRAWABLES_SORT_DIRTY))
         {
-            octant->sortDirty = true;
+            octant->SetFlag(OF_DRAWABLES_SORT_DIRTY, true);
             sortDirtyOctants.push_back(octant);
         }
     }
@@ -135,6 +162,8 @@ private:
     {
         if (!octant)
             return;
+
+        octant->MarkCullingBoxDirty();
 
         // Do not set the drawable's octant pointer to zero, as the drawable may already be added into another octant. Just remove from octant
         for (auto it = octant->drawables.begin(); it != octant->drawables.end(); ++it)
@@ -174,7 +203,7 @@ private:
     /// Collect nodes matching flags using a volume such as frustum or sphere.
     template <class T> void CollectDrawables(std::vector<Drawable*>& result, Octant* octant, const T& volume, unsigned short drawableFlags, unsigned layerMask) const
     {
-        Intersection res = volume.IsInside(octant->cullingBox);
+        Intersection res = volume.IsInside(octant->fittingBox);
         if (res == OUTSIDE)
             return;
         
@@ -192,10 +221,13 @@ private:
                     result.push_back(drawable);
             }
             
-            for (size_t i = 0; i < NUM_OCTANTS; ++i)
+            if (octant->numChildren)
             {
-                if (octant->children[i])
-                    CollectDrawables(result, octant->children[i], volume, drawableFlags, layerMask);
+                for (size_t i = 0; i < NUM_OCTANTS; ++i)
+                {
+                    if (octant->children[i])
+                        CollectDrawables(result, octant->children[i], volume, drawableFlags, layerMask);
+                }
             }
         }
     }
@@ -205,7 +237,7 @@ private:
     {
         if (planeMask)
         {
-            planeMask = frustum.IsInsideMasked(octant->cullingBox, planeMask);
+            planeMask = frustum.IsInsideMasked(octant->fittingBox, planeMask);
             if (planeMask == 0xff)
                 return;
         }
@@ -219,10 +251,13 @@ private:
                 result.push_back(drawable);
         }
 
-        for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        if (octant->numChildren)
         {
-            if (octant->children[i])
-                CollectDrawablesMasked(result, octant->children[i], frustum, drawableFlags, layerMask, planeMask);
+            for (size_t i = 0; i < NUM_OCTANTS; ++i)
+            {
+                if (octant->children[i])
+                    CollectDrawablesMasked(result, octant->children[i], frustum, drawableFlags, layerMask, planeMask);
+            }
         }
     }
 

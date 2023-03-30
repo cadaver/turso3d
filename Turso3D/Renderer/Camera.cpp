@@ -275,7 +275,7 @@ Vector3 Camera::ScreenToWorldPoint(const Vector3& screenPos) const
 
 float Camera::Distance(const Vector3& worldPos) const
 {
-    return Abs(WorldDirection().DotProduct(worldPos - WorldPosition()));
+    return (worldPos - WorldPosition()).Length();
 }
 
 float Camera::LodDistance(float distance, float scale_, float bias) const

@@ -40,12 +40,12 @@ void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigne
     BoundingBox worldBoundingBox = boundingBox;
     center = worldBoundingBox.Center();
     halfSize = worldBoundingBox.HalfSize();
-    cullingBox = BoundingBox(worldBoundingBox.min - halfSize, worldBoundingBox.max + halfSize);
+    fittingBox = BoundingBox(worldBoundingBox.min - halfSize, worldBoundingBox.max + halfSize);
 
     level = level_;
     numChildren = 0;
     childIndex = childIndex_;
-    sortDirty = false;
+    flags = OF_CULLING_BOX_DIRTY;
     parent = parent_;
 
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
@@ -61,9 +61,9 @@ bool Octant::FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) cons
     else
     {
         Vector3 quarterSize = 0.5f * halfSize;
-        if (box.min.x <= cullingBox.min.x + quarterSize.x || box.max.x >= cullingBox.max.x - quarterSize.x ||
-            box.min.y <= cullingBox.min.y + quarterSize.y || box.max.y >= cullingBox.max.y - quarterSize.y ||
-            box.max.z <= cullingBox.min.z + quarterSize.z || box.max.z >= cullingBox.max.z - quarterSize.z)
+        if (box.min.x <= fittingBox.min.x + quarterSize.x || box.max.x >= fittingBox.max.x - quarterSize.x ||
+            box.min.y <= fittingBox.min.y + quarterSize.y || box.max.y >= fittingBox.max.y - quarterSize.y ||
+            box.max.z <= fittingBox.min.z + quarterSize.z || box.max.z >= fittingBox.max.z - quarterSize.z)
             return true;
     }
 
@@ -73,7 +73,52 @@ bool Octant::FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) cons
 
 void Octant::OnRenderDebug(DebugRenderer* debug)
 {
-    debug->AddBoundingBox(cullingBox, Color::GRAY, true);
+    const BoundingBox& box = CullingBox();
+    if (!debug->IsInside(box))
+        return;
+
+    debug->AddBoundingBox(box, Color::GRAY, true);
+
+    if (numChildren)
+    {
+        for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        {
+            if (children[i])
+                children[i]->OnRenderDebug(debug);
+        }
+    }
+}
+
+const BoundingBox& Octant::CullingBox() const
+{
+    if (TestFlag(OF_CULLING_BOX_DIRTY))
+    {
+        if (!numChildren && drawables.empty())
+            cullingBox.Define(center);
+        else
+        {
+            // Use a temporary bounding box for calculations in case many threads call this simultaneously
+            BoundingBox tempBox;
+
+            for (auto it = drawables.begin(); it != drawables.end(); ++it)
+                tempBox.Merge((*it)->WorldBoundingBox());
+
+            if (numChildren)
+            {
+                for (size_t i = 0; i < NUM_OCTANTS; ++i)
+                {
+                    if (children[i])
+                        tempBox.Merge(children[i]->CullingBox());
+                }
+            }
+
+            cullingBox = tempBox;
+        }
+
+        SetFlag(OF_CULLING_BOX_DIRTY, false);
+    }
+
+    return cullingBox;
 }
 
 Octree::Octree() :
@@ -163,12 +208,12 @@ void Octree::Update(unsigned short frameNumber_)
 
     updateQueue.clear();
 
-    // Sort octants' nodes by address and put lights first
+    // Sort octants' drawables by address and put lights first
     for (auto it = sortDirtyOctants.begin(); it != sortDirtyOctants.end(); ++it)
     {
         Octant* octant = *it;
         std::sort(octant->drawables.begin(), octant->drawables.end(), CompareDrawables);
-        octant->sortDirty = false;
+        octant->SetFlag(OF_DRAWABLES_SORT_DIRTY, false);
     }
 
     sortDirtyOctants.clear();
@@ -186,6 +231,11 @@ void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
     root.Initialize(nullptr, boundingBox, (unsigned char)Clamp(numLevels, 1, MAX_OCTREE_LEVELS), 0);
 
     // Nodes will be reinserted on next update
+}
+
+void Octree::OnRenderDebug(DebugRenderer* debug)
+{
+    root.OnRenderDebug(debug);
 }
 
 void Octree::Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask) const
@@ -249,6 +299,9 @@ void Octree::QueueUpdate(Drawable* drawable)
 {
     assert(drawable);
 
+    if (drawable->octant)
+        drawable->octant->MarkCullingBoxDirty();
+
     if (!threadedUpdate)
     {
         updateQueue.push_back(drawable);
@@ -261,7 +314,7 @@ void Octree::QueueUpdate(Drawable* drawable)
         // Do nothing if still fits the current octant
         const BoundingBox& box = drawable->WorldBoundingBox();
         Octant* oldOctant = drawable->GetOctant();
-        if (!oldOctant || oldOctant->cullingBox.IsInside(box) != INSIDE)
+        if (!oldOctant || oldOctant->fittingBox.IsInside(box) != INSIDE)
         {
             reinsertQueues[WorkQueue::ThreadIndex()].push_back(drawable);
             drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, true);
@@ -325,7 +378,7 @@ void Octree::ReinsertDrawables(std::vector<Drawable*>& drawables)
         {
             // If drawable does not fit fully inside root octant, must remain in it
             bool insertHere = (newOctant == &root) ?
-                (newOctant->cullingBox.IsInside(box) != INSIDE || newOctant->FitBoundingBox(box, boxSize)) :
+                (newOctant->fittingBox.IsInside(box) != INSIDE || newOctant->FitBoundingBox(box, boxSize)) :
                 newOctant->FitBoundingBox(box, boxSize);
 
             if (insertHere)
@@ -367,8 +420,8 @@ Octant* Octree::CreateChildOctant(Octant* octant, unsigned char index)
         return octant->children[index];
 
     // Remove the culling extra from the bounding box before splitting
-    Vector3 newMin = octant->cullingBox.min + octant->halfSize;
-    Vector3 newMax = octant->cullingBox.max - octant->halfSize;
+    Vector3 newMin = octant->fittingBox.min + octant->halfSize;
+    Vector3 newMax = octant->fittingBox.max - octant->halfSize;
     const Vector3& oldCenter = octant->center;
 
     if (index & 1)
@@ -413,26 +466,32 @@ void Octree::DeleteChildOctants(Octant* octant, bool deletingOctree)
     }
     octant->drawables.clear();
 
-    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+    if (octant->numChildren)
     {
-        if (octant->children[i])
+        for (size_t i = 0; i < NUM_OCTANTS; ++i)
         {
-            DeleteChildOctants(octant->children[i], deletingOctree);
-            allocator.Free(octant->children[i]);
-            octant->children[i] = nullptr;
+            if (octant->children[i])
+            {
+                DeleteChildOctants(octant->children[i], deletingOctree);
+                allocator.Free(octant->children[i]);
+                octant->children[i] = nullptr;
+            }
         }
+        octant->numChildren = 0;
     }
-    octant->numChildren = 0;
 }
 
 void Octree::CollectDrawables(std::vector<Drawable*>& result, Octant* octant) const
 {
     result.insert(result.end(), octant->drawables.begin(), octant->drawables.end());
 
-    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+    if (octant->numChildren)
     {
-        if (octant->children[i])
-            CollectDrawables(result, octant->children[i]);
+        for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        {
+            if (octant->children[i])
+                CollectDrawables(result, octant->children[i]);
+        }
     }
 }
 
@@ -447,16 +506,19 @@ void Octree::CollectDrawables(std::vector<Drawable*>& result, Octant* octant, un
             result.push_back(drawable);
     }
 
-    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+    if (octant->numChildren)
     {
-        if (octant->children[i])
-            CollectDrawables(result, octant->children[i], drawableFlags, layerMask);
+        for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        {
+            if (octant->children[i])
+                CollectDrawables(result, octant->children[i], drawableFlags, layerMask);
+        }
     }
 }
 
 void Octree::CollectDrawables(std::vector<RaycastResult>& result, Octant* octant, const Ray& ray, unsigned short drawableFlags, float maxDistance, unsigned layerMask) const
 {
-    float octantDist = ray.HitDistance(octant->cullingBox);
+    float octantDist = ray.HitDistance(octant->fittingBox);
     if (octantDist >= maxDistance)
         return;
 
@@ -469,16 +531,19 @@ void Octree::CollectDrawables(std::vector<RaycastResult>& result, Octant* octant
             drawable->OnRaycast(result, ray, maxDistance);
     }
 
-    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+    if (octant->numChildren)
     {
-        if (octant->children[i])
-            CollectDrawables(result, octant->children[i], ray, drawableFlags, maxDistance, layerMask);
+        for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        {
+            if (octant->children[i])
+                CollectDrawables(result, octant->children[i], ray, drawableFlags, maxDistance, layerMask);
+        }
     }
 }
 
 void Octree::CollectDrawables(std::vector<std::pair<Drawable*, float> >& result, Octant* octant, const Ray& ray, unsigned short drawableFlags, float maxDistance, unsigned layerMask) const
 {
-    float octantDist = ray.HitDistance(octant->cullingBox);
+    float octantDist = ray.HitDistance(octant->fittingBox);
     if (octantDist >= maxDistance)
         return;
 
@@ -495,10 +560,13 @@ void Octree::CollectDrawables(std::vector<std::pair<Drawable*, float> >& result,
         }
     }
 
-    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+    if (octant->numChildren)
     {
-        if (octant->children[i])
-            CollectDrawables(result, octant->children[i], ray, drawableFlags, maxDistance, layerMask);
+        for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        {
+            if (octant->children[i])
+                CollectDrawables(result, octant->children[i], ray, drawableFlags, maxDistance, layerMask);
+        }
     }
 }
 
@@ -526,7 +594,7 @@ void Octree::CheckReinsertWork(Task* task_, unsigned threadIndex_)
         // Do nothing if still fits the current octant
         const BoundingBox& box = drawable->WorldBoundingBox();
         Octant* oldOctant = drawable->GetOctant();
-        if (!oldOctant || oldOctant->cullingBox.IsInside(box) != INSIDE)
+        if (!oldOctant || oldOctant->fittingBox.IsInside(box) != INSIDE)
             reinsertQueue.push_back(drawable);
         else
             drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);

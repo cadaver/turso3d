@@ -395,6 +395,9 @@ void Renderer::RenderDebug()
     if (!debug)
         return;
 
+    if (octree)
+        octree->OnRenderDebug(debug);
+
     for (auto it = lights.begin(); it != lights.end(); ++it)
         (*it)->OnRenderDebug(debug);
 
@@ -403,7 +406,6 @@ void Renderer::RenderDebug()
         for (auto oIt = it->octants.begin(); oIt != it->octants.end(); ++oIt)
         {
             Octant* octant = oIt->first;
-            octant->OnRenderDebug(debug);
 
             for (auto dIt = octant->drawables.begin(); dIt != octant->drawables.end(); ++dIt)
             {
@@ -424,7 +426,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
 {
     if (planeMask)
     {
-        planeMask = frustum.IsInsideMasked(octant->cullingBox, planeMask);
+        planeMask = frustum.IsInsideMasked(octant->CullingBox(), planeMask);
         if (planeMask == 0xff)
             return;
     }
@@ -471,7 +473,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         ++result.batchTaskIdx;
     }
 
-    if (recursive)
+    if (recursive && octant->numChildren)
     {
         for (size_t i = 0; i < NUM_OCTANTS; ++i)
         {

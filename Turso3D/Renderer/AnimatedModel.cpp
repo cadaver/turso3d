@@ -90,17 +90,16 @@ void AnimatedModelDrawable::OnWorldBoundingBoxUpdate() const
         {
             const std::vector<ModelBone>& modelBones = model->Bones();
 
-            if (modelBones[0].active)
-                worldBoundingBox = modelBones[0].boundingBox.Transformed(bones[0]->WorldTransform());
-            else
-                worldBoundingBox.Undefine();
+            // Use a temporary bounding box for calculations in case many threads call this simultaneously
+            BoundingBox tempBox;
 
-            for (size_t i = 1; i < numBones; ++i)
+            for (size_t i = 0; i < numBones; ++i)
             {
                 if (modelBones[i].active)
-                    worldBoundingBox.Merge(modelBones[i].boundingBox.Transformed(bones[i]->WorldTransform()));
+                    tempBox.Merge(modelBones[i].boundingBox.Transformed(bones[i]->WorldTransform()));
             }
 
+            worldBoundingBox = tempBox;
             boneBoundingBox = worldBoundingBox.Transformed(WorldTransform().Inverse());
             animatedModelFlags &= ~AMF_BONE_BOUNDING_BOX_DIRTY;
         }
