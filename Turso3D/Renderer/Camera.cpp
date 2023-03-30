@@ -17,9 +17,7 @@ static const Matrix4 flipMatrix(
 
 Camera::Camera() :
     viewMatrix(Matrix3x4::IDENTITY),
-    worldDirection(Vector3::FORWARD),
     viewMatrixDirty(false),
-    worldDirectionDirty(false),
     orthographic(false),
     flipVertical(false),
     nearClip(DEFAULT_NEARCLIP),
@@ -120,17 +118,6 @@ Frustum Camera::ViewSpaceSplitFrustum(float nearClip_, float farClip_) const
         ret.DefineOrtho(orthoSize, aspectRatio, zoom, nearClip_, farClip_);
 
     return ret;
-}
-
-const Matrix3x4& Camera::ViewMatrix() const
-{
-    if (viewMatrixDirty)
-    {
-        viewMatrix = EffectiveWorldTransform().Inverse();
-        viewMatrixDirty = false;
-    }
-
-    return viewMatrix;
 }
 
 Matrix4 Camera::ProjectionMatrix(bool apiSpecific) const
@@ -342,9 +329,7 @@ bool Camera::IsProjectionValid() const
 void Camera::OnTransformChanged()
 {
     SpatialNode::OnTransformChanged();
-
     viewMatrixDirty = true;
-    worldDirectionDirty = true;
 }
 
 void Camera::SetReflectionPlaneAttr(const Vector4& value)
