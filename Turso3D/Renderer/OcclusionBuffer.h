@@ -26,7 +26,7 @@ struct DepthValue
 static const int OCCLUSION_MIN_SIZE = 8;
 static const size_t OCCLUSION_DEFAULT_MAX_TRIANGLES = 8192;
 static const float OCCLUSION_X_SCALE = 65536.0f;
-static const float OCCLUSION_Z_SCALE = 16777216.0f;
+static const float OCCLUSION_Z_SCALE = 1073741824.0f;
 
 /// Software renderer for occlusion.
 class OcclusionBuffer : public RefCounted
@@ -43,6 +43,8 @@ public:
     void SetView(Camera* camera);
     /// Set maximum triangles to render.
     void SetMaxTriangles(unsigned triangles);
+    /// Only reset number of triangles but do not clear.
+    void Reset();
     /// Clear the buffer and reset number of triangles.
     void Clear();
     /// Draw a triangle mesh to the buffer using non-indexed geometry.
@@ -134,10 +136,6 @@ private:
     Matrix4 projection;
     /// Combined view and projection matrix.
     Matrix4 viewProj;
-    /// Near clip distance.
-    float nearClip;
-    /// Far clip distance.
-    float farClip;
     /// X scaling for viewport transform.
     float scaleX;
     /// Y scaling for viewport transform.
@@ -146,10 +144,6 @@ private:
     float offsetX;
     /// Y offset for viewport transform.
     float offsetY;
-    /// Combined X projection and viewport transform.
-    float projOffsetScaleX;
-    /// Combined Y projection and viewport transform.
-    float projOffsetScaleY;
     /// Highest level buffer with safety padding.
     SharedArrayPtr<int> fullBuffer;
     /// Reduced size depth buffers.

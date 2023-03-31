@@ -223,13 +223,11 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     if (useOcclusion)
     {
         octree->FindOccludersMasked(reinterpret_cast<std::vector<Drawable*>&>(occluders), frustum, viewMask);
-
-        if (occluders.size())
-        {
-            SortOccluders();
-            DrawOccluders();
-        }
+        SortOccluders();
+        DrawOccluders();
     }
+    else
+        occlusionBuffer->Reset();
 
     // Process moved / animated objects' octree reinsertions
     octree->Update(frameNumber);
@@ -454,7 +452,10 @@ void Renderer::SortOccluders()
 
     // Check if had no accepted occluders, switch to no occlusion in that case
     if (occluders.size() && occluders[0]->Distance() >= M_MAX_FLOAT)
+    {
         occluders.clear();
+        occlusionBuffer->Reset();
+    }
 }
 
 void Renderer::DrawOccluders()
@@ -511,13 +512,19 @@ void Renderer::DrawOccluders()
 
 void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, unsigned char planeMask)
 {
+    const BoundingBox& octantBox = octant->CullingBox();
+
     if (planeMask)
     {
-        planeMask = frustum.IsInsideMasked(octant->CullingBox(), planeMask);
-        // Terminate if octant completely outside frustum or occluded
-        if (planeMask == 0xff || (occluders.size() && !occlusionBuffer->IsVisible(octant->CullingBox())))
+        // If not already inside all frustum planes, do frustum test and terminate if completely outside
+        planeMask = frustum.IsInsideMasked(octantBox, planeMask);
+        if (planeMask == 0xff)
             return;
     }
+
+    // Check octant occlusion before proceeding further
+    if (occluders.size() && !occlusionBuffer->IsVisible(octantBox))
+        return;
 
     const std::vector<Drawable*>& drawables = octant->Drawables();
 
@@ -527,9 +534,9 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
 
         if (drawable->TestFlag(DF_LIGHT))
         {
-            const BoundingBox& drawableBox = drawable->WorldBoundingBox();
-            if ((drawable->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(drawableBox, planeMask)) && (!occluders.size() || occlusionBuffer->IsVisible(drawableBox)) &&
-                drawable->OnPrepareRender(frameNumber, camera))
+            const BoundingBox& lightBox = drawable->WorldBoundingBox();
+            // Test each light's occlusion separately before storing, as lights make the rendering more expensive and are limited per view
+            if ((drawable->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(lightBox, planeMask)) && (!occluders.size() || occlusionBuffer->IsVisible(lightBox)) && drawable->OnPrepareRender(frameNumber, camera))
                 result.lights.push_back(static_cast<LightDrawable*>(drawable));
         }
         // Lights are sorted first in octants, so break when first geometry encountered. Store the octant for batch collecting
@@ -1098,8 +1105,9 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
             {
                 const BoundingBox& geometryBox = drawable->WorldBoundingBox();
 
-                // Deliberately skip drawable occlusion test to debug why octant visibility test is not working optimally
-                if ((!planeMask || frustum.IsInsideMaskedFast(geometryBox, planeMask)) /* && (!occluders.size() || occlusionBuffer->IsVisible(geometryBox)) */ && drawable->OnPrepareRender(frameNumber, camera))
+                // Note: to strike a balance between performance and occlusion accuracy, per-geometry occlusion tests are skipped for now,
+                // as octants are already tested with combined actual drawable bounds
+                if ((!planeMask || frustum.IsInsideMaskedFast(geometryBox, planeMask)) && drawable->OnPrepareRender(frameNumber, camera))
                 {
                     result.geometryBounds.Merge(geometryBox);
 

@@ -19,9 +19,7 @@ OcclusionBuffer::OcclusionBuffer() :
     height(0),
     numTriangles(0),
     maxTriangles(OCCLUSION_DEFAULT_MAX_TRIANGLES),
-    depthHierarchyDirty(true),
-    nearClip(0.0f),
-    farClip(0.0f)
+    depthHierarchyDirty(true)
 {
 }
 
@@ -83,14 +81,17 @@ void OcclusionBuffer::SetView(Camera* camera)
     view = camera->ViewMatrix();
     projection = camera->ProjectionMatrix(false);
     viewProj = projection * view;
-    nearClip = camera->NearClip();
-    farClip = camera->FarClip();
     CalculateViewport();
 }
 
 void OcclusionBuffer::SetMaxTriangles(unsigned triangles)
 {
     maxTriangles = triangles;
+}
+
+void OcclusionBuffer::Reset()
+{
+    numTriangles = 0;
 }
 
 void OcclusionBuffer::Clear()
@@ -105,7 +106,7 @@ void OcclusionBuffer::Clear()
     size_t count = width * height;
     
     while (count--)
-        *dest++ = 0x7fffffff;
+        *dest++ = OCCLUSION_Z_SCALE;
     
     depthHierarchyDirty = true;
 }
@@ -209,7 +210,7 @@ void OcclusionBuffer::BuildDepthHierarchy()
 {
     ZoneScoped;
 
-    if (!buffer)
+    if (!buffer || numTriangles)
         return;
     
     // Build the first mip level from the pixel-level data
@@ -304,7 +305,7 @@ void OcclusionBuffer::BuildDepthHierarchy()
 
 bool OcclusionBuffer::IsVisible(const BoundingBox& worldSpaceBox) const
 {
-    if (!buffer)
+    if (!buffer || !numTriangles)
         return true;
     
     // Transform corners to projection space
@@ -372,7 +373,7 @@ bool OcclusionBuffer::IsVisible(const BoundingBox& worldSpaceBox) const
     if (!depthHierarchyDirty)
     {
         // Start from lowest mip level and check if a conclusive result can be found
-        for (int i = mipBuffers.size() - 1; i >= 0; --i)
+        for (int i = (int)mipBuffers.size() - 1; i >= 0; --i)
         {
             int shift = i + 1;
             int mipWidth = width >> shift;
@@ -430,8 +431,6 @@ void OcclusionBuffer::CalculateViewport()
     scaleY = -0.5f * height;
     offsetX = 0.5f * width + 0.5f;
     offsetY = 0.5f * height + 0.5f;
-    projOffsetScaleX = projection.m00 * scaleX;
-    projOffsetScaleY = projection.m11 * scaleY;
 }
 
 void OcclusionBuffer::DrawTriangle(Vector4* vertices)
