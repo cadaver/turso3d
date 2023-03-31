@@ -430,6 +430,9 @@ void Renderer::RenderDebug()
             }
         }
     }
+
+    for (auto it = occluders.begin(); it != occluders.end(); ++it)
+        (*it)->OnRenderDebug(debug);
 }
 
 Texture* Renderer::ShadowMapTexture(size_t index) const

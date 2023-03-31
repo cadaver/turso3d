@@ -28,14 +28,14 @@ static const size_t OCCLUSION_DEFAULT_MAX_TRIANGLES = 8192;
 static const float OCCLUSION_X_SCALE = 65536.0f;
 static const float OCCLUSION_Z_SCALE = 1073741824.0f;
 
-/// Software renderer for occlusion.
+/// Software rasterizer for occlusion.
 class OcclusionBuffer : public RefCounted
 {
 public:
     /// Construct.
     OcclusionBuffer();
     /// Destruct.
-    virtual ~OcclusionBuffer();
+    ~OcclusionBuffer();
     
     /// Set occlusion buffer size.
     bool SetSize(int newWidth, int newHeight);

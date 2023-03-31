@@ -38,9 +38,9 @@ bool OccluderDrawable::OnPrepareRender(unsigned short frameNumber, Camera* camer
     return true;
 }
 
-void OccluderDrawable::OnRenderDebug(DebugRenderer*)
+void OccluderDrawable::OnRenderDebug(DebugRenderer* debug)
 {
-    /// \todo Implement
+    debug->AddBoundingBox(WorldBoundingBox(), Color::RED, false);
 }
 
 Occluder::Occluder()

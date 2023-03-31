@@ -24,7 +24,7 @@ protected:
     SharedPtr<Model> model;
 };
 
-/// %Scene node that is software rendered for occlusion culling. Similar to Occluder.
+/// %Scene node that is software rasterized for occlusion culling. Similar to StaticModel.
 class Occluder : public OctreeNodeBase
 {
     OBJECT(Occluder);
