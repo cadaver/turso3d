@@ -510,7 +510,8 @@ void Renderer::DrawOccluders()
         }
     }
 
-    occlusionBuffer->BuildDepthHierarchy();
+    // Build depth hierarchy in a worker thread
+    occlusionBuffer->BuildDepthHierarchy(true);
 }
 
 void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, unsigned char planeMask)

@@ -1,5 +1,6 @@
 #include "../IO/Log.h"
 #include "../Math/IntRect.h"
+#include "../Thread/WorkQueue.h"
 #include "Camera.h"
 #include "OcclusionBuffer.h"
 
@@ -19,8 +20,9 @@ OcclusionBuffer::OcclusionBuffer() :
     height(0),
     numTriangles(0),
     maxTriangles(OCCLUSION_DEFAULT_MAX_TRIANGLES),
-    depthHierarchyDirty(true)
+    numReadyMipBuffers(0)
 {
+    depthHierarchyTask = new MemberFunctionTask<OcclusionBuffer>(this, &OcclusionBuffer::BuildDepthHierarchyWork);
 }
 
 OcclusionBuffer::~OcclusionBuffer()
@@ -52,7 +54,7 @@ bool OcclusionBuffer::SetSize(int newWidth, int newHeight)
     
     // Reserve extra memory in case 3D clipping is not exact
     fullBuffer = new int[width * (height + 2) + 2];
-    buffer = fullBuffer.Get() + width + 1;
+    buffer = fullBuffer + width + 1;
     mipBuffers.clear();
     
     // Build buffers for mip levels
@@ -108,7 +110,7 @@ void OcclusionBuffer::Clear()
     while (count--)
         *dest++ = OCCLUSION_Z_SCALE;
     
-    depthHierarchyDirty = true;
+    numReadyMipBuffers = 0;
 }
 
 bool OcclusionBuffer::Draw(const Matrix3x4& model, const void* vertexData, size_t vertexSize, size_t vertexStart, size_t vertexCount)
@@ -118,7 +120,7 @@ bool OcclusionBuffer::Draw(const Matrix3x4& model, const void* vertexData, size_
     const unsigned char* srcData = ((const unsigned char*)vertexData) + vertexStart * vertexSize;
     
     Matrix4 modelViewProj = viewProj * model;
-    depthHierarchyDirty = true;
+    numReadyMipBuffers = 0;
     
     // Theoretical max. amount of vertices if each of the 6 clipping planes doubles the triangle count
     Vector4 vertices[64 * 3];
@@ -152,7 +154,7 @@ bool OcclusionBuffer::Draw(const Matrix3x4& model, const void* vertexData, size_
     const unsigned char* srcData = (const unsigned char*)vertexData;
     
     Matrix4 modelViewProj = viewProj * model;
-    depthHierarchyDirty = true;
+    numReadyMipBuffers = 0;
     
     // Theoretical max. amount of vertices if each of the 6 clipping planes doubles the triangle count
     Vector4 vertices[64 * 3];
@@ -206,101 +208,15 @@ bool OcclusionBuffer::Draw(const Matrix3x4& model, const void* vertexData, size_
     return true;
 }
 
-void OcclusionBuffer::BuildDepthHierarchy()
+void OcclusionBuffer::BuildDepthHierarchy(bool threaded)
 {
-    ZoneScoped;
-
-    if (!buffer || numTriangles)
+    if (!buffer || !numTriangles || numReadyMipBuffers)
         return;
-    
-    // Build the first mip level from the pixel-level data
-    int mipWidth = (width + 1) / 2;
-    int mipHeight = (height + 1) / 2;
-    if (mipBuffers.size())
-    {
-        for (int y = 0; y < mipHeight; ++y)
-        {
-            int* src = buffer + (y * 2) * width;
-            DepthValue* dest = mipBuffers[0].Get() + y * mipWidth;
-            DepthValue* end = dest + mipWidth;
-            
-            if (y * 2 + 1 < height)
-            {
-                int* src2 = src + width;
-                while (dest < end)
-                {
-                    int minUpper = Min(src[0], src[1]);
-                    int minLower = Min(src2[0], src2[1]);
-                    dest->min = Min(minUpper, minLower);
-                    int maxUpper = Max(src[0], src[1]);
-                    int maxLower = Max(src2[0], src2[1]);
-                    dest->max = Max(maxUpper, maxLower);
-                    
-                    src += 2;
-                    src2 += 2;
-                    ++dest;
-                }
-            }
-            else
-            {
-                while (dest < end)
-                {
-                    dest->min = Min(src[0], src[1]);
-                    dest->max = Max(src[0], src[1]);
-                    
-                    src += 2;
-                    ++dest;
-                }
-            }
-        }
-    }
-    
-    // Build the rest of the mip levels
-    for (unsigned i = 1; i < mipBuffers.size(); ++i)
-    {
-        int prevWidth = mipWidth;
-        int prevHeight = mipHeight;
-        mipWidth = (mipWidth + 1) / 2;
-        mipHeight = (mipHeight + 1) / 2;
-        
-        for (int y = 0; y < mipHeight; ++y)
-        {
-            DepthValue* src = mipBuffers[i - 1].Get() + (y * 2) * prevWidth;
-            DepthValue* dest = mipBuffers[i].Get() + y * mipWidth;
-            DepthValue* end = dest + mipWidth;
-            
-            if (y * 2 + 1 < prevHeight)
-            {
-                DepthValue* src2 = src + prevWidth;
-                while (dest < end)
-                {
-                    int minUpper = Min(src[0].min, src[1].min);
-                    int minLower = Min(src2[0].min, src2[1].min);
-                    dest->min = Min(minUpper, minLower);
-                    int maxUpper = Max(src[0].max, src[1].max);
-                    int maxLower = Max(src2[0].max, src2[1].max);
-                    dest->max = Max(maxUpper, maxLower);
-                    
-                    src += 2;
-                    src2 += 2;
-                    ++dest;
-                }
-            }
-            else
-            {
-                while (dest < end)
-                {
-                    dest->min = Min(src[0].min, src[1].min);
-                    dest->max = Max(src[0].max, src[1].max);
-                    
-                    src += 2;
-                    ++dest;
-                }
-            }
-        }
-    }
-    
-    depthHierarchyDirty = false;
+
+    if (!threaded)
+        BuildDepthHierarchyWork(nullptr, 0);
+    else
+        Object::Subsystem<WorkQueue>()->QueueTask(depthHierarchyTask);
 }
 
 bool OcclusionBuffer::IsVisible(const BoundingBox& worldSpaceBox) const
@@ -364,39 +280,36 @@ bool OcclusionBuffer::IsVisible(const BoundingBox& worldSpaceBox) const
     // Convert depth to integer. Subtract a depth bias that accounts for maximum possible gradient error, 1 depth unit per horizontal pixel
     int z = (int)minZ - width;
     
-    if (!depthHierarchyDirty)
+    // Start from lowest available mip level and check if a conclusive result can be found
+    for (int i = (int)numReadyMipBuffers - 1; i >= 0; --i)
     {
-        // Start from lowest mip level and check if a conclusive result can be found
-        for (int i = (int)mipBuffers.size() - 1; i >= 0; --i)
+        int shift = i + 1;
+        int mipWidth = width >> shift;
+        int left = rect.left >> shift;
+        int right = rect.right >> shift;
+        
+        DepthValue* mipBuffer = mipBuffers[i];
+        DepthValue* row = mipBuffer + (rect.top >> shift) * mipWidth;
+        DepthValue* endRow = mipBuffer + (rect.bottom >> shift) * mipWidth;
+        bool allOccluded = true;
+        
+        while (row <= endRow)
         {
-            int shift = i + 1;
-            int mipWidth = width >> shift;
-            int left = rect.left >> shift;
-            int right = rect.right >> shift;
-            
-            DepthValue* mipBuffer = mipBuffers[i].Get();
-            DepthValue* row = mipBuffer + (rect.top >> shift) * mipWidth;
-            DepthValue* endRow = mipBuffer + (rect.bottom >> shift) * mipWidth;
-            bool allOccluded = true;
-            
-            while (row <= endRow)
+            DepthValue* src = row + left;
+            DepthValue* end = row + right;
+            while (src <= end)
             {
-                DepthValue* src = row + left;
-                DepthValue* end = row + right;
-                while (src <= end)
-                {
-                    if (z <= src->min)
-                        return true;
-                    if (z <= src->max)
-                        allOccluded = false;
-                    ++src;
-                }
-                row += mipWidth;
+                if (z <= src->min)
+                    return true;
+                if (z <= src->max)
+                    allOccluded = false;
+                ++src;
             }
-            
-            if (allOccluded)
-                return false;
+            row += mipWidth;
         }
+            
+        if (allOccluded)
+            return false;
     }
     
     // If no conclusive result, finally check the pixel-level data
@@ -483,7 +396,7 @@ void OcclusionBuffer::DrawTriangle(Vector4* vertices)
         
         // Initial triangle
         clipTriangles[0] = true;
-        unsigned numClipTriangles = 1;
+        size_t numClipTriangles = 1;
         
         if (clipMask & CLIPMASK_X_POS)
             ClipVertices(Vector4(-1.0f, 0.0f, 0.0f, 1.0f), vertices, clipTriangles, numClipTriangles);
@@ -521,15 +434,15 @@ void OcclusionBuffer::DrawTriangle(Vector4* vertices)
         ++numTriangles;
 }
 
-void OcclusionBuffer::ClipVertices(const Vector4& plane, Vector4* vertices, bool* clipTriangles, unsigned& numClipTriangles)
+void OcclusionBuffer::ClipVertices(const Vector4& plane, Vector4* vertices, bool* clipTriangles, size_t& numClipTriangles)
 {
-    unsigned num = numClipTriangles;
+    size_t trianglesNow = numClipTriangles;
     
-    for (unsigned i = 0; i < num; ++i)
+    for (size_t i = 0; i < trianglesNow; ++i)
     {
         if (clipTriangles[i])
         {
-            unsigned index = i * 3;
+            size_t index = i * 3;
             float d0 = plane.DotProduct(vertices[index]);
             float d1 = plane.DotProduct(vertices[index + 1]);
             float d2 = plane.DotProduct(vertices[index + 2]);
@@ -559,7 +472,7 @@ void OcclusionBuffer::ClipVertices(const Vector4& plane, Vector4* vertices, bool
             // 1 vertex behind the plane: create one new triangle, and modify one in-place
             else if (d0 < 0.0f)
             {
-                unsigned newIdx = numClipTriangles * 3;
+                size_t newIdx = numClipTriangles * 3;
                 clipTriangles[numClipTriangles] = true;
                 ++numClipTriangles;
                 
@@ -569,7 +482,7 @@ void OcclusionBuffer::ClipVertices(const Vector4& plane, Vector4* vertices, bool
             }
             else if (d1 < 0.0f)
             {
-                unsigned newIdx = numClipTriangles * 3;
+                size_t newIdx = numClipTriangles * 3;
                 clipTriangles[numClipTriangles] = true;
                 ++numClipTriangles;
                 
@@ -579,7 +492,7 @@ void OcclusionBuffer::ClipVertices(const Vector4& plane, Vector4* vertices, bool
             }
             else if (d2 < 0.0f)
             {
-                unsigned newIdx = numClipTriangles * 3;
+                size_t newIdx = numClipTriangles * 3;
                 clipTriangles[numClipTriangles] = true;
                 ++numClipTriangles;
                 
@@ -806,5 +719,99 @@ void OcclusionBuffer::DrawTriangle2D(const Vector3* vertices)
             topToBottom.x += topToBottom.xStep;
             row += width;
         }
+    }
+}
+
+void OcclusionBuffer::BuildDepthHierarchyWork(Task*, unsigned)
+{
+    ZoneScoped;
+
+    // Build the first mip level from the pixel-level data
+    int mipWidth = (width + 1) / 2;
+    int mipHeight = (height + 1) / 2;
+
+    for (int y = 0; y < mipHeight; ++y)
+    {
+        int* src = buffer + (y * 2) * width;
+        DepthValue* dest = mipBuffers[0] + y * mipWidth;
+        DepthValue* end = dest + mipWidth;
+
+        if (y * 2 + 1 < height)
+        {
+            int* src2 = src + width;
+            while (dest < end)
+            {
+                int minUpper = Min(src[0], src[1]);
+                int minLower = Min(src2[0], src2[1]);
+                dest->min = Min(minUpper, minLower);
+                int maxUpper = Max(src[0], src[1]);
+                int maxLower = Max(src2[0], src2[1]);
+                dest->max = Max(maxUpper, maxLower);
+
+                src += 2;
+                src2 += 2;
+                ++dest;
+            }
+        }
+        else
+        {
+            while (dest < end)
+            {
+                dest->min = Min(src[0], src[1]);
+                dest->max = Max(src[0], src[1]);
+
+                src += 2;
+                ++dest;
+            }
+        }
+    }
+
+    ++numReadyMipBuffers;
+
+    // Build the rest of the mip levels
+    for (size_t i = 1; i < mipBuffers.size(); ++i)
+    {
+        int prevWidth = mipWidth;
+        int prevHeight = mipHeight;
+        mipWidth = (mipWidth + 1) / 2;
+        mipHeight = (mipHeight + 1) / 2;
+
+        for (int y = 0; y < mipHeight; ++y)
+        {
+            DepthValue* src = mipBuffers[i - 1] + (y * 2) * prevWidth;
+            DepthValue* dest = mipBuffers[i] + y * mipWidth;
+            DepthValue* end = dest + mipWidth;
+
+            if (y * 2 + 1 < prevHeight)
+            {
+                DepthValue* src2 = src + prevWidth;
+                while (dest < end)
+                {
+                    int minUpper = Min(src[0].min, src[1].min);
+                    int minLower = Min(src2[0].min, src2[1].min);
+                    dest->min = Min(minUpper, minLower);
+                    int maxUpper = Max(src[0].max, src[1].max);
+                    int maxLower = Max(src2[0].max, src2[1].max);
+                    dest->max = Max(maxUpper, maxLower);
+
+                    src += 2;
+                    src2 += 2;
+                    ++dest;
+                }
+            }
+            else
+            {
+                while (dest < end)
+                {
+                    dest->min = Min(src[0].min, src[1].min);
+                    dest->max = Max(src[0].max, src[1].max);
+
+                    src += 2;
+                    ++dest;
+                }
+            }
+        }
+
+        ++numReadyMipBuffers;
     }
 }

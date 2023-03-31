@@ -5,6 +5,7 @@
 #include "../Graphics/GraphicsDefs.h"
 #include "../Math/Frustum.h"
 #include "../Object/Ptr.h"
+#include "../Thread/WorkQueue.h"
 
 class BoundingBox;
 class Camera;
@@ -51,8 +52,8 @@ public:
     bool Draw(const Matrix3x4& model, const void* vertexData, size_t vertexSize, size_t vertexStart, size_t vertexCount);
     /// Draw a triangle mesh to the buffer using indexed geometry.
     bool Draw(const Matrix3x4& model, const void* vertexData, size_t vertexSize, const void* indexData, size_t indexSize, size_t indexStart, size_t indexCount);
-    /// Build reduced size mip levels.
-    void BuildDepthHierarchy();
+    /// Build reduced size mip levels. Optionally queue as a task for threaded execution. Occlusion testing can proceed on higher mip levels until all levels built.
+    void BuildDepthHierarchy(bool threaded);
     
     /// Return highest level depth values.
     int* Buffer() const { return buffer; }
@@ -114,10 +115,12 @@ private:
     /// Draw a triangle.
     void DrawTriangle(Vector4* vertices);
     /// Clip vertices against a plane.
-    void ClipVertices(const Vector4& plane, Vector4* vertices, bool* clipTriangles, unsigned& numClipTriangles);
+    void ClipVertices(const Vector4& plane, Vector4* vertices, bool* clipTriangles, size_t& numClipTriangles);
     /// Draw a clipped triangle.
     void DrawTriangle2D(const Vector3* vertices);
-    
+    /// Work function to build depth hierarchies.
+    void BuildDepthHierarchyWork(Task* task, unsigned threadIndex);
+
     /// Highest level depth buffer.
     int* buffer;
     /// Buffer width.
@@ -125,11 +128,9 @@ private:
     /// Buffer height.
     int height;
     /// Number of rendered triangles.
-    unsigned numTriangles;
+    size_t numTriangles;
     /// Maximum number of triangles.
-    unsigned maxTriangles;
-    /// Depth hierarchy needs update flag.
-    bool depthHierarchyDirty;
+    size_t maxTriangles;
     /// View transform matrix.
     Matrix3x4 view;
     /// Projection matrix.
@@ -144,8 +145,12 @@ private:
     float offsetX;
     /// Y offset for viewport transform.
     float offsetY;
-    /// Highest level buffer with safety padding.
-    SharedArrayPtr<int> fullBuffer;
+    /// Number of ready reduced size buffers.
+    volatile size_t numReadyMipBuffers;
     /// Reduced size depth buffers.
     std::vector<SharedArrayPtr<DepthValue> > mipBuffers;
+    /// Highest level buffer with safety padding.
+    AutoArrayPtr<int> fullBuffer;
+    /// Task for threaded depth hierarchy building.
+    AutoPtr<MemberFunctionTask<OcclusionBuffer> > depthHierarchyTask;
 };
