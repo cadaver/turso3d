@@ -351,12 +351,6 @@ bool OcclusionBuffer::IsVisible(const BoundingBox& worldSpaceBox) const
         (int)(maxX + 0.5f), (int)(maxY + 0.5f)
     );
     
-    // If the rect is outside, let frustum culling handle
-    if (rect.right < 0 || rect.bottom < 0)
-        return true;
-    if (rect.left >= width || rect.top >= height)
-        return true;
-    
     // Clipping of rect
     if (rect.left < 0)
         rect.left = 0;
@@ -367,8 +361,8 @@ bool OcclusionBuffer::IsVisible(const BoundingBox& worldSpaceBox) const
     if (rect.bottom >= height)
         rect.bottom = height - 1;
     
-    // Convert depth to integer
-    int z = (int)(minZ + 0.5f);
+    // Convert depth to integer. Subtract a depth bias that accounts for maximum possible gradient error, 1 depth unit per horizontal pixel
+    int z = (int)(minZ - width);
     
     if (!depthHierarchyDirty)
     {
@@ -619,7 +613,7 @@ struct Gradients
         dInvZdY = invdY * (((vertices[1].z - vertices[2].z) * (vertices[0].x - vertices[2].x)) -
             ((vertices[0].z - vertices[2].z) * (vertices[1].x - vertices[2].x)));
         
-        dInvZdXInt = (int)dInvZdX;
+        dInvZdXInt = (int)roundf(dInvZdX);
     }
     
     /// Integer horizontal gradient.
