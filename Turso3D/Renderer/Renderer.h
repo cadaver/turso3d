@@ -19,6 +19,7 @@ class Graphics;
 class LightDrawable;
 class Material;
 class OccluderDrawable;
+class OcclusionBuffer;
 class Octant;
 class Octree;
 class RenderBuffer;
@@ -179,6 +180,10 @@ public:
     Texture* ShadowMapTexture(size_t index) const;
 
 private:
+    /// Sort occluders front to back and discard too far occluders.
+    void SortOccluders();
+    /// Draw occluders to the software occlusion buffer.
+    void DrawOccluders();
     /// Collect octants and lights from the octree recursively. Queue batch collection tasks while ongoing.
     void CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, unsigned char planeMask = 0x3f);
     /// Allocate shadow map for a light. Return true on success.
@@ -276,6 +281,8 @@ private:
     float depthBiasMul;
     /// Slope-scaled depth bias multiplier.
     float slopeScaleBiasMul;
+    /// Occlusion buffer for occlusion tests.
+    AutoPtr<OcclusionBuffer> occlusionBuffer;
     /// Tasks for octant collection.
     AutoPtr<CollectOctantsTask> collectOctantsTasks[NUM_OCTANT_TASKS];
     /// Task for light processing.

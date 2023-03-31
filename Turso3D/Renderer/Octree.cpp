@@ -15,17 +15,17 @@ static const int MAX_OCTREE_LEVELS = 255;
 
 static const size_t MIN_THREADED_UPDATE = 16;
 
-bool CompareRaycastResults(const RaycastResult& lhs, const RaycastResult& rhs)
+static inline bool CompareRaycastResults(const RaycastResult& lhs, const RaycastResult& rhs)
 {
     return lhs.distance < rhs.distance;
 }
 
-bool CompareDrawableDistances(const std::pair<Drawable*, float>& lhs, const std::pair<Drawable*, float>& rhs)
+static inline bool CompareDrawableDistances(const std::pair<Drawable*, float>& lhs, const std::pair<Drawable*, float>& rhs)
 {
     return lhs.second < rhs.second;
 }
 
-bool CompareDrawables(Drawable* lhs, Drawable* rhs)
+static inline bool CompareDrawables(Drawable* lhs, Drawable* rhs)
 {
     unsigned short lhsFlags = lhs->Flags() & (DF_LIGHT | DF_GEOMETRY);
     unsigned short rhsFlags = rhs->Flags() & (DF_LIGHT | DF_GEOMETRY);

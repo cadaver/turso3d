@@ -14,6 +14,8 @@ class OccluderDrawable : public GeometryDrawable
 public:
     /// Recalculate the world space bounding box.
     void OnWorldBoundingBoxUpdate() const override;
+    /// Prepare object for rendering. Reset framenumber and calculate distance from camera, and check for LOD level changes. Return false (and set very large distance) if should not render.
+    bool OnPrepareRender(unsigned short frameNumber, Camera* camera) override;
     /// Add debug geometry to be rendered.
     void OnRenderDebug(DebugRenderer* debug) override;
 

@@ -24,6 +24,20 @@ void OccluderDrawable::OnWorldBoundingBoxUpdate() const
         Drawable::OnWorldBoundingBoxUpdate();
 }
 
+bool OccluderDrawable::OnPrepareRender(unsigned short frameNumber, Camera* camera)
+{
+    distance = camera->Distance(WorldBoundingBox().Center());
+
+    if (maxDistance > 0.0f && distance > maxDistance)
+    {
+        distance = M_MAX_FLOAT;
+        return false;
+    }
+
+    lastFrameNumber = frameNumber;
+    return true;
+}
+
 void OccluderDrawable::OnRenderDebug(DebugRenderer*)
 {
     /// \todo Implement

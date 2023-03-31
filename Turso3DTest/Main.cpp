@@ -226,6 +226,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     float angle = 0.0f;
     int shadowMode = 1;
     bool drawSSAO = false;
+    bool useOcclusion = true;
     bool animate = true;
     bool drawDebug = false;
     bool drawShadowDebug = false;
@@ -271,8 +272,10 @@ int ApplicationMain(const std::vector<std::string>& arguments)
         if (input->KeyPressed(SDLK_2))
             drawSSAO = !drawSSAO;
         if (input->KeyPressed(SDLK_3))
-            drawShadowDebug = !drawShadowDebug;
+            useOcclusion = !useOcclusion;
         if (input->KeyPressed(SDLK_4))
+            drawShadowDebug = !drawShadowDebug;
+        if (input->KeyPressed(SDLK_5))
             drawDebug = !drawDebug;
         if (input->KeyPressed(SDLK_SPACE))
             animate = !animate;
@@ -362,7 +365,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
         // Collect geometries and lights in frustum. Also set debug renderer to use the correct camera view
         {
             PROFILE(PrepareView);
-            renderer->PrepareView(scene, camera, shadowMode > 0, true);
+            renderer->PrepareView(scene, camera, shadowMode > 0, useOcclusion);
             debugRenderer->SetView(camera);
         }
         

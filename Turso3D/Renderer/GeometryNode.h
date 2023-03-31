@@ -110,6 +110,8 @@ private:
 /// Base class for drawables that contain geometry to be rendered.
 class GeometryDrawable : public Drawable
 {
+    friend class GeometryNode;
+
 public:
     /// Construct.
     GeometryDrawable();
@@ -121,7 +123,10 @@ public:
 
     /// Return geometry type.
     GeometryType GetGeometryType() const { return (GeometryType)(Flags() & DF_GEOMETRY_TYPE_BITS); }
+    /// Return the draw call source data for direct access.
+    const SourceBatches& Batches() const { return batches; }
 
+protected:
     /// Draw call source data.
     SourceBatches batches;
 };
@@ -152,7 +157,7 @@ public:
     Geometry* GetGeometry(size_t index) const { return static_cast<GeometryDrawable*>(drawable)->batches.GetGeometry(index); }
     /// Return material by geometry index.
     Material* GetMaterial(size_t index) const { return static_cast<GeometryDrawable*>(drawable)->batches.GetMaterial(index); }
-    /// Return the draw call source data for direct access
+    /// Return the draw call source data for direct access.
     const SourceBatches& Batches() const { return static_cast<GeometryDrawable*>(drawable)->batches; }
 
 protected:

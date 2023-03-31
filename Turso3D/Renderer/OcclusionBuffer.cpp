@@ -4,6 +4,7 @@
 #include "OcclusionBuffer.h"
 
 #include <cstring>
+#include <tracy/Tracy.hpp>
 
 static const unsigned CLIPMASK_X_POS = 0x1;
 static const unsigned CLIPMASK_X_NEG = 0x2;
@@ -37,6 +38,8 @@ bool OcclusionBuffer::SetSize(int newWidth, int newHeight)
     if (newWidth == width && newHeight == height)
         return true;
     
+    ZoneScoped;
+
     if (newWidth <= 0 || newHeight <= 0)
         return false;
     
@@ -57,17 +60,16 @@ bool OcclusionBuffer::SetSize(int newWidth, int newHeight)
     // Build buffers for mip levels
     for (;;)
     {
-        width = (width + 1) / 2;
-        height = (height + 1) / 2;
+        newWidth = (newWidth + 1) / 2;
+        newHeight = (newHeight + 1) / 2;
         
-        mipBuffers.push_back(SharedArrayPtr<DepthValue>(new DepthValue[width * height]));
+        mipBuffers.push_back(SharedArrayPtr<DepthValue>(new DepthValue[newWidth * newHeight]));
         
-        if (width <= OCCLUSION_MIN_SIZE && height <= OCCLUSION_MIN_SIZE)
+        if (newWidth <= OCCLUSION_MIN_SIZE && newHeight <= OCCLUSION_MIN_SIZE)
             break;
     }
     
-    LOGDEBUG("Set occlusion buffer size " + String(width_) + "x" + String(height_) + " with " + 
-        String(mipBuffers_.Size()) + " mip levels");
+    LOGDEBUGF("Set occlusion buffer size %dx%d with %d mip levels", width, height, (int)mipBuffers.size());
     
     CalculateViewport();
     return true;
@@ -93,10 +95,11 @@ void OcclusionBuffer::SetMaxTriangles(unsigned triangles)
 
 void OcclusionBuffer::Clear()
 {
+    ZoneScoped;
+
+    numTriangles = 0;
     if (!buffer)
         return;
-    
-    numTriangles = 0;
     
     int* dest = buffer;
     size_t count = width * height;
@@ -107,8 +110,10 @@ void OcclusionBuffer::Clear()
     depthHierarchyDirty = true;
 }
 
-bool OcclusionBuffer::Draw(const Matrix3x4& model, const void* vertexData, unsigned vertexSize, unsigned vertexStart, unsigned vertexCount)
+bool OcclusionBuffer::Draw(const Matrix3x4& model, const void* vertexData, size_t vertexSize, size_t vertexStart, size_t vertexCount)
 {
+    ZoneScoped;
+
     const unsigned char* srcData = ((const unsigned char*)vertexData) + vertexStart * vertexSize;
     
     Matrix4 modelViewProj = viewProj * model;
@@ -139,9 +144,10 @@ bool OcclusionBuffer::Draw(const Matrix3x4& model, const void* vertexData, unsig
     return true;
 }
 
-bool OcclusionBuffer::Draw(const Matrix3x4& model, const void* vertexData, unsigned vertexSize, const void* indexData,
-    unsigned indexSize, unsigned indexStart, unsigned indexCount)
+bool OcclusionBuffer::Draw(const Matrix3x4& model, const void* vertexData, size_t vertexSize, const void* indexData, size_t indexSize, size_t indexStart, size_t indexCount)
 {
+    ZoneScoped;
+
     const unsigned char* srcData = (const unsigned char*)vertexData;
     
     Matrix4 modelViewProj = viewProj * model;
@@ -201,6 +207,8 @@ bool OcclusionBuffer::Draw(const Matrix3x4& model, const void* vertexData, unsig
 
 void OcclusionBuffer::BuildDepthHierarchy()
 {
+    ZoneScoped;
+
     if (!buffer)
         return;
     
@@ -254,7 +262,7 @@ void OcclusionBuffer::BuildDepthHierarchy()
         mipWidth = (mipWidth + 1) / 2;
         mipHeight = (mipHeight + 1) / 2;
         
-        for (int y = 0; y < height; ++y)
+        for (int y = 0; y < mipHeight; ++y)
         {
             DepthValue* src = mipBuffers[i - 1].Get() + (y * 2) * prevWidth;
             DepthValue* dest = mipBuffers[i].Get() + y * mipWidth;

@@ -22,6 +22,7 @@
 #include "Material.h"
 #include "Model.h"
 #include "Occluder.h"
+#include "OcclusionBuffer.h"
 #include "Octree.h"
 #include "Renderer.h"
 #include "StaticModel.h"
@@ -31,8 +32,9 @@
 #include <tracy/Tracy.hpp>
 
 static const size_t DRAWABLES_PER_BATCH_TASK = 128;
+static const int OCCLUSION_BUFFER_WIDTH = 256;
 
-inline bool CompareLights(LightDrawable* lhs, LightDrawable* rhs)
+static inline bool CompareDrawableDistances(Drawable* lhs, Drawable* rhs)
 {
     return lhs->Distance() < rhs->Distance();
 }
@@ -103,6 +105,8 @@ Renderer::Renderer() :
         instanceVertexElements.push_back(VertexElement(ELEM_VECTOR4, SEM_TEXCOORD, 4));
         instanceVertexElements.push_back(VertexElement(ELEM_VECTOR4, SEM_TEXCOORD, 5));
     }
+
+    occlusionBuffer = new OcclusionBuffer();
 
     clusterTexture = new Texture();
     clusterTexture->Define(TEX_3D, IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RGBA32U, 1);
@@ -217,7 +221,15 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
 
     // If needed, find occluders from the separate occluder octree. \todo Could be threaded and happen simultaneously with the regular octree update
     if (useOcclusion)
+    {
         octree->FindOccludersMasked(reinterpret_cast<std::vector<Drawable*>&>(occluders), frustum, viewMask);
+
+        if (occluders.size())
+        {
+            SortOccluders();
+            DrawOccluders();
+        }
+    }
 
     // Process moved / animated objects' octree reinsertions
     octree->Update(frameNumber);
@@ -429,13 +441,83 @@ Texture* Renderer::ShadowMapTexture(size_t index) const
     return index < shadowMaps.size() ? shadowMaps[index].texture : nullptr;
 }
 
+void Renderer::SortOccluders()
+{
+    ZoneScoped;
+
+    for (auto it = occluders.begin(); it != occluders.end(); ++it)
+    {
+        OccluderDrawable* drawable = *it;
+        drawable->OnPrepareRender(frameNumber, camera);
+    }
+
+    // Sort occluders by increasing distance. Discarded occluders have set maximum distance
+    std::sort(occluders.begin(), occluders.end(), CompareDrawableDistances);
+
+    // Check if had no accepted occluders, switch to no occlusion in that case
+    if (occluders.size() && occluders[0]->Distance() >= M_MAX_FLOAT)
+        occluders.clear();
+}
+
+void Renderer::DrawOccluders()
+{
+    ZoneScoped;
+
+    if (!occluders.size())
+        return;
+
+    int width = OCCLUSION_BUFFER_WIDTH;
+    int height = (int)((float)width / camera->AspectRatio() + 0.5f);
+    occlusionBuffer->SetSize(width, height);
+    occlusionBuffer->SetView(camera);
+    occlusionBuffer->Clear();
+
+    for (size_t i = 0; i < occluders.size(); ++i)
+    {
+        OccluderDrawable* occluder = occluders[i];
+        if (occluder->Distance() >= M_MAX_FLOAT)
+            break;
+
+        if (i > 0)
+        {
+            // For subsequent occluders, do a test against the pixel-level occlusion buffer to see if rendering is necessary
+            if (!occlusionBuffer->IsVisible(occluder->WorldBoundingBox()))
+                continue;
+        }
+
+        const Matrix3x4& worldTransform = occluder->WorldTransform();
+        const SourceBatches& batches = occluder->Batches();
+        size_t numGeometries = batches.NumGeometries();
+
+        for (size_t j = 0; j < numGeometries; ++j)
+        {
+            Geometry* geometry = batches.GetGeometry(j);
+            if (geometry->cpuPositionData)
+            {
+                if (geometry->cpuIndexData)
+                {
+                    if (!occlusionBuffer->Draw(worldTransform, geometry->cpuPositionData, sizeof(Vector3), geometry->cpuIndexData, geometry->cpuIndexSize, geometry->drawStart, geometry->drawCount))
+                        break;
+                }
+                else
+                {
+                    if (!occlusionBuffer->Draw(worldTransform, geometry->cpuPositionData, sizeof(Vector3), geometry->drawStart, geometry->drawCount))
+                        break;
+                }
+            }
+        }
+    }
+
+    occlusionBuffer->BuildDepthHierarchy();
+}
+
 void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, unsigned char planeMask)
 {
     if (planeMask)
     {
         planeMask = frustum.IsInsideMasked(octant->CullingBox(), planeMask);
-        // Terminate if octant completely outside frustum
-        if (planeMask == 0xff)
+        // Terminate if octant completely outside frustum or occluded
+        if (planeMask == 0xff || (occluders.size() && !occlusionBuffer->IsVisible(octant->CullingBox())))
             return;
     }
 
@@ -447,14 +529,10 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
 
         if (drawable->TestFlag(DF_LIGHT))
         {
-            if ((drawable->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(drawable->WorldBoundingBox(), planeMask)))
-            {
-                if (drawable->OnPrepareRender(frameNumber, camera))
-                {
-                    LightDrawable* light = static_cast<LightDrawable*>(drawable);
-                    result.lights.push_back(light);
-                }
-            }
+            const BoundingBox& drawableBox = drawable->WorldBoundingBox();
+            if ((drawable->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(drawableBox, planeMask)) && (!occluders.size() || occlusionBuffer->IsVisible(drawableBox)) &&
+                drawable->OnPrepareRender(frameNumber, camera))
+                result.lights.push_back(static_cast<LightDrawable*>(drawable));
         }
         // Lights are sorted first in octants, so break when first geometry encountered. Store the octant for batch collecting
         else
@@ -864,7 +942,7 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
     }
 
     // Sort localized lights by increasing distance
-    std::sort(lights.begin(), lights.end(), CompareLights);
+    std::sort(lights.begin(), lights.end(), CompareDrawableDistances);
 
     // Clamp to maximum supported
     if (lights.size() > MAX_LIGHTS)
@@ -1018,11 +1096,13 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
         {
             Drawable* drawable = *dIt;
 
-            if (drawable->TestFlag(DF_GEOMETRY) && (drawable->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(drawable->WorldBoundingBox(), planeMask)))
+
+            if (drawable->TestFlag(DF_GEOMETRY) && (drawable->LayerMask() & viewMask))
             {
-                if (drawable->OnPrepareRender(frameNumber, camera))
+                const BoundingBox& geometryBox = drawable->WorldBoundingBox();
+
+                if ((!planeMask || frustum.IsInsideMaskedFast(geometryBox, planeMask)) && (!occluders.size() || occlusionBuffer->IsVisible(geometryBox)) && drawable->OnPrepareRender(frameNumber, camera))
                 {
-                    const BoundingBox& geometryBox = drawable->WorldBoundingBox();
                     result.geometryBounds.Merge(geometryBox);
 
                     Vector3 center = geometryBox.Center();
@@ -1036,7 +1116,7 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
                     Batch newBatch;
 
                     unsigned short distance = (unsigned short)(drawable->Distance() * farClipMul);
-                    const SourceBatches& batches = static_cast<GeometryDrawable*>(drawable)->batches;
+                    const SourceBatches& batches = static_cast<GeometryDrawable*>(drawable)->Batches();
                     size_t numGeometries = batches.NumGeometries();
         
                     for (size_t j = 0; j < numGeometries; ++j)
@@ -1331,7 +1411,7 @@ void Renderer::CollectShadowBatchesWork(Task* task_, unsigned)
 
                 // If did not allocate a static queue, just put everything to dynamic
                 BatchQueue& dest = destStatic ? (staticNode ? *destStatic : *destDynamic) : *destDynamic;
-                const SourceBatches& batches = static_cast<GeometryDrawable*>(drawable)->batches;
+                const SourceBatches& batches = static_cast<GeometryDrawable*>(drawable)->Batches();
                 size_t numGeometries = batches.NumGeometries();
 
                 Batch newBatch;

@@ -46,9 +46,9 @@ public:
     /// Clear the buffer and reset number of triangles.
     void Clear();
     /// Draw a triangle mesh to the buffer using non-indexed geometry.
-    bool Draw(const Matrix3x4& model, const void* vertexData, unsigned vertexSize, unsigned vertexStart, unsigned vertexCount);
+    bool Draw(const Matrix3x4& model, const void* vertexData, size_t vertexSize, size_t vertexStart, size_t vertexCount);
     /// Draw a triangle mesh to the buffer using indexed geometry.
-    bool Draw(const Matrix3x4& model, const void* vertexData, unsigned vertexSize, const void* indexData, unsigned indexSize, unsigned indexStart, unsigned indexCount);
+    bool Draw(const Matrix3x4& model, const void* vertexData, size_t vertexSize, const void* indexData, size_t indexSize, size_t indexStart, size_t indexCount);
     /// Build reduced size mip levels.
     void BuildDepthHierarchy();
     
