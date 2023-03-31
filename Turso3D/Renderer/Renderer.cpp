@@ -413,9 +413,6 @@ void Renderer::RenderDebug()
     if (!debug)
         return;
 
-    if (octree)
-        octree->OnRenderDebug(debug);
-
     for (auto it = lights.begin(); it != lights.end(); ++it)
         (*it)->OnRenderDebug(debug);
 
@@ -424,6 +421,7 @@ void Renderer::RenderDebug()
         for (auto oIt = it->octants.begin(); oIt != it->octants.end(); ++oIt)
         {
             Octant* octant = oIt->first;
+            octant->OnRenderDebug(debug);
             const std::vector<Drawable*>& drawables = octant->Drawables();
 
             for (auto dIt = drawables.begin(); dIt != drawables.end(); ++dIt)
@@ -1096,12 +1094,12 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
         {
             Drawable* drawable = *dIt;
 
-
             if (drawable->TestFlag(DF_GEOMETRY) && (drawable->LayerMask() & viewMask))
             {
                 const BoundingBox& geometryBox = drawable->WorldBoundingBox();
 
-                if ((!planeMask || frustum.IsInsideMaskedFast(geometryBox, planeMask)) && (!occluders.size() || occlusionBuffer->IsVisible(geometryBox)) && drawable->OnPrepareRender(frameNumber, camera))
+                // Deliberately skip drawable occlusion test to debug why octant visibility test is not working optimally
+                if ((!planeMask || frustum.IsInsideMaskedFast(geometryBox, planeMask)) /* && (!occluders.size() || occlusionBuffer->IsVisible(geometryBox)) */ && drawable->OnPrepareRender(frameNumber, camera))
                 {
                     result.geometryBounds.Merge(geometryBox);
 

@@ -54,20 +54,7 @@ void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigne
 
 void Octant::OnRenderDebug(DebugRenderer* debug)
 {
-    const BoundingBox& box = CullingBox();
-    if (!debug->IsInside(box))
-        return;
-
-    debug->AddBoundingBox(box, Color::GRAY, true);
-
-    if (numChildren)
-    {
-        for (size_t i = 0; i < NUM_OCTANTS; ++i)
-        {
-            if (children[i])
-                children[i]->OnRenderDebug(debug);
-        }
-    }
+    debug->AddBoundingBox(CullingBox(), Color::GRAY, false);
 }
 
 const BoundingBox& Octant::CullingBox() const

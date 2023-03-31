@@ -91,7 +91,20 @@ void CreateScene(Scene* scene, int preset)
             StaticModel* object = scene->CreateChild<StaticModel>();
             object->SetStatic(true);
             object->SetPosition(Vector3(0.0f, 25.0f, 0.0f));
-            object->SetScale(50.0f);
+            object->SetScale(Vector3(1165.0f, 50.0f, 1.0f));
+            object->SetModel(cache->LoadResource<Model>("Box.mdl"));
+            object->SetMaterial(cache->LoadResource<Material>("Stone.json"));
+            object->SetCastShadows(true);
+
+            Occluder* occluder = object->CreateChild<Occluder>();
+            occluder->SetModel(object->GetModel());
+        }
+
+        {
+            StaticModel* object = scene->CreateChild<StaticModel>();
+            object->SetStatic(true);
+            object->SetPosition(Vector3(0.0f, 25.0f, 0.0f));
+            object->SetScale(Vector3(1.0f, 50.0f, 1165.0f));
             object->SetModel(cache->LoadResource<Model>("Box.mdl"));
             object->SetMaterial(cache->LoadResource<Material>("Stone.json"));
             object->SetCastShadows(true);
