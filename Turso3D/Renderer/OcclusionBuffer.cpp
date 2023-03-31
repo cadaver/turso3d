@@ -362,7 +362,7 @@ bool OcclusionBuffer::IsVisible(const BoundingBox& worldSpaceBox) const
         rect.bottom = height - 1;
     
     // Convert depth to integer. Subtract a depth bias that accounts for maximum possible gradient error, 1 depth unit per horizontal pixel
-    int z = (int)(minZ - width);
+    int z = (int)minZ - width;
     
     if (!depthHierarchyDirty)
     {
