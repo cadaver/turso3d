@@ -2,12 +2,8 @@
 
 #pragma once
 
-#include "../Graphics/GraphicsDefs.h"
 #include "../Math/Frustum.h"
-#include "../Object/Ptr.h"
 #include "../Thread/WorkQueue.h"
-
-#include <atomic>
 
 class BoundingBox;
 class Camera;
@@ -142,7 +138,7 @@ public:
     int Width() const { return width; }
     /// Return buffer height.
     int Height() const { return height; }
-    /// Test if rasterization is complete. Tests cannot be performed before.
+    /// Test if rasterization is complete. Visibility tests cannot be performed before.
     bool IsCompleted() const;
     /// Test a bounding box for visibility. For best performance, build depth hierarchy first.
     bool IsVisible(const BoundingBox& worldSpaceBox) const;

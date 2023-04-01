@@ -702,15 +702,11 @@ void OcclusionBuffer::BuildDepthHierarchyWork(Task*, unsigned)
         if (y * 2 + 1 < height)
         {
             int* src2 = src + width;
+
             while (dest < end)
             {
-                int minUpper = Min(src[0], src[1]);
-                int minLower = Min(src2[0], src2[1]);
-                dest->min = Min(minUpper, minLower);
-                int maxUpper = Max(src[0], src[1]);
-                int maxLower = Max(src2[0], src2[1]);
-                dest->max = Max(maxUpper, maxLower);
-
+                dest->min = Min(Min(src[0], src[1]), Min(src2[0], src2[1]));
+                dest->max = Max(Max(src[0], src[1]), Max(src2[0], src2[1]));
                 src += 2;
                 src2 += 2;
                 ++dest;
@@ -722,7 +718,6 @@ void OcclusionBuffer::BuildDepthHierarchyWork(Task*, unsigned)
             {
                 dest->min = Min(src[0], src[1]);
                 dest->max = Max(src[0], src[1]);
-
                 src += 2;
                 ++dest;
             }
@@ -748,15 +743,11 @@ void OcclusionBuffer::BuildDepthHierarchyWork(Task*, unsigned)
             if (y * 2 + 1 < prevHeight)
             {
                 DepthValue* src2 = src + prevWidth;
+
                 while (dest < end)
                 {
-                    int minUpper = Min(src[0].min, src[1].min);
-                    int minLower = Min(src2[0].min, src2[1].min);
-                    dest->min = Min(minUpper, minLower);
-                    int maxUpper = Max(src[0].max, src[1].max);
-                    int maxLower = Max(src2[0].max, src2[1].max);
-                    dest->max = Max(maxUpper, maxLower);
-
+                    dest->min = Min(Min(src[0].min, src[1].min), Min(src2[0].min, src2[1].min));
+                    dest->max = Max(Max(src[0].max, src[1].max), Max(src2[0].max, src2[1].max));
                     src += 2;
                     src2 += 2;
                     ++dest;
@@ -768,7 +759,6 @@ void OcclusionBuffer::BuildDepthHierarchyWork(Task*, unsigned)
                 {
                     dest->min = Min(src[0].min, src[1].min);
                     dest->max = Max(src[0].max, src[1].max);
-
                     src += 2;
                     ++dest;
                 }
