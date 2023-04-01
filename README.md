@@ -18,6 +18,7 @@ Experimental 3D / game engine technology partially based on the Urho3D codebase.
 - 1 toggle shadow modes
 - 2 toggle SSAO
 - 3 toggle occlusion culling
-- 4 toggle shadow debug draw
-- 5 toggle scene debug draw
+- 4 toggle scene debug draw
+- 5 toggle shadow debug draw
+- 6 toggle occlusion debug draw
 - F toggle fullscreen

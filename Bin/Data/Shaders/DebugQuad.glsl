@@ -13,6 +13,7 @@ in vec2 vTexCoord;
 out vec4 fragColor;
 
 uniform sampler2D diffuseTex0;
+uniform float alpha;
 
 #endif
 
@@ -26,5 +27,5 @@ void frag()
 {
     float depth = texture(diffuseTex0, vTexCoord).r;
     depth *= depth;
-    fragColor = vec4(depth, depth, depth, 1.0);
+    fragColor = vec4(depth, depth, depth, alpha);
 }

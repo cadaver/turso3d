@@ -17,6 +17,7 @@
 #include "Renderer/Material.h"
 #include "Renderer/Model.h"
 #include "Renderer/Occluder.h"
+#include "Renderer/OcclusionBuffer.h"
 #include "Renderer/Octree.h"
 #include "Renderer/Renderer.h"
 #include "Resource/ResourceCache.h"
@@ -206,6 +207,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     AutoPtr<Texture> normalBuffer = new Texture();
     AutoPtr<Texture> depthStencilBuffer = new Texture();
     AutoPtr<Texture> ssaoTexture = new Texture();
+    AutoPtr<Texture> occlusionDebugTexture = new Texture();
 
     // Random noise texture for SSAO
     unsigned char noiseData[4 * 4 * 4];
@@ -243,6 +245,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     bool animate = true;
     bool drawDebug = false;
     bool drawShadowDebug = false;
+    bool drawOcclusionDebug = false;
 
     std::string profilerOutput;
 
@@ -287,9 +290,11 @@ int ApplicationMain(const std::vector<std::string>& arguments)
         if (input->KeyPressed(SDLK_3))
             useOcclusion = !useOcclusion;
         if (input->KeyPressed(SDLK_4))
-            drawShadowDebug = !drawShadowDebug;
-        if (input->KeyPressed(SDLK_5))
             drawDebug = !drawDebug;
+        if (input->KeyPressed(SDLK_5))
+            drawShadowDebug = !drawShadowDebug;
+        if (input->KeyPressed(SDLK_6))
+            drawOcclusionDebug = !drawOcclusionDebug;
         if (input->KeyPressed(SDLK_SPACE))
             animate = !animate;
 
@@ -455,6 +460,39 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
             debugRenderer->Render();
 
+            // Optional debug render of occlusion buffer
+            if (drawOcclusionDebug && useOcclusion)
+            {
+                OcclusionBuffer* occlusion = renderer->GetOcclusionBuffer();
+                if (occlusionDebugTexture->Width() != occlusion->Width() || occlusionDebugTexture->Height() != occlusion->Height())
+                    occlusionDebugTexture->Define(TEX_2D, IntVector2(occlusion->Width(), occlusion->Height()), FMT_R8);
+                
+                size_t dataSize = occlusion->Width() * occlusion->Height();
+                AutoArrayPtr<unsigned char> debugData = new unsigned char[dataSize];
+                int* src = occlusion->Buffer();
+                unsigned char* dest = debugData;
+                for (size_t i = 0; i < dataSize; ++i)
+                {
+                    if (src[i] >= OCCLUSION_Z_SCALE)
+                        dest[i] = 255;
+                    else
+                        dest[i] = (unsigned char)(src[i] >> 23);
+                }
+
+                ImageLevel debugDataLevel(IntVector2(occlusion->Width(), occlusion->Height()), FMT_R8, debugData);
+                occlusionDebugTexture->SetData(0, IntRect(0, 0, occlusion->Width(), occlusion->Height()), debugDataLevel);
+                
+                Matrix4 quadMatrix = Matrix4::IDENTITY;
+                ShaderProgram* program = graphics->SetProgram("Shaders/DebugQuad.glsl");
+                graphics->SetUniform(program, "worldViewProjMatrix", quadMatrix);
+                graphics->SetUniform(program, "alpha", 0.5f);
+                graphics->SetTexture(0, occlusionDebugTexture);
+                graphics->SetRenderState(BLEND_ALPHA, CULL_NONE, CMP_ALWAYS, true, false);
+                graphics->DrawQuad();
+
+                graphics->SetTexture(0, nullptr);
+            }
+
             // Optional debug render of shadowmap. Draw both dir light cascades and the shadow atlas
             if (drawShadowDebug)
             {
@@ -466,6 +504,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
                 ShaderProgram* program = graphics->SetProgram("Shaders/DebugQuad.glsl");
                 graphics->SetUniform(program, "worldViewProjMatrix", quadMatrix);
+                graphics->SetUniform(program, "alpha", 1.0f);
                 graphics->SetTexture(0, renderer->ShadowMapTexture(0));
                 graphics->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_ALWAYS, true, false);
                 graphics->DrawQuad();

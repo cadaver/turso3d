@@ -443,6 +443,11 @@ Texture* Renderer::ShadowMapTexture(size_t index) const
     return index < shadowMaps.size() ? shadowMaps[index].texture : nullptr;
 }
 
+OcclusionBuffer* Renderer::GetOcclusionBuffer() const
+{
+    return occlusionBuffer;
+}
+
 void Renderer::SubmitOccluders()
 {
     ZoneScoped;

@@ -178,6 +178,8 @@ public:
 
     /// Return a shadow map texture by index for debugging.
     Texture* ShadowMapTexture(size_t index) const;
+    /// Return the occlusion buffer for debugging.
+    OcclusionBuffer* GetOcclusionBuffer() const;
 
 private:
     /// Submit occluders to the software occlusion buffer and begin rasterizing them.
