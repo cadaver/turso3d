@@ -471,12 +471,16 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 AutoArrayPtr<unsigned char> debugData = new unsigned char[dataSize];
                 int* src = occlusion->Buffer();
                 unsigned char* dest = debugData;
+
+                float nearClip = camera->NearClip();
+                float farClip = camera->FarClip();
+                Vector2 linearizeDepth(farClip / (farClip - nearClip), -nearClip / (farClip - nearClip));
+               
                 for (size_t i = 0; i < dataSize; ++i)
                 {
-                    if (src[i] >= OCCLUSION_Z_SCALE)
-                        dest[i] = 255;
-                    else
-                        dest[i] = (unsigned char)(src[i] >> 23);
+                    float depth = (float)src[i] / OCCLUSION_Z_SCALE;
+                    float linearDepth = linearizeDepth.y / (depth - linearizeDepth.x);
+                    dest[i] = (unsigned char)(linearDepth * 255.0f);
                 }
 
                 ImageLevel debugDataLevel(IntVector2(occlusion->Width(), occlusion->Height()), FMT_R8, debugData);

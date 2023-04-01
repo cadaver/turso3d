@@ -26,6 +26,5 @@ void vert()
 void frag()
 {
     float depth = texture(diffuseTex0, vTexCoord).r;
-    depth *= depth;
     fragColor = vec4(depth, depth, depth, alpha);
 }
