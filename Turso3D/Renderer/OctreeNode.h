@@ -30,7 +30,7 @@ static const unsigned short DF_WORLD_TRANSFORM_DIRTY = 0x200;
 static const unsigned short DF_BOUNDING_BOX_DIRTY = 0x400;
 static const unsigned short DF_OCTREE_REINSERT_QUEUED = 0x800;
 
-/// Common base class for GPU-drawable scene objects and occluders.
+/// Common base class for renderable scene objects and occluders.
 class OctreeNodeBase : public SpatialNode
 {
     friend class Octree;

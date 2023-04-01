@@ -32,6 +32,8 @@ OcclusionBuffer::OcclusionBuffer() :
         rasterizeTrianglesTasks[i] = new RasterizeTrianglesTask(this, &OcclusionBuffer::RasterizeTrianglesWork);
         rasterizeTrianglesTasks[i]->sliceIdx = i;
     }
+
+    numPendingRasterizeTasks.store(0);
 }
 
 OcclusionBuffer::~OcclusionBuffer()
@@ -135,7 +137,7 @@ void OcclusionBuffer::AddTriangles(const Matrix3x4& worldTransform, const void* 
     batch.drawCount = vertexCount;
 
     task->triangles.clear();
-    for (size_t i = 0; i < activeSlices; ++i)
+    for (int i = 0; i < activeSlices; ++i)
         task->triangleIndices[i].clear();
 
     ++numTriangleBatches;
@@ -157,7 +159,7 @@ void OcclusionBuffer::AddTriangles(const Matrix3x4& worldTransform, const void* 
     batch.drawCount = indexCount;
 
     task->triangles.clear();
-    for (size_t i = 0; i < activeSlices; ++i)
+    for (int i = 0; i < activeSlices; ++i)
         task->triangleIndices[i].clear();
 
     ++numTriangleBatches;
@@ -185,7 +187,7 @@ void OcclusionBuffer::Complete()
 
 bool OcclusionBuffer::IsCompleted() const
 {
-    return numPendingRasterizeTasks.load() == 0;
+    return !numPendingRasterizeTasks.load();
 }
 
 bool OcclusionBuffer::IsVisible(const BoundingBox& worldSpaceBox) const
