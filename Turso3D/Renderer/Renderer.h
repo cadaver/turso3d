@@ -133,7 +133,7 @@ struct ShadowMap
     std::vector<Matrix3x4> instanceTransforms;
 };
 
-/// Light data for cluster light shader.
+/// Per-light data for cluster light shader.
 struct LightData
 {
     /// %Light position.
@@ -283,11 +283,11 @@ private:
     AutoPtr<OcclusionBuffer> occlusionBuffer;
     /// Tasks for octant collection.
     AutoPtr<CollectOctantsTask> collectOctantsTasks[NUM_OCTANT_TASKS];
-    /// Task for light processing.
+    /// %Task for light processing.
     AutoPtr<Task> processLightsTask;
     /// Tasks for shadow light processing.
     std::vector<AutoPtr<CollectShadowCastersTask> > collectShadowCastersTasks;
-    /// Task for queuing shadow views for further processing.
+    /// %Task for queuing shadow views for further processing.
     AutoPtr<Task> processShadowCastersTask;
     /// Tasks for shadow batch processing.
     std::vector<AutoPtr<CollectShadowBatchesTask> > collectShadowBatchesTasks;
@@ -327,7 +327,7 @@ private:
     PerViewUniforms perViewData;
 };
 
-/// Task for collecting octants.
+/// %Task for collecting octants.
 struct CollectOctantsTask : public MemberFunctionTask<Renderer>
 {
     /// Construct.
@@ -342,7 +342,7 @@ struct CollectOctantsTask : public MemberFunctionTask<Renderer>
     size_t subtreeIdx;
 };
 
-/// Task for collecting geometry batches from octants.
+/// %Task for collecting geometry batches from octants.
 struct CollectBatchesTask : public MemberFunctionTask<Renderer>
 {
     /// Construct.
@@ -355,7 +355,7 @@ struct CollectBatchesTask : public MemberFunctionTask<Renderer>
     std::vector<std::pair<Octant*, unsigned char > > octants;
 };
 
-/// Task for collecting shadowcasters of a specific light.
+/// %Task for collecting shadowcasters of a specific light.
 struct CollectShadowCastersTask : public MemberFunctionTask<Renderer>
 {
     /// Construct.
@@ -368,7 +368,7 @@ struct CollectShadowCastersTask : public MemberFunctionTask<Renderer>
     LightDrawable* light;
 };
 
-/// Task for collecting shadow batches of a specific shadow view.
+/// %Task for collecting shadow batches of a specific shadow view.
 struct CollectShadowBatchesTask : public MemberFunctionTask<Renderer>
 {
     /// Construct.
@@ -383,7 +383,7 @@ struct CollectShadowBatchesTask : public MemberFunctionTask<Renderer>
     size_t viewIdx;
 };
 
-/// Task for culling lights to a specific Z-slice of the frustum grid.
+/// %Task for culling lights to a specific Z-slice of the frustum grid.
 struct CullLightsTask : public MemberFunctionTask<Renderer>
 {
     /// Construct.

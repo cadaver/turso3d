@@ -23,7 +23,7 @@ static const float OCCLUSION_Z_SCALE = 1073741824.0f;
 // Rasterizer code based on Chris Hecker's Perspective Texture Mapping series in the Game Developer magazine
 // Also available online at http://chrishecker.com/Miscellaneous_Technical_Articles
 
-/// Software rasterized triangle draw batch.
+/// Software rasterized triangle batch.
 struct TriangleDrawBatch
 {
     /// Transform matrix.
@@ -40,26 +40,18 @@ struct TriangleDrawBatch
     size_t drawCount;
 };
 
-/// %Gradients of a software rasterized triangle.
+/// Depth gradients of a software rasterized triangle.
 struct Gradients
 {
     /// Calculate from 3 vertices.
     void Calculate(const Vector3* vertices)
     {
-        float invdX = 1.0f / (((vertices[1].x - vertices[2].x) *
-            (vertices[0].y - vertices[2].y)) -
-            ((vertices[0].x - vertices[2].x) *
-                (vertices[1].y - vertices[2].y)));
-
+        float invdX = 1.0f / (((vertices[1].x - vertices[2].x) * (vertices[0].y - vertices[2].y)) - ((vertices[0].x - vertices[2].x) * (vertices[1].y - vertices[2].y)));
         float invdY = -invdX;
 
-        dInvZdX = invdX * (((vertices[1].z - vertices[2].z) * (vertices[0].y - vertices[2].y)) -
-            ((vertices[0].z - vertices[2].z) * (vertices[1].y - vertices[2].y)));
-
-        dInvZdY = invdY * (((vertices[1].z - vertices[2].z) * (vertices[0].x - vertices[2].x)) -
-            ((vertices[0].z - vertices[2].z) * (vertices[1].x - vertices[2].x)));
-
-        dInvZdXInt = (int)roundf(dInvZdX);
+        dInvZdX = invdX * (((vertices[1].z - vertices[2].z) * (vertices[0].y - vertices[2].y)) - ((vertices[0].z - vertices[2].z) * (vertices[1].y - vertices[2].y)));
+        dInvZdY = invdY * (((vertices[1].z - vertices[2].z) * (vertices[0].x - vertices[2].x)) - ((vertices[0].z - vertices[2].z) * (vertices[1].x - vertices[2].x)));
+        dInvZdXInt = dInvZdX >= 0.0f ? (int)(dInvZdX + 0.5f) : (int)(dInvZdX - 0.5f);
     }
 
     /// Integer horizontal gradient.
@@ -96,7 +88,7 @@ struct Edge
     int invZStep;
 };
 
-/// Stored triangle with gradients calculated
+/// Stored triangle with gradients calculated.
 struct GradientTriangle
 {
     /// Triangle vertices.
@@ -257,8 +249,6 @@ private:
     void AddTriangle(GenerateTrianglesTask* task, Vector4* vertices);
     /// Clip vertices against a plane.
     void ClipVertices(const Vector4& plane, Vector4* vertices, bool* clipTriangles, size_t& numClipTriangles);
-    /// Draw a clipped triangle.
-    void DrawTriangle2D(const Vector3* vertices);
     /// Work function to generate clipped triangles.
     void GenerateTrianglesWork(Task* task, unsigned threadIndex);
     /// Work function to clear a depth buffer slice and rasterize triangles.
@@ -304,7 +294,7 @@ private:
     std::vector<SharedArrayPtr<DepthValue> > mipBuffers;
     /// Highest level buffer with safety padding.
     AutoArrayPtr<int> fullBuffer;
-    /// Task for threaded depth hierarchy building.
+    /// %Task for threaded depth hierarchy building.
     AutoPtr<MemberFunctionTask<OcclusionBuffer> > depthHierarchyTask;
     /// Tasks for generating triangle batches, one for each batch.
     std::vector<AutoPtr<GenerateTrianglesTask> > generateTrianglesTasks;
@@ -312,7 +302,7 @@ private:
     AutoPtr<RasterizeTrianglesTask> rasterizeTrianglesTasks[OCCLUSION_BUFFER_SLICES];
 };
 
-/// Task for generating clipped triangles out of an occluder draw batch.
+/// %Task for generating clipped triangles out of an occluder draw batch.
 struct GenerateTrianglesTask : public MemberFunctionTask<OcclusionBuffer>
 {
     /// Construct.
@@ -329,7 +319,7 @@ struct GenerateTrianglesTask : public MemberFunctionTask<OcclusionBuffer>
     std::vector<unsigned> triangleIndices[OCCLUSION_BUFFER_SLICES];
 };
 
-/// Task for clearing a slice of the depth buffer and then rasterizing triangles assigned to it.
+/// %Task for clearing a slice of the depth buffer and then rasterizing triangles assigned to it.
 struct RasterizeTrianglesTask : public MemberFunctionTask<OcclusionBuffer>
 {
     /// Construct.

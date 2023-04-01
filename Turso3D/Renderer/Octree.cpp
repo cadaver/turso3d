@@ -12,7 +12,6 @@
 static const float DEFAULT_OCTREE_SIZE = 1000.0f;
 static const int DEFAULT_OCTREE_LEVELS = 8;
 static const int MAX_OCTREE_LEVELS = 255;
-
 static const size_t MIN_THREADED_UPDATE = 16;
 
 static inline bool CompareRaycastResults(const RaycastResult& lhs, const RaycastResult& rhs)
@@ -158,7 +157,7 @@ void Octree::Update(unsigned short frameNumber_)
             ++taskIdx;
         }
 
-        numPendingReinsertionTasks.store(taskIdx);
+        numPendingReinsertionTasks.store((int)taskIdx);
         workQueue->QueueTasks(taskIdx, reinterpret_cast<Task**>(&reinsertTasks[0]));
         
         // Complete tasks until reinsertions done. There may be e.g. occlusion rasterization going on at the same time

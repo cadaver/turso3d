@@ -10,7 +10,7 @@
 #include <queue>
 #include <thread>
 
-/// Task for execution by worker threads.
+/// %Task for execution by worker threads.
 struct Task
 {
     /// Default-construct.

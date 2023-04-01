@@ -330,7 +330,7 @@ private:
     std::atomic<int> numPendingReinsertionTasks;
 };
 
-/// Task for octree drawables reinsertion.
+/// %Task for octree drawables reinsertion.
 struct ReinsertDrawablesTask : public MemberFunctionTask<Octree>
 {
     /// Construct.
