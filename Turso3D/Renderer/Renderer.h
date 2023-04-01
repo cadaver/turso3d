@@ -180,10 +180,8 @@ public:
     Texture* ShadowMapTexture(size_t index) const;
 
 private:
-    /// Sort occluders front to back and discard too far occluders.
-    void SortOccluders();
-    /// Draw occluders to the software occlusion buffer.
-    void DrawOccluders();
+    /// Submit occluders to the software occlusion buffer and begin rasterizing them.
+    void SubmitOccluders();
     /// Collect octants and lights from the octree recursively. Queue batch collection tasks while ongoing.
     void CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, unsigned char planeMask = 0x3f);
     /// Allocate shadow map for a light. Return true on success.

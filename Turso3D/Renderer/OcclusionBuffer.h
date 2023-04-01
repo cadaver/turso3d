@@ -7,15 +7,105 @@
 #include "../Object/Ptr.h"
 #include "../Thread/WorkQueue.h"
 
+#include <atomic>
+
 class BoundingBox;
 class Camera;
-class IndexBuffer;
 class IntRect;
-class VertexBuffer;
-struct Edge;
-struct Gradients;
+struct GenerateTrianglesTask;
+struct RasterizeTrianglesTask;
 
-/// Occlusion hierarchy depth range.
+static const int OCCLUSION_MIN_SIZE = 8;
+static const int OCCLUSION_BUFFER_SLICES = 8;
+static const float OCCLUSION_X_SCALE = 65536.0f;
+static const float OCCLUSION_Z_SCALE = 1073741824.0f;
+
+// Rasterizer code based on Chris Hecker's Perspective Texture Mapping series in the Game Developer magazine
+// Also available online at http://chrishecker.com/Miscellaneous_Technical_Articles
+
+/// Software rasterized triangle draw batch.
+struct TriangleDrawBatch
+{
+    /// Transform matrix.
+    Matrix3x4 worldTransform;
+    /// Vertex data.
+    const void* vertexData;
+    /// Vertex size.
+    size_t vertexSize;
+    /// Index data, optional.
+    const void* indexData;
+    /// Index size.
+    size_t indexSize;
+    /// Draw range count.
+    size_t drawCount;
+};
+
+/// %Gradients of a software rasterized triangle.
+struct Gradients
+{
+    /// Calculate from 3 vertices.
+    void Calculate(const Vector3* vertices)
+    {
+        float invdX = 1.0f / (((vertices[1].x - vertices[2].x) *
+            (vertices[0].y - vertices[2].y)) -
+            ((vertices[0].x - vertices[2].x) *
+                (vertices[1].y - vertices[2].y)));
+
+        float invdY = -invdX;
+
+        dInvZdX = invdX * (((vertices[1].z - vertices[2].z) * (vertices[0].y - vertices[2].y)) -
+            ((vertices[0].z - vertices[2].z) * (vertices[1].y - vertices[2].y)));
+
+        dInvZdY = invdY * (((vertices[1].z - vertices[2].z) * (vertices[0].x - vertices[2].x)) -
+            ((vertices[0].z - vertices[2].z) * (vertices[1].x - vertices[2].x)));
+
+        dInvZdXInt = (int)roundf(dInvZdX);
+    }
+
+    /// Integer horizontal gradient.
+    int dInvZdXInt;
+    /// Horizontal gradient.
+    float dInvZdX;
+    /// Vertical gradient.
+    float dInvZdY;
+};
+
+/// %Edge of a software rasterized triangle.
+struct Edge
+{
+    /// Construct from gradients and top & bottom vertices.
+    Edge(const Gradients& gradients, const Vector3& top, const Vector3& bottom, int topY)
+    {
+        float slope = (bottom.x - top.x) / (bottom.y - top.y);
+        float yPreStep = (float)(topY + 1) - top.y;
+        float xPreStep = slope * yPreStep;
+
+        x = (int)((xPreStep + top.x) * OCCLUSION_X_SCALE + 0.5f);
+        xStep = (int)(slope * OCCLUSION_X_SCALE + 0.5f);
+        invZ = (int)(top.z + xPreStep * gradients.dInvZdX + yPreStep * gradients.dInvZdY + 0.5f);
+        invZStep = (int)(slope * gradients.dInvZdX + gradients.dInvZdY + 0.5f);
+    }
+
+    /// X coordinate.
+    int x;
+    /// X coordinate step.
+    int xStep;
+    /// Inverse Z.
+    int invZ;
+    /// Inverse Z step.
+    int invZStep;
+};
+
+/// Stored triangle with gradients calculated
+struct GradientTriangle
+{
+    /// Triangle vertices.
+    Vector3 vertices[3];
+    /// Gradients calculated from the vertices.
+    Gradients gradients;
+};
+
+/// Occlusion mip buffer depth range.
 struct DepthValue
 {
     /// Minimum value.
@@ -24,14 +114,11 @@ struct DepthValue
     int max;
 };
 
-static const int OCCLUSION_MIN_SIZE = 8;
-static const size_t OCCLUSION_DEFAULT_MAX_TRIANGLES = 8192;
-static const float OCCLUSION_X_SCALE = 65536.0f;
-static const float OCCLUSION_Z_SCALE = 1073741824.0f;
-
 /// Software rasterizer for occlusion.
-class OcclusionBuffer : public RefCounted
+class OcclusionBuffer : public Object
 {
+    OBJECT(OcclusionBuffer);
+
 public:
     /// Construct.
     OcclusionBuffer();
@@ -42,18 +129,16 @@ public:
     bool SetSize(int newWidth, int newHeight);
     /// Set camera view to render from.
     void SetView(Camera* camera);
-    /// Set maximum triangles to render.
-    void SetMaxTriangles(unsigned triangles);
-    /// Only reset number of triangles but do not clear.
+    /// Reset number of triangles. Call before use each frame.
     void Reset();
-    /// Clear the buffer and reset number of triangles.
-    void Clear();
-    /// Draw a triangle mesh to the buffer using non-indexed geometry.
-    bool Draw(const Matrix3x4& model, const void* vertexData, size_t vertexSize, size_t vertexStart, size_t vertexCount);
-    /// Draw a triangle mesh to the buffer using indexed geometry.
-    bool Draw(const Matrix3x4& model, const void* vertexData, size_t vertexSize, const void* indexData, size_t indexSize, size_t indexStart, size_t indexCount);
-    /// Build reduced size mip levels. Optionally queue as a task for threaded execution. Occlusion testing can proceed on higher mip levels until all levels built.
-    void BuildDepthHierarchy(bool threaded);
+    /// Add a non-indexed triangle mesh to be rasterized.
+    void AddTriangles(const Matrix3x4& worldTransform, const void* vertexData, size_t vertexSize, size_t vertexStart, size_t vertexCount);
+    /// Add an indexed triangle mesh to be rasterized.
+    void AddTriangles(const Matrix3x4& worldTransform, const void* vertexData, size_t vertexSize, const void* indexData, size_t indexSize, size_t indexStart, size_t indexCount);
+    /// Begin rasterizing triangles and then build the depth hierarchy, using worker threads.
+    void DrawTriangles();
+    /// Wait until rasterization is complete.
+    void Complete();
     
     /// Return highest level depth values.
     int* Buffer() const { return buffer; }
@@ -65,14 +150,13 @@ public:
     int Width() const { return width; }
     /// Return buffer height.
     int Height() const { return height; }
-    /// Return number of rendered triangles.
-    size_t NumTriangles() const { return numTriangles; }
-    /// Return maximum number of triangles.
-    size_t MaxTriangles() const { return maxTriangles; }
+    /// Test if rasterization is complete. Tests cannot be performed before.
+    bool IsCompleted() const;
     /// Test a bounding box for visibility. For best performance, build depth hierarchy first.
     bool IsVisible(const BoundingBox& worldSpaceBox) const;
     
 private:
+    /// Perform transform of model vertex to clip space.
     Vector4 ModelTransform(const Matrix4& transform, const Vector3& vertex) const
     {
         return Vector4(
@@ -83,6 +167,7 @@ private:
         );
     }
 
+    /// Perform transform of model vertex from clip to viewport space.
     Vector3 ViewportTransform(const Vector4& vertex) const
     {
         float invW = 1.0f / vertex.w;
@@ -93,12 +178,14 @@ private:
         );
     }
 
+    /// Clip a clip space edge.
     Vector4 ClipEdge(const Vector4& v0, const Vector4& v1, float d0, float d1) const
     {
         float t = d0 / (d0 - d1);
         return v0 + t * (v1 - v0);
     }
 
+    /// Check triangle facing after viewport transform. Must be clockwise to render.
     bool CheckFacing(const Vector3& v0, const Vector3& v1, const Vector3& v2) const
     {
         float aX = v0.x - v1.x;
@@ -110,27 +197,87 @@ private:
         return signedArea < 0.0f;
     }
 
+    /// Rasterize between two edges. Clip to slice.
+    void RasterizeSpans(Edge& left, Edge& right, int topY, int bottomY, int pixelInvZStep, int sliceStartY, int sliceEndY)
+    {
+        // If past the bottom or degenerate, no operation
+        if (topY >= sliceEndY || topY == bottomY)
+            return;
+
+        // If completely above the slice, just advance both edges
+        if (bottomY <= sliceStartY)
+        {
+            int clip = bottomY - topY;
+            left.x += left.xStep * clip;
+            left.invZ += left.invZStep * clip;
+            right.x += right.xStep * clip;
+            return;
+        }
+
+        // Clip top and advance edges
+        if (topY < sliceStartY)
+        {
+            int clip = sliceStartY - topY;
+            topY += clip;
+            left.x += left.xStep * clip;
+            left.invZ += left.invZStep * clip;
+            right.x += right.xStep * clip;
+        }
+
+        // Clip bottom
+        if (bottomY > sliceEndY)
+            bottomY = sliceEndY;
+
+        // Rasterize the part of edges inside slice
+        int* row = buffer + topY * width;
+        int* endRow = buffer + bottomY * width;
+        while (row < endRow)
+        {
+            int invZ = left.invZ;
+            int* dest = row + (left.x >> 16);
+            int* end = row + (right.x >> 16);
+            while (dest < end)
+            {
+                if (invZ < *dest)
+                    *dest = invZ;
+                invZ += pixelInvZStep;
+                ++dest;
+            }
+
+            left.x += left.xStep;
+            left.invZ += left.invZStep;
+            right.x += right.xStep;
+            row += width;
+        }
+    }
+
     /// Calculate viewport transform.
     void CalculateViewport();
-    /// Draw a triangle.
-    void DrawTriangle(Vector4* vertices);
+    /// Clip and add a triangle into the triangles lists.
+    void AddTriangle(GenerateTrianglesTask* task, Vector4* vertices);
     /// Clip vertices against a plane.
     void ClipVertices(const Vector4& plane, Vector4* vertices, bool* clipTriangles, size_t& numClipTriangles);
     /// Draw a clipped triangle.
     void DrawTriangle2D(const Vector3* vertices);
-    /// Work function to build depth hierarchies.
+    /// Work function to generate clipped triangles.
+    void GenerateTrianglesWork(Task* task, unsigned threadIndex);
+    /// Work function to clear a depth buffer slice and rasterize triangles.
+    void RasterizeTrianglesWork(Task* task, unsigned threadIndex);
+    /// Work function to build the reduced size depth buffers.
     void BuildDepthHierarchyWork(Task* task, unsigned threadIndex);
 
+    /// Cached work queue subsystem.
+    WorkQueue* workQueue;
     /// Highest level depth buffer.
     int* buffer;
     /// Buffer width.
     int width;
     /// Buffer height.
     int height;
-    /// Number of rendered triangles.
-    size_t numTriangles;
-    /// Maximum number of triangles.
-    size_t maxTriangles;
+    /// Per-thread slice size.
+    int sliceHeight;
+    /// How many slices are actually needed, may be less due to rounding.
+    int activeSlices;
     /// View transform matrix.
     Matrix3x4 view;
     /// Projection matrix.
@@ -145,12 +292,56 @@ private:
     float offsetX;
     /// Y offset for viewport transform.
     float offsetY;
+    /// Number of active triangle batches.
+    size_t numTriangleBatches;
     /// Number of ready reduced size buffers.
     volatile size_t numReadyMipBuffers;
+    /// Number of pending generate triangles tasks. When all done, the triangles can be rasterized.
+    std::atomic<int> numPendingGenerateTasks;
+    /// Number of pending rasterize triangles tasks. When all done, tests can begin and depth hierarchy can be generated to speed up tests.
+    std::atomic<int> numPendingRasterizeTasks;
     /// Reduced size depth buffers.
     std::vector<SharedArrayPtr<DepthValue> > mipBuffers;
     /// Highest level buffer with safety padding.
     AutoArrayPtr<int> fullBuffer;
     /// Task for threaded depth hierarchy building.
     AutoPtr<MemberFunctionTask<OcclusionBuffer> > depthHierarchyTask;
+    /// Tasks for generating triangle batches, one for each batch.
+    std::vector<AutoPtr<GenerateTrianglesTask> > generateTrianglesTasks;
+    /// Tasks for depth buffer clearing and triangle rasterization.
+    AutoPtr<RasterizeTrianglesTask> rasterizeTrianglesTasks[OCCLUSION_BUFFER_SLICES];
+};
+
+/// Task for generating clipped triangles out of an occluder draw batch.
+struct GenerateTrianglesTask : public MemberFunctionTask<OcclusionBuffer>
+{
+    /// Construct.
+    GenerateTrianglesTask(OcclusionBuffer* object_, MemberWorkFunctionPtr function_) :
+        MemberFunctionTask<OcclusionBuffer>(object_, function_)
+    {
+    }
+
+    /// Draw batch.
+    TriangleDrawBatch batch;
+    /// Generated triangles.
+    std::vector<GradientTriangle> triangles;
+    /// Triangle indices per depth buffer slice.
+    std::vector<unsigned> triangleIndices[OCCLUSION_BUFFER_SLICES];
+};
+
+/// Task for clearing a slice of the depth buffer and then rasterizing triangles assigned to it.
+struct RasterizeTrianglesTask : public MemberFunctionTask<OcclusionBuffer>
+{
+    /// Construct.
+    RasterizeTrianglesTask(OcclusionBuffer* object_, MemberWorkFunctionPtr function_) :
+        MemberFunctionTask<OcclusionBuffer>(object_, function_)
+    {
+    }
+
+    /// Vertical slice index.
+    size_t sliceIdx;
+    /// Start Y-position.
+    int startY;
+    /// End Y-position.
+    int endY;
 };

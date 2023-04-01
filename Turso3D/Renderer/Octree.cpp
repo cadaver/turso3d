@@ -158,11 +158,16 @@ void Octree::Update(unsigned short frameNumber_)
             ++taskIdx;
         }
 
+        numPendingReinsertionTasks.store(taskIdx);
         workQueue->QueueTasks(taskIdx, reinterpret_cast<Task**>(&reinsertTasks[0]));
-        workQueue->Complete();
+        
+        // Complete tasks until reinsertions done. There may be e.g. occlusion rasterization going on at the same time
+        while (numPendingReinsertionTasks.load() > 0)
+            workQueue->TryComplete();
 
         SetThreadedUpdate(false);
 
+        // Now reinsert drawables that actually need reinsertion into a different octant
         for (auto it = reinsertQueues.begin(); it != reinsertQueues.end(); ++it)
             ReinsertDrawables(*it);
     }
@@ -631,4 +636,6 @@ void Octree::CheckReinsertWork(Task* task_, unsigned threadIndex_)
         else
             drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
     }
+
+    numPendingReinsertionTasks.fetch_add(-1);
 }

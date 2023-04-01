@@ -219,12 +219,11 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     for (auto it = shadowMaps.begin(); it != shadowMaps.end(); ++it)
         it->Clear();
 
-    // If needed, find occluders from the separate occluder octree. \todo Could be threaded and happen simultaneously with the regular octree update
+    // If needed, find occluders from the separate occluder octree and begin rasterizing them
     if (useOcclusion)
     {
         octree->FindOccludersMasked(reinterpret_cast<std::vector<Drawable*>&>(occluders), frustum, viewMask);
-        SortOccluders();
-        DrawOccluders();
+        SubmitOccluders();
     }
     else
         occlusionBuffer->Reset();
@@ -262,6 +261,10 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
 
     // Ensure shadow view processing doesn't happen before lights have been found and processed
     processShadowCastersTask->AddDependency(processLightsTask);
+
+    // Before starting, ensure occluders have been rasterized
+    if (occluders.size())
+        occlusionBuffer->Complete();
 
     workQueue->QueueTasks(rootLevelOctants.size(), reinterpret_cast<Task**>(&collectOctantsTasks[0]));
 
@@ -440,10 +443,18 @@ Texture* Renderer::ShadowMapTexture(size_t index) const
     return index < shadowMaps.size() ? shadowMaps[index].texture : nullptr;
 }
 
-void Renderer::SortOccluders()
+void Renderer::SubmitOccluders()
 {
     ZoneScoped;
 
+    // Reset occlusion batches from last frame
+    occlusionBuffer->Reset();
+
+    // Early-out if no occluders in view
+    if (!occluders.size())
+        return;
+
+    // Check each occluder for max. distance
     for (auto it = occluders.begin(); it != occluders.end(); ++it)
     {
         OccluderDrawable* drawable = *it;
@@ -454,38 +465,22 @@ void Renderer::SortOccluders()
     std::sort(occluders.begin(), occluders.end(), CompareDrawableDistances);
 
     // Check if had no accepted occluders, switch to no occlusion in that case
-    if (occluders.size() && occluders[0]->Distance() >= M_MAX_FLOAT)
+    if (occluders[0]->Distance() >= M_MAX_FLOAT)
     {
         occluders.clear();
-        occlusionBuffer->Reset();
-    }
-}
-
-void Renderer::DrawOccluders()
-{
-    ZoneScoped;
-
-    if (!occluders.size())
         return;
+    }
 
     int width = OCCLUSION_BUFFER_WIDTH;
     int height = (int)((float)width / camera->AspectRatio() + 0.5f);
     occlusionBuffer->SetSize(width, height);
     occlusionBuffer->SetView(camera);
-    occlusionBuffer->Clear();
-
+    
     for (size_t i = 0; i < occluders.size(); ++i)
     {
         OccluderDrawable* occluder = occluders[i];
         if (occluder->Distance() >= M_MAX_FLOAT)
             break;
-
-        if (i > 0)
-        {
-            // For subsequent occluders, do a test against the pixel-level occlusion buffer to see if rendering is necessary
-            if (!occlusionBuffer->IsVisible(occluder->WorldBoundingBox()))
-                continue;
-        }
 
         const Matrix3x4& worldTransform = occluder->WorldTransform();
         const SourceBatches& batches = occluder->Batches();
@@ -497,21 +492,15 @@ void Renderer::DrawOccluders()
             if (geometry->cpuPositionData)
             {
                 if (geometry->cpuIndexData)
-                {
-                    if (!occlusionBuffer->Draw(worldTransform, geometry->cpuPositionData, sizeof(Vector3), geometry->cpuIndexData, geometry->cpuIndexSize, geometry->drawStart, geometry->drawCount))
-                        break;
-                }
+                    occlusionBuffer->AddTriangles(worldTransform, geometry->cpuPositionData, sizeof(Vector3), geometry->cpuIndexData, geometry->cpuIndexSize, geometry->drawStart, geometry->drawCount);
                 else
-                {
-                    if (!occlusionBuffer->Draw(worldTransform, geometry->cpuPositionData, sizeof(Vector3), geometry->drawStart, geometry->drawCount))
-                        break;
-                }
+                    occlusionBuffer->AddTriangles(worldTransform, geometry->cpuPositionData, sizeof(Vector3), geometry->drawStart, geometry->drawCount);
             }
         }
     }
 
-    // Build depth hierarchy in a worker thread
-    occlusionBuffer->BuildDepthHierarchy(true);
+    // Start rasterization in worker threads
+    occlusionBuffer->DrawTriangles();
 }
 
 void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, unsigned char planeMask)

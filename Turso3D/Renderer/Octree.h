@@ -7,6 +7,8 @@
 #include "../Thread/WorkQueue.h"
 #include "OctreeNode.h"
 
+#include <atomic>
+
 static const size_t NUM_OCTANTS = 8;
 static const unsigned short OF_DRAWABLES_SORT_DIRTY = 0x1;
 static const unsigned short OF_CULLING_BOX_DIRTY = 0x2;
@@ -324,6 +326,8 @@ private:
     mutable std::vector<std::pair<Drawable*, float> > initialRayResult;
     /// RaycastSingle final result.
     mutable std::vector<RaycastResult> finalRayResult;
+    /// Remaining drawable reinsertion tasks.
+    std::atomic<int> numPendingReinsertionTasks;
 };
 
 /// Task for octree drawables reinsertion.
