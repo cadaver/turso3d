@@ -61,11 +61,12 @@ struct Gradients
 /// %Edge of a software rasterized triangle.
 struct Edge
 {
-    /// Construct from gradients and top & bottom vertices.
-    Edge(const Gradients& gradients, const Vector3& top, const Vector3& bottom, int topY)
+    /// Calculate from gradients and top & bottom vertices.
+    void Calculate(const Gradients& gradients, const Vector3& top, const Vector3& bottom)
     {
+        int intTopY = (int)top.y;
         float slope = (bottom.x - top.x) / (bottom.y - top.y);
-        float yPreStep = (float)(topY + 1) - top.y;
+        float yPreStep = (float)(intTopY + 1) - top.y;
         float xPreStep = slope * yPreStep;
 
         x = (int)((xPreStep + top.x) * OCCLUSION_X_SCALE + 0.5f);
@@ -84,13 +85,74 @@ struct Edge
     int invZStep;
 };
 
-/// Stored triangle with gradients calculated.
+/// Stored triangle with gradients and edges calculated.
 struct GradientTriangle
 {
+    /// Sort vertices, then calculate gradients and edges.
+    void Calculate()
+    {
+        if (vertices[0].y < vertices[1].y)
+        {
+            if (vertices[2].y < vertices[0].y)
+            {
+                std::swap(vertices[1], vertices[2]);
+                std::swap(vertices[0], vertices[1]);
+                middleIsRight = true;
+            }
+            else
+            {
+                if (vertices[1].y < vertices[2].y)
+                {
+                    middleIsRight = true;
+                }
+                else
+                {
+                    std::swap(vertices[1], vertices[2]);
+                    middleIsRight = false;
+                }
+            }
+        }
+        else
+        {
+            if (vertices[2].y < vertices[1].y)
+            {
+                std::swap(vertices[0], vertices[2]);
+                middleIsRight = false;
+            }
+            else
+            {
+                if (vertices[0].y < vertices[2].y)
+                {
+                    std::swap(vertices[0], vertices[1]);
+                    middleIsRight = false;
+                }
+                else
+                {
+                    std::swap(vertices[0], vertices[1]);
+                    std::swap(vertices[1], vertices[2]);
+                    middleIsRight = true;
+                }
+            }
+        }
+
+        gradients.Calculate(vertices);
+        topToMiddle.Calculate(gradients, vertices[0], vertices[1]);
+        middleToBottom.Calculate(gradients, vertices[1], vertices[2]);
+        topToBottom.Calculate(gradients, vertices[0], vertices[2]);
+    }
+
     /// Triangle vertices.
     Vector3 vertices[3];
     /// Gradients calculated from the vertices.
     Gradients gradients;
+    /// Top to middle edge.
+    Edge topToMiddle;
+    /// Middle to bottom edge.
+    Edge middleToBottom;
+    /// Top to bottom edge.
+    Edge topToBottom;
+    /// Whether middle vertex is on the right.
+    bool middleIsRight;
 };
 
 /// Occlusion mip buffer depth range.
@@ -180,9 +242,7 @@ private:
         float aY = v0.y - v1.y;
         float bX = v2.x - v1.x;
         float bY = v2.y - v1.y;
-        float signedArea = aX * bY - aY * bX;
-
-        return signedArea < 0.0f;
+        return (aX * bY - aY * bX) < 0.0f;
     }
 
     /// Rasterize between two edges. Clip to slice.
@@ -243,6 +303,7 @@ private:
     void CalculateViewport();
     /// Clip and add a triangle into the triangles lists.
     void AddTriangle(GenerateTrianglesTask* task, Vector4* vertices);
+    
     /// Clip vertices against a plane.
     void ClipVertices(const Vector4& plane, Vector4* vertices, bool* clipTriangles, size_t& numClipTriangles);
     /// Work function to generate clipped triangles.

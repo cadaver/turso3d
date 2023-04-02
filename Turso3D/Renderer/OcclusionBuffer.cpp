@@ -27,7 +27,10 @@ OcclusionBuffer::OcclusionBuffer() :
     workQueue = Subsystem<WorkQueue>();
 
     depthHierarchyTask = new MemberFunctionTask<OcclusionBuffer>(this, &OcclusionBuffer::BuildDepthHierarchyWork);
-    for (size_t i = 0; i < OCCLUSION_BUFFER_SLICES; ++i)
+
+    // If not threaded, do not divide rendering into slices
+    size_t numSlices = workQueue->NumThreads() > 1 ? OCCLUSION_BUFFER_SLICES : 1;
+    for (size_t i = 0; i < numSlices; ++i)
     {
         rasterizeTrianglesTasks[i] = new RasterizeTrianglesTask(this, &OcclusionBuffer::RasterizeTrianglesWork);
         rasterizeTrianglesTasks[i]->sliceIdx = i;
@@ -62,19 +65,31 @@ bool OcclusionBuffer::SetSize(int newWidth, int newHeight)
     
     width = newWidth;
     height = newHeight;
-    sliceHeight = (newHeight / OCCLUSION_BUFFER_SLICES) + 1;
-    activeSlices = 0;
 
-    for (int i = 0; i < OCCLUSION_BUFFER_SLICES; ++i)
+    // Define slices for worker threads if actually threaded
+    if (workQueue->NumThreads() > 1)
     {
-        if (i * sliceHeight < height)
+        sliceHeight = newHeight / OCCLUSION_BUFFER_SLICES + 1;
+        activeSlices = 0;
+
+        for (int i = 0; i < OCCLUSION_BUFFER_SLICES; ++i)
         {
-            rasterizeTrianglesTasks[i]->startY = i * sliceHeight;
-            rasterizeTrianglesTasks[i]->endY = Min((int)(i + 1) * sliceHeight, height);
-            ++activeSlices;
+            if (i * sliceHeight < height)
+            {
+                rasterizeTrianglesTasks[i]->startY = i * sliceHeight;
+                rasterizeTrianglesTasks[i]->endY = Min((int)(i + 1) * sliceHeight, height);
+                ++activeSlices;
+            }
+            else
+                break;
         }
-        else
-            break;
+    }
+    else
+    {
+        sliceHeight = height;
+        activeSlices = 1;
+        rasterizeTrianglesTasks[0]->startY = 0;
+        rasterizeTrianglesTasks[0]->endY = height;
     }
 
     // Reserve extra memory in case 3D clipping is not exact
@@ -315,7 +330,7 @@ void OcclusionBuffer::AddTriangle(GenerateTrianglesTask* task, Vector4* vertices
 {
     unsigned clipMask = 0;
     unsigned andClipMask = 0;
-    
+
     // Build the clip plane mask for the triangle
     for (size_t i = 0; i < 3; ++i)
     {
@@ -346,32 +361,35 @@ void OcclusionBuffer::AddTriangle(GenerateTrianglesTask* task, Vector4* vertices
     if (andClipMask)
         return;
     
-    GradientTriangle projected;
-
     // Check if triangle is fully inside
     if (!clipMask)
     {
-        projected.vertices[0] = ViewportTransform(vertices[0]);
-        projected.vertices[1] = ViewportTransform(vertices[1]);
-        projected.vertices[2] = ViewportTransform(vertices[2]);
-        
-        if (CheckFacing(projected.vertices[0], projected.vertices[1], projected.vertices[2]))
+        unsigned idx = (unsigned)task->triangles.size();
+        task->triangles.resize(idx + 1);
+        GradientTriangle& triangle = task->triangles.back();
+
+        triangle.vertices[0] = ViewportTransform(vertices[0]);
+        triangle.vertices[1] = ViewportTransform(vertices[1]);
+        triangle.vertices[2] = ViewportTransform(vertices[2]);
+
+        if (!CheckFacing(triangle.vertices[0], triangle.vertices[1], triangle.vertices[2]))
         {
-            unsigned idx = (unsigned)task->triangles.size();
-            int minY = Min(Min((int)projected.vertices[0].y, (int)projected.vertices[1].y), (int)projected.vertices[2].y);
-            int maxY = Max(Max((int)projected.vertices[0].y, (int)projected.vertices[1].y), (int)projected.vertices[2].y);
+            task->triangles.resize(idx);
+            return;
+        }
 
-            projected.gradients.Calculate(projected.vertices);
-            task->triangles.push_back(projected);
+        triangle.Calculate();
 
-            // Add to needed slices
-            for (int i = 0; i < activeSlices; ++i)
-            {
-                int sliceStartY = i * sliceHeight;
-                int sliceEndY = Min(height, sliceStartY + sliceHeight);
-                if (minY < sliceEndY && maxY > sliceStartY)
-                    task->triangleIndices[i].push_back(idx);
-            }
+        int minY = (int)triangle.vertices[0].y;
+        int maxY = (int)triangle.vertices[2].y;
+
+        // Add to needed slices
+        for (int j = 0; j < activeSlices; ++j)
+        {
+            int sliceStartY = j * sliceHeight;
+            int sliceEndY = Min(height, sliceStartY + sliceHeight);
+            if (minY < sliceEndY && maxY > sliceStartY)
+                task->triangleIndices[j].push_back(idx);
         }
     }
     else
@@ -400,28 +418,32 @@ void OcclusionBuffer::AddTriangle(GenerateTrianglesTask* task, Vector4* vertices
         {
             if (clipTriangles[i])
             {
-                size_t index = i * 3;
-                projected.vertices[0] = ViewportTransform(vertices[index]);
-                projected.vertices[1] = ViewportTransform(vertices[index + 1]);
-                projected.vertices[2] = ViewportTransform(vertices[index + 2]);
+                unsigned idx = (unsigned)task->triangles.size();
+                task->triangles.resize(idx + 1);
+                GradientTriangle& triangle = task->triangles.back();
 
-                if (CheckFacing(projected.vertices[0], projected.vertices[1], projected.vertices[2]))
+                triangle.vertices[0] = ViewportTransform(vertices[i * 3]);
+                triangle.vertices[1] = ViewportTransform(vertices[i * 3 + 1]);
+                triangle.vertices[2] = ViewportTransform(vertices[i * 3 + 2]);
+
+                if (!CheckFacing(triangle.vertices[0], triangle.vertices[1], triangle.vertices[2]))
                 {
-                    unsigned idx = (unsigned)task->triangles.size();
-                    int minY = Min(Min((int)projected.vertices[0].y, (int)projected.vertices[1].y), (int)projected.vertices[2].y);
-                    int maxY = Max(Max((int)projected.vertices[0].y, (int)projected.vertices[1].y), (int)projected.vertices[2].y);
+                    task->triangles.resize(idx);
+                    continue;
+                }
 
-                    projected.gradients.Calculate(projected.vertices);
-                    task->triangles.push_back(projected);
+                triangle.Calculate();
 
-                    // Add to needed slices
-                    for (int j = 0; j < activeSlices; ++j)
-                    {
-                        int startY = j * sliceHeight;
-                        int endY = startY + sliceHeight;
-                        if (minY < endY && maxY >= startY)
-                            task->triangleIndices[j].push_back(idx);
-                    }
+                int minY = (int)triangle.vertices[0].y;
+                int maxY = (int)triangle.vertices[2].y;
+
+                // Add to needed slices
+                for (int j = 0; j < activeSlices; ++j)
+                {
+                    int sliceStartY = j * sliceHeight;
+                    int sliceEndY = Min(height, sliceStartY + sliceHeight);
+                    if (minY < sliceEndY && maxY > sliceStartY)
+                        task->triangleIndices[j].push_back(idx);
                 }
             }
         }
@@ -612,62 +634,20 @@ void OcclusionBuffer::RasterizeTrianglesWork(Task* task, unsigned)
             const Vector3* vertices = triangles[idx].vertices;
             const Gradients& gradients = triangles[idx].gradients;
 
-            int top, middle, bottom;
-            bool middleIsRight;
-    
-            // Sort vertices in Y-direction
-            if (vertices[0].y < vertices[1].y)
-            {
-                if (vertices[2].y < vertices[0].y)
-                {
-                    top = 2; middle = 0; bottom = 1; middleIsRight = true;
-                }
-                else
-                {
-                    top = 0;
-                    if (vertices[1].y < vertices[2].y)
-                    {
-                        middle = 1; bottom = 2; middleIsRight = true;
-                    }
-                    else
-                    {
-                        middle = 2; bottom = 1; middleIsRight = false;
-                    }
-                }
-            }
-            else
-            {
-                if (vertices[2].y < vertices[1].y)
-                {
-                    top = 2; middle = 1; bottom = 0; middleIsRight = false;
-                }
-                else
-                {
-                    top = 1;
-                    if (vertices[0].y < vertices[2].y)
-                    {
-                        middle = 0; bottom = 2; middleIsRight = false;
-                    }
-                    else
-                    {
-                        middle = 2; bottom = 0; middleIsRight = true;
-                    }
-                }
-            }
-    
-            int topY = (int)vertices[top].y;
-            int middleY = (int)vertices[middle].y;
-            int bottomY = (int)vertices[bottom].y;
+            int topY = (int)vertices[0].y;
+            int middleY = (int)vertices[1].y;
+            int bottomY = (int)vertices[2].y;
     
             // Check for degenerate triangle
             if (topY == bottomY)
                 continue;
 
-            Edge topToMiddle(gradients, vertices[top], vertices[middle], topY);
-            Edge topToBottom(gradients, vertices[top], vertices[bottom], topY);
-            Edge middleToBottom(gradients, vertices[middle], vertices[bottom], middleY);
-    
-            if (middleIsRight)
+            // Make copies of the edges for advancing the coordinates
+            Edge topToMiddle = triangles[idx].topToMiddle;
+            Edge middleToBottom = triangles[idx].middleToBottom;
+            Edge topToBottom = triangles[idx].topToBottom;
+
+            if (triangles[idx].middleIsRight)
             {
                 RasterizeSpans(topToBottom, topToMiddle, topY, middleY, gradients.dInvZdXInt, sliceStartY, sliceEndY);
                 RasterizeSpans(topToBottom, middleToBottom, middleY, bottomY, gradients.dInvZdXInt, sliceStartY, sliceEndY);

@@ -497,9 +497,9 @@ void Renderer::SubmitOccluders()
             if (geometry->cpuPositionData)
             {
                 if (geometry->cpuIndexData)
-                    occlusionBuffer->AddTriangles(worldTransform, geometry->cpuPositionData, sizeof(Vector3), geometry->cpuIndexData, geometry->cpuIndexSize, geometry->drawStart, geometry->drawCount);
+                    occlusionBuffer->AddTriangles(worldTransform, geometry->cpuPositionData, sizeof(Vector3), geometry->cpuIndexData, geometry->cpuIndexSize, geometry->cpuDrawStart, geometry->drawCount);
                 else
-                    occlusionBuffer->AddTriangles(worldTransform, geometry->cpuPositionData, sizeof(Vector3), geometry->drawStart, geometry->drawCount);
+                    occlusionBuffer->AddTriangles(worldTransform, geometry->cpuPositionData, sizeof(Vector3), geometry->cpuDrawStart, geometry->drawCount);
             }
         }
     }
