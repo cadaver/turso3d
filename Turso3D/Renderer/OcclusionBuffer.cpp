@@ -45,15 +45,15 @@ OcclusionBuffer::~OcclusionBuffer()
 
 bool OcclusionBuffer::SetSize(int newWidth, int newHeight)
 {
-    // Force the height to an even amount of pixels for better mip generation
-    if (height & 1)
-        ++height;
+    ZoneScoped;
+
+    // Force the height to a multiple of 16 to make sure each worker thread slice is same size, and can build its part of the depth hierarchy
+    newWidth += 15;
+    newWidth &= 0x7ffffff0;
     
     if (newWidth == width && newHeight == height)
         return true;
     
-    ZoneScoped;
-
     if (newWidth <= 0 || newHeight <= 0)
         return false;
     
@@ -69,19 +69,13 @@ bool OcclusionBuffer::SetSize(int newWidth, int newHeight)
     // Define slices for worker threads if actually threaded
     if (workQueue->NumThreads() > 1)
     {
-        sliceHeight = newHeight / OCCLUSION_BUFFER_SLICES + 1;
-        activeSlices = 0;
+        sliceHeight = newHeight / OCCLUSION_BUFFER_SLICES;
+        activeSlices = OCCLUSION_BUFFER_SLICES;
 
         for (int i = 0; i < OCCLUSION_BUFFER_SLICES; ++i)
         {
-            if (i * sliceHeight < height)
-            {
-                rasterizeTrianglesTasks[i]->startY = i * sliceHeight;
-                rasterizeTrianglesTasks[i]->endY = Min((int)(i + 1) * sliceHeight, height);
-                ++activeSlices;
-            }
-            else
-                break;
+            rasterizeTrianglesTasks[i]->startY = i * sliceHeight;
+            rasterizeTrianglesTasks[i]->endY = (i + 1) * sliceHeight;
         }
     }
     else
@@ -387,7 +381,7 @@ void OcclusionBuffer::AddTriangle(GenerateTrianglesTask* task, Vector4* vertices
         for (int j = 0; j < activeSlices; ++j)
         {
             int sliceStartY = j * sliceHeight;
-            int sliceEndY = Min(height, sliceStartY + sliceHeight);
+            int sliceEndY = sliceStartY + sliceHeight;
             if (minY < sliceEndY && maxY > sliceStartY)
                 task->triangleIndices[j].push_back(idx);
         }
@@ -441,7 +435,7 @@ void OcclusionBuffer::AddTriangle(GenerateTrianglesTask* task, Vector4* vertices
                 for (int j = 0; j < activeSlices; ++j)
                 {
                     int sliceStartY = j * sliceHeight;
-                    int sliceEndY = Min(height, sliceStartY + sliceHeight);
+                    int sliceEndY = sliceStartY + sliceHeight;
                     if (minY < sliceEndY && maxY > sliceStartY)
                         task->triangleIndices[j].push_back(idx);
                 }
@@ -660,20 +654,10 @@ void OcclusionBuffer::RasterizeTrianglesWork(Task* task, unsigned)
         }
     }
 
-    // If done, build depth hierarchy
-    if (numPendingRasterizeTasks.fetch_add(-1) == 1)
-        workQueue->QueueTask(depthHierarchyTask);
-}
-
-void OcclusionBuffer::BuildDepthHierarchyWork(Task*, unsigned)
-{
-    ZoneScoped;
-
-    // Build the first mip level from the pixel-level data
+    // After finishing, build part of first miplevel
     int mipWidth = (width + 1) / 2;
-    int mipHeight = (height + 1) / 2;
 
-    for (int y = 0; y < mipHeight; ++y)
+    for (int y = sliceStartY / 2; y < sliceEndY / 2; ++y)
     {
         int* src = buffer + (y * 2) * width;
         DepthValue* dest = mipBuffers[0] + y * mipWidth;
@@ -704,7 +688,21 @@ void OcclusionBuffer::BuildDepthHierarchyWork(Task*, unsigned)
         }
     }
 
-    ++numReadyMipBuffers;
+    // If done, build rest of the depth hierarchy
+    if (numPendingRasterizeTasks.fetch_add(-1) == 1)
+    {
+        numReadyMipBuffers = 1;
+        workQueue->QueueTask(depthHierarchyTask);
+    }
+}
+
+void OcclusionBuffer::BuildDepthHierarchyWork(Task*, unsigned)
+{
+    ZoneScoped;
+
+    // The first mip level has been built by the rasterize tasks
+    int mipWidth = (width + 1) / 2;
+    int mipHeight = (height + 1) / 2;
 
     // Build the rest of the mip levels
     for (size_t i = 1; i < mipBuffers.size(); ++i)
