@@ -247,10 +247,10 @@ bool OcclusionBuffer::IsVisible(const BoundingBox& worldSpaceBox) const
         if (projected.z < minZ) minZ = projected.z;
     }
     
-    // Expand the bounding box 1 pixel in each direction to be conservative and correct rasterization offset
+    // Correct rasterization offset and expand slightly to prevent false negatives
     IntRect rect(
-        (int)(minX - 1.5f), (int)(minY - 1.5f),
-        (int)(maxX + 0.5f), (int)(maxY + 0.5f)
+        (int)minX - 1, (int)minY - 1,
+        (int)maxX, (int)maxY
     );
     
     // Clipping of rect
