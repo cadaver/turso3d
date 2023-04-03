@@ -64,9 +64,10 @@ struct Edge
     /// Calculate from gradients and top & bottom vertices.
     void Calculate(const Gradients& gradients, const Vector3& top, const Vector3& bottom)
     {
-        int intTopY = (int)top.y;
+        topY = (int)top.y;
+        bottomY = (int)bottom.y;
         float slope = (bottom.x - top.x) / (bottom.y - top.y);
-        float yPreStep = (float)(intTopY + 1) - top.y;
+        float yPreStep = (float)(topY + 1) - top.y;
         float xPreStep = slope * yPreStep;
 
         x = (int)((xPreStep + top.x) * OCCLUSION_X_SCALE + 0.5f);
@@ -75,8 +76,12 @@ struct Edge
         invZStep = (int)(slope * gradients.dInvZdX + gradients.dInvZdY + 0.5f);
     }
 
-    /// X coordinate.
+    /// X coordinate at the top.
     int x;
+    /// Y top coordinate.
+    int topY;
+    /// Y bottom coordinate.
+    int bottomY;
     /// X coordinate step.
     int xStep;
     /// Inverse Z.
@@ -85,29 +90,34 @@ struct Edge
     int invZStep;
 };
 
-/// Stored triangle with gradients and edges calculated.
+/// Stored triangle with all edges calculated for rasterization.
 struct GradientTriangle
 {
-    /// Sort vertices, then calculate gradients and edges.
-    void Calculate()
+    /// Calculate from vertices.
+    void Calculate(Vector3* vertices)
     {
+        int top, middle, bottom;
+        Gradients gradients;
+
+        // Sort vertices in Y-direction
         if (vertices[0].y < vertices[1].y)
         {
             if (vertices[2].y < vertices[0].y)
             {
-                std::swap(vertices[1], vertices[2]);
-                std::swap(vertices[0], vertices[1]);
+                top = 2; middle = 0; bottom = 1;
                 middleIsRight = true;
             }
             else
             {
+                top = 0;
                 if (vertices[1].y < vertices[2].y)
                 {
+                    middle = 1; bottom = 2;
                     middleIsRight = true;
                 }
                 else
                 {
-                    std::swap(vertices[1], vertices[2]);
+                    middle = 2; bottom = 1;
                     middleIsRight = false;
                 }
             }
@@ -116,41 +126,40 @@ struct GradientTriangle
         {
             if (vertices[2].y < vertices[1].y)
             {
-                std::swap(vertices[0], vertices[2]);
+                top = 2; middle = 1; bottom = 0;
                 middleIsRight = false;
             }
             else
             {
+                top = 1;
                 if (vertices[0].y < vertices[2].y)
                 {
-                    std::swap(vertices[0], vertices[1]);
+                    middle = 0; bottom = 2;
                     middleIsRight = false;
                 }
                 else
                 {
-                    std::swap(vertices[0], vertices[1]);
-                    std::swap(vertices[1], vertices[2]);
+                    middle = 2; bottom = 0;
                     middleIsRight = true;
                 }
             }
         }
 
         gradients.Calculate(vertices);
-        topToMiddle.Calculate(gradients, vertices[0], vertices[1]);
-        middleToBottom.Calculate(gradients, vertices[1], vertices[2]);
-        topToBottom.Calculate(gradients, vertices[0], vertices[2]);
+        topToMiddle.Calculate(gradients, vertices[top], vertices[middle]);
+        topToBottom.Calculate(gradients, vertices[top], vertices[bottom]);
+        middleToBottom.Calculate(gradients, vertices[middle], vertices[bottom]);
+        dInvZdXInt = gradients.dInvZdXInt;
     }
 
-    /// Triangle vertices.
-    Vector3 vertices[3];
-    /// Gradients calculated from the vertices.
-    Gradients gradients;
     /// Top to middle edge.
     Edge topToMiddle;
     /// Middle to bottom edge.
     Edge middleToBottom;
     /// Top to bottom edge.
     Edge topToBottom;
+    /// Integer horizontal gradient.
+    int dInvZdXInt;
     /// Whether middle vertex is on the right.
     bool middleIsRight;
 };

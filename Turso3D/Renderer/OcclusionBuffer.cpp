@@ -311,35 +311,42 @@ bool OcclusionBuffer::IsVisible(const BoundingBox& worldSpaceBox) const
 
 void OcclusionBuffer::AddTriangle(GenerateTrianglesTask* task, Vector4* vertices)
 {
-    unsigned clipMask = 0;
-    unsigned andClipMask = 0;
+    unsigned clipMask;
+    unsigned andClipMask;
+    unsigned vertexClipMask = 0;
 
-    // Build the clip plane mask for the triangle
-    for (size_t i = 0; i < 3; ++i)
-    {
-        unsigned vertexClipMask = 0;
-        
-        if (vertices[i].x > vertices[i].w)
-            vertexClipMask |= CLIPMASK_X_POS;
-        if (vertices[i].x < -vertices[i].w)
-            vertexClipMask |= CLIPMASK_X_NEG;
-        if (vertices[i].y > vertices[i].w)
-            vertexClipMask |= CLIPMASK_Y_POS;
-        if (vertices[i].y < -vertices[i].w)
-            vertexClipMask |= CLIPMASK_Y_NEG;
-        if (vertices[i].z > vertices[i].w)
-            vertexClipMask |= CLIPMASK_Z_POS;
-        if (vertices[i].z < 0.0f)
-            vertexClipMask |= CLIPMASK_Z_NEG;
-        
-        clipMask |= vertexClipMask;
-        
-        if (!i)
-            andClipMask = vertexClipMask;
-        else
-            andClipMask &= vertexClipMask;
-    }
-    
+    if (vertices[0].x > vertices[0].w) vertexClipMask |= CLIPMASK_X_POS;
+    if (vertices[0].x < -vertices[0].w) vertexClipMask |= CLIPMASK_X_NEG;
+    if (vertices[0].y > vertices[0].w) vertexClipMask |= CLIPMASK_Y_POS;
+    if (vertices[0].y < -vertices[0].w) vertexClipMask |= CLIPMASK_Y_NEG;
+    if (vertices[0].z > vertices[0].w) vertexClipMask |= CLIPMASK_Z_POS;
+    if (vertices[0].z < 0.0f) vertexClipMask |= CLIPMASK_Z_NEG;
+
+    clipMask = vertexClipMask;
+    andClipMask = vertexClipMask;
+    vertexClipMask = 0;
+
+    if (vertices[1].x > vertices[1].w) vertexClipMask |= CLIPMASK_X_POS;
+    if (vertices[1].x < -vertices[1].w) vertexClipMask |= CLIPMASK_X_NEG;
+    if (vertices[1].y > vertices[1].w) vertexClipMask |= CLIPMASK_Y_POS;
+    if (vertices[1].y < -vertices[1].w) vertexClipMask |= CLIPMASK_Y_NEG;
+    if (vertices[1].z > vertices[1].w) vertexClipMask |= CLIPMASK_Z_POS;
+    if (vertices[1].z < 0.0f) vertexClipMask |= CLIPMASK_Z_NEG;
+
+    clipMask |= vertexClipMask;
+    andClipMask &= vertexClipMask;
+    vertexClipMask = 0;
+
+    if (vertices[2].x > vertices[2].w) vertexClipMask |= CLIPMASK_X_POS;
+    if (vertices[2].x < -vertices[2].w) vertexClipMask |= CLIPMASK_X_NEG;
+    if (vertices[2].y > vertices[2].w) vertexClipMask |= CLIPMASK_Y_POS;
+    if (vertices[2].y < -vertices[2].w) vertexClipMask |= CLIPMASK_Y_NEG;
+    if (vertices[2].z > vertices[2].w) vertexClipMask |= CLIPMASK_Z_POS;
+    if (vertices[2].z < 0.0f) vertexClipMask |= CLIPMASK_Z_NEG;
+
+    clipMask |= vertexClipMask;
+    andClipMask &= vertexClipMask;
+
     // If triangle is fully behind any clip plane, can reject quickly
     if (andClipMask)
         return;
@@ -351,20 +358,22 @@ void OcclusionBuffer::AddTriangle(GenerateTrianglesTask* task, Vector4* vertices
         task->triangles.resize(idx + 1);
         GradientTriangle& triangle = task->triangles.back();
 
-        triangle.vertices[0] = ViewportTransform(vertices[0]);
-        triangle.vertices[1] = ViewportTransform(vertices[1]);
-        triangle.vertices[2] = ViewportTransform(vertices[2]);
+        Vector3 viewportVertices[3];
+        viewportVertices[0] = ViewportTransform(vertices[0]);
+        viewportVertices[1] = ViewportTransform(vertices[1]);
+        viewportVertices[2] = ViewportTransform(vertices[2]);
 
-        if (!CheckFacing(triangle.vertices[0], triangle.vertices[1], triangle.vertices[2]))
+        // Check facing before calculating gradients or storing
+        if (!CheckFacing(viewportVertices[0], viewportVertices[1], viewportVertices[2]))
         {
             task->triangles.resize(idx);
             return;
         }
 
-        triangle.Calculate();
+        triangle.Calculate(viewportVertices);
 
-        int minY = (int)triangle.vertices[0].y;
-        int maxY = (int)triangle.vertices[2].y;
+        int minY = triangle.topToBottom.topY;
+        int maxY = triangle.topToBottom.bottomY;
 
         // Add to needed slices
         for (int j = 0; j < activeSlices; ++j)
@@ -378,7 +387,7 @@ void OcclusionBuffer::AddTriangle(GenerateTrianglesTask* task, Vector4* vertices
     else
     {
         bool clipTriangles[64];
-        
+
         // Initial triangle
         clipTriangles[0] = true;
         size_t numClipTriangles = 1;
@@ -405,20 +414,22 @@ void OcclusionBuffer::AddTriangle(GenerateTrianglesTask* task, Vector4* vertices
                 task->triangles.resize(idx + 1);
                 GradientTriangle& triangle = task->triangles.back();
 
-                triangle.vertices[0] = ViewportTransform(vertices[i * 3]);
-                triangle.vertices[1] = ViewportTransform(vertices[i * 3 + 1]);
-                triangle.vertices[2] = ViewportTransform(vertices[i * 3 + 2]);
+                Vector3 viewportVertices[3];
+                viewportVertices[0] = ViewportTransform(vertices[i * 3]);
+                viewportVertices[1] = ViewportTransform(vertices[i * 3 + 1]);
+                viewportVertices[2] = ViewportTransform(vertices[i * 3 + 2]);
 
-                if (!CheckFacing(triangle.vertices[0], triangle.vertices[1], triangle.vertices[2]))
+                // Check facing before calculating gradients or storing
+                if (!CheckFacing(viewportVertices[0], viewportVertices[1], viewportVertices[2]))
                 {
                     task->triangles.resize(idx);
-                    continue;
+                    return;
                 }
 
-                triangle.Calculate();
+                triangle.Calculate(viewportVertices);
 
-                int minY = (int)triangle.vertices[0].y;
-                int maxY = (int)triangle.vertices[2].y;
+                int minY = triangle.topToBottom.topY;
+                int maxY = triangle.topToBottom.bottomY;
 
                 // Add to needed slices
                 for (int j = 0; j < activeSlices; ++j)
@@ -612,33 +623,22 @@ void OcclusionBuffer::RasterizeTrianglesWork(Task* task, unsigned)
 
         for (auto it = indices.begin(); it != indices.end(); ++it)
         {
-            unsigned idx = *it;
-
-            const Vector3* vertices = triangles[idx].vertices;
-            const Gradients& gradients = triangles[idx].gradients;
-
-            int topY = (int)vertices[0].y;
-            int middleY = (int)vertices[1].y;
-            int bottomY = (int)vertices[2].y;
-    
-            // Check for degenerate triangle
-            if (topY == bottomY)
-                continue;
+            const GradientTriangle& triangle = triangles[*it];
 
             // Make copies of the edges for advancing the coordinates
-            Edge topToMiddle = triangles[idx].topToMiddle;
-            Edge middleToBottom = triangles[idx].middleToBottom;
-            Edge topToBottom = triangles[idx].topToBottom;
+            Edge topToMiddle = triangle.topToMiddle;
+            Edge middleToBottom = triangle.middleToBottom;
+            Edge topToBottom = triangle.topToBottom;
 
-            if (triangles[idx].middleIsRight)
+            if (triangle.middleIsRight)
             {
-                RasterizeSpans(topToBottom, topToMiddle, topY, middleY, gradients.dInvZdXInt, sliceStartY, sliceEndY);
-                RasterizeSpans(topToBottom, middleToBottom, middleY, bottomY, gradients.dInvZdXInt, sliceStartY, sliceEndY);
+                RasterizeSpans(topToBottom, topToMiddle, topToMiddle.topY, topToMiddle.bottomY, triangle.dInvZdXInt, sliceStartY, sliceEndY);
+                RasterizeSpans(topToBottom, middleToBottom, middleToBottom.topY, middleToBottom.bottomY, triangle.dInvZdXInt, sliceStartY, sliceEndY);
             }
             else
             {
-                RasterizeSpans(topToMiddle, topToBottom, topY, middleY, gradients.dInvZdXInt, sliceStartY, sliceEndY);
-                RasterizeSpans(middleToBottom, topToBottom, middleY, bottomY, gradients.dInvZdXInt, sliceStartY, sliceEndY);
+                RasterizeSpans(topToMiddle, topToBottom, topToMiddle.topY, topToMiddle.bottomY, triangle.dInvZdXInt, sliceStartY, sliceEndY);
+                RasterizeSpans(middleToBottom, topToBottom, middleToBottom.topY, middleToBottom.bottomY, triangle.dInvZdXInt, sliceStartY, sliceEndY);
             }
         }
     }
