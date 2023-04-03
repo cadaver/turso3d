@@ -48,7 +48,7 @@ bool OcclusionBuffer::SetSize(int newWidth, int newHeight)
     ZoneScoped;
 
     // Force the height to a multiple of 16 to make sure each worker thread slice is same size, and can build its part of the depth hierarchy
-    newWidth += 15;
+    newWidth += 8;
     newWidth &= 0x7ffffff0;
     
     if (newWidth == width && newHeight == height)

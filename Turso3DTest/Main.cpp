@@ -465,7 +465,10 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             {
                 OcclusionBuffer* occlusion = renderer->GetOcclusionBuffer();
                 if (occlusionDebugTexture->Width() != occlusion->Width() || occlusionDebugTexture->Height() != occlusion->Height())
+                {
                     occlusionDebugTexture->Define(TEX_2D, IntVector2(occlusion->Width(), occlusion->Height()), FMT_R8);
+                    occlusionDebugTexture->DefineSampler(FILTER_POINT, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
+                }
                 
                 size_t dataSize = occlusion->Width() * occlusion->Height();
                 AutoArrayPtr<unsigned char> debugData = new unsigned char[dataSize];
