@@ -16,10 +16,7 @@ static Allocator<OccluderDrawable> drawableAllocator;
 void OccluderDrawable::OnWorldBoundingBoxUpdate() const
 {
     if (model)
-    {
         worldBoundingBox = model->LocalBoundingBox().Transformed(WorldTransform());
-        SetFlag(DF_BOUNDING_BOX_DIRTY, false);
-    }
     else
         Drawable::OnWorldBoundingBoxUpdate();
 }

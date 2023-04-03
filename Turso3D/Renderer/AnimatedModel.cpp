@@ -105,8 +105,6 @@ void AnimatedModelDrawable::OnWorldBoundingBoxUpdate() const
         }
         else
             worldBoundingBox = boneBoundingBox.Transformed(WorldTransform());
-
-        SetFlag(DF_BOUNDING_BOX_DIRTY, false);
     }
     else
         Drawable::OnWorldBoundingBoxUpdate();

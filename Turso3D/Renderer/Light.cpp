@@ -87,8 +87,6 @@ void LightDrawable::OnWorldBoundingBoxUpdate() const
         worldBoundingBox.Define(WorldFrustum());
         break;
     }
-
-    SetFlag(DF_BOUNDING_BOX_DIRTY, false);
 }
 
 bool LightDrawable::OnPrepareRender(unsigned short frameNumber, Camera* camera)

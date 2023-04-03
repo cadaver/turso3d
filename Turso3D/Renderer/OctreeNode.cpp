@@ -40,7 +40,6 @@ void Drawable::OnWorldBoundingBoxUpdate() const
 {
     // The Drawable base class does not have a defined size, so represent as a point
     worldBoundingBox.Define(WorldPosition());
-    SetFlag(DF_BOUNDING_BOX_DIRTY, false);
 }
 
 void Drawable::OnOctreeUpdate(unsigned short)

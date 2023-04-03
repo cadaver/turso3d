@@ -77,8 +77,6 @@ public:
     /// Set the layer.
     void SetLayer(unsigned char newLayer);
 
-    /// Return world space bounding box. Update if necessary.
-    const BoundingBox& WorldBoundingBox() const { if (TestFlag(DF_BOUNDING_BOX_DIRTY)) OnWorldBoundingBoxUpdate(); return worldBoundingBox; }
     /// Return flags.
     unsigned short Flags() const { return flags; }
     /// Return bitmask corresponding to layer.
@@ -107,6 +105,17 @@ public:
     Vector3 WorldDirection() const { return WorldRotation() * Vector3::FORWARD; }
     /// Return scale in world space. As it is calculated from the world transform matrix, it may not be meaningful or accurate in all cases.
     Vector3 WorldScale() const { return WorldTransform().Scale(); }
+
+    /// Return world space bounding box. Update if necessary.
+    const BoundingBox& WorldBoundingBox() const
+    {
+        if (TestFlag(DF_BOUNDING_BOX_DIRTY))
+        {
+            OnWorldBoundingBoxUpdate();
+            SetFlag(DF_BOUNDING_BOX_DIRTY, false);
+        }
+        return worldBoundingBox;
+    }
 
     /// Return world transform matrix. Update if necessary
     const Matrix3x4& WorldTransform() const
