@@ -467,7 +467,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 if (occlusionDebugTexture->Width() != occlusion->Width() || occlusionDebugTexture->Height() != occlusion->Height())
                 {
                     occlusionDebugTexture->Define(TEX_2D, IntVector2(occlusion->Width(), occlusion->Height()), FMT_R8);
-                    occlusionDebugTexture->DefineSampler(FILTER_POINT, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
+                    occlusionDebugTexture->DefineSampler(FILTER_BILINEAR, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
                 }
                 
                 size_t dataSize = occlusion->Width() * occlusion->Height();

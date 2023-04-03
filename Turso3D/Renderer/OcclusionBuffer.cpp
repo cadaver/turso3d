@@ -86,9 +86,7 @@ bool OcclusionBuffer::SetSize(int newWidth, int newHeight)
         rasterizeTrianglesTasks[0]->endY = height;
     }
 
-    // Reserve extra memory in case 3D clipping is not exact
-    fullBuffer = new int[width * (height + 2) + 2];
-    buffer = fullBuffer + width + 1;
+    buffer = new int[width * height];
     mipBuffers.clear();
     
     // Build buffers for mip levels
@@ -105,19 +103,19 @@ bool OcclusionBuffer::SetSize(int newWidth, int newHeight)
     
     LOGDEBUGF("Set occlusion buffer size %dx%d with %d mip levels", width, height, (int)mipBuffers.size());
     
-    CalculateViewport();
+    // Add half pixel offset due to 3D frustum culling
+    scaleX = 0.5f * width;
+    scaleY = -0.5f * height;
+    offsetX = 0.5f * width + 0.5f;
+    offsetY = 0.5f * height + 0.5f;
+
     return true;
 }
 
 void OcclusionBuffer::SetView(Camera* camera)
 {
-    if (!camera)
-        return;
-    
-    view = camera->ViewMatrix();
-    projection = camera->ProjectionMatrix(false);
-    viewProj = projection * view;
-    CalculateViewport();
+    if (camera)
+        viewProj = camera->ProjectionMatrix(false) * camera->ViewMatrix();
 }
 
 void OcclusionBuffer::Reset()
@@ -309,15 +307,6 @@ bool OcclusionBuffer::IsVisible(const BoundingBox& worldSpaceBox) const
     }
     
     return false;
-}
-
-void OcclusionBuffer::CalculateViewport()
-{
-    // Add half pixel offset due to 3D frustum culling
-    scaleX = 0.5f * width;
-    scaleY = -0.5f * height;
-    offsetX = 0.5f * width + 0.5f;
-    offsetY = 0.5f * height + 0.5f;
 }
 
 void OcclusionBuffer::AddTriangle(GenerateTrianglesTask* task, Vector4* vertices)

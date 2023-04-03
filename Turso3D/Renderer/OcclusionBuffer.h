@@ -192,14 +192,14 @@ public:
     
     /// Return highest level depth values.
     int* Buffer() const { return buffer; }
-    /// Return view transform matrix.
-    const Matrix3x4& ViewMatrix() const { return view; }
-    /// Return projection matrix.
-    const Matrix4& ProjectionMatrix() const { return projection; }
+    /// Return current buffer dimensions.
+    IntVector2 Size() const { return IntVector2(width, height); }
     /// Return buffer width.
     int Width() const { return width; }
     /// Return buffer height.
     int Height() const { return height; }
+    /// Return the last set view-projection matrix.
+    const Matrix4& ViewProjectionMatrix() const { return viewProj; }
     /// Test if rasterization is complete. Visibility tests cannot be performed before.
     bool IsCompleted() const;
     /// Test a bounding box for visibility. For best performance, build depth hierarchy first.
@@ -299,11 +299,8 @@ private:
         }
     }
 
-    /// Calculate viewport transform.
-    void CalculateViewport();
-    /// Clip and add a triangle into the triangles lists.
+    /// Clip and add a triangle into per-slice triangle lists.
     void AddTriangle(GenerateTrianglesTask* task, Vector4* vertices);
-    
     /// Clip vertices against a plane.
     void ClipVertices(const Vector4& plane, Vector4* vertices, bool* clipTriangles, size_t& numClipTriangles);
     /// Work function to generate clipped triangles.
@@ -325,10 +322,6 @@ private:
     int sliceHeight;
     /// How many slices are actually needed, may be less due to rounding.
     int activeSlices;
-    /// View transform matrix.
-    Matrix3x4 view;
-    /// Projection matrix.
-    Matrix4 projection;
     /// Combined view and projection matrix.
     Matrix4 viewProj;
     /// X scaling for viewport transform.
