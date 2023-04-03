@@ -245,7 +245,7 @@ void LightDrawable::InitShadowViews()
 
         if (!view.shadowCamera)
         {
-            view.shadowCamera = new Camera();
+            view.shadowCamera = Object::Create<Camera>();
             // OpenGL render-to-texture needs vertical flip
             view.shadowCamera->SetFlipVertical(true);
         }

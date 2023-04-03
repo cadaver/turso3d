@@ -27,7 +27,8 @@ Scene::~Scene()
 
 void Scene::RegisterObject()
 {
-    RegisterFactory<Scene>();
+    // Register scene allocator with small initial capacity with the assumption that we don't create many of them (unlike other scene nodes)
+    RegisterFactory<Scene>(1);
     RegisterDerivedType<Scene, Node>();
     CopyBaseAttributes<Scene, Node>();
 }

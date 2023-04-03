@@ -30,6 +30,8 @@ struct RefCount
 /// Base class for intrusively reference counted objects that can be pointed to with SharedPtr and WeakPtr. These are not copy-constructible and not assignable.
 class RefCounted
 {
+    friend class Object;
+
 public:
     /// Construct. The reference count is not allocated yet; it will be allocated on demand.
     RefCounted();
@@ -40,7 +42,7 @@ public:
     /// Add a strong reference. Allocate the reference count structure first if necessary.
     void AddRef();
     /// Release a strong reference. Destroy the object when the last strong reference is gone.
-    void ReleaseRef();
+    virtual void ReleaseRef();
 
     /// Return the number of strong references.
     unsigned Refs() const { return refCount ? refCount->refs : 0; }

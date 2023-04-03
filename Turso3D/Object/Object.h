@@ -3,6 +3,7 @@
 #pragma once
 
 #include "../IO/StringHash.h"
+#include "Allocator.h"
 #include "Event.h"
 
 #include <map>
@@ -15,6 +16,9 @@ template <class T> class ObjectFactoryImpl;
 class Object : public RefCounted
 {
 public:
+    /// Release a strong reference. Destroy the object when the last strong reference is gone. If a factory exists for the object's type, it will be destroyed through it.
+    void ReleaseRef() override;
+
     /// Return hash of the type name.
     virtual StringHash Type() const = 0;
     /// Return type name.
@@ -50,6 +54,8 @@ public:
     static void RegisterDerivedType(StringHash derived, StringHash base);
     /// Create and return an object through a factory. The caller is assumed to take ownership of the object. Return null if no factory registered. 
     static Object* Create(StringHash type);
+    /// Destroy an object through a factory if exists, or if not, then by deleting.
+    static void Destroy(Object* object);
     /// Return a type name from hash, or empty if not known. Requires a registered object factory.
     static const std::string& TypeNameFromType(StringHash type);
     /// Return whether type is derived from another type.
@@ -57,7 +63,7 @@ public:
     /// Return a subsystem, template version.
     template <class T> static T* Subsystem() { return static_cast<T*>(Subsystem(T::TypeStatic())); }
     /// Register an object factory, template version.
-    template <class T> static void RegisterFactory() { RegisterFactory(new ObjectFactoryImpl<T>()); }
+    template <class T> static void RegisterFactory(size_t initialCapacity = DEFAULT_ALLOCATOR_INITIAL_CAPACITY) { RegisterFactory(new ObjectFactoryImpl<T>(initialCapacity)); }
     /// Register a derived type, template version.
     template <class T, class U> static void RegisterDerivedType() { RegisterDerivedType(T::TypeStatic(), U::TypeStatic()); }
     /// Create and return an object through a factory, template version.
@@ -83,6 +89,8 @@ public:
     
     /// Create and return an object.
     virtual Object* Create() = 0;
+    /// Destroy an object created through the factory.
+    virtual void Destroy(Object* object) = 0;
 
     /// Return type name hash of the objects created by this factory.
     StringHash Type() const { return type; }
@@ -101,14 +109,21 @@ template <class T> class ObjectFactoryImpl : public ObjectFactory
 {
 public:
     /// Construct.
-    ObjectFactoryImpl()
+    ObjectFactoryImpl(size_t initialCapacity = DEFAULT_ALLOCATOR_INITIAL_CAPACITY) :
+        allocator(initialCapacity)
     {
         type = T::TypeStatic();
         typeName = T::TypeNameStatic();
     }
 
     /// Create and return an object of the specific type.
-    Object* Create() override { return new T(); }
+    Object* Create() override { return allocator.Allocate(); }
+    /// Destroy an object created through the factory.
+    void Destroy(Object* object) override { return allocator.Free(static_cast<T*>(object)); }
+
+private:
+    /// Allocator for the objects.
+    Allocator<T> allocator;
 };
 
 #define OBJECT(typeName) \

@@ -12,6 +12,14 @@ ObjectFactory::~ObjectFactory()
 {
 }
 
+void Object::ReleaseRef()
+{
+    assert(refCount && refCount->refs > 0);
+    --(refCount->refs);
+    if (refCount->refs == 0)
+        Destroy(this);
+}
+
 void Object::SubscribeToEvent(Event& event, EventHandler* handler)
 {
     event.Subscribe(handler);
@@ -73,6 +81,17 @@ Object* Object::Create(StringHash type)
 {
     auto it = factories.find(type);
     return it != factories.end() ? it->second->Create() : nullptr;
+}
+
+void Object::Destroy(Object* object)
+{
+    assert(object);
+
+    auto it = factories.find(object->Type());
+    if (it != factories.end())
+        it->second->Destroy(object);
+    else
+        delete object;
 }
 
 const std::string& Object::TypeNameFromType(StringHash type)

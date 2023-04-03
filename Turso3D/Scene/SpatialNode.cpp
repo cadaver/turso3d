@@ -1,6 +1,5 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
-#include "../Object/Allocator.h"
 #include "SpatialNode.h"
 
 static Allocator<Matrix3x4> worldMatrixAllocator;

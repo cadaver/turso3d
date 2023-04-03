@@ -228,10 +228,10 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     noiseTexture->DefineSampler(FILTER_POINT);
 
     // Create the scene and camera. Camera is created outside scene so it's not disturbed by scene clears
-    AutoPtr<Scene> scene = new Scene();
+    SharedPtr<Scene> scene = Object::Create<Scene>();
     CreateScene(scene, 0);
 
-    AutoPtr<Camera> camera = new Camera();
+    SharedPtr<Camera> camera = Object::Create<Camera>();
     camera->SetPosition(Vector3(0.0f, 20.0f, -75.0f));
 
     float yaw = 0.0f, pitch = 20.0f;

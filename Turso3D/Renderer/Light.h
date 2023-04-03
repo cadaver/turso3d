@@ -46,7 +46,7 @@ struct ShadowView
     /// Viewport within the shadow map.
     IntRect viewport;
     /// Shadow camera.
-    AutoPtr<Camera> shadowCamera;
+    SharedPtr<Camera> shadowCamera;
     /// Shadow camera frustum.
     Frustum shadowFrustum;
     /// Current shadow projection matrix.

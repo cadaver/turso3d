@@ -2,7 +2,6 @@
 
 #include "../IO/Log.h"
 #include "../IO/Stream.h"
-#include "../Object/Allocator.h"
 #include "../Object/ObjectResolver.h"
 #include "../Resource/JSONFile.h"
 #include "Scene.h"
@@ -204,7 +203,7 @@ Node* Node::CreateChild(StringHash childType)
     if (!child)
     {
         LOGERROR(newObject->TypeName() + " is not a Node subclass, could not add as a child");
-        delete newObject;
+        Destroy(newObject);
         return nullptr;
     }
 #else
