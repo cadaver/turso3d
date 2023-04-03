@@ -255,7 +255,7 @@ private:
     }
 
     /// Rasterize between two edges. Clip to slice.
-    void RasterizeSpans(Edge& left, Edge& right, int topY, int bottomY, int pixelInvZStep, int sliceStartY, int sliceEndY)
+    void RasterizeSpans(const Edge& leftEdge, const Edge& rightEdge, int topY, int bottomY, int dInvZdXInt, int sliceStartY, int sliceEndY, int& leftX, int& leftInvZ, int& rightX)
     {
         // If past the bottom or degenerate, no operation
         if (topY >= sliceEndY || topY == bottomY)
@@ -265,9 +265,9 @@ private:
         if (bottomY <= sliceStartY)
         {
             int clip = bottomY - topY;
-            left.x += left.xStep * clip;
-            left.invZ += left.invZStep * clip;
-            right.x += right.xStep * clip;
+            leftX += leftEdge.xStep * clip;
+            leftInvZ += leftEdge.invZStep * clip;
+            rightX += rightEdge.xStep * clip;
             return;
         }
 
@@ -276,9 +276,9 @@ private:
         {
             int clip = sliceStartY - topY;
             topY += clip;
-            left.x += left.xStep * clip;
-            left.invZ += left.invZStep * clip;
-            right.x += right.xStep * clip;
+            leftX += leftEdge.xStep * clip;
+            leftInvZ += leftEdge.invZStep * clip;
+            rightX += rightEdge.xStep * clip;
         }
 
         // Clip bottom
@@ -290,20 +290,20 @@ private:
         int* endRow = buffer + bottomY * width;
         while (row < endRow)
         {
-            int invZ = left.invZ;
-            int* dest = row + (left.x >> 16);
-            int* end = row + (right.x >> 16);
+            int invZ = leftInvZ;
+            int* dest = row + (leftX >> 16);
+            int* end = row + (rightX >> 16);
             while (dest < end)
             {
                 if (invZ < *dest)
                     *dest = invZ;
-                invZ += pixelInvZStep;
+                invZ += dInvZdXInt;
                 ++dest;
             }
 
-            left.x += left.xStep;
-            left.invZ += left.invZStep;
-            right.x += right.xStep;
+            leftX += leftEdge.xStep;
+            leftInvZ += leftEdge.invZStep;
+            rightX += rightEdge.xStep;
             row += width;
         }
     }

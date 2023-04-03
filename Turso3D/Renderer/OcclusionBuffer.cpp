@@ -625,20 +625,26 @@ void OcclusionBuffer::RasterizeTrianglesWork(Task* task, unsigned)
         {
             const GradientTriangle& triangle = triangles[*it];
 
-            // Make copies of the edges for advancing the coordinates
-            Edge topToMiddle = triangle.topToMiddle;
-            Edge middleToBottom = triangle.middleToBottom;
-            Edge topToBottom = triangle.topToBottom;
-
             if (triangle.middleIsRight)
             {
-                RasterizeSpans(topToBottom, topToMiddle, topToMiddle.topY, topToMiddle.bottomY, triangle.dInvZdXInt, sliceStartY, sliceEndY);
-                RasterizeSpans(topToBottom, middleToBottom, middleToBottom.topY, middleToBottom.bottomY, triangle.dInvZdXInt, sliceStartY, sliceEndY);
+                int leftX = triangle.topToBottom.x;
+                int leftInvZ = triangle.topToBottom.invZ;
+                int rightX = triangle.topToMiddle.x;
+                RasterizeSpans(triangle.topToBottom, triangle.topToMiddle, triangle.topToMiddle.topY, triangle.topToMiddle.bottomY, triangle.dInvZdXInt, sliceStartY, sliceEndY, leftX, leftInvZ, rightX);
+
+                rightX = triangle.middleToBottom.x;
+                RasterizeSpans(triangle.topToBottom, triangle.middleToBottom, triangle.middleToBottom.topY, triangle.middleToBottom.bottomY, triangle.dInvZdXInt, sliceStartY, sliceEndY, leftX, leftInvZ, rightX);
             }
             else
             {
-                RasterizeSpans(topToMiddle, topToBottom, topToMiddle.topY, topToMiddle.bottomY, triangle.dInvZdXInt, sliceStartY, sliceEndY);
-                RasterizeSpans(middleToBottom, topToBottom, middleToBottom.topY, middleToBottom.bottomY, triangle.dInvZdXInt, sliceStartY, sliceEndY);
+                int leftX = triangle.topToMiddle.x;
+                int leftInvZ = triangle.topToMiddle.invZ;
+                int rightX = triangle.topToBottom.x;
+                RasterizeSpans(triangle.topToMiddle, triangle.topToBottom, triangle.topToMiddle.topY, triangle.topToMiddle.bottomY, triangle.dInvZdXInt, sliceStartY, sliceEndY, leftX, leftInvZ, rightX);
+
+                leftX = triangle.middleToBottom.x;
+                leftInvZ = triangle.middleToBottom.invZ;
+                RasterizeSpans(triangle.middleToBottom, triangle.topToBottom, triangle.middleToBottom.topY, triangle.middleToBottom.bottomY, triangle.dInvZdXInt, sliceStartY, sliceEndY, leftX, leftInvZ, rightX);
             }
         }
     }
