@@ -192,18 +192,24 @@ void Node::SetParent(Node* newParent)
 
 Node* Node::CreateChild(StringHash childType)
 {
-    SharedPtr<Object> newObject = Create(childType);
+    Object* newObject = Create(childType);
     if (!newObject)
     {
         LOGERROR("Could not create child node of unknown type " + childType.ToString());
         return nullptr;
     }
-    Node* child = dynamic_cast<Node*>(newObject.Get());
+
+#ifdef _DEBUG
+    Node* child = dynamic_cast<Node*>(newObject);
     if (!child)
     {
         LOGERROR(newObject->TypeName() + " is not a Node subclass, could not add as a child");
+        delete newObject;
         return nullptr;
     }
+#else
+    Node* child = static_cast<Node*>(newObject);
+#endif
 
     AddChild(child);
     return child;
