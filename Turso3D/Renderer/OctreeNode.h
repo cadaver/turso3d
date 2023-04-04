@@ -8,10 +8,9 @@
 class Camera;
 class DebugRenderer;
 class Drawable;
-class Octree;
-class OctreeNode;
-class Ray;
 class Octant;
+class Octree;
+class Ray;
 struct RaycastResult;
 
 static const unsigned short DF_STATIC_GEOMETRY = 0x0;

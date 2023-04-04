@@ -12,8 +12,6 @@ static const size_t NUM_OCTANTS = 8;
 static const unsigned short OF_DRAWABLES_SORT_DIRTY = 0x1;
 static const unsigned short OF_CULLING_BOX_DIRTY = 0x2;
 
-class Octree;
-class OctreeNode;
 class Ray;
 class WorkQueue;
 struct ReinsertDrawablesTask;
@@ -299,7 +297,7 @@ private:
         }
     }
 
-    /// Threaded update flag. During threaded update moved OctreeNodes should go directly to thread-specific reinsert queues.
+    /// Threaded update flag. During threaded update moved drawables should go directly to thread-specific reinsert queues.
     volatile bool threadedUpdate;
     /// Current framenumber.
     unsigned short frameNumber;

@@ -5,7 +5,6 @@
 #include "Camera.h"
 #include "DebugRenderer.h"
 #include "Octree.h"
-#include "OctreeNode.h"
 
 OctreeNodeBase::OctreeNodeBase() :
     octree(nullptr),
