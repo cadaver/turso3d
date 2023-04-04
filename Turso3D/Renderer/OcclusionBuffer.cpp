@@ -517,7 +517,7 @@ void OcclusionBuffer::GenerateTrianglesWork(Task* task, unsigned)
 
     GenerateTrianglesTask* trianglesTask = static_cast<GenerateTrianglesTask*>(task);
     const TriangleDrawBatch& batch = trianglesTask->batch;
-    Matrix4 modelViewProj = viewProj * batch.worldTransform;
+    Matrix4 worldViewProj = viewProj * batch.worldTransform;
 
     // Theoretical max. amount of vertices if each of the 6 clipping planes doubles the triangle count
     Vector4 vertices[64 * 3];
@@ -534,9 +534,9 @@ void OcclusionBuffer::GenerateTrianglesWork(Task* task, unsigned)
             const Vector3& v1 = *((const Vector3*)(&srcData[(index + 1) * batch.vertexSize]));
             const Vector3& v2 = *((const Vector3*)(&srcData[(index + 2) * batch.vertexSize]));
 
-            vertices[0] = ModelTransform(modelViewProj, v0);
-            vertices[1] = ModelTransform(modelViewProj, v1);
-            vertices[2] = ModelTransform(modelViewProj, v2);
+            vertices[0] = ModelTransform(worldViewProj, v0);
+            vertices[1] = ModelTransform(worldViewProj, v1);
+            vertices[2] = ModelTransform(worldViewProj, v2);
             AddTriangle(trianglesTask, vertices);
 
             index += 3;
@@ -557,9 +557,9 @@ void OcclusionBuffer::GenerateTrianglesWork(Task* task, unsigned)
                 const Vector3& v1 = *((const Vector3*)(&srcData[indices[1] * batch.vertexSize]));
                 const Vector3& v2 = *((const Vector3*)(&srcData[indices[2] * batch.vertexSize]));
 
-                vertices[0] = ModelTransform(modelViewProj, v0);
-                vertices[1] = ModelTransform(modelViewProj, v1);
-                vertices[2] = ModelTransform(modelViewProj, v2);
+                vertices[0] = ModelTransform(worldViewProj, v0);
+                vertices[1] = ModelTransform(worldViewProj, v1);
+                vertices[2] = ModelTransform(worldViewProj, v2);
                 AddTriangle(trianglesTask, vertices);
 
                 indices += 3;
@@ -577,9 +577,9 @@ void OcclusionBuffer::GenerateTrianglesWork(Task* task, unsigned)
                 const Vector3& v1 = *((const Vector3*)(&srcData[indices[1] * batch.vertexSize]));
                 const Vector3& v2 = *((const Vector3*)(&srcData[indices[2] * batch.vertexSize]));
 
-                vertices[0] = ModelTransform(modelViewProj, v0);
-                vertices[1] = ModelTransform(modelViewProj, v1);
-                vertices[2] = ModelTransform(modelViewProj, v2);
+                vertices[0] = ModelTransform(worldViewProj, v0);
+                vertices[1] = ModelTransform(worldViewProj, v1);
+                vertices[2] = ModelTransform(worldViewProj, v2);
                 AddTriangle(trianglesTask, vertices);
 
                 indices += 3;
