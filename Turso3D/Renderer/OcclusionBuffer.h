@@ -247,7 +247,7 @@ private:
         float aY = v0.y - v1.y;
         float bX = v2.x - v1.x;
         float bY = v2.y - v1.y;
-        return (aX * bY - aY * bX) < 0.0f;
+        return (aX * bY - aY * bX) <= 0.0f;
     }
 
     /// Rasterize between two edges. Clip to slice.

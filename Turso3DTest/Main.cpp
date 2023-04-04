@@ -490,9 +490,8 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 occlusionDebugTexture->SetData(0, IntRect(0, 0, occlusion->Width(), occlusion->Height()), debugDataLevel);
                 
                 Matrix4 quadMatrix = Matrix4::IDENTITY;
-                ShaderProgram* program = graphics->SetProgram("Shaders/DebugQuad.glsl");
+                ShaderProgram* program = graphics->SetProgram("Shaders/DebugOcclusion.glsl");
                 graphics->SetUniform(program, "worldViewProjMatrix", quadMatrix);
-                graphics->SetUniform(program, "alpha", 0.5f);
                 graphics->SetTexture(0, occlusionDebugTexture);
                 graphics->SetRenderState(BLEND_ALPHA, CULL_NONE, CMP_ALWAYS, true, false);
                 graphics->DrawQuad();
@@ -509,9 +508,8 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 quadMatrix.m03 = -1.0f + quadMatrix.m00;
                 quadMatrix.m13 = -1.0f + quadMatrix.m11;
 
-                ShaderProgram* program = graphics->SetProgram("Shaders/DebugQuad.glsl");
+                ShaderProgram* program = graphics->SetProgram("Shaders/DebugShadow.glsl");
                 graphics->SetUniform(program, "worldViewProjMatrix", quadMatrix);
-                graphics->SetUniform(program, "alpha", 1.0f);
                 graphics->SetTexture(0, renderer->ShadowMapTexture(0));
                 graphics->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_ALWAYS, true, false);
                 graphics->DrawQuad();
