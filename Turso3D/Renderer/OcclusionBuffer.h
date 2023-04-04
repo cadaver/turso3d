@@ -14,7 +14,6 @@ struct RasterizeTrianglesTask;
 static const int OCCLUSION_MIN_SIZE = 8;
 static const int OCCLUSION_BUFFER_SLICES = 8;
 static const float OCCLUSION_X_SCALE = 65536.0f;
-static const float OCCLUSION_Z_SCALE = 1073741824.0f;
 
 // Rasterizer code based on Chris Hecker's Perspective Texture Mapping series in the Game Developer magazine
 // Also available online at http://chrishecker.com/Miscellaneous_Technical_Articles
@@ -47,11 +46,8 @@ struct Gradients
 
         dInvZdX = invdX * (((vertices[1].z - vertices[2].z) * (vertices[0].y - vertices[2].y)) - ((vertices[0].z - vertices[2].z) * (vertices[1].y - vertices[2].y)));
         dInvZdY = invdY * (((vertices[1].z - vertices[2].z) * (vertices[0].x - vertices[2].x)) - ((vertices[0].z - vertices[2].z) * (vertices[1].x - vertices[2].x)));
-        dInvZdXInt = dInvZdX >= 0.0f ? (int)(dInvZdX + 0.5f) : (int)(dInvZdX - 0.5f);
     }
 
-    /// Integer horizontal gradient.
-    int dInvZdXInt;
     /// Horizontal gradient.
     float dInvZdX;
     /// Vertical gradient.
@@ -72,8 +68,8 @@ struct Edge
 
         x = (int)((xPreStep + top.x) * OCCLUSION_X_SCALE + 0.5f);
         xStep = (int)(slope * OCCLUSION_X_SCALE + 0.5f);
-        invZ = (int)(top.z + xPreStep * gradients.dInvZdX + yPreStep * gradients.dInvZdY + 0.5f);
-        invZStep = (int)(slope * gradients.dInvZdX + gradients.dInvZdY + 0.5f);
+        invZ = top.z + xPreStep * gradients.dInvZdX + yPreStep * gradients.dInvZdY;
+        invZStep = slope * gradients.dInvZdX + gradients.dInvZdY;
     }
 
     /// X coordinate at the top.
@@ -85,9 +81,9 @@ struct Edge
     /// X coordinate step.
     int xStep;
     /// Inverse Z.
-    int invZ;
+    float invZ;
     /// Inverse Z step.
-    int invZStep;
+    float invZStep;
 };
 
 /// Stored triangle with all edges calculated for rasterization.
@@ -149,7 +145,7 @@ struct GradientTriangle
         topToMiddle.Calculate(gradients, vertices[top], vertices[middle]);
         topToBottom.Calculate(gradients, vertices[top], vertices[bottom]);
         middleToBottom.Calculate(gradients, vertices[middle], vertices[bottom]);
-        dInvZdXInt = gradients.dInvZdXInt;
+        dInvZdX = gradients.dInvZdX;
     }
 
     /// Top to middle edge.
@@ -158,8 +154,8 @@ struct GradientTriangle
     Edge middleToBottom;
     /// Top to bottom edge.
     Edge topToBottom;
-    /// Integer horizontal gradient.
-    int dInvZdXInt;
+    /// Horizontal gradient applied per pixel.
+    float dInvZdX;
     /// Whether middle vertex is on the right.
     bool middleIsRight;
 };
@@ -168,9 +164,9 @@ struct GradientTriangle
 struct DepthValue
 {
     /// Minimum value.
-    int min;
+    float min;
     /// Maximum value.
-    int max;
+    float max;
 };
 
 /// Software rasterizer for occlusion.
@@ -200,7 +196,7 @@ public:
     void Complete();
     
     /// Return highest level depth values.
-    int* Buffer() const { return buffer; }
+    float* Buffer() const { return buffer; }
     /// Return current buffer dimensions.
     IntVector2 Size() const { return IntVector2(width, height); }
     /// Return buffer width.
@@ -233,7 +229,7 @@ private:
         return Vector3(
             invW * vertex.x * scaleX + offsetX,
             invW * vertex.y * scaleY + offsetY,
-            invW * vertex.z * OCCLUSION_Z_SCALE
+            invW * vertex.z
         );
     }
 
@@ -255,7 +251,7 @@ private:
     }
 
     /// Rasterize between two edges. Clip to slice.
-    void RasterizeSpans(const Edge& leftEdge, const Edge& rightEdge, int topY, int bottomY, int dInvZdXInt, int sliceStartY, int sliceEndY, int& leftX, int& leftInvZ, int& rightX)
+    void RasterizeSpans(const Edge& leftEdge, const Edge& rightEdge, int topY, int bottomY, float dInvZdX, int sliceStartY, int sliceEndY, int& leftX, float& leftInvZ, int& rightX)
     {
         // If past the bottom or degenerate, no operation
         if (topY >= sliceEndY || topY == bottomY)
@@ -286,18 +282,18 @@ private:
             bottomY = sliceEndY;
 
         // Rasterize the part of edges inside slice
-        int* row = buffer + topY * width;
-        int* endRow = buffer + bottomY * width;
+        float* row = buffer + topY * width;
+        float* endRow = buffer + bottomY * width;
         while (row < endRow)
         {
-            int invZ = leftInvZ;
-            int* dest = row + (leftX >> 16);
-            int* end = row + (rightX >> 16);
+            float invZ = leftInvZ;
+            float* dest = row + (leftX >> 16);
+            float* end = row + (rightX >> 16);
             while (dest < end)
             {
                 if (invZ < *dest)
                     *dest = invZ;
-                invZ += dInvZdXInt;
+                invZ += dInvZdX;
                 ++dest;
             }
 
@@ -322,7 +318,7 @@ private:
     /// Cached work queue subsystem.
     WorkQueue* workQueue;
     /// Highest level depth buffer.
-    int* buffer;
+    float* buffer;
     /// Buffer width.
     int width;
     /// Buffer height.
@@ -352,7 +348,7 @@ private:
     /// Reduced size depth buffers.
     std::vector<SharedArrayPtr<DepthValue> > mipBuffers;
     /// Highest level buffer with safety padding.
-    AutoArrayPtr<int> fullBuffer;
+    AutoArrayPtr<float> fullBuffer;
     /// %Task for threaded depth hierarchy building.
     AutoPtr<MemberFunctionTask<OcclusionBuffer> > depthHierarchyTask;
     /// Tasks for generating triangle batches, one for each batch.

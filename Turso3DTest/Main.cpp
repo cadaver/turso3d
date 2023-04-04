@@ -472,7 +472,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 
                 size_t dataSize = occlusion->Width() * occlusion->Height();
                 AutoArrayPtr<unsigned char> debugData = new unsigned char[dataSize];
-                int* src = occlusion->Buffer();
+                float* src = occlusion->Buffer();
                 unsigned char* dest = debugData;
 
                 float nearClip = camera->NearClip();
@@ -481,7 +481,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                
                 for (size_t i = 0; i < dataSize; ++i)
                 {
-                    float depth = (float)src[i] / OCCLUSION_Z_SCALE;
+                    float depth = src[i];
                     float linearDepth = linearizeDepth.y / (depth - linearizeDepth.x);
                     dest[i] = (unsigned char)(linearDepth * 255.0f);
                 }

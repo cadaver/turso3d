@@ -86,7 +86,7 @@ bool OcclusionBuffer::SetSize(int newWidth, int newHeight)
         rasterizeTrianglesTasks[0]->endY = height;
     }
 
-    buffer = new int[width * height];
+    buffer = new float[width * height];
     mipBuffers.clear();
     
     // Build buffers for mip levels
@@ -255,9 +255,6 @@ bool OcclusionBuffer::IsVisible(const BoundingBox& worldSpaceBox) const
     if (rect.bottom >= height)
         rect.bottom = height - 1;
     
-    // Convert depth to integer. Subtract a depth bias that accounts for maximum possible gradient error, 1 depth unit per horizontal pixel
-    int z = (int)minZ - width;
-    
     // Start from lowest available mip level and check if a conclusive result can be found
     for (int i = (int)numReadyMipBuffers - 1; i >= 0; --i)
     {
@@ -277,9 +274,9 @@ bool OcclusionBuffer::IsVisible(const BoundingBox& worldSpaceBox) const
             DepthValue* end = row + right;
             while (src <= end)
             {
-                if (z <= src->min)
+                if (minZ <= src->min)
                     return true;
-                if (z <= src->max)
+                if (minZ <= src->max)
                     allOccluded = false;
                 ++src;
             }
@@ -291,15 +288,15 @@ bool OcclusionBuffer::IsVisible(const BoundingBox& worldSpaceBox) const
     }
     
     // If no conclusive result, finally check the pixel-level data
-    int* row = buffer + rect.top * width;
-    int* endRow = buffer + rect.bottom * width;
+    float* row = buffer + rect.top * width;
+    float* endRow = buffer + rect.bottom * width;
     while (row <= endRow)
     {
-        int* src = row + rect.left;
-        int* end = row + rect.right;
+        float* src = row + rect.left;
+        float* end = row + rect.right;
         while (src <= end)
         {
-            if (z <= *src)
+            if (minZ <= *src)
                 return true;
             ++src;
         }
@@ -608,11 +605,11 @@ void OcclusionBuffer::RasterizeTrianglesWork(Task* task, unsigned)
 
     for (int y = sliceStartY; y < sliceEndY; ++y)
     {
-        int* start = buffer + width * y;
-        int* end = buffer + width * y + width;
+        float* start = buffer + width * y;
+        float* end = buffer + width * y + width;
 
         while (start < end)
-            *start++ = (int)OCCLUSION_Z_SCALE;
+            *start++ = 1.0f;
     }
 
     for (size_t i = 0; i < numTriangleBatches; ++i)
@@ -628,23 +625,23 @@ void OcclusionBuffer::RasterizeTrianglesWork(Task* task, unsigned)
             if (triangle.middleIsRight)
             {
                 int leftX = triangle.topToBottom.x;
-                int leftInvZ = triangle.topToBottom.invZ;
+                float leftInvZ = triangle.topToBottom.invZ;
                 int rightX = triangle.topToMiddle.x;
-                RasterizeSpans(triangle.topToBottom, triangle.topToMiddle, triangle.topToMiddle.topY, triangle.topToMiddle.bottomY, triangle.dInvZdXInt, sliceStartY, sliceEndY, leftX, leftInvZ, rightX);
+                RasterizeSpans(triangle.topToBottom, triangle.topToMiddle, triangle.topToMiddle.topY, triangle.topToMiddle.bottomY, triangle.dInvZdX, sliceStartY, sliceEndY, leftX, leftInvZ, rightX);
 
                 rightX = triangle.middleToBottom.x;
-                RasterizeSpans(triangle.topToBottom, triangle.middleToBottom, triangle.middleToBottom.topY, triangle.middleToBottom.bottomY, triangle.dInvZdXInt, sliceStartY, sliceEndY, leftX, leftInvZ, rightX);
+                RasterizeSpans(triangle.topToBottom, triangle.middleToBottom, triangle.middleToBottom.topY, triangle.middleToBottom.bottomY, triangle.dInvZdX, sliceStartY, sliceEndY, leftX, leftInvZ, rightX);
             }
             else
             {
                 int leftX = triangle.topToMiddle.x;
-                int leftInvZ = triangle.topToMiddle.invZ;
+                float leftInvZ = triangle.topToMiddle.invZ;
                 int rightX = triangle.topToBottom.x;
-                RasterizeSpans(triangle.topToMiddle, triangle.topToBottom, triangle.topToMiddle.topY, triangle.topToMiddle.bottomY, triangle.dInvZdXInt, sliceStartY, sliceEndY, leftX, leftInvZ, rightX);
+                RasterizeSpans(triangle.topToMiddle, triangle.topToBottom, triangle.topToMiddle.topY, triangle.topToMiddle.bottomY, triangle.dInvZdX, sliceStartY, sliceEndY, leftX, leftInvZ, rightX);
 
                 leftX = triangle.middleToBottom.x;
                 leftInvZ = triangle.middleToBottom.invZ;
-                RasterizeSpans(triangle.middleToBottom, triangle.topToBottom, triangle.middleToBottom.topY, triangle.middleToBottom.bottomY, triangle.dInvZdXInt, sliceStartY, sliceEndY, leftX, leftInvZ, rightX);
+                RasterizeSpans(triangle.middleToBottom, triangle.topToBottom, triangle.middleToBottom.topY, triangle.middleToBottom.bottomY, triangle.dInvZdX, sliceStartY, sliceEndY, leftX, leftInvZ, rightX);
             }
         }
     }
@@ -654,13 +651,13 @@ void OcclusionBuffer::RasterizeTrianglesWork(Task* task, unsigned)
 
     for (int y = sliceStartY / 2; y < sliceEndY / 2; ++y)
     {
-        int* src = buffer + (y * 2) * width;
+        float* src = buffer + (y * 2) * width;
         DepthValue* dest = mipBuffers[0] + y * mipWidth;
         DepthValue* end = dest + mipWidth;
 
         if (y * 2 + 1 < height)
         {
-            int* src2 = src + width;
+            float* src2 = src + width;
 
             while (dest < end)
             {
