@@ -14,9 +14,9 @@ out vec4 fragColor;
 
 void vert()
 {
-    mat3x4 modelMatrix = GetWorldMatrix();
-
-    vec3 worldPos = vec4(position, 1.0) * modelMatrix;
+    mat3x4 world = GetWorldMatrix();
+    
+    vec3 worldPos = vec4(position, 1.0) * world;
     gl_Position = vec4(worldPos, 1.0) * viewProjMatrix;
 }
 

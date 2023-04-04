@@ -27,10 +27,10 @@ uniform vec4 matDiffColor;
 
 void vert()
 {
-    mat3x4 modelMatrix = GetWorldMatrix();
+    mat3x4 world = GetWorldMatrix();
 
-    vWorldPos.xyz = vec4(position, 1.0) * modelMatrix;
-    vNormal = normalize((vec4(normal, 0.0) * modelMatrix));
+    vWorldPos.xyz = vec4(position, 1.0) * world;
+    vNormal = normalize((vec4(normal, 0.0) * world));
     vViewNormal = (vec4(vNormal, 0.0) * viewMatrix) * 0.5 + 0.5;
     gl_Position = vec4(vWorldPos.xyz, 1.0) * viewProjMatrix;
     vWorldPos.w = CalculateDepth(gl_Position);
