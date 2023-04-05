@@ -211,16 +211,16 @@ public:
     bool IsVisible(const BoundingBox& worldSpaceBox) const;
     
 private:
-    /// Perform transform of model vertex to clip space.
-    Vector4 ModelTransform(const Matrix4& transform, const Vector3& vertex) const
-    {
-        return Vector4(
-            transform.m00 * vertex.x + transform.m01 * vertex.y + transform.m02 * vertex.z + transform.m03,
-            transform.m10 * vertex.x + transform.m11 * vertex.y + transform.m12 * vertex.z + transform.m13,
-            transform.m20 * vertex.x + transform.m21 * vertex.y + transform.m22 * vertex.z + transform.m23,
-            transform.m30 * vertex.x + transform.m31 * vertex.y + transform.m32 * vertex.z + transform.m33
-        );
-    }
+    /// Clip and add a triangle into per-slice triangle lists.
+    void AddTriangle(GenerateTrianglesTask* task, Vector4* vertices);
+    /// Clip vertices against a plane.
+    void ClipVertices(const Vector4& plane, Vector4* vertices, bool* clipTriangles, size_t& numClipTriangles);
+    /// Work function to generate clipped triangles.
+    void GenerateTrianglesWork(Task* task, unsigned threadIndex);
+    /// Work function to clear a depth buffer slice and rasterize triangles.
+    void RasterizeTrianglesWork(Task* task, unsigned threadIndex);
+    /// Work function to build the reduced size depth buffers.
+    void BuildDepthHierarchyWork(Task* task, unsigned threadIndex);
 
     /// Perform transform of model vertex from clip to viewport space.
     Vector3 ViewportTransform(const Vector4& vertex) const
@@ -231,23 +231,6 @@ private:
             invW * vertex.y * scaleY + offsetY,
             invW * vertex.z
         );
-    }
-
-    /// Clip a clip space edge.
-    Vector4 ClipEdge(const Vector4& v0, const Vector4& v1, float d0, float d1) const
-    {
-        float t = d0 / (d0 - d1);
-        return v0 + t * (v1 - v0);
-    }
-
-    /// Check triangle facing after viewport transform. Must be clockwise to render.
-    bool CheckFacing(const Vector3& v0, const Vector3& v1, const Vector3& v2) const
-    {
-        float aX = v0.x - v1.x;
-        float aY = v0.y - v1.y;
-        float bX = v2.x - v1.x;
-        float bY = v2.y - v1.y;
-        return (aX * bY - aY * bX) <= 0.0f;
     }
 
     /// Rasterize between two edges. Clip to slice.
@@ -303,17 +286,6 @@ private:
             row += width;
         }
     }
-
-    /// Clip and add a triangle into per-slice triangle lists.
-    void AddTriangle(GenerateTrianglesTask* task, Vector4* vertices);
-    /// Clip vertices against a plane.
-    void ClipVertices(const Vector4& plane, Vector4* vertices, bool* clipTriangles, size_t& numClipTriangles);
-    /// Work function to generate clipped triangles.
-    void GenerateTrianglesWork(Task* task, unsigned threadIndex);
-    /// Work function to clear a depth buffer slice and rasterize triangles.
-    void RasterizeTrianglesWork(Task* task, unsigned threadIndex);
-    /// Work function to build the reduced size depth buffers.
-    void BuildDepthHierarchyWork(Task* task, unsigned threadIndex);
 
     /// Cached work queue subsystem.
     WorkQueue* workQueue;

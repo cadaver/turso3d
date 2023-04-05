@@ -17,6 +17,31 @@ static const unsigned CLIPMASK_Y_NEG = 0x8;
 static const unsigned CLIPMASK_Z_POS = 0x10;
 static const unsigned CLIPMASK_Z_NEG = 0x20;
 
+static inline Vector4 ModelTransform(const Matrix4& transform, const Vector3& vertex)
+{
+    return Vector4(
+        transform.m00 * vertex.x + transform.m01 * vertex.y + transform.m02 * vertex.z + transform.m03,
+        transform.m10 * vertex.x + transform.m11 * vertex.y + transform.m12 * vertex.z + transform.m13,
+        transform.m20 * vertex.x + transform.m21 * vertex.y + transform.m22 * vertex.z + transform.m23,
+        transform.m30 * vertex.x + transform.m31 * vertex.y + transform.m32 * vertex.z + transform.m33
+    );
+}
+
+static inline Vector4 ClipEdge(const Vector4& v0, const Vector4& v1, float d0, float d1)
+{
+    float t = d0 / (d0 - d1);
+    return v0 + t * (v1 - v0);
+}
+
+static inline bool CheckFacing(const Vector3& v0, const Vector3& v1, const Vector3& v2)
+{
+    float aX = v0.x - v1.x;
+    float aY = v0.y - v1.y;
+    float bX = v2.x - v1.x;
+    float bY = v2.y - v1.y;
+    return (aX * bY - aY * bX) <= 0.0f;
+}
+
 OcclusionBuffer::OcclusionBuffer() :
     buffer(nullptr),
     width(0),
