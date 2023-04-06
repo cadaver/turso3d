@@ -39,6 +39,95 @@ static inline bool CompareDrawableDistances(Drawable* lhs, Drawable* rhs)
     return lhs->Distance() < rhs->Distance();
 }
 
+/// Per-thread results for octant collection.
+struct ThreadOctantResult
+{
+    /// Clear for the next frame.
+    void Clear();
+
+    /// Drawable accumulator. When full, queue the next batch collection task.
+    size_t drawableAcc;
+    /// Starting octant index for current task.
+    size_t taskOctantIdx;
+    /// Batch collection task index.
+    size_t batchTaskIdx;
+    /// Intermediate octant list.
+    std::vector<std::pair<Octant*, unsigned char> > octants;
+    /// Intermediate light drawable list.
+    std::vector<LightDrawable*> lights;
+    /// Tasks for main view batches collection, queued by the octant collection task when it finishes.
+    std::vector<AutoPtr<CollectBatchesTask> > collectBatchesTasks;
+};
+
+/// %Task for collecting octants.
+struct CollectOctantsTask : public MemberFunctionTask<Renderer>
+{
+    /// Construct.
+    CollectOctantsTask(Renderer* object_, MemberWorkFunctionPtr function_) :
+        MemberFunctionTask<Renderer>(object_, function_)
+    {
+    }
+
+    /// Starting point octant.
+    Octant* startOctant;
+    /// Result data structure.
+    ThreadOctantResult result;
+};
+
+/// %Task for collecting geometry batches from octants.
+struct CollectBatchesTask : public MemberFunctionTask<Renderer>
+{
+    /// Construct.
+    CollectBatchesTask(Renderer* object_, MemberWorkFunctionPtr function_) :
+        MemberFunctionTask<Renderer>(object_, function_)
+    {
+    }
+
+    /// %Octant list with plane masks.
+    std::vector<std::pair<Octant*, unsigned char > > octants;
+};
+
+/// %Task for collecting shadowcasters of a specific light.
+struct CollectShadowCastersTask : public MemberFunctionTask<Renderer>
+{
+    /// Construct.
+    CollectShadowCastersTask(Renderer* object_, MemberWorkFunctionPtr function_) :
+        MemberFunctionTask<Renderer>(object_, function_)
+    {
+    }
+
+    /// %Light.
+    LightDrawable* light;
+};
+
+/// %Task for collecting shadow batches of a specific shadow view.
+struct CollectShadowBatchesTask : public MemberFunctionTask<Renderer>
+{
+    /// Construct.
+    CollectShadowBatchesTask(Renderer* object_, MemberWorkFunctionPtr function_) :
+        MemberFunctionTask<Renderer>(object_, function_)
+    {
+    }
+
+    /// Shadow map index.
+    size_t shadowMapIdx;
+    /// Shadow view index within shadow map.
+    size_t viewIdx;
+};
+
+/// %Task for culling lights to a specific Z-slice of the frustum grid.
+struct CullLightsTask : public MemberFunctionTask<Renderer>
+{
+    /// Construct.
+    CullLightsTask(Renderer* object_, MemberWorkFunctionPtr function_) :
+        MemberFunctionTask<Renderer>(object_, function_)
+    {
+    }
+
+    /// Z-slice.
+    size_t z;
+};
+
 void ThreadOctantResult::Clear()
 {
     drawableAcc = 0;
@@ -123,7 +212,6 @@ Renderer::Renderer() :
     lightDataBuffer = new UniformBuffer();
     lightDataBuffer->Define(USAGE_DYNAMIC, MAX_LIGHTS * sizeof(LightData));
 
-    octantResults.resize(NUM_OCTANTS + 1);
     batchResults.resize(workQueue->NumThreads());
 
     for (size_t i = 0; i < NUM_OCTANTS + 1; ++i)
@@ -212,8 +300,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     maxZ = 0.0f;
     geometryBounds.Undefine();
 
-    for (size_t i = 0; i < octantResults.size(); ++i)
-        octantResults[i].Clear();
     for (size_t i = 0; i < batchResults.size(); ++i)
         batchResults[i].Clear();
     for (auto it = shadowMaps.begin(); it != shadowMaps.end(); ++it)
@@ -234,7 +320,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     // Enable threaded update during geometry / light gathering in case nodes' OnPrepareRender() causes further reinsertion queuing
     octree->SetThreadedUpdate(workQueue->NumThreads() > 1);
 
-    // Find the starting points for octree traversal. Include the root if it contains nodes that didn't fit elsewhere
+    // Find the starting points for octree traversal. Include the root if it contains drawables that didn't fit elsewhere
     Octant* rootOctant = octree->Root();
     if (rootOctant->Drawables().size())
         rootLevelOctants.push_back(rootOctant);
@@ -255,7 +341,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     for (size_t i = 0; i < rootLevelOctants.size(); ++i)
     {
         collectOctantsTasks[i]->startOctant = rootLevelOctants[i];
-        collectOctantsTasks[i]->subtreeIdx = i;
+        collectOctantsTasks[i]->result.Clear();
         processLightsTask->AddDependency(collectOctantsTasks[i]);
     }
 
@@ -417,9 +503,11 @@ void Renderer::RenderDebug()
     for (auto it = lights.begin(); it != lights.end(); ++it)
         (*it)->OnRenderDebug(debug);
 
-    for (auto it = octantResults.begin(); it != octantResults.end(); ++it)
+    for (size_t i = 0; i < rootLevelOctants.size(); ++i)
     {
-        for (auto oIt = it->octants.begin(); oIt != it->octants.end(); ++oIt)
+        const ThreadOctantResult& result = collectOctantsTasks[i]->result;
+
+        for (auto oIt = result.octants.begin(); oIt != result.octants.end(); ++oIt)
         {
             Octant* octant = oIt->first;
             octant->OnRenderDebug(debug);
@@ -901,8 +989,8 @@ void Renderer::CollectOctantsWork(Task* task_, unsigned)
 
     // Go through octants in this task's octree branch
     Octant* octant = task->startOctant;
-    ThreadOctantResult& result = octantResults[task->subtreeIdx];
-    
+    ThreadOctantResult& result = task->result;
+
     CollectOctantsAndLights(octant, result);
 
     // Queue final batch task for leftover nodes if needed
@@ -928,7 +1016,7 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
 
     // Merge the light collection results
     for (size_t i = 0; i < rootLevelOctants.size(); ++i)
-        lights.insert(lights.end(), octantResults[i].lights.begin(), octantResults[i].lights.end());
+        lights.insert(lights.end(), collectOctantsTasks[i]->result.lights.begin(), collectOctantsTasks[i]->result.lights.end());
 
     // Find the directional light if any
     for (auto it = lights.begin(); it != lights.end(); )

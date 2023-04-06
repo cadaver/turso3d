@@ -34,6 +34,7 @@ struct CollectShadowBatchesTask;
 struct CollectShadowCastersTask;
 struct CullLightsTask;
 struct ShadowView;
+struct ThreadOctantResult;
 
 static const size_t NUM_CLUSTER_X = 16;
 static const size_t NUM_CLUSTER_Y = 8;
@@ -48,26 +49,6 @@ static const size_t TU_SHADOWATLAS = 9;
 static const size_t TU_FACESELECTION1 = 10;
 static const size_t TU_FACESELECTION2 = 11;
 static const size_t TU_LIGHTCLUSTERDATA = 12;
-
-/// Per-thread results for octant collection.
-struct ThreadOctantResult
-{
-    /// Clear for the next frame.
-    void Clear();
-
-    /// Drawable accumulator. When full, queue the next batch collection task.
-    size_t drawableAcc;
-    /// Starting octant index for current task.
-    size_t taskOctantIdx;
-    /// Batch collection task index.
-    size_t batchTaskIdx;
-    /// Intermediate octant list.
-    std::vector<std::pair<Octant*, unsigned char> > octants;
-    /// Intermediate light drawable list.
-    std::vector<LightDrawable*> lights;
-    /// Tasks for main view batches collection, queued by the octant collection task when it finishes.
-    std::vector<AutoPtr<CollectBatchesTask> > collectBatchesTasks;
-};
 
 /// Per-thread results for batch collection.
 struct ThreadBatchResult
@@ -245,8 +226,6 @@ private:
     std::atomic<int> numPendingBatchTasks;
     /// Counters for shadow views remaining per shadowmap. When zero, the shadow batches can be sorted.
     std::atomic<int> numPendingShadowViews[2];
-    /// Per-worker thread octant collection results.
-    std::vector<ThreadOctantResult> octantResults;
     /// Per-worker thread batch collection results.
     std::vector<ThreadBatchResult> batchResults;
     /// Minimum Z value for all geometries in frustum.
@@ -327,75 +306,6 @@ private:
     AutoArrayPtr<LightData> lightData;
     /// Per-view uniform data CPU copy.
     PerViewUniforms perViewData;
-};
-
-/// %Task for collecting octants.
-struct CollectOctantsTask : public MemberFunctionTask<Renderer>
-{
-    /// Construct.
-    CollectOctantsTask(Renderer* object_, MemberWorkFunctionPtr function_) :
-        MemberFunctionTask<Renderer>(object_, function_)
-    {
-    }
-
-    /// Starting point octant.
-    Octant* startOctant;
-    /// Result index.
-    size_t subtreeIdx;
-};
-
-/// %Task for collecting geometry batches from octants.
-struct CollectBatchesTask : public MemberFunctionTask<Renderer>
-{
-    /// Construct.
-    CollectBatchesTask(Renderer* object_, MemberWorkFunctionPtr function_) :
-        MemberFunctionTask<Renderer>(object_, function_)
-    {
-    }
-
-    /// %Octant list with plane masks.
-    std::vector<std::pair<Octant*, unsigned char > > octants;
-};
-
-/// %Task for collecting shadowcasters of a specific light.
-struct CollectShadowCastersTask : public MemberFunctionTask<Renderer>
-{
-    /// Construct.
-    CollectShadowCastersTask(Renderer* object_, MemberWorkFunctionPtr function_) :
-        MemberFunctionTask<Renderer>(object_, function_)
-    {
-    }
-
-    /// %Light.
-    LightDrawable* light;
-};
-
-/// %Task for collecting shadow batches of a specific shadow view.
-struct CollectShadowBatchesTask : public MemberFunctionTask<Renderer>
-{
-    /// Construct.
-    CollectShadowBatchesTask(Renderer* object_, MemberWorkFunctionPtr function_) :
-        MemberFunctionTask<Renderer>(object_, function_)
-    {
-    }
-
-    /// Shadow map index.
-    size_t shadowMapIdx;
-    /// Shadow view index within shadow map.
-    size_t viewIdx;
-};
-
-/// %Task for culling lights to a specific Z-slice of the frustum grid.
-struct CullLightsTask : public MemberFunctionTask<Renderer>
-{
-    /// Construct.
-    CullLightsTask(Renderer* object_, MemberWorkFunctionPtr function_) :
-        MemberFunctionTask<Renderer>(object_, function_)
-    {
-    }
-
-    /// Z-slice.
-    size_t z;
 };
 
 /// Register Renderer related object factories and attributes.

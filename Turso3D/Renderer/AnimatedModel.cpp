@@ -67,7 +67,7 @@ void Bone::OnTransformChanged()
         drawable->OnBoneTransformChanged();
 }
 
-inline bool CompareAnimationStates(const SharedPtr<AnimationState>& lhs, const SharedPtr<AnimationState>& rhs)
+static inline bool CompareAnimationStates(const SharedPtr<AnimationState>& lhs, const SharedPtr<AnimationState>& rhs)
 {
     return lhs->BlendLayer() < rhs->BlendLayer();
 }

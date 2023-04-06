@@ -326,18 +326,3 @@ private:
     /// Remaining drawable reinsertion tasks.
     std::atomic<int> numPendingReinsertionTasks;
 };
-
-/// %Task for octree drawables reinsertion.
-struct ReinsertDrawablesTask : public MemberFunctionTask<Octree>
-{
-    /// Construct.
-    ReinsertDrawablesTask(Octree* object_, MemberWorkFunctionPtr function_) :
-        MemberFunctionTask<Octree>(object_, function_)
-    {
-    }
-
-    /// Start pointer.
-    Drawable** start;
-    /// End pointer.
-    Drawable** end;
-};

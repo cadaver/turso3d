@@ -34,6 +34,21 @@ static inline bool CompareDrawables(Drawable* lhs, Drawable* rhs)
         return lhs < rhs;
 }
 
+/// %Task for octree drawables reinsertion.
+struct ReinsertDrawablesTask : public MemberFunctionTask<Octree>
+{
+    /// Construct.
+    ReinsertDrawablesTask(Octree* object_, MemberWorkFunctionPtr function_) :
+        MemberFunctionTask<Octree>(object_, function_)
+    {
+    }
+
+    /// Start pointer.
+    Drawable** start;
+    /// End pointer.
+    Drawable** end;
+};
+
 void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigned char level_, unsigned char childIndex_)
 {
     BoundingBox worldBoundingBox = boundingBox;
