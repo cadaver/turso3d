@@ -50,6 +50,26 @@ static const size_t TU_FACESELECTION1 = 10;
 static const size_t TU_FACESELECTION2 = 11;
 static const size_t TU_LIGHTCLUSTERDATA = 12;
 
+/// Per-thread results for octant collection.
+struct ThreadOctantResult
+{
+    /// Clear for the next frame.
+    void Clear();
+
+    /// Drawable accumulator. When full, queue the next batch collection task.
+    size_t drawableAcc;
+    /// Starting octant index for current task.
+    size_t taskOctantIdx;
+    /// Batch collection task index.
+    size_t batchTaskIdx;
+    /// Intermediate octant list.
+    std::vector<std::pair<Octant*, unsigned char> > octants;
+    /// Intermediate light drawable list.
+    std::vector<LightDrawable*> lights;
+    /// Tasks for main view batches collection, queued by the octant collection task when it finishes.
+    std::vector<AutoPtr<CollectBatchesTask> > collectBatchesTasks;
+};
+
 /// Per-thread results for batch collection.
 struct ThreadBatchResult
 {
@@ -226,6 +246,8 @@ private:
     std::atomic<int> numPendingBatchTasks;
     /// Counters for shadow views remaining per shadowmap. When zero, the shadow batches can be sorted.
     std::atomic<int> numPendingShadowViews[2];
+    /// Per-octree branch octant collection results.
+    ThreadOctantResult octantResults[NUM_OCTANT_TASKS];
     /// Per-worker thread batch collection results.
     std::vector<ThreadBatchResult> batchResults;
     /// Minimum Z value for all geometries in frustum.

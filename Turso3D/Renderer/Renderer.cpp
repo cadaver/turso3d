@@ -39,26 +39,6 @@ static inline bool CompareDrawableDistances(Drawable* lhs, Drawable* rhs)
     return lhs->Distance() < rhs->Distance();
 }
 
-/// Per-thread results for octant collection.
-struct ThreadOctantResult
-{
-    /// Clear for the next frame.
-    void Clear();
-
-    /// Drawable accumulator. When full, queue the next batch collection task.
-    size_t drawableAcc;
-    /// Starting octant index for current task.
-    size_t taskOctantIdx;
-    /// Batch collection task index.
-    size_t batchTaskIdx;
-    /// Intermediate octant list.
-    std::vector<std::pair<Octant*, unsigned char> > octants;
-    /// Intermediate light drawable list.
-    std::vector<LightDrawable*> lights;
-    /// Tasks for main view batches collection, queued by the octant collection task when it finishes.
-    std::vector<AutoPtr<CollectBatchesTask> > collectBatchesTasks;
-};
-
 /// %Task for collecting octants.
 struct CollectOctantsTask : public MemberFunctionTask<Renderer>
 {
@@ -70,8 +50,8 @@ struct CollectOctantsTask : public MemberFunctionTask<Renderer>
 
     /// Starting point octant.
     Octant* startOctant;
-    /// Result data structure.
-    ThreadOctantResult result;
+    /// Result structure index.
+    size_t resultIdx;
 };
 
 /// %Task for collecting geometry batches from octants.
@@ -215,7 +195,10 @@ Renderer::Renderer() :
     batchResults.resize(workQueue->NumThreads());
 
     for (size_t i = 0; i < NUM_OCTANTS + 1; ++i)
+    {
         collectOctantsTasks[i] = new CollectOctantsTask(this, &Renderer::CollectOctantsWork);
+        collectOctantsTasks[i]->resultIdx = i;
+    }
 
     for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
     {
@@ -300,6 +283,8 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     maxZ = 0.0f;
     geometryBounds.Undefine();
 
+    for (size_t i = 0; i < NUM_OCTANT_TASKS; ++i)
+        octantResults[i].Clear();
     for (size_t i = 0; i < batchResults.size(); ++i)
         batchResults[i].Clear();
     for (auto it = shadowMaps.begin(); it != shadowMaps.end(); ++it)
@@ -341,7 +326,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     for (size_t i = 0; i < rootLevelOctants.size(); ++i)
     {
         collectOctantsTasks[i]->startOctant = rootLevelOctants[i];
-        collectOctantsTasks[i]->result.Clear();
         processLightsTask->AddDependency(collectOctantsTasks[i]);
     }
 
@@ -505,7 +489,7 @@ void Renderer::RenderDebug()
 
     for (size_t i = 0; i < rootLevelOctants.size(); ++i)
     {
-        const ThreadOctantResult& result = collectOctantsTasks[i]->result;
+        const ThreadOctantResult& result = octantResults[i];
 
         for (auto oIt = result.octants.begin(); oIt != result.octants.end(); ++oIt)
         {
@@ -989,7 +973,7 @@ void Renderer::CollectOctantsWork(Task* task_, unsigned)
 
     // Go through octants in this task's octree branch
     Octant* octant = task->startOctant;
-    ThreadOctantResult& result = task->result;
+    ThreadOctantResult& result = octantResults[task->resultIdx];
 
     CollectOctantsAndLights(octant, result);
 
@@ -1016,7 +1000,7 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
 
     // Merge the light collection results
     for (size_t i = 0; i < rootLevelOctants.size(); ++i)
-        lights.insert(lights.end(), collectOctantsTasks[i]->result.lights.begin(), collectOctantsTasks[i]->result.lights.end());
+        lights.insert(lights.end(), octantResults[i].lights.begin(), octantResults[i].lights.end());
 
     // Find the directional light if any
     for (auto it = lights.begin(); it != lights.end(); )
