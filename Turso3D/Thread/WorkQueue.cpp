@@ -57,12 +57,11 @@ void WorkQueue::QueueTask(Task* task)
     {
         assert(task->numDependencies.load() == 0);
 
-        numQueuedTasks.fetch_add(1);
-        numPendingTasks.fetch_add(1);
-
         {
             std::lock_guard<std::mutex> lock(queueMutex);
             tasks.push(task);
+            numQueuedTasks.fetch_add(1);
+            numPendingTasks.fetch_add(1);
         }
 
         signal.notify_one();
@@ -80,9 +79,6 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
 
     if (threads.size())
     {
-        numQueuedTasks.fetch_add((int)count);
-        numPendingTasks.fetch_add((int)count);
-
         {
             std::lock_guard<std::mutex> lock(queueMutex);
             for (size_t i = 0; i < count; ++i)
@@ -90,6 +86,8 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
                 assert(tasks_[i]->numDependencies.load() == 0);
                 tasks.push(tasks_[i]);
             }
+            numQueuedTasks.fetch_add((int)count);
+            numPendingTasks.fetch_add((int)count);
         }
 
         if (count >= threads.size())
@@ -134,9 +132,9 @@ void WorkQueue::Complete()
 
             task = tasks.front();
             tasks.pop();
+            numQueuedTasks.fetch_add(-1);
         }
 
-        numQueuedTasks.fetch_add(-1);
         CompleteTask(task, 0);
     }
 }
@@ -155,9 +153,9 @@ bool WorkQueue::TryComplete()
 
         task = tasks.front();
         tasks.pop();
+        numQueuedTasks.fetch_add(-1);
     }
 
-    numQueuedTasks.fetch_add(-1);
     CompleteTask(task, 0);
 
     return true;
@@ -183,9 +181,9 @@ void WorkQueue::WorkerLoop(unsigned threadIndex_)
 
             task = tasks.front();
             tasks.pop();
+            numQueuedTasks.fetch_add(-1);
         }
 
-        numQueuedTasks.fetch_add(-1);
         CompleteTask(task, threadIndex_);
     }
 }
