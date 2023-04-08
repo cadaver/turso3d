@@ -471,7 +471,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 }
                 
                 size_t dataSize = occlusion->Width() * occlusion->Height();
-                AutoArrayPtr<unsigned char> debugData = new unsigned char[dataSize];
+                AutoArrayPtr<unsigned char> debugData(new unsigned char[dataSize]);
                 float* src = occlusion->Buffer();
                 unsigned char* dest = debugData;
 
