@@ -237,7 +237,7 @@ void AnimatedModelDrawable::CreateBones()
         }
         else
         {
-            bones[i] = new Bone();
+            bones[i] = Object::Create<Bone>();
             bones[i]->SetName(modelBone.name);
             bones[i]->SetTransform(modelBone.initialPosition, modelBone.initialRotation, modelBone.initialScale);
         }
