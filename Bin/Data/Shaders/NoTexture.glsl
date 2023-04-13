@@ -23,6 +23,7 @@ noperspective in vec2 vScreenPos;
 out vec4 fragColor[2];
 
 uniform vec4 matDiffColor;
+uniform vec4 matSpecColor;
 #endif
 
 void vert()
@@ -39,6 +40,12 @@ void vert()
 
 void frag()
 {
-    fragColor[0] = vec4(matDiffColor.rgb * CalculateLighting(vWorldPos, vNormal, vScreenPos), matDiffColor.a);
+    vec3 diffuseLight;
+    vec3 specularLight;
+    CalculateLighting(vWorldPos, vNormal, vScreenPos, matDiffColor, matSpecColor, diffuseLight, specularLight);
+
+    vec3 finalColor = diffuseLight + specularLight;
+
+    fragColor[0] = vec4(mix(fogColor, finalColor, GetFogFactor(vWorldPos.w)), matDiffColor.a);
     fragColor[1] = vec4(vViewNormal, 1.0);
 }

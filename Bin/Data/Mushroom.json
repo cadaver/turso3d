@@ -12,6 +12,7 @@
     "0": "Mushroom.dds"
   },
   "uniformValues": {
-    "matDiffColor": "1 1 1 1"
+    "matDiffColor": "1 1 1 1",
+    "matSpecColor": "0.25 0.25 0.25 1"
   }
 }

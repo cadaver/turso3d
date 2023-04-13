@@ -4,6 +4,10 @@ layout(std140) uniform PerViewData0
     uniform mat4x4 projectionMatrix;
     uniform mat4x4 viewProjMatrix;
     uniform vec4 depthParameters;
+    uniform vec3 cameraPosition;
+    uniform vec4 ambientColor;
+    uniform vec3 fogColor;
+    uniform vec2 fogParameters;
     uniform vec4 dirLightData[12];
 };
 
@@ -28,3 +32,8 @@ layout(std140) uniform SkinMatrixData2
     mat3x4 skinMatrices[96];
 };
 #endif
+
+float GetFogFactor(float depth)
+{
+    return clamp((fogParameters.x - depth) * fogParameters.y, 0.0, 1.0);
+}

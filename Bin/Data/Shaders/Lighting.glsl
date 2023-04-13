@@ -45,12 +45,12 @@ float SampleShadowMap(sampler2DShadow shadowTex, vec4 shadowPos, vec4 parameters
 #endif
 }
 
-void CalculateDirLight(vec4 worldPos, vec3 normal, inout vec3 accumulatedLight)
+void CalculateDirLight(vec4 worldPos, vec3 normal, vec4 matDiffColor, vec4 matSpecColor, inout vec3 diffuseLight, inout vec3 specularLight)
 {
-    vec4 lightDirection = dirLightData[0];
-    vec3 lightColor = dirLightData[1].rgb;
+    vec3 lightDir = dirLightData[0].xyz;
+    vec4 lightColor = dirLightData[1];
 
-    float NdotL = dot(normal, lightDirection.xyz);
+    float NdotL = dot(normal, lightDir);
     if (NdotL <= 0.0)
         return;
 
@@ -66,7 +66,15 @@ void CalculateDirLight(vec4 worldPos, vec3 normal, inout vec3 accumulatedLight)
         NdotL *= clamp(shadowFade + SampleShadowMap(dirShadowTex8, vec4(worldPos.xyz, 1.0) * shadowMatrix, shadowParameters), 0.0, 1.0);
     }
 
-    accumulatedLight += NdotL * lightColor;
+    diffuseLight += NdotL * lightColor.rgb * matDiffColor.rgb;
+
+    if (lightColor.a > 0.0)
+    {
+        vec3 eyeVec = cameraPosition - worldPos.xyz;
+        vec3 halfVec = normalize(normalize(eyeVec) + lightDir);
+        float NdotH = dot(normal, halfVec);
+        specularLight += NdotL * lightColor.a * matSpecColor.rgb * clamp(pow(NdotH, matSpecColor.a), 0.0, 1.0) * lightColor.rgb;
+    }
 }
 
 vec4 GetPointShadowPos(uint index, vec3 lightVec)
@@ -85,11 +93,11 @@ vec4 GetPointShadowPos(uint index, vec3 lightVec)
     return vec4(coords * pointParameters.xy + pointParameters.zw, q + r / depth, 1.0);
 }
 
-void CalculateLight(uint index, vec4 worldPos, vec3 normal, inout vec3 accumulatedLight)
+void CalculateLight(uint index, vec4 worldPos, vec3 normal, vec4 matDiffColor, vec4 matSpecColor, inout vec3 diffuseLight, inout vec3 specularLight)
 {
     vec3 lightPosition = lights[index].position.xyz;
     vec4 lightAttenuation = lights[index].attenuation;
-    vec3 lightColor = lights[index].color.rgb;
+    vec4 lightColor = lights[index].color;
 
     vec3 lightVec = lightPosition - worldPos.xyz;
     vec3 scaledLightVec = lightVec * lightAttenuation.x;
@@ -118,37 +126,44 @@ void CalculateLight(uint index, vec4 worldPos, vec3 normal, inout vec3 accumulat
     else if (shadowParameters.z < 1.0)
         atten *= clamp(shadowParameters.z + SampleShadowMap(shadowTex9, GetPointShadowPos(index, lightVec), shadowParameters), 0.0, 1.0);
 
-    accumulatedLight += atten * NdotL * lightColor;
+    diffuseLight += atten * NdotL * lightColor.rgb * matDiffColor.rgb;
+
+    if (atten > 0.0 && lightColor.a > 0.0)
+    {
+        vec3 eyeVec = cameraPosition - worldPos.xyz;
+        vec3 halfVec = normalize(normalize(eyeVec) + lightDir);
+        float NdotH = dot(normal, halfVec);
+        specularLight += atten * lightColor.a * matSpecColor.rgb * clamp(pow(NdotH, matSpecColor.a), 0.0, 1.0) * lightColor.rgb;
+    }
 }
 
-vec3 CalculateLighting(vec4 worldPos, vec3 normal, vec2 screenPos)
+void CalculateLighting(vec4 worldPos, vec3 normal, vec2 screenPos, vec4 matDiffColor, vec4 matSpecColor, out vec3 diffuseLight, out vec3 specularLight)
 {
-    vec3 accumulatedLight = vec3(0.1, 0.1, 0.1);
+    diffuseLight = vec3(ambientColor.rgb);
+    specularLight = vec3(0.0, 0.0, 0.0);
 
-    CalculateDirLight(worldPos, normal, accumulatedLight);
+    CalculateDirLight(worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
 
     uvec4 lightClusterData = texture(clusterTex12, CalculateClusterPos(screenPos, worldPos.w));
 
     while (lightClusterData.x > 0U)
     {
-        CalculateLight((lightClusterData.x & 0xffU) - 1U, worldPos, normal, accumulatedLight);
+        CalculateLight((lightClusterData.x & 0xffU) - 1U, worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
         lightClusterData.x >>= 8U;
     }
     while (lightClusterData.y > 0U)
     {
-        CalculateLight((lightClusterData.y & 0xffU) - 1U, worldPos, normal, accumulatedLight);
+        CalculateLight((lightClusterData.y & 0xffU) - 1U, worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
         lightClusterData.y >>= 8U;
     }
     while (lightClusterData.z > 0U)
     {
-        CalculateLight((lightClusterData.z & 0xffU) - 1U, worldPos, normal, accumulatedLight);
+        CalculateLight((lightClusterData.z & 0xffU) - 1U, worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
         lightClusterData.z >>= 8U;
     }
     while (lightClusterData.w > 0U)
     {
-        CalculateLight((lightClusterData.w & 0xffU) - 1U, worldPos, normal, accumulatedLight);
+        CalculateLight((lightClusterData.w & 0xffU) - 1U, worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
         lightClusterData.w >>= 8U;
     }
-
-    return accumulatedLight;
 }

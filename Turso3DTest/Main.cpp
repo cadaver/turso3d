@@ -14,6 +14,7 @@
 #include "Renderer/Camera.h"
 #include "Renderer/DebugRenderer.h"
 #include "Renderer/Light.h"
+#include "Renderer/LightEnvironment.h"
 #include "Renderer/Material.h"
 #include "Renderer/Model.h"
 #include "Renderer/Occluder.h"
@@ -33,7 +34,7 @@
 std::vector<StaticModel*> rotatingObjects;
 std::vector<AnimatedModel*> animatingObjects;
 
-void CreateScene(Scene* scene, int preset)
+void CreateScene(Scene* scene, Camera* camera, int preset)
 {
     rotatingObjects.clear();
     animatingObjects.clear();
@@ -42,11 +43,16 @@ void CreateScene(Scene* scene, int preset)
 
     scene->Clear();
     scene->CreateChild<Octree>();
+    LightEnvironment* lightEnvironment = scene->CreateChild<LightEnvironment>();
 
     SetRandomSeed(1);
 
+    // Preset 0: occluders, static meshes and many local shadowcasting lights in addition to ambient light
     if (preset == 0)
     {
+        lightEnvironment->SetAmbientColor(Color(0.3f, 0.3f, 0.3f));
+        camera->SetFarClip(1000.0f);
+
         for (int y = -55; y <= 55; ++y)
         {
             for (int x = -55; x <= 55; ++x)
@@ -80,7 +86,7 @@ void CreateScene(Scene* scene, int preset)
             light->SetLightType(LIGHT_POINT);
             light->SetCastShadows(true);
             Vector3 colorVec = 2.0f * Vector3(Random(), Random(), Random()).Normalized();
-            light->SetColor(Color(colorVec.x, colorVec.y, colorVec.z));
+            light->SetColor(Color(colorVec.x, colorVec.y, colorVec.z, 0.25f));
             light->SetRange(40.0f);
             light->SetPosition(Vector3(Random() * 1000.0f - 500.0f, 7.0f, Random() * 1000.0f - 500.0f));
             light->SetShadowMapSize(256);
@@ -114,8 +120,18 @@ void CreateScene(Scene* scene, int preset)
             occluder->SetModel(object->GetModel());
         }
     }
+    // Preset 1: high number of animating cubes
     else if (preset == 1)
     {
+        lightEnvironment->SetFogColor(Color(0.3f, 0.3f, 0.3f));
+        lightEnvironment->SetFogStart(300.0f);
+        lightEnvironment->SetFogEnd(500.0f);
+        camera->SetFarClip(500.0f);
+
+        SharedPtr<Material> customMat = Material::DefaultMaterial()->Clone();
+        customMat->SetUniform(U_MATDIFFCOLOR, Vector4(0.75f, 0.35f, 0.0f, 1.0f));
+        customMat->SetUniform(U_MATSPECCOLOR, Vector4(0.75f / 3.0f, 0.35f / 3.0f, 0.0f, 1.0f));
+
         for (int y = -125; y <= 125; ++y)
         {
             for (int x = -125; x <= 125; ++x)
@@ -125,20 +141,24 @@ void CreateScene(Scene* scene, int preset)
                 object->SetPosition(Vector3(x * 0.3f, 0.0f, y * 0.3f));
                 object->SetScale(0.25f);
                 object->SetModel(cache->LoadResource<Model>("Box.mdl"));
+                object->SetMaterial(customMat);
                 rotatingObjects.push_back(object);
             }
         }
 
         Light* light = scene->CreateChild<Light>();
         light->SetLightType(LIGHT_DIRECTIONAL);
-        light->SetCastShadows(false);
         light->SetColor(Color(1.0f, 1.0f, 1.0f, 0.5f));
         light->SetRotation(Quaternion(45.0f, 45.0f, 0.0f));
-        light->SetShadowMapSize(1024);
-        light->SetShadowMaxDistance(100.0f);
     }
+    // Preset 2: skinned characters with directional light shadows
     else if (preset == 2)
     {
+        lightEnvironment->SetFogColor(Color(0.5f, 0.5f, 0.75f));
+        lightEnvironment->SetFogStart(300.0f);
+        lightEnvironment->SetFogEnd(500.0f);
+        camera->SetFarClip(500.0f);
+
         {
             StaticModel* object = scene->CreateChild<StaticModel>();
             object->SetStatic(true);
@@ -229,9 +249,9 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
     // Create the scene and camera. Camera is created outside scene so it's not disturbed by scene clears
     SharedPtr<Scene> scene = Object::Create<Scene>();
-    CreateScene(scene, 0);
-
     SharedPtr<Camera> camera = Object::Create<Camera>();
+    CreateScene(scene, camera, 0);
+
     camera->SetPosition(Vector3(0.0f, 20.0f, -75.0f));
 
     float yaw = 0.0f, pitch = 20.0f;
@@ -268,11 +288,11 @@ int ApplicationMain(const std::vector<std::string>& arguments)
         input->Update();
 
         if (input->KeyPressed(SDLK_F1))
-            CreateScene(scene, 0);
+            CreateScene(scene, camera, 0);
         if (input->KeyPressed(SDLK_F2))
-            CreateScene(scene, 1);
+            CreateScene(scene, camera, 1);
         if (input->KeyPressed(SDLK_F3))
-            CreateScene(scene, 2);
+            CreateScene(scene, camera, 2);
 
         if (input->KeyPressed(SDLK_1))
         {
@@ -411,8 +431,6 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 graphics->SetFrameBuffer(viewFbo);
 
             graphics->SetViewport(IntRect(0, 0, width, height));
-            graphics->Clear(true, true, IntRect::ZERO, Color::BLACK);
-
             renderer->RenderOpaque();
 
             // Optional SSAO effect. First sample the normals and depth buffer, then apply a blurred SSAO result that darkens the opaque geometry
@@ -429,7 +447,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 graphics->SetUniform(program, "noiseInvSize", Vector2(ssaoTexture->Width() / 4.0f, ssaoTexture->Height() / 4.0f));
                 graphics->SetUniform(program, "screenInvSize", Vector2(1.0f / colorBuffer->Width(), 1.0f / colorBuffer->Height()));
                 graphics->SetUniform(program, "frustumSize", Vector4(farVec, (float)height / (float)width));
-                graphics->SetUniform(program, "aoParameters", Vector4(0.15f, 1.0f, 0.015f, 0.15f));
+                graphics->SetUniform(program, "aoParameters", Vector4(0.15f, 1.0f, 0.025f, 0.15f));
                 graphics->SetUniform(program, "depthReconstruct", Vector2(farClip / (farClip - nearClip), -nearClip / (farClip - nearClip)));
                 graphics->SetTexture(0, depthStencilBuffer);
                 graphics->SetTexture(1, normalBuffer);
