@@ -17,6 +17,7 @@ class FrameBuffer;
 class GeometryDrawable;
 class Graphics;
 class LightDrawable;
+class LightEnvironment;
 class Material;
 class OccluderDrawable;
 class OcclusionBuffer;
@@ -88,21 +89,6 @@ struct ThreadBatchResult
     std::vector<Batch> alphaBatches;
 };
 
-/// Per-view uniform buffer data.
-struct PerViewUniforms
-{
-    /// Current camera's view matrix
-    Matrix3x4 viewMatrix;
-    /// Current camera's projection matrix.
-    Matrix4 projectionMatrix;
-    /// Current camera's combined view and projection matrix.
-    Matrix4 viewProjMatrix;
-    /// Current camera's depth parameters.
-    Vector4 depthParameters;
-    /// Data for the view's global directional light.
-    Vector4 dirLightData[12];
-};
-
 /// Shadow map data structure. May be shared by several lights.
 struct ShadowMap
 {
@@ -132,6 +118,29 @@ struct ShadowMap
     std::vector<std::vector<Drawable*> > shadowCasters;
     /// Instancing transforms for shadowcasters.
     std::vector<Matrix3x4> instanceTransforms;
+};
+
+/// Per-view uniform buffer data.
+struct PerViewUniforms
+{
+    /// Current camera's view matrix
+    Matrix3x4 viewMatrix;
+    /// Current camera's projection matrix.
+    Matrix4 projectionMatrix;
+    /// Current camera's combined view and projection matrix.
+    Matrix4 viewProjMatrix;
+    /// Current camera's depth parameters.
+    Vector4 depthParameters;
+    /// Current camera's world position.
+    Vector4 cameraPosition;
+    /// Current scene's ambient color.
+    Vector4 ambientColor;
+    /// Current scene's fog color.
+    Vector4 fogColor;
+    /// Current scene's fog start and end parameters.
+    Vector4 fogParameters;
+    /// Data for the directional light.
+    Vector4 dirLightData[12];
 };
 
 /// Per-light data for cluster light shader.
@@ -170,8 +179,8 @@ public:
     void PrepareView(Scene* scene, Camera* camera, bool drawShadows, bool useOcclusion);
     /// Render shadowmaps before rendering the view. Last shadow framebuffer will be left bound.
     void RenderShadowMaps();
-    /// Render opaque objects into the currently set framebuffer and viewport.
-    void RenderOpaque();
+    /// Clear with fog color (optional), then render opaque objects into the currently set framebuffer and viewport.
+    void RenderOpaque(bool clear = true);
     /// Render transparent objects into the currently set framebuffer and viewport.
     void RenderAlpha();
     /// Add debug geometry from the objects in frustum into DebugRenderer. Note: does not automatically render, to allow more geometry to be added elsewhere.
@@ -220,6 +229,8 @@ private:
     Scene* scene;
     /// Current scene octree.
     Octree* octree;
+    /// Current scene light environment.
+    LightEnvironment* lightEnvironment;
     /// Current camera.
     Camera* camera;
     /// Camera frustum.

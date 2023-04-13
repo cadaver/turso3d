@@ -19,6 +19,7 @@
 #include "Camera.h"
 #include "DebugRenderer.h"
 #include "Light.h"
+#include "LightEnvironment.h"
 #include "Material.h"
 #include "Model.h"
 #include "Occluder.h"
@@ -257,6 +258,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     scene = scene_;
     camera = camera_;
     octree = scene->FindChild<Octree>();
+    lightEnvironment = scene->FindChild<LightEnvironment>();
     if (!octree)
         return;
 
@@ -434,7 +436,7 @@ void Renderer::RenderShadowMaps()
     graphics->SetDepthBias(0.0f, 0.0f);
 }
 
-void Renderer::RenderOpaque()
+void Renderer::RenderOpaque(bool clear)
 {
     ZoneScoped;
 
@@ -454,6 +456,9 @@ void Renderer::RenderOpaque()
 
     clusterTexture->Bind(TU_LIGHTCLUSTERDATA);
     lightDataBuffer->Bind(UB_LIGHTDATA);
+
+    if (clear)
+        graphics->Clear(true, true, IntRect::ZERO, lightEnvironment ? lightEnvironment->FogColor() : DEFAULT_FOG_COLOR);
 
     RenderBatches(camera, opaqueBatches);
 }
@@ -746,19 +751,36 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
 
     if (camera_ != lastCamera)
     {
+        float nearClip = camera->NearClip();
+        float farClip = camera->FarClip();
+
         perViewData.projectionMatrix = camera_->ProjectionMatrix();
         perViewData.viewMatrix = camera_->ViewMatrix();
         perViewData.viewProjMatrix = perViewData.projectionMatrix * perViewData.viewMatrix;
-        perViewData.depthParameters = Vector4(camera_->NearClip(), camera_->FarClip(), camera_->IsOrthographic() ? 0.5f : 0.0f, camera_->IsOrthographic() ? 0.5f : 1.0f / camera_->FarClip());
+        perViewData.depthParameters = Vector4(nearClip, farClip, camera_->IsOrthographic() ? 0.5f : 0.0f, camera_->IsOrthographic() ? 0.5f : 1.0f / farClip);
+        perViewData.cameraPosition = Vector4(camera_->WorldPosition(), 1.0f);
 
-        size_t dataSize = sizeof(Matrix3x4) + 2 * sizeof(Matrix4) + 5 * sizeof(Vector4);
+        size_t dataSize = sizeof(PerViewUniforms);
 
-        // Set the dir light parameters only in the main view
+        // Set global lighting settings if is the main view
+        if (camera_ == camera)
+        {
+            perViewData.ambientColor = lightEnvironment ? lightEnvironment->AmbientColor().Data() : DEFAULT_AMBIENT_COLOR.Data();
+            perViewData.fogColor = lightEnvironment ? lightEnvironment->FogColor().Data() : DEFAULT_FOG_COLOR.Data();
+
+            float fogStart = lightEnvironment ? lightEnvironment->FogStart() : DEFAULT_FOG_START;
+            float fogEnd = lightEnvironment ? lightEnvironment->FogEnd() : DEFAULT_FOG_END;
+            float fogRange = Max(fogEnd - fogStart, M_EPSILON);
+            perViewData.fogParameters = Vector4(fogEnd / farClip, farClip / fogRange, 0.0f, 0.0f);
+        }
+
+        // Set directional light data if exists and is the main view
         if (!dirLight || camera_ != camera)
         {
             perViewData.dirLightData[0] = Vector4::ZERO;
             perViewData.dirLightData[1] = Vector4::ZERO;
             perViewData.dirLightData[3] = Vector4::ONE;
+            dataSize -= 8 * sizeof(Vector4); // Leave out shadow matrices
         }
         else
         {
@@ -768,7 +790,6 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
             if (dirLight->ShadowMap())
             {
                 Vector2 cascadeSplits = dirLight->ShadowCascadeSplits();
-                float farClip = camera->FarClip();
                 float firstSplit = cascadeSplits.x / farClip;
                 float secondSplit = cascadeSplits.y / farClip;
 
@@ -778,11 +799,13 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
                 {
                     *reinterpret_cast<Matrix4*>(&perViewData.dirLightData[4]) = dirLight->ShadowViews()[0].shadowMatrix;
                     *reinterpret_cast<Matrix4*>(&perViewData.dirLightData[8]) = dirLight->ShadowViews()[1].shadowMatrix;
-                    dataSize += 8 * sizeof(Vector4);
                 }
             }
             else
+            {
                 perViewData.dirLightData[3] = Vector4::ONE;
+                dataSize -= 8 * sizeof(Vector4); // Leave out shadow matrices
+            }
         }
 
         perViewDataBuffer->SetData(0, dataSize, &perViewData);
@@ -1647,6 +1670,7 @@ void RegisterRendererLibrary()
     Occluder::RegisterObject();
     AnimatedModel::RegisterObject();
     Light::RegisterObject();
+    LightEnvironment::RegisterObject();
     Material::RegisterObject();
     Model::RegisterObject();
     Animation::RegisterObject();

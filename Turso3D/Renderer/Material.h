@@ -57,6 +57,10 @@ public:
     Material* Parent() const { return parent; }
     /// Return shader.
     Shader* GetShader() const { return shader; }
+    /// Return vertex shader defines.
+    const std::string& VSDefines() const { return vsDefines; }
+    /// Return fragment shader defines.
+    const std::string& FSDefines() const { return fsDefines; }
     /// Return blend mode.
     BlendMode GetBlendMode() const { return blendMode; }
     /// Return depth test mode.
@@ -109,6 +113,8 @@ public:
     /// Finalize material loading in the main thread. Return true on success.
     bool EndLoad() override;
 
+    /// Return a clone of the material.
+    SharedPtr<Material> Clone();
     /// Create and return a new pass. If pass with same name exists, it will be returned.
     Pass* CreatePass(PassType type);
     /// Remove a pass.

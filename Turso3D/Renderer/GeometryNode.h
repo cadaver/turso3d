@@ -77,10 +77,10 @@ public:
             *(reinterpret_cast<SharedPtr<Material>*>(geomPtr) + index * 2 + 1) = material;
     }
 
-    /// Get number of geometries.
+    /// Return number of geometries.
     size_t NumGeometries() const { return numGeometries; }
 
-    /// Get geometry at index.
+    /// Return geometry at index.
     Geometry* GetGeometry(size_t index) const
     {
         if (numGeometries < 2)
@@ -89,7 +89,7 @@ public:
             return *(reinterpret_cast<Geometry**>(geomPtr) + index * 2);
     }
 
-    /// Get material at index.
+    /// Return material at index.
     Material* GetMaterial(size_t index) const
     {
         if (numGeometries < 2)

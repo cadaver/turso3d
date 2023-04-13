@@ -171,6 +171,32 @@ bool Material::EndLoad()
     return true;
 }
 
+SharedPtr<Material> Material::Clone()
+{
+    SharedPtr<Material> ret(Object::Create<Material>());
+    
+    ret->cullMode = cullMode;
+    for (size_t i = 0; i < MAX_MATERIAL_TEXTURE_UNITS; ++i)
+        ret->textures[i] = textures[i];
+    ret->uniformValues = uniformValues;
+    ret->vsDefines = vsDefines;
+    ret->fsDefines = fsDefines;
+
+    for (size_t i = 0; i < MAX_PASS_TYPES; ++i)
+    {
+        Pass* pass = passes[i];
+
+        if (pass)
+        {
+            Pass* clonePass = ret->CreatePass((PassType)i);
+            clonePass->SetShader(pass->GetShader(), pass->VSDefines(), pass->FSDefines());
+            clonePass->SetRenderState(pass->GetBlendMode(), pass->GetDepthTest(), pass->GetColorWrite(), pass->GetDepthWrite());
+        }
+    }
+
+    return ret;
+}
+
 Pass* Material::CreatePass(PassType type)
 {
     if (!passes[type])
@@ -252,6 +278,7 @@ Material* Material::DefaultMaterial()
     {
         defaultMaterial = new Material();
         defaultMaterial->SetUniform(U_MATDIFFCOLOR, Vector4::ONE);
+        defaultMaterial->SetUniform(U_MATSPECCOLOR, Vector4(0.25f, 0.25f, 0.25f, 1.0f));
 
         Pass* pass = defaultMaterial->CreatePass(PASS_SHADOW);
         pass->SetShader(cache->LoadResource<Shader>("Shaders/Shadow.glsl"), "", "");

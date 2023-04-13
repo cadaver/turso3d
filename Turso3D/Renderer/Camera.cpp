@@ -3,10 +3,10 @@
 #include "../Math/Matrix3x4.h"
 #include "Camera.h"
 
-static const float DEFAULT_NEARCLIP = 0.1f;
-static const float DEFAULT_FARCLIP = 1000.0f;
+static const float DEFAULT_NEAR_CLIP = 0.1f;
+static const float DEFAULT_FAR_CLIP = 1000.0f;
 static const float DEFAULT_FOV = 45.0f;
-static const float DEFAULT_ORTHOSIZE = 20.0f;
+static const float DEFAULT_ORTHO_SIZE = 20.0f;
 
 static const Matrix4 flipMatrix(
     1.0f, 0.0f, 0.0f, 0.0f,
@@ -20,10 +20,10 @@ Camera::Camera() :
     viewMatrixDirty(false),
     orthographic(false),
     flipVertical(false),
-    nearClip(DEFAULT_NEARCLIP),
-    farClip(DEFAULT_FARCLIP),
+    nearClip(DEFAULT_NEAR_CLIP),
+    farClip(DEFAULT_FAR_CLIP),
     fov(DEFAULT_FOV),
-    orthoSize(DEFAULT_ORTHOSIZE),
+    orthoSize(DEFAULT_ORTHO_SIZE),
     aspectRatio(1.0f),
     zoom(1.0f),
     lodBias(1.0f),
@@ -42,12 +42,12 @@ void Camera::RegisterObject()
     RegisterDerivedType<Camera, SpatialNode>();
     CopyBaseAttributes<Camera, SpatialNode>();
 
-    RegisterAttribute("nearClip", &Camera::NearClip, &Camera::SetNearClip, DEFAULT_NEARCLIP);
-    RegisterAttribute("farClip", &Camera::FarClip, &Camera::SetFarClip, DEFAULT_FARCLIP);
+    RegisterAttribute("nearClip", &Camera::NearClip, &Camera::SetNearClip, DEFAULT_NEAR_CLIP);
+    RegisterAttribute("farClip", &Camera::FarClip, &Camera::SetFarClip, DEFAULT_FAR_CLIP);
     RegisterAttribute("fov", &Camera::Fov, &Camera::SetFov, DEFAULT_FOV);
     RegisterAttribute("aspectRatio", &Camera::AspectRatio, &Camera::SetAspectRatio, 1.0f);
     RegisterAttribute("orthographic", &Camera::IsOrthographic, &Camera::SetOrthographic, false);
-    RegisterAttribute("orthoSize", &Camera::OrthoSize, &Camera::SetOrthoSize, DEFAULT_ORTHOSIZE);
+    RegisterAttribute("orthoSize", &Camera::OrthoSize, &Camera::SetOrthoSize, DEFAULT_ORTHO_SIZE);
     RegisterAttribute("zoom", &Camera::Zoom, &Camera::SetZoom, 1.0f);
     RegisterAttribute("lodBias", &Camera::LodBias, &Camera::SetLodBias, 1.0f);
     RegisterAttribute("viewMask", &Camera::ViewMask, &Camera::SetViewMask, M_MAX_UNSIGNED);

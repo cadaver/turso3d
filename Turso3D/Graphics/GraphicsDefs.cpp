@@ -29,6 +29,7 @@ const char* presetUniformNames[] =
 {
     "worldMatrix",
     "matDiffColor",
+    "matSpecColor",
     nullptr
 };
 

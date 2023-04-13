@@ -194,7 +194,7 @@ private:
     /// Scan until a character is found. Return true if successfully matched.
     static bool MatchChar(char c, const char*& pos, const char*& end);
 
-    /// Get the next char from a stream. Return true on success or false if the stream ended.
+    /// Return next char from buffer. Return true on success or false if the stream ended.
     static bool NextChar(char& dest, const char*& pos, const char*& end, bool skipWhiteSpace)
     {
         while (pos < end)

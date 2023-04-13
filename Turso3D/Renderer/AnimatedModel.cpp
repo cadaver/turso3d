@@ -85,7 +85,7 @@ void AnimatedModelDrawable::OnWorldBoundingBoxUpdate() const
 {
     if (model && numBones)
     {
-        // Recalculate bounding box from bone only if they moved individually
+        // Recalculate bounding box from bones only if they moved individually
         if (animatedModelFlags & AMF_BONE_BOUNDING_BOX_DIRTY)
         {
             const std::vector<ModelBone>& modelBones = model->Bones();
@@ -100,7 +100,7 @@ void AnimatedModelDrawable::OnWorldBoundingBoxUpdate() const
             }
 
             worldBoundingBox = tempBox;
-            boneBoundingBox = worldBoundingBox.Transformed(WorldTransform().Inverse());
+            boneBoundingBox = tempBox.Transformed(WorldTransform().Inverse());
             animatedModelFlags &= ~AMF_BONE_BOUNDING_BOX_DIRTY;
         }
         else
@@ -266,8 +266,9 @@ void AnimatedModelDrawable::CreateBones()
         skinMatrixBuffer = new UniformBuffer();
     skinMatrixBuffer->Define(USAGE_DYNAMIC, numBones * sizeof(Matrix3x4));
 
-    // Set initial bone bounding box recalculation and skinning dirty
+    // Set initial bone bounding box recalculation and skinning dirty. Also calculate a valid bone bounding box immediately to ensure models can enter the view without updating animation first
     OnBoneTransformChanged();
+    OnWorldBoundingBoxUpdate();
 }
 
 void AnimatedModelDrawable::UpdateAnimation()
@@ -541,6 +542,7 @@ void AnimatedModel::OnTransformChanged()
     else
     {
         modelDrawable->SetBoneTransformsDirty();
+        modelDrawable->SetFlag(DF_WORLD_TRANSFORM_DIRTY, true);
         SetFlag(NF_WORLD_TRANSFORM_DIRTY, true);
     }
 

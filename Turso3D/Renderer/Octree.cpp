@@ -141,6 +141,7 @@ void Octree::RegisterObject()
     // Register octree allocator with small initial capacity with the assumption that we don't create many of them (unlike other scene nodes)
     RegisterFactory<Octree>(1);
     CopyBaseAttributes<Octree, Node>();
+    RegisterDerivedType<Octree, Node>();
     RegisterRefAttribute("boundingBox", &Octree::BoundingBoxAttr, &Octree::SetBoundingBoxAttr);
     RegisterAttribute("numLevels", &Octree::NumLevelsAttr, &Octree::SetNumLevelsAttr);
 }

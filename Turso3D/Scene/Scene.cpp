@@ -18,8 +18,7 @@ Scene::Scene() :
 
 Scene::~Scene()
 {
-    // Node destructor will also remove children. But at that point the node<>id maps have been destroyed 
-    // so must tear down the scene tree already here
+    // Node destructor will also remove children. But at that point the node<>id maps have been destroyed so must tear down the scene tree already here
     RemoveAllChildren();
     RemoveNode(this);
     assert(nodes.empty());

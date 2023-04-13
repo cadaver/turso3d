@@ -224,13 +224,13 @@ private:
     void DeleteChildOctant(Octant* octant, unsigned char index);
     /// Delete a child octant hierarchy. If not deleting the octree for good, moves any nodes back to the root octant.
     void DeleteChildOctants(Octant* octant, bool deletingOctree);
-    /// Get all drawables from an octant recursively.
+    /// Return all drawables from an octant recursively.
     void CollectDrawables(std::vector<Drawable*>& result, Octant* octant) const;
-    /// Get all drawables matching flags from an octant recursively.
+    /// Return all drawables matching flags from an octant recursively.
     void CollectDrawables(std::vector<Drawable*>& result, Octant* octant, unsigned short drawableFlags, unsigned layerMask) const;
-    /// Get all drawables matching flags along a ray.
+    /// Return all drawables matching flags along a ray.
     void CollectDrawables(std::vector<RaycastResult>& result, Octant* octant, const Ray& ray, unsigned short drawableFlags, float maxDistance, unsigned layerMask) const;
-    /// Get all visible nodes matching flags that could be potential raycast hits.
+    /// Return all visible drawables matching flags that could be potential raycast hits.
     void CollectDrawables(std::vector<std::pair<Drawable*, float> >& result, Octant* octant, const Ray& ray, unsigned short drawableFlags, float maxDistance, unsigned layerMask) const;
     /// Work function to check reinsertion of nodes.
     void CheckReinsertWork(Task* task, unsigned threadIndex);

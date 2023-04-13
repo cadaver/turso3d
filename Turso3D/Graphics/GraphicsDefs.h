@@ -165,6 +165,7 @@ enum PresetUniform
 {
     U_WORLDMATRIX,
     U_MATDIFFCOLOR,
+    U_MATSPECCOLOR,
     MAX_PRESET_UNIFORMS
 };
 

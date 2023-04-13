@@ -47,7 +47,7 @@ public:
     /// Destruct.
     virtual ~AttributeAccessor();
     
-    /// Get the current value of the variable.
+    /// Return the current value of the variable.
     virtual void Get(const Serializable* instance, void* dest) = 0;
     /// Set new value for the variable.
     virtual void Set(Serializable* instance, const void* source) = 0;
@@ -203,7 +203,7 @@ public:
         assert(set);
     }
 
-    /// Get current value of the variable.
+    /// Return current value of the variable.
     void Get(const Serializable* instance, void* dest) override
     {
         assert(instance);
@@ -246,7 +246,7 @@ public:
         assert(set);
     }
 
-    /// Get current value of the variable.
+    /// Return current value of the variable.
     void Get(const Serializable* instance, void* dest) override
     {
         assert(instance);
@@ -289,7 +289,7 @@ public:
         assert(set);
     }
 
-    /// Get current value of the variable.
+    /// Return current value of the variable.
     void Get(const Serializable* instance, void* dest) override
     {
         assert(instance);

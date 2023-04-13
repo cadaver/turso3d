@@ -118,7 +118,7 @@ class Camera : public SpatialNode
     float LodDistance(float distance, float nodeScale, float bias) const { float d = Max(lodBias * zoom * bias * nodeScale, M_EPSILON); return !orthographic ? distance / d : orthoSize / d; }
     /// Return a world rotation for facing a camera on certain axes based on the existing world rotation.
     Quaternion FaceCameraRotation(const Vector3& position, const Quaternion& rotation, FaceCameraMode mode);
-    /// Get effective world transform for matrix and frustum calculations including reflection but excluding node scaling.
+    /// Return effective world transform for matrix and frustum calculations including reflection but excluding node scaling.
     Matrix3x4 EffectiveWorldTransform() const;
     /// Return if projection parameters are valid for rendering and raycasting.
     bool IsProjectionValid() const;
