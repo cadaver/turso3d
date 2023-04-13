@@ -48,7 +48,7 @@ protected:
     Drawable* drawable;
 };
 
-/// Base class for drawables that are inserted to the octree. These are managed by their scene node.
+/// Base class for objects that are inserted to the octree for rendering. These are managed by their scene node. Inserting drawables instead of scene nodes helps to keep the rendering-critical information more tightly packed in memory.
 class Drawable
 {
     friend class Octree;
