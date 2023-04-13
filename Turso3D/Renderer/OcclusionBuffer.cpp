@@ -270,7 +270,9 @@ bool OcclusionBuffer::SetSize(int newWidth, int newHeight)
         rasterizeTrianglesTasks[0]->endY = height;
     }
 
-    buffer = new float[width * height];
+    // Allocate extra for safety in case of off-by-one 3D clipping
+    fullBuffer = new float[width * (height + 4)];
+    buffer = fullBuffer.Get() + 2 * width;
     mipBuffers.clear();
     
     // Build buffers for mip levels

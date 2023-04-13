@@ -130,7 +130,7 @@ void ThreadBatchResult::Clear()
 ShadowMap::ShadowMap()
 {
     // Construct texture but do not define its size yet
-    texture = new Texture();
+    texture = Object::Create<Texture>();
     fbo = new FrameBuffer();
 }
 
