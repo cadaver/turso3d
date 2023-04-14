@@ -8,8 +8,9 @@
 Input::Input(SDL_Window* window_) :
     window(window_),
     mouseMove(IntVector2::ZERO),
-    shouldExit(false),
-    focus(false)
+    mouseWheel(IntVector2::ZERO),
+    focus(false),
+    shouldExit(false)
 {
     assert(window);
 }

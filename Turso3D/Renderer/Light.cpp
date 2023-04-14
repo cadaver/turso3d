@@ -47,8 +47,8 @@ static const char* lightTypeNames[] =
 static Allocator<LightDrawable> drawableAllocator;
 
 LightDrawable::LightDrawable() :
-    color(DEFAULT_COLOR),
     lightType(DEFAULT_LIGHTTYPE),
+    color(DEFAULT_COLOR),
     range(DEFAULT_RANGE),
     fov(DEFAULT_SPOT_FOV),
     fadeStart(DEFAULT_FADE_START),

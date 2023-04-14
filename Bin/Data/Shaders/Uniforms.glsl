@@ -8,7 +8,11 @@ layout(std140) uniform PerViewData0
     uniform vec4 ambientColor;
     uniform vec3 fogColor;
     uniform vec2 fogParameters;
-    uniform vec4 dirLightData[12];
+    uniform vec3 dirLightDirection;
+    uniform vec4 dirLightColor;
+    uniform vec4 dirLightShadowSplits;
+    uniform vec4 dirLightShadowParameters;
+    uniform mat4x4 dirLightShadowMatrices[2];
 };
 
 struct Light

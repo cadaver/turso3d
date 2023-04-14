@@ -150,9 +150,9 @@ public:
     const Vector4& ShadowParameters() const { return shadowParameters; }
 
 private:
-    /// Light type.
+    /// %Light type.
     LightType lightType;
-    /// Light color.
+    /// %Light color.
     Color color;
     /// Range.
     float range;

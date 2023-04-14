@@ -47,21 +47,21 @@ float SampleShadowMap(sampler2DShadow shadowTex, vec4 shadowPos, vec4 parameters
 
 void CalculateDirLight(vec4 worldPos, vec3 normal, vec4 matDiffColor, vec4 matSpecColor, inout vec3 diffuseLight, inout vec3 specularLight)
 {
-    vec3 lightDir = dirLightData[0].xyz;
-    vec4 lightColor = dirLightData[1];
+    vec3 lightDir = dirLightDirection;
+    vec4 lightColor = dirLightColor;
 
     float NdotL = dot(normal, lightDir);
     if (NdotL <= 0.0)
         return;
 
-    vec4 shadowSplits = dirLightData[2];
-    vec4 shadowParameters = dirLightData[3];
+    vec4 shadowSplits = dirLightShadowSplits;
+    vec4 shadowParameters = dirLightShadowParameters;
 
     if (shadowParameters.z < 1.0 && worldPos.w < shadowSplits.y)
     {
-        int matIndex = worldPos.w > shadowSplits.x ? 8 : 4;
+        int matIndex = worldPos.w > shadowSplits.x ? 1 : 0;
 
-        mat4 shadowMatrix = mat4(dirLightData[matIndex], dirLightData[matIndex+1], dirLightData[matIndex+2], dirLightData[matIndex+3]);
+        mat4 shadowMatrix = dirLightShadowMatrices[matIndex];
         float shadowFade = shadowParameters.z + clamp((worldPos.w - shadowSplits.z) * shadowSplits.w, 0.0, 1.0);
         NdotL *= clamp(shadowFade + SampleShadowMap(dirShadowTex8, vec4(worldPos.xyz, 1.0) * shadowMatrix, shadowParameters), 0.0, 1.0);
     }

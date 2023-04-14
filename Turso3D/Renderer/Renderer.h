@@ -134,13 +134,21 @@ struct PerViewUniforms
     /// Current camera's world position.
     Vector4 cameraPosition;
     /// Current scene's ambient color.
-    Vector4 ambientColor;
+    Color ambientColor;
     /// Current scene's fog color.
-    Vector4 fogColor;
+    Color fogColor;
     /// Current scene's fog start and end parameters.
     Vector4 fogParameters;
-    /// Data for the directional light.
-    Vector4 dirLightData[12];
+    /// Directional light direction.
+    Vector4 dirLightDirection;
+    /// Directional light color.
+    Color dirLightColor;
+    /// Directional light shadow split parameters.
+    Vector4 dirLightShadowSplits;
+    /// Directional light shadow parameters.
+    Vector4 dirLightShadowParameters;
+    /// Directional light shadow matrices.
+    Matrix4 dirLightShadowMatrices[2];
 };
 
 /// Per-light data for cluster light shader.

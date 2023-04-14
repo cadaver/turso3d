@@ -765,8 +765,8 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
         // Set global lighting settings if is the main view
         if (camera_ == camera)
         {
-            perViewData.ambientColor = lightEnvironment ? lightEnvironment->AmbientColor().Data() : DEFAULT_AMBIENT_COLOR.Data();
-            perViewData.fogColor = lightEnvironment ? lightEnvironment->FogColor().Data() : DEFAULT_FOG_COLOR.Data();
+            perViewData.ambientColor = lightEnvironment ? lightEnvironment->AmbientColor() : DEFAULT_AMBIENT_COLOR;
+            perViewData.fogColor = lightEnvironment ? lightEnvironment->FogColor() : DEFAULT_FOG_COLOR;
 
             float fogStart = lightEnvironment ? lightEnvironment->FogStart() : DEFAULT_FOG_START;
             float fogEnd = lightEnvironment ? lightEnvironment->FogEnd() : DEFAULT_FOG_END;
@@ -777,15 +777,15 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
         // Set directional light data if exists and is the main view
         if (!dirLight || camera_ != camera)
         {
-            perViewData.dirLightData[0] = Vector4::ZERO;
-            perViewData.dirLightData[1] = Vector4::ZERO;
-            perViewData.dirLightData[3] = Vector4::ONE;
-            dataSize -= 8 * sizeof(Vector4); // Leave out shadow matrices
+            perViewData.dirLightDirection = Vector4::ZERO;
+            perViewData.dirLightColor = Color::BLACK;
+            perViewData.dirLightShadowParameters = Vector4::ONE;
+            dataSize -= 2 * sizeof(Matrix4); // Leave out shadow matrices
         }
         else
         {
-            perViewData.dirLightData[0] = Vector4(-dirLight->WorldDirection(), 0.0f);
-            perViewData.dirLightData[1] = dirLight->GetColor().Data();
+            perViewData.dirLightDirection = Vector4(-dirLight->WorldDirection(), 0.0f);
+            perViewData.dirLightColor = dirLight->GetColor();
 
             if (dirLight->ShadowMap())
             {
@@ -793,18 +793,18 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
                 float firstSplit = cascadeSplits.x / farClip;
                 float secondSplit = cascadeSplits.y / farClip;
 
-                perViewData.dirLightData[2] = Vector4(firstSplit, secondSplit, dirLight->ShadowFadeStart() * secondSplit, 1.0f / (secondSplit - dirLight->ShadowFadeStart() * secondSplit));
-                perViewData.dirLightData[3] = dirLight->ShadowParameters();
+                perViewData.dirLightShadowSplits = Vector4(firstSplit, secondSplit, dirLight->ShadowFadeStart() * secondSplit, 1.0f / (secondSplit - dirLight->ShadowFadeStart() * secondSplit));
+                perViewData.dirLightShadowParameters = dirLight->ShadowParameters();
                 if (dirLight->ShadowViews().size() >= 2)
                 {
-                    *reinterpret_cast<Matrix4*>(&perViewData.dirLightData[4]) = dirLight->ShadowViews()[0].shadowMatrix;
-                    *reinterpret_cast<Matrix4*>(&perViewData.dirLightData[8]) = dirLight->ShadowViews()[1].shadowMatrix;
+                    perViewData.dirLightShadowMatrices[0] = dirLight->ShadowViews()[0].shadowMatrix;
+                    perViewData.dirLightShadowMatrices[1]  = dirLight->ShadowViews()[1].shadowMatrix;
                 }
             }
             else
             {
-                perViewData.dirLightData[3] = Vector4::ONE;
-                dataSize -= 8 * sizeof(Vector4); // Leave out shadow matrices
+                perViewData.dirLightShadowParameters = Vector4::ONE;
+                dataSize -= 2 * sizeof(Matrix4); // Leave out shadow matrices
             }
         }
 
