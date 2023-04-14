@@ -51,6 +51,11 @@ public:
     /// Return pointer to the reference count structure. Allocate if not allocated yet.
     RefCount* RefCountPtr();
 
+    /// Allocate a reference count structure.
+    static RefCount* AllocateRefCount();
+    /// Free a reference count structure.
+    static void FreeRefCount(RefCount* refCount);
+
 private:
     /// Prevent copy construction.
     RefCounted(const RefCounted& rhs);
@@ -263,7 +268,7 @@ public:
             --(refCount->weakRefs);
             // If expired and no more weak references, destroy the reference count
             if (refCount->expired && refCount->weakRefs == 0)
-                delete refCount;
+                RefCounted::FreeRefCount(refCount);
             ptr = nullptr;
             refCount = nullptr;
         }
@@ -403,7 +408,7 @@ public:
         if (rhs)
         {
             ptr = rhs;
-            refCount = new RefCount();
+            refCount = RefCounted::AllocateRefCount();
             if (refCount)
                 ++(refCount->refs);
         }
@@ -434,7 +439,7 @@ public:
                 delete[] ptr;
                 // If no weak refs, destroy the ref count now too
                 if (refCount->weakRefs == 0)
-                    delete refCount;
+                    RefCounted::FreeRefCount(refCount);
             }
         }
 
@@ -612,7 +617,7 @@ public:
         {
             --(refCount->weakRefs);
             if (refCount->expired && refCount->weakRefs == 0)
-                delete refCount;
+                RefCounted::FreeRefCount(refCount);
         }
         
         ptr = nullptr;

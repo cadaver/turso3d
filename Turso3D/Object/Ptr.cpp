@@ -1,6 +1,9 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
+#include "Allocator.h"
 #include "Ptr.h"
+
+static Allocator<RefCount> refCountAllocator;
 
 RefCounted::RefCounted() :
     refCount(nullptr)
@@ -13,7 +16,7 @@ RefCounted::~RefCounted()
     {
         assert(refCount->refs == 0);
         if (refCount->weakRefs == 0)
-            delete refCount;
+            refCountAllocator.Free(refCount);
         else
             refCount->expired = true;
     }
@@ -22,7 +25,7 @@ RefCounted::~RefCounted()
 void RefCounted::AddRef()
 {
     if (!refCount)
-        refCount = new RefCount();
+        refCount = refCountAllocator.Allocate();
 
     ++(refCount->refs);
 }
@@ -38,7 +41,17 @@ void RefCounted::ReleaseRef()
 RefCount* RefCounted::RefCountPtr()
 {
     if (!refCount)
-        refCount = new RefCount();
+        refCount = refCountAllocator.Allocate();
 
     return refCount;
+}
+
+RefCount* RefCounted::AllocateRefCount()
+{
+    return refCountAllocator.Allocate();
+}
+
+void RefCounted::FreeRefCount(RefCount* refCount)
+{
+    refCountAllocator.Free(refCount);
 }
