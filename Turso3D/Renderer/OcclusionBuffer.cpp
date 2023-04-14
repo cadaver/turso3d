@@ -281,7 +281,7 @@ bool OcclusionBuffer::SetSize(int newWidth, int newHeight)
         newWidth = (newWidth + 1) / 2;
         newHeight = (newHeight + 1) / 2;
         
-        mipBuffers.push_back(SharedArrayPtr<DepthValue>(new DepthValue[newWidth * newHeight]));
+        mipBuffers.push_back(AutoArrayPtr<DepthValue>(new DepthValue[newWidth * newHeight]));
         
         if (newWidth <= OCCLUSION_MIN_SIZE && newHeight <= OCCLUSION_MIN_SIZE)
             break;

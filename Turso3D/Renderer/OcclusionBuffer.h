@@ -133,7 +133,7 @@ private:
     /// Number of pending rasterize triangles tasks. When all done, tests can begin and depth hierarchy can be generated to speed up tests.
     std::atomic<int> numPendingRasterizeTasks;
     /// Reduced size depth buffers.
-    std::vector<SharedArrayPtr<DepthValue> > mipBuffers;
+    std::vector<AutoArrayPtr<DepthValue> > mipBuffers;
     /// Highest level buffer with safety padding.
     AutoArrayPtr<float> fullBuffer;
     /// %Task for threaded depth hierarchy building.

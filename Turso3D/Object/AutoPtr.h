@@ -19,7 +19,6 @@ public:
     AutoPtr(const AutoPtr<T>& ptr_) :
         ptr(ptr_.ptr)
     {
-        // Trick the compiler so that the AutoPtr can be copied to containers; the latest copy stays non-null
         const_cast<AutoPtr<T>&>(ptr_).ptr = nullptr;
     }
 
@@ -94,10 +93,10 @@ public:
     }
 
     /// Copy-construct. Ownership is transferred, making the source pointer null.
-    AutoArrayPtr(AutoArrayPtr<T>& ptr) :
+    AutoArrayPtr(const AutoArrayPtr<T>& ptr) :
         array(ptr.array)
     {
-        ptr.array = nullptr;
+        const_cast<AutoArrayPtr<T>&>(ptr).array = nullptr;
     }
     
     /// Construct and take ownership of the array.
