@@ -1,8 +1,8 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
-#include "../IO/File.h"
 #include "../Time/TimeUtils.h"
 #include "../Thread/ThreadUtils.h"
+#include "File.h"
 #include "Log.h"
 
 #include <cstdio>
@@ -109,7 +109,12 @@ void Log::Write(int msgLevel, const std::string& message)
     
     Log* instance = Subsystem<Log>();
     if (!instance)
+    {
+        std::string formattedMessage = logLevelPrefixes[msgLevel];
+        formattedMessage += ": " + message;
+        fprintf(msgLevel == LOG_ERROR ? stderr : stdout, "%s\n", formattedMessage.c_str());
         return;
+    }
 
     // If not in the main thread, store message for later processing
     if (!IsMainThread())
@@ -159,7 +164,10 @@ void Log::WriteRaw(const std::string& message, bool error)
 {
     Log* instance = Subsystem<Log>();
     if (!instance)
+    {
+        fprintf(error ? stderr : stdout, "%s\n", message.c_str());
         return;
+    }
 
     // If not in the main thread, store message for later processing
     if (!IsMainThread())

@@ -276,7 +276,7 @@ Material* Material::DefaultMaterial()
     // Create on demand
     if (!defaultMaterial)
     {
-        defaultMaterial = new Material();
+        defaultMaterial = Create<Material>();
         defaultMaterial->SetUniform(U_MATDIFFCOLOR, Vector4::ONE);
         defaultMaterial->SetUniform(U_MATSPECCOLOR, Vector4(0.25f, 0.25f, 0.25f, 1.0f));
 

@@ -1,6 +1,9 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
+#include "../IO/Log.h"
 #include "Allocator.h"
+
+#include <cassert>
 
 static AllocatorBlock* AllocatorGetBlock(AllocatorBlock* allocator, size_t nodeSize, size_t capacity)
 {
@@ -88,6 +91,10 @@ void AllocatorFree(AllocatorBlock* allocator, void* ptr)
     unsigned char* dataPtr = static_cast<unsigned char*>(ptr);
     AllocatorNode* node = reinterpret_cast<AllocatorNode*>(dataPtr - sizeof(AllocatorNode));
     
+    assert(!node->next);
+    if (node->next)
+        LOGERROR("Potential illegal free of object not allocated via the allocator");
+
     // Chain the node back to free nodes
     node->next = allocator->free;
     allocator->free = node;
