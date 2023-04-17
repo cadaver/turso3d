@@ -11,9 +11,7 @@
 const char* passNames[] = {
     "shadow",
     "opaque",
-    "opaqueadd",
     "alpha",
-    "alphaadd",
     nullptr
 };
 
