@@ -27,7 +27,8 @@ static const float DEFAULT_SHADOW_MIN_VIEW = 10.0f;
 static const float DEFAULT_DEPTH_BIAS = 2.0f;
 static const float DEFAULT_SLOPESCALE_BIAS = 1.5f;
 
-static const Quaternion pointLightFaceRotations[] = {
+static const Quaternion pointLightFaceRotations[] = 
+{
     Quaternion(0.0f, 90.0f, 0.0f),
     Quaternion(0.0f, -90.0f, 0.0f),
     Quaternion(-90.0f, 0.0f, 0.0f),

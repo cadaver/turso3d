@@ -431,6 +431,9 @@ bool OcclusionBuffer::IsVisible(const BoundingBox& worldSpaceBox) const
         (int)maxX, (int)maxY
     );
     
+    // Subtract a minor depth bias to prevent e.g. self-occlusion further away
+    minZ -= M_EPSILON;
+
     // Clipping of rect
     if (rect.left < 0)
         rect.left = 0;

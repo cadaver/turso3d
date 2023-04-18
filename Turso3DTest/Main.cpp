@@ -79,6 +79,16 @@ void CreateScene(Scene* scene, Camera* camera, int preset)
             object->SetMaxDistance(600.0f);
         }
 
+        Vector3 quadrantCenters[] = 
+        {
+            Vector3(-290.0f, 0.0f, -290.0f),
+            Vector3(290.0f, 0.0f, -290.0f),
+            Vector3(-290.0f, 0.0f, 290.0f),
+            Vector3(290.0f, 0.0f, 290.0f),
+        };
+
+        std::vector<Light*> lights;
+
         for (unsigned i = 0; i < 100; ++i)
         {
             Light* light = scene->CreateChild<Light>();
@@ -86,12 +96,34 @@ void CreateScene(Scene* scene, Camera* camera, int preset)
             light->SetLightType(LIGHT_POINT);
             light->SetCastShadows(true);
             Vector3 colorVec = 2.0f * Vector3(Random(), Random(), Random()).Normalized();
-            light->SetColor(Color(colorVec.x, colorVec.y, colorVec.z, 0.25f));
+            light->SetColor(Color(colorVec.x, colorVec.y, colorVec.z, 0.5f));
             light->SetRange(40.0f);
-            light->SetPosition(Vector3(Random() * 1000.0f - 500.0f, 7.0f, Random() * 1000.0f - 500.0f));
             light->SetShadowMapSize(256);
             light->SetShadowMaxDistance(200.0f);
             light->SetMaxDistance(900.0f);
+
+            for (;;)
+            {
+                Vector3 newPos = quadrantCenters[i % 4] + Vector3(Random() * 500.0f - 250.0f, 10.0f, Random() * 500.0f - 250.0f);
+                bool posOk = true;
+
+                for (unsigned j = 0; j < lights.size(); ++j)
+                {
+                    if ((newPos - lights[j]->Position()).Length() < 80.0f)
+                    {
+                        posOk = false;
+                        break;
+                    }
+                }
+
+                if (posOk)
+                {
+                    light->SetPosition(newPos);
+                    break;
+                }
+            }
+
+            lights.push_back(light);
         }
 
         {
@@ -118,6 +150,13 @@ void CreateScene(Scene* scene, Camera* camera, int preset)
 
             Occluder* occluder = object->CreateChild<Occluder>();
             occluder->SetModel(object->GetModel());
+        }
+
+        {
+            Occluder* occluder = scene->CreateChild<Occluder>();
+            occluder->SetPosition(Vector3(0.0f, -0.05f, 0.0f));
+            occluder->SetScale(Vector3(1165.0f, 0.1f, 1165.0f));
+            occluder->SetModel(cache->LoadResource<Model>("Box.mdl"));
         }
     }
     // Preset 1: high number of animating cubes
@@ -186,7 +225,7 @@ void CreateScene(Scene* scene, Camera* camera, int preset)
         Light* light = scene->CreateChild<Light>();
         light->SetLightType(LIGHT_DIRECTIONAL);
         light->SetCastShadows(true);
-        light->SetColor(Color(1.0f, 1.0f, 1.0f, 0.5f));
+        light->SetColor(Color(1.0f, 1.0f, 1.0f, 1.0f));
         light->SetRotation(Quaternion(45.0f, 45.0f, 0.0f));
         light->SetShadowMapSize(2048);
         light->SetShadowMaxDistance(100.0f);
@@ -472,12 +511,6 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             graphics->SetViewport(IntRect(0, 0, width, height));
             renderer->RenderAlpha();
 
-            // Optional render of debug geometry
-            if (drawDebug)
-                renderer->RenderDebug();
-
-            debugRenderer->Render();
-
             // Optional debug render of occlusion buffer
             if (drawOcclusionDebug && useOcclusion)
             {
@@ -487,7 +520,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                     occlusionDebugTexture->Define(TEX_2D, IntVector2(occlusion->Width(), occlusion->Height()), FMT_R8);
                     occlusionDebugTexture->DefineSampler(FILTER_BILINEAR, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
                 }
-                
+
                 size_t dataSize = occlusion->Width() * occlusion->Height();
                 AutoArrayPtr<unsigned char> debugData(new unsigned char[dataSize]);
                 float* src = occlusion->Buffer();
@@ -496,7 +529,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 float nearClip = camera->NearClip();
                 float farClip = camera->FarClip();
                 Vector2 linearizeDepth(farClip / (farClip - nearClip), -nearClip / (farClip - nearClip));
-               
+
                 for (size_t i = 0; i < dataSize; ++i)
                 {
                     float depth = src[i];
@@ -506,7 +539,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
                 ImageLevel debugDataLevel(IntVector2(occlusion->Width(), occlusion->Height()), FMT_R8, debugData);
                 occlusionDebugTexture->SetData(0, IntRect(0, 0, occlusion->Width(), occlusion->Height()), debugDataLevel);
-                
+
                 Matrix4 quadMatrix = Matrix4::IDENTITY;
                 ShaderProgram* program = graphics->SetProgram("Shaders/DebugOcclusion.glsl");
                 graphics->SetUniform(program, "worldViewProjMatrix", quadMatrix);
@@ -517,6 +550,12 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 graphics->SetTexture(0, nullptr);
             }
 
+            // Optional render of debug geometry
+            if (drawDebug)
+                renderer->RenderDebug();
+
+            debugRenderer->Render();
+            
             // Optional debug render of shadowmap. Draw both dir light cascades and the shadow atlas
             if (drawShadowDebug)
             {

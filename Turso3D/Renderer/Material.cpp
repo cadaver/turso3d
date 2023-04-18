@@ -8,14 +8,16 @@
 
 #include <tracy/Tracy.hpp>
 
-const char* passNames[] = {
+const char* passNames[] = 
+{
     "shadow",
     "opaque",
     "alpha",
     nullptr
 };
 
-const char* geometryDefines[] = {
+const char* geometryDefines[] = 
+{
     "",
     "SKINNED ",
     "INSTANCED ",

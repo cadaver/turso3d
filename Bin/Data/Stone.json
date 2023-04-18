@@ -14,6 +14,6 @@
   },
   "uniformValues": {
     "matDiffColor": "1 1 1 1",
-    "matSpecColor": "1 1 1 8"
+    "matSpecColor": "1 1 1 16"
   }
 }

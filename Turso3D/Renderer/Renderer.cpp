@@ -904,7 +904,8 @@ void Renderer::DefineFaceSelectionTextures()
     faceSelectionTexture1 = new Texture();
     faceSelectionTexture2 = new Texture();
 
-    const float faceSelectionData1[] = {
+    const float faceSelectionData1[] = 
+    {
         1.0f, 0.0f, 0.0f, 0.0f,
         1.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 1.0f, 0.0f, 0.0f,
@@ -913,7 +914,8 @@ void Renderer::DefineFaceSelectionTextures()
         0.0f, 0.0f, 1.0f, 0.0f
     };
 
-    const float faceSelectionData2[] = {
+    const float faceSelectionData2[] = 
+    {
         -0.5f, 0.5f, 0.5f, 1.5f,
         0.5f, 0.5f, 0.5f, 0.5f,
         -0.5f, 0.5f, 1.5f, 1.5f,

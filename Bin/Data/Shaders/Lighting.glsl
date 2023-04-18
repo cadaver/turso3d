@@ -133,7 +133,7 @@ void CalculateLight(uint index, vec4 worldPos, vec3 normal, vec4 matDiffColor, v
         vec3 eyeVec = cameraPosition - worldPos.xyz;
         vec3 halfVec = normalize(normalize(eyeVec) + lightDir);
         float NdotH = dot(normal, halfVec);
-        specularLight += atten * lightColor.a * matSpecColor.rgb * clamp(pow(NdotH, matSpecColor.a), 0.0, 1.0) * lightColor.rgb;
+        specularLight += atten * NdotL * lightColor.a * matSpecColor.rgb * clamp(pow(NdotH, matSpecColor.a), 0.0, 1.0) * lightColor.rgb;
     }
 }
 

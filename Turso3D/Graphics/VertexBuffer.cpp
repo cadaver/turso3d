@@ -12,7 +12,8 @@ static unsigned boundAttributes = 0;
 static VertexBuffer* boundVertexBuffer = nullptr;
 static VertexBuffer* boundVertexAttribSource = nullptr;
 
-static const unsigned baseAttributeIndex[] = {
+static const unsigned baseAttributeIndex[] = 
+{
     0,
     1,
     2,

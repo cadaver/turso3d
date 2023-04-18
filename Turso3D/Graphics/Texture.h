@@ -34,7 +34,7 @@ public:
     /// Define texture type and dimensions and set initial data. Return true on success.
     bool Define(TextureType type, const IntVector3& size, ImageFormat format, int multisample = 1, size_t numLevels = 1, const ImageLevel* initialData = 0);
     /// Define sampling parameters. Return true on success.
-    bool DefineSampler(TextureFilterMode filter = FILTER_TRILINEAR, TextureAddressMode u = ADDRESS_WRAP, TextureAddressMode v = ADDRESS_WRAP, TextureAddressMode w = ADDRESS_WRAP, unsigned maxAnisotropy = 16, float minLod = -M_MAX_FLOAT, float maxLod = M_MAX_FLOAT, const Color& borderColor = Color::BLACK);
+    bool DefineSampler(TextureFilterMode filter = FILTER_ANISOTROPIC, TextureAddressMode u = ADDRESS_WRAP, TextureAddressMode v = ADDRESS_WRAP, TextureAddressMode w = ADDRESS_WRAP, unsigned maxAnisotropy = 16, float minLod = -M_MAX_FLOAT, float maxLod = M_MAX_FLOAT, const Color& borderColor = Color::BLACK);
     /// Set data for a mipmap level. Return true on success.
     bool SetData(size_t level, const IntRect& rect, const ImageLevel& data);
     /// Set data for a mipmap level. Return true on success.
