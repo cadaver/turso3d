@@ -7,12 +7,15 @@
 
 #include <cassert>
 #include <algorithm>
+#include <glew.h>
 #include <tracy/Tracy.hpp>
 
 static const float DEFAULT_OCTREE_SIZE = 1000.0f;
 static const int DEFAULT_OCTREE_LEVELS = 8;
 static const int MAX_OCTREE_LEVELS = 255;
 static const size_t MIN_THREADED_UPDATE = 16;
+
+static std::vector<unsigned> freeQueries;
 
 static inline bool CompareRaycastResults(const RaycastResult& lhs, const RaycastResult& rhs)
 {
@@ -48,6 +51,80 @@ struct ReinsertDrawablesTask : public MemberFunctionTask<Octree>
     /// End pointer.
     Drawable** end;
 };
+
+void Octant::BeginQuery()
+{
+    if (freeQueries.size())
+    {
+        queryId = freeQueries.back();
+        freeQueries.pop_back();
+    }
+    else
+        glGenQueries(1, &queryId);
+
+    glBeginQuery(GL_ANY_SAMPLES_PASSED, queryId);
+    queryIssued = true;
+}
+
+void Octant::EndQuery()
+{
+    glEndQuery(GL_ANY_SAMPLES_PASSED);
+}
+
+bool Octant::CheckQuery()
+{
+    if (!queryIssued)
+        return true;
+
+    GLuint available = 0;
+    glGetQueryObjectuiv(queryId, GL_QUERY_RESULT_AVAILABLE, &available);
+
+    if (available)
+    {
+        bool previousVisibility = lastVisibility;
+
+        GLuint passed = 0;
+        glGetQueryObjectuiv(queryId, GL_QUERY_RESULT, &passed);
+        
+        lastVisibility = passed > 0;
+        if (lastVisibility && !previousVisibility && numChildren)
+            PushVisibilityToChildren();
+        if (lastVisibility)
+            PushVisibilityToParents();
+
+        freeQueries.push_back(queryId);
+        queryId = 0;
+        queryIssued = false;
+
+        return true;
+    }
+    else
+        return false;
+}
+
+void Octant::PushVisibilityToChildren()
+{
+    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+    {
+        if (children[i])
+        {
+            children[i]->lastVisibility = true;
+            if (children[i]->numChildren)
+                children[i]->PushVisibilityToChildren();
+        }
+    }
+}
+
+void Octant::PushVisibilityToParents()
+{
+    Octant* octant = parent;
+
+    while (octant && !octant->lastVisibility)
+    {
+        octant->lastVisibility = true;
+        octant = octant->parent;
+    }
+}
 
 void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigned char level_, unsigned char childIndex_)
 {
@@ -111,7 +188,6 @@ Octree::Octree() :
     assert(workQueue);
 
     root.Initialize(nullptr, BoundingBox(-DEFAULT_OCTREE_SIZE, DEFAULT_OCTREE_SIZE), DEFAULT_OCTREE_LEVELS, 0);
-    occluderRoot.Initialize(nullptr, BoundingBox(-DEFAULT_OCTREE_SIZE, DEFAULT_OCTREE_SIZE), DEFAULT_OCTREE_LEVELS, 0);
 
     // Have at least 1 task for reinsert processing
     reinsertTasks.push_back(new ReinsertDrawablesTask(this, &Octree::CheckReinsertWork));
@@ -133,7 +209,6 @@ Octree::~Octree()
     }
 
     DeleteChildOctants(&root, true);
-    DeleteChildOctants(&occluderRoot, true);
 }
 
 void Octree::RegisterObject()
@@ -218,17 +293,10 @@ void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
     std::vector<Drawable*> occluders;
     
     CollectDrawables(updateQueue, &root);
-    CollectDrawables(occluders, &occluderRoot);
     DeleteChildOctants(&root, false);
-    DeleteChildOctants(&occluderRoot, false);
 
     allocator.Reset();
     root.Initialize(nullptr, boundingBox, (unsigned char)Clamp(numLevels, 1, MAX_OCTREE_LEVELS), 0);
-    occluderRoot.Initialize(nullptr, boundingBox, (unsigned char)Clamp(numLevels, 1, MAX_OCTREE_LEVELS), 0);
-
-    // Drawables will be reinserted on next update. Reinsert occluders immediately, since they have no update queue
-    for (auto it = occluders.begin(); it != occluders.end(); ++it)
-        InsertOccluder(*it);
 }
 
 void Octree::OnRenderDebug(DebugRenderer* debug)
@@ -293,13 +361,6 @@ void Octree::FindDrawablesMasked(std::vector<Drawable*>& result, const Frustum& 
     CollectDrawablesMasked(result, const_cast<Octant*>(&root), frustum, drawableFlags, layerMask);
 }
 
-void Octree::FindOccludersMasked(std::vector<Drawable*>& result, const Frustum& frustum, unsigned layerMask) const
-{
-    ZoneScoped;
-
-    CollectDrawablesMasked(result, const_cast<Octant*>(&occluderRoot), frustum, 0, layerMask);
-}
-
 void Octree::QueueUpdate(Drawable* drawable)
 {
     assert(drawable);
@@ -344,54 +405,6 @@ void Octree::RemoveDrawable(Drawable* drawable)
         drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
     }
 
-    drawable->octant = nullptr;
-}
-
-void Octree::InsertOccluder(Drawable* drawable)
-{
-    assert(drawable);
-
-    const BoundingBox& box = drawable->WorldBoundingBox();
-    Octant* oldOctant = drawable->GetOctant();
-
-    // Do nothing if still fits the current octant
-    if (oldOctant && oldOctant->fittingBox.IsInside(box) == INSIDE)
-        return;
-
-    Octant* newOctant = &occluderRoot;
-    Vector3 boxSize = box.Size();
-
-    for (;;)
-    {
-        // If drawable does not fit fully inside root octant, must remain in it
-        bool insertHere = (newOctant == &occluderRoot) ?
-            (newOctant->fittingBox.IsInside(box) != INSIDE || newOctant->FitBoundingBox(box, boxSize)) :
-            newOctant->FitBoundingBox(box, boxSize);
-
-        if (insertHere)
-        {
-            if (newOctant != oldOctant)
-            {
-                // Add first, then remove, because drawable count going to zero deletes the octree branch in question
-                AddDrawable(drawable, newOctant);
-                if (oldOctant)
-                    RemoveDrawable(drawable, oldOctant);
-            }
-            break;
-        }
-        else
-            newOctant = CreateChildOctant(newOctant, newOctant->ChildIndex(box.Center()));
-    }
-
-    drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
-}
-
-void Octree::RemoveOccluder(Drawable* drawable)
-{
-    if (!drawable)
-        return;
-
-    RemoveDrawable(drawable, drawable->GetOctant());
     drawable->octant = nullptr;
 }
 

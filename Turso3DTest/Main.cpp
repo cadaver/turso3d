@@ -17,8 +17,6 @@
 #include "Renderer/LightEnvironment.h"
 #include "Renderer/Material.h"
 #include "Renderer/Model.h"
-#include "Renderer/Occluder.h"
-#include "Renderer/OcclusionBuffer.h"
 #include "Renderer/Octree.h"
 #include "Renderer/Renderer.h"
 #include "Resource/ResourceCache.h"
@@ -134,9 +132,6 @@ void CreateScene(Scene* scene, Camera* camera, int preset)
             object->SetModel(cache->LoadResource<Model>("Box.mdl"));
             object->SetMaterial(cache->LoadResource<Material>("Stone.json"));
             object->SetCastShadows(true);
-
-            Occluder* occluder = object->CreateChild<Occluder>();
-            occluder->SetModel(object->GetModel());
         }
 
         {
@@ -147,16 +142,6 @@ void CreateScene(Scene* scene, Camera* camera, int preset)
             object->SetModel(cache->LoadResource<Model>("Box.mdl"));
             object->SetMaterial(cache->LoadResource<Material>("Stone.json"));
             object->SetCastShadows(true);
-
-            Occluder* occluder = object->CreateChild<Occluder>();
-            occluder->SetModel(object->GetModel());
-        }
-
-        {
-            Occluder* occluder = scene->CreateChild<Occluder>();
-            occluder->SetPosition(Vector3(0.0f, -0.05f, 0.0f));
-            occluder->SetScale(Vector3(1165.0f, 0.1f, 1165.0f));
-            occluder->SetModel(cache->LoadResource<Model>("Box.mdl"));
         }
     }
     // Preset 1: high number of animating cubes
@@ -510,46 +495,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             graphics->SetFrameBuffer(viewFbo);
             graphics->SetViewport(IntRect(0, 0, width, height));
             renderer->RenderAlpha();
-
-            // Optional debug render of occlusion buffer
-            if (drawOcclusionDebug && useOcclusion)
-            {
-                OcclusionBuffer* occlusion = renderer->GetOcclusionBuffer();
-                if (occlusionDebugTexture->Width() != occlusion->Width() || occlusionDebugTexture->Height() != occlusion->Height())
-                {
-                    occlusionDebugTexture->Define(TEX_2D, IntVector2(occlusion->Width(), occlusion->Height()), FMT_R8);
-                    occlusionDebugTexture->DefineSampler(FILTER_BILINEAR, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
-                }
-
-                size_t dataSize = occlusion->Width() * occlusion->Height();
-                AutoArrayPtr<unsigned char> debugData(new unsigned char[dataSize]);
-                float* src = occlusion->Buffer();
-                unsigned char* dest = debugData;
-
-                float nearClip = camera->NearClip();
-                float farClip = camera->FarClip();
-                Vector2 linearizeDepth(farClip / (farClip - nearClip), -nearClip / (farClip - nearClip));
-
-                for (size_t i = 0; i < dataSize; ++i)
-                {
-                    float depth = src[i];
-                    float linearDepth = linearizeDepth.y / (depth - linearizeDepth.x);
-                    dest[i] = (unsigned char)(linearDepth * 255.0f);
-                }
-
-                ImageLevel debugDataLevel(IntVector2(occlusion->Width(), occlusion->Height()), FMT_R8, debugData);
-                occlusionDebugTexture->SetData(0, IntRect(0, 0, occlusion->Width(), occlusion->Height()), debugDataLevel);
-
-                Matrix4 quadMatrix = Matrix4::IDENTITY;
-                ShaderProgram* program = graphics->SetProgram("Shaders/DebugOcclusion.glsl");
-                graphics->SetUniform(program, "worldViewProjMatrix", quadMatrix);
-                graphics->SetTexture(0, occlusionDebugTexture);
-                graphics->SetRenderState(BLEND_ALPHA, CULL_NONE, CMP_ALWAYS, true, false);
-                graphics->DrawQuad();
-
-                graphics->SetTexture(0, nullptr);
-            }
-
+        
             // Optional render of debug geometry
             if (drawDebug)
                 renderer->RenderDebug();

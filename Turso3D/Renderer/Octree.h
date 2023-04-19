@@ -92,6 +92,22 @@ public:
     /// Test bit flag. Called internally.
     bool TestFlag(unsigned char bit) const { return (flags & bit) != 0; }
 
+    /// Issue occlusion query. Create query if necessary.
+    void BeginQuery();
+    /// End occlusion query.
+    void EndQuery();
+    /// Check for query result if available. Return true if was available, and update visibility state. If was invisible previously, push down visibility to children. If is visible now, push up visibility to parents.
+    bool CheckQuery();
+    /// Push visibility to child octants.
+    void PushVisibilityToChildren();
+    /// Push visibility to parent octants.
+    void PushVisibilityToParents();
+
+    unsigned queryId = 0;
+    unsigned short lastTraversed;
+    bool queryIssued = false;
+    bool lastVisibility = true;
+
 private:
     /// Combined drawable and child octant bounding box. Used for culling tests.
     mutable BoundingBox cullingBox;
@@ -141,10 +157,6 @@ public:
     void QueueUpdate(Drawable* drawable);
     /// Remove a drawable from the octree.
     void RemoveDrawable(Drawable* drawable);
-    /// Insert or reinsert an occluder drawable.
-    void InsertOccluder(Drawable* drawable);
-    /// Remove an occluder drawable.
-    void RemoveOccluder(Drawable* drawable);
     /// Add debug geometry to be rendered. Visualizes the whole octree.
     void OnRenderDebug(DebugRenderer* debug);
 
@@ -156,8 +168,6 @@ public:
     template <class T> void FindDrawables(std::vector<Drawable*>& result, const T& volume, unsigned short drawableFlags, unsigned layerMask = LAYERMASK_ALL) const { CollectDrawables(result, const_cast<Octant*>(&root), volume, drawableFlags, layerMask); }
     /// Query for drawables using a frustum and masked testing.
     void FindDrawablesMasked(std::vector<Drawable*>& result, const Frustum& frustum, unsigned short drawableFlags, unsigned layerMask = LAYERMASK_ALL) const;
-    /// Query for occluders using a frustum and masked testing.
-    void FindOccludersMasked(std::vector<Drawable*>& result, const Frustum& frustum, unsigned layerMask = LAYERMASK_ALL) const;
 
     /// Return whether threaded update is enabled.
     bool ThreadedUpdate() const { return threadedUpdate; }
@@ -309,8 +319,6 @@ private:
     BoundingBox worldBoundingBox;
     /// Root octant.
     Octant root;
-    /// Root octant for occluders.
-    Octant occluderRoot;
     /// Allocator for child octants.
     Allocator<Octant> allocator;
     /// Cached %WorkQueue subsystem.

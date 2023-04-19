@@ -19,8 +19,6 @@ class Graphics;
 class LightDrawable;
 class LightEnvironment;
 class Material;
-class OccluderDrawable;
-class OcclusionBuffer;
 class Octant;
 class Octree;
 class RenderBuffer;
@@ -196,12 +194,8 @@ public:
 
     /// Return a shadow map texture by index for debugging.
     Texture* ShadowMapTexture(size_t index) const;
-    /// Return the occlusion buffer for debugging.
-    OcclusionBuffer* GetOcclusionBuffer() const;
 
 private:
-    /// Submit occluders to the software occlusion buffer and begin rasterizing them.
-    void SubmitOccluders();
     /// Collect octants and lights from the octree recursively. Queue batch collection tasks while ongoing.
     void CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, unsigned char planeMask = 0x3f);
     /// Allocate shadow map for a light. Return true on success.
@@ -214,8 +208,16 @@ private:
     void UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms);
     /// Render a batch queue.
     void RenderBatches(Camera* camera, const BatchQueue& queue);
+    /// Check occlusion query results.
+    void CheckOcclusionQueries();
+    /// Check occlusion query results.
+    void CheckOcclusionQueries(unsigned short lastFrame, Octant* octant);
+    /// Render occlusion queries for octants.
+    void RenderOcclusionQueries();
     /// Define face selection texture for point light shadows.
     void DefineFaceSelectionTextures();
+    /// Define bounding box geometry for occlusion queries.
+    void DefineBoundingBoxGeometry();
     /// Setup light cluster frustums and bounding boxes if necessary.
     void DefineClusterFrustums();
     /// Work function to collect octants.
@@ -253,6 +255,8 @@ private:
     unsigned short frameNumber;
     /// Shadow use flag.
     bool drawShadows;
+    /// Occlusion use flag.
+    bool useOcclusion;
     /// Shadow maps globally dirty flag. All cached shadow content should be reset.
     bool shadowMapsDirty;
     /// Cluster frustums dirty flag.
@@ -279,8 +283,10 @@ private:
     LightDrawable* dirLight;
     /// Accepted point and spot lights in frustum.
     std::vector<LightDrawable*> lights;
-    /// Found occluders.
-    std::vector<OccluderDrawable*> occluders;
+    /// Current frame's occlusion query queue.
+    std::vector<Octant*> queryQueue;
+    /// Counter to stagger occlusion queries for previously visible octants.
+    size_t octantIndex;
     /// Shadow maps.
     std::vector<ShadowMap> shadowMaps;
     /// Opaque batches.
@@ -301,8 +307,6 @@ private:
     float depthBiasMul;
     /// Slope-scaled depth bias multiplier.
     float slopeScaleBiasMul;
-    /// Occlusion buffer for occlusion tests.
-    AutoPtr<OcclusionBuffer> occlusionBuffer;
     /// Tasks for octant collection.
     AutoPtr<CollectOctantsTask> collectOctantsTasks[NUM_OCTANT_TASKS];
     /// %Task for light processing.
@@ -327,6 +331,10 @@ private:
     AutoPtr<UniformBuffer> lightDataBuffer;
     /// Instancing vertex buffer.
     AutoPtr<VertexBuffer> instanceVertexBuffer;
+    /// Bounding box vertex buffer.
+    AutoPtr<VertexBuffer> boundingBoxVertexBuffer;
+    /// Bounding box index buffer.
+    AutoPtr<IndexBuffer> boundingBoxIndexBuffer;
     /// Cached static object shadow buffer. Note: only needed for the light atlas, not the directional light shadowmap.
     AutoPtr<RenderBuffer> staticObjectShadowBuffer;
     /// Cached static object shadow framebuffer.

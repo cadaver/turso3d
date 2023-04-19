@@ -1,4 +1,4 @@
-// For conditions of distribution and use, see copyright notice in License.txt
+// For conditions of distribution and use, seecopyright notice in License.txt
 
 #include "../Graphics/FrameBuffer.h"
 #include "../Graphics/Graphics.h"
@@ -22,8 +22,6 @@
 #include "LightEnvironment.h"
 #include "Material.h"
 #include "Model.h"
-#include "Occluder.h"
-#include "OcclusionBuffer.h"
 #include "Octree.h"
 #include "Renderer.h"
 #include "StaticModel.h"
@@ -33,7 +31,8 @@
 #include <tracy/Tracy.hpp>
 
 static const size_t DRAWABLES_PER_BATCH_TASK = 128;
-static const int OCCLUSION_BUFFER_WIDTH = 256;
+static const size_t NUM_BOX_INDICES = 36;
+static const float OCCLUSION_MARGIN = 0.1f;
 
 static inline bool CompareDrawableDistances(Drawable* lhs, Drawable* rhs)
 {
@@ -176,8 +175,6 @@ Renderer::Renderer() :
         instanceVertexElements.push_back(VertexElement(ELEM_VECTOR4, SEM_TEXCOORD, 5));
     }
 
-    occlusionBuffer = new OcclusionBuffer();
-
     clusterTexture = new Texture();
     clusterTexture->Define(TEX_3D, IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RGBA32U, 1);
     clusterTexture->DefineSampler(FILTER_POINT, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
@@ -209,6 +206,8 @@ Renderer::Renderer() :
 
     processLightsTask = new MemberFunctionTask<Renderer>(this, &Renderer::ProcessLightsWork);
     processShadowCastersTask = new MemberFunctionTask<Renderer>(this, &Renderer::ProcessShadowCastersWork);
+
+    DefineBoundingBoxGeometry();
 }
 
 Renderer::~Renderer()
@@ -248,7 +247,7 @@ void Renderer::SetShadowDepthBiasMul(float depthBiasMul_, float slopeScaleBiasMu
     shadowMapsDirty = true;
 }
 
-void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bool useOcclusion)
+void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bool useOcclusion_)
 {
     ZoneScoped;
 
@@ -268,6 +267,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
         ++frameNumber;
 
     drawShadows = shadowMaps.size() ? drawShadows_ : false;
+    useOcclusion = useOcclusion_;
     frustum = camera->WorldFrustum();
     viewMask = camera->ViewMask();
 
@@ -278,7 +278,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     opaqueBatches.Clear();
     alphaBatches.Clear();
     lights.clear();
-    occluders.clear();
+    queryQueue.clear();
     instanceTransforms.clear();
     
     minZ = M_MAX_FLOAT;
@@ -291,15 +291,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
         batchResults[i].Clear();
     for (auto it = shadowMaps.begin(); it != shadowMaps.end(); ++it)
         it->Clear();
-
-    // If needed, find occluders from the separate occluder octree and begin rasterizing them
-    if (useOcclusion)
-    {
-        octree->FindOccludersMasked(reinterpret_cast<std::vector<Drawable*>&>(occluders), frustum, viewMask);
-        SubmitOccluders();
-    }
-    else
-        occlusionBuffer->Reset();
 
     // Process moved / animated objects' octree reinsertions
     octree->Update(frameNumber);
@@ -318,6 +309,9 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
             rootLevelOctants.push_back(rootOctant->Child(i));
     }
 
+    if (useOcclusion)
+        CheckOcclusionQueries();
+
     // Keep track of both batch + octant task progress before main batches can be sorted (batch tasks will add to the counter when queued)
     numPendingBatchTasks.store((int)rootLevelOctants.size());
     numPendingShadowViews[0].store(0);
@@ -333,10 +327,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
 
     // Ensure shadow view processing doesn't happen before lights have been found and processed
     processShadowCastersTask->AddDependency(processLightsTask);
-
-    // Before starting, ensure occluders have been rasterized
-    if (occluders.size())
-        occlusionBuffer->Complete();
 
     workQueue->QueueTasks(rootLevelOctants.size(), reinterpret_cast<Task**>(&collectOctantsTasks[0]));
 
@@ -461,6 +451,10 @@ void Renderer::RenderOpaque(bool clear)
         graphics->Clear(true, true, IntRect::ZERO, lightEnvironment ? lightEnvironment->FogColor() : DEFAULT_FOG_COLOR);
 
     RenderBatches(camera, opaqueBatches);
+
+    // Render occlusion now after opaques
+    if (queryQueue.size())
+        RenderOcclusionQueries();
 }
 
 void Renderer::RenderAlpha()
@@ -510,79 +504,11 @@ void Renderer::RenderDebug()
             }
         }
     }
-
-    for (auto it = occluders.begin(); it != occluders.end(); ++it)
-        (*it)->OnRenderDebug(debug);
 }
 
 Texture* Renderer::ShadowMapTexture(size_t index) const
 {
     return index < shadowMaps.size() ? shadowMaps[index].texture : nullptr;
-}
-
-OcclusionBuffer* Renderer::GetOcclusionBuffer() const
-{
-    return occlusionBuffer;
-}
-
-void Renderer::SubmitOccluders()
-{
-    ZoneScoped;
-
-    // Reset occlusion batches from last frame
-    occlusionBuffer->Reset();
-
-    // Early-out if no occluders in view
-    if (!occluders.size())
-        return;
-
-    // Check each occluder for max. distance
-    for (auto it = occluders.begin(); it != occluders.end(); ++it)
-    {
-        OccluderDrawable* drawable = *it;
-        drawable->OnPrepareRender(frameNumber, camera);
-    }
-
-    // Sort occluders by increasing distance. Discarded occluders have set maximum distance
-    std::sort(occluders.begin(), occluders.end(), CompareDrawableDistances);
-
-    // Check if had no accepted occluders, switch to no occlusion in that case
-    if (occluders[0]->Distance() >= M_MAX_FLOAT)
-    {
-        occluders.clear();
-        return;
-    }
-
-    int width = OCCLUSION_BUFFER_WIDTH;
-    int height = (int)((float)width / camera->AspectRatio() + 0.5f);
-    occlusionBuffer->SetSize(width, height);
-    occlusionBuffer->SetView(camera);
-    
-    for (size_t i = 0; i < occluders.size(); ++i)
-    {
-        OccluderDrawable* occluder = occluders[i];
-        if (occluder->Distance() >= M_MAX_FLOAT)
-            break;
-
-        const Matrix3x4& worldTransform = occluder->WorldTransform();
-        const SourceBatches& batches = occluder->Batches();
-        size_t numGeometries = batches.NumGeometries();
-
-        for (size_t j = 0; j < numGeometries; ++j)
-        {
-            Geometry* geometry = batches.GetGeometry(j);
-            if (geometry->cpuPositionData)
-            {
-                if (geometry->cpuIndexData)
-                    occlusionBuffer->AddTriangles(worldTransform, geometry->cpuPositionData, sizeof(Vector3), geometry->cpuIndexData, geometry->cpuIndexSize, geometry->cpuDrawStart, geometry->drawCount);
-                else
-                    occlusionBuffer->AddTriangles(worldTransform, geometry->cpuPositionData, sizeof(Vector3), geometry->cpuDrawStart, geometry->drawCount);
-            }
-        }
-    }
-
-    // Start rasterization in worker threads
-    occlusionBuffer->DrawTriangles();
 }
 
 void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, unsigned char planeMask)
@@ -597,9 +523,18 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
             return;
     }
 
-    // Check octant occlusion before proceeding further
-    if (occluders.size() && !occlusionBuffer->IsVisible(octantBox))
-        return;
+    // Skip octant and children if occluded
+    octant->lastTraversed = frameNumber;
+    if (useOcclusion)
+    {
+        if (!octant->lastVisibility)
+            return;
+    }
+    else
+    {
+        // When occlusion not in use, reset all traversed octants to visible
+        octant->lastVisibility = true;
+    }
 
     const std::vector<Drawable*>& drawables = octant->Drawables();
 
@@ -610,8 +545,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         if (drawable->TestFlag(DF_LIGHT))
         {
             const BoundingBox& lightBox = drawable->WorldBoundingBox();
-            // Test each light's occlusion separately before storing, as lights make the rendering more expensive and are limited per view
-            if ((drawable->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(lightBox, planeMask)) && (!occluders.size() || occlusionBuffer->IsVisible(lightBox)) && drawable->OnPrepareRender(frameNumber, camera))
+            if ((drawable->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(lightBox, planeMask)) && drawable->OnPrepareRender(frameNumber, camera))
                 result.lights.push_back(static_cast<LightDrawable*>(drawable));
         }
         // Lights are sorted first in octants, so break when first geometry encountered. Store the octant for batch collecting
@@ -896,6 +830,104 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
     }
 }
 
+void Renderer::CheckOcclusionQueries()
+{
+    ZoneScoped;
+
+    octantIndex = 0;
+    unsigned short lastFrame = frameNumber - 1;
+    if (!lastFrame)
+        --lastFrame;
+
+    for (size_t i = 0; i < rootLevelOctants.size(); ++i)
+    {
+        Octant* octant = rootLevelOctants[i];
+        if (octant == octree->Root())
+            continue;
+
+        CheckOcclusionQueries(lastFrame, octant);
+    }
+}
+
+void Renderer::CheckOcclusionQueries(unsigned short lastFrame, Octant* octant)
+{
+    bool result = octant->CheckQuery();
+
+    if (result)
+    {
+        if (octant->lastTraversed == lastFrame)
+        {
+            ++octantIndex;
+
+            // Issue new query if was invisible or has been visible for a while
+            if (!octant->lastVisibility || ((octantIndex ^ frameNumber) & 15) == 0)
+                queryQueue.push_back(octant);
+        }
+    }
+    
+    if (octant->HasChildren())
+    {
+        for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        {
+            Octant* child = octant->Child(i);
+            if (child)
+                CheckOcclusionQueries(lastFrame, child);
+        }
+    }
+}
+
+void Renderer::RenderOcclusionQueries()
+{
+    ZoneScoped;
+
+    ShaderProgram* program = graphics->SetProgram("Shaders/BoundingBox.glsl");
+
+    Matrix3x4 boxMatrix(Matrix3x4::IDENTITY);
+    boundingBoxVertexBuffer->Bind(MASK_POSITION);
+    boundingBoxIndexBuffer->Bind();
+
+    Vector3 margin = Vector3::ONE * OCCLUSION_MARGIN;
+    Vector3 cameraPosition = camera->WorldPosition();
+    float nearClip = camera->NearClip();
+
+    static unsigned char occFrame = 0;
+    ++occFrame;
+
+    graphics->SetRenderState(BLEND_REPLACE, CULL_BACK, CMP_LESS, false, false);
+
+    for (auto it = queryQueue.begin(); it != queryQueue.end(); ++it)
+    {
+        Octant* octant = *it;
+
+        const BoundingBox& octantBox = octant->CullingBox();
+        BoundingBox box(octantBox.min - margin, octantBox.max + margin);
+        Vector3 size = box.HalfSize();
+        Vector3 center = box.Center();
+
+        // If bounding box could be clipped by near plane, assume visible
+        if (box.Distance(cameraPosition) < 2.0f * nearClip)
+        {
+            octant->lastVisibility = true;
+            continue;
+        }
+
+        boxMatrix.m00 = size.x;
+        boxMatrix.m11 = size.y;
+        boxMatrix.m22 = size.z;
+        boxMatrix.m03 = center.x;
+        boxMatrix.m13 = center.y;
+        boxMatrix.m23 = center.z;
+
+        graphics->SetUniform(program, U_WORLDMATRIX, boxMatrix);
+
+        octant->BeginQuery();
+        graphics->DrawIndexed(PT_TRIANGLE_LIST, 0, NUM_BOX_INDICES);
+        octant->EndQuery();
+    }
+
+    queryQueue.clear();
+}
+
 void Renderer::DefineFaceSelectionTextures()
 {
     if (faceSelectionTexture1 && faceSelectionTexture2)
@@ -938,6 +970,43 @@ void Renderer::DefineFaceSelectionTextures()
 
     faceSelectionTexture2->Define(TEX_CUBE, IntVector3(1, 1, MAX_CUBE_FACES), FMT_RGBA32F, 1, 1, &faces2[0]);
     faceSelectionTexture2->DefineSampler(FILTER_POINT, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
+}
+
+void Renderer::DefineBoundingBoxGeometry()
+{
+    float boxVertexData[] = {
+        -1.0f, 1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f,
+        1.0f, 1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+        1.0f, 1.0f, 1.0f,
+        1.0f, -1.0f, 1.0f,
+        -1.0f, 1.0f, 1.0f,
+        -1.0f, -1.0f, 1.0f
+    };
+
+    std::vector<VertexElement> vertexDeclaration;
+    vertexDeclaration.push_back(VertexElement(ELEM_VECTOR3, SEM_POSITION));
+    boundingBoxVertexBuffer = new VertexBuffer();
+    boundingBoxVertexBuffer->Define(USAGE_DEFAULT, 8, vertexDeclaration, boxVertexData);
+
+    unsigned short boxIndexData[] = {
+        0, 2, 1,
+        2, 3, 1,
+        2, 4, 3,
+        4, 5, 3,
+        4, 6, 5,
+        6, 7, 5,
+        6, 0, 7,
+        0, 1, 7,
+        4, 2, 0,
+        6, 4, 0,
+        1, 3, 5,
+        1, 5, 7
+    };
+
+    boundingBoxIndexBuffer = new IndexBuffer();
+    boundingBoxIndexBuffer->Define(USAGE_DEFAULT, NUM_BOX_INDICES, sizeof(unsigned short), boxIndexData);
 }
 
 void Renderer::DefineClusterFrustums()
@@ -1669,7 +1738,6 @@ void RegisterRendererLibrary()
     OctreeNode::RegisterObject();
     GeometryNode::RegisterObject();
     StaticModel::RegisterObject();
-    Occluder::RegisterObject();
     AnimatedModel::RegisterObject();
     Light::RegisterObject();
     LightEnvironment::RegisterObject();
