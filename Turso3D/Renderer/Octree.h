@@ -133,7 +133,7 @@ public:
     {
         Octant* octant = parent;
 
-        while (octant)
+        while (octant && octant->visibility != newVisibility)
         {
             octant->visibility = newVisibility;
             octant = octant->parent;

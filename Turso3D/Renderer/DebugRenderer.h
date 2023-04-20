@@ -12,6 +12,7 @@ class Camera;
 class IndexBuffer;
 class Polyhedron;
 class Matrix3x4;
+class ShaderProgram;
 class Sphere;
 class VertexBuffer;
 
@@ -85,4 +86,6 @@ private:
     SharedPtr<IndexBuffer> indexBuffer;
     /// Vertex elements for the debug vertices.
     std::vector<VertexElement> vertexElements;
+    /// Cached debug shader.
+    SharedPtr<ShaderProgram> shaderProgram;
 };

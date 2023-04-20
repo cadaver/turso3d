@@ -337,6 +337,8 @@ private:
     AutoPtr<VertexBuffer> boundingBoxVertexBuffer;
     /// Bounding box index buffer.
     AutoPtr<IndexBuffer> boundingBoxIndexBuffer;
+    /// Cached bounding box shader program.
+    SharedPtr<ShaderProgram> boundingBoxShaderProgram;
     /// Cached static object shadow buffer. Note: only needed for the light atlas, not the directional light shadowmap.
     AutoPtr<RenderBuffer> staticObjectShadowBuffer;
     /// Cached static object shadow framebuffer.

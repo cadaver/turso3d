@@ -868,7 +868,8 @@ void Renderer::RenderOcclusionQueries()
 {
     ZoneScoped;
 
-    ShaderProgram* program = graphics->SetProgram("Shaders/BoundingBox.glsl");
+    if (!boundingBoxShaderProgram)
+        return;
 
     Matrix3x4 boxMatrix(Matrix3x4::IDENTITY);
     boundingBoxVertexBuffer->Bind(MASK_POSITION);
@@ -878,9 +879,7 @@ void Renderer::RenderOcclusionQueries()
     Vector3 cameraPosition = camera->WorldPosition();
     float nearClip = camera->NearClip();
 
-    static unsigned char occFrame = 0;
-    ++occFrame;
-
+    boundingBoxShaderProgram->Bind();
     graphics->SetRenderState(BLEND_REPLACE, CULL_BACK, CMP_LESS, false, false);
 
     for (size_t i = 0; i < NUM_OCTANT_TASKS; ++i)
@@ -908,7 +907,7 @@ void Renderer::RenderOcclusionQueries()
             boxMatrix.m13 = center.y;
             boxMatrix.m23 = center.z;
 
-            graphics->SetUniform(program, U_WORLDMATRIX, boxMatrix);
+            graphics->SetUniform(boundingBoxShaderProgram, U_WORLDMATRIX, boxMatrix);
 
             unsigned queryId = graphics->BeginOcclusionQuery(octant);
             graphics->DrawIndexed(PT_TRIANGLE_LIST, 0, NUM_BOX_INDICES);
@@ -999,6 +998,8 @@ void Renderer::DefineBoundingBoxGeometry()
 
     boundingBoxIndexBuffer = new IndexBuffer();
     boundingBoxIndexBuffer->Define(USAGE_DEFAULT, NUM_BOX_INDICES, sizeof(unsigned short), boxIndexData);
+
+    boundingBoxShaderProgram = graphics->CreateProgram("Shaders/BoundingBox.glsl");
 }
 
 void Renderer::DefineClusterFrustums()

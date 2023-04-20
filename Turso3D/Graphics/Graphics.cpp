@@ -240,13 +240,21 @@ void Graphics::SetViewport(const IntRect& viewRect)
 
 ShaderProgram* Graphics::SetProgram(const std::string& shaderName, const std::string& vsDefines, const std::string& fsDefines)
 {
+    ShaderProgram* program = CreateProgram(shaderName, vsDefines, fsDefines);
+    if (program && program->Bind())
+        return program;
+    else
+        return nullptr;
+}
+
+ShaderProgram* Graphics::CreateProgram(const std::string& shaderName, const std::string& vsDefines, const std::string& fsDefines)
+{
     ResourceCache* cache = Subsystem<ResourceCache>();
     Shader* shader = cache->LoadResource<Shader>(shaderName);
-    if (!shader)
+    if (shader)
+        return shader->CreateProgram(vsDefines, fsDefines);
+    else
         return nullptr;
-
-    ShaderProgram* program = shader->CreateProgram(vsDefines, fsDefines);
-    return program->Bind() ? program : nullptr;
 }
 
 void Graphics::SetUniform(ShaderProgram* program, PresetUniform uniform, float value)
@@ -643,6 +651,8 @@ void Graphics::FreeOcclusionQuery(unsigned queryId)
 
 void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& result)
 {
+    ZoneScoped;
+
     for (auto it = pendingQueries.begin(); it != pendingQueries.end();)
     {
         GLuint queryId = it->first;
