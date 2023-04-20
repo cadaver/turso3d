@@ -212,10 +212,8 @@ private:
     void UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms);
     /// Render a batch queue.
     void RenderBatches(Camera* camera, const BatchQueue& queue);
-    /// Check occlusion query results.
+    /// Check occlusion query results and propagate visibility hierarchically.
     void CheckOcclusionQueries();
-    /// Check occlusion query results.
-    void CheckOcclusionQueries(unsigned short lastFrame, Octant* octant);
     /// Render occlusion queries for octants.
     void RenderOcclusionQueries();
     /// Define face selection texture for point light shadows.

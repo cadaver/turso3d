@@ -154,6 +154,11 @@ void Octant::OnOcclusionQueryResult(bool visible)
         // If is visible now, push visibility to parents
         PushVisibilityToParents(VIS_VISIBLE);
     }
+    else if (newVisibility == VIS_OCCLUDED && parent && parent->visibility == VIS_VISIBLE)
+    {
+        // If became occluded, mark parent unknown so it will be tested next
+        parent->visibility = VIS_UNKNOWN;
+    }
 }
 
 Octree::Octree() :

@@ -545,7 +545,12 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
             // If octant is visible, stagger queries between frames to reduce their total count
         case VIS_VISIBLE:
             if (!octant->OcclusionQueryPending() && ((result.octantIdx ^ frameNumber) & 15) == 0)
-                result.occlusionQueries.push_back(octant);
+            {
+                // If the octant's parent is already visible too, only test the octant if it is a "leaf octant" with drawables
+                Octant* parent = octant->Parent();
+                if (octant->Drawables().size() > 0 || (parent && parent->Visibility() != VIS_VISIBLE))
+                    result.occlusionQueries.push_back(octant);
+            }
             break;
         }
     }
@@ -851,16 +856,18 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
 
 void Renderer::CheckOcclusionQueries()
 {
-    ZoneScoped;
-
     static std::vector<OcclusionQueryResult> results;
     results.clear();
     graphics->CheckOcclusionQueryResults(results);
 
-    for (auto it = results.begin(); it != results.end(); ++it)
     {
-        Octant* octant = static_cast<Octant*>(it->object);
-        octant->OnOcclusionQueryResult(it->visible);
+        ZoneScopedN("PropagateVisibility");
+
+        for (auto it = results.begin(); it != results.end(); ++it)
+        {
+            Octant* octant = static_cast<Octant*>(it->object);
+            octant->OnOcclusionQueryResult(it->visible);
+        }
     }
 }
 
