@@ -113,8 +113,10 @@ void ThreadOctantResult::Clear()
     drawableAcc = 0;
     taskOctantIdx = 0;
     batchTaskIdx = 0;
+    octantIdx = 0;
     lights.clear();
     octants.clear();
+    occlusionQueries.clear();
 }
 
 void ThreadBatchResult::Clear()
@@ -278,7 +280,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     opaqueBatches.Clear();
     alphaBatches.Clear();
     lights.clear();
-    queryQueue.clear();
     instanceTransforms.clear();
     
     minZ = M_MAX_FLOAT;
@@ -309,8 +310,8 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
             rootLevelOctants.push_back(rootOctant->Child(i));
     }
 
-    if (useOcclusion)
-        CheckOcclusionQueries();
+    // Check arrived occlusion query results now before beginning octant processing
+    CheckOcclusionQueries();
 
     // Keep track of both batch + octant task progress before main batches can be sorted (batch tasks will add to the counter when queued)
     numPendingBatchTasks.store((int)rootLevelOctants.size());
@@ -453,7 +454,7 @@ void Renderer::RenderOpaque(bool clear)
     RenderBatches(camera, opaqueBatches);
 
     // Render occlusion now after opaques
-    if (queryQueue.size())
+    if (useOcclusion)
         RenderOcclusionQueries();
 }
 
@@ -514,6 +515,7 @@ Texture* Renderer::ShadowMapTexture(size_t index) const
 void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, unsigned char planeMask)
 {
     const BoundingBox& octantBox = octant->CullingBox();
+    ++result.octantIdx;
 
     if (planeMask)
     {
@@ -523,17 +525,34 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
             return;
     }
 
-    // Skip octant and children if occluded
-    octant->lastTraversed = frameNumber;
+    // Process occlusion now before going further
     if (useOcclusion)
     {
-        if (!octant->lastVisibility)
+        switch (octant->Visibility())
+        {
+            // If octant is occluded, issue query if not pending, and do not process further this frame
+        case VIS_OCCLUDED:
+            if (!octant->OcclusionQueryPending())
+                result.occlusionQueries.push_back(octant);
             return;
+
+            // If octant has unknown visibility, issue query if not pending, but collect child octants and drawables
+        case VIS_UNKNOWN:
+            if (!octant->OcclusionQueryPending())
+                result.occlusionQueries.push_back(octant);
+            break;
+
+            // If octant is visible, stagger queries between frames to reduce their total count
+        case VIS_VISIBLE:
+            if (!octant->OcclusionQueryPending() && ((result.octantIdx ^ frameNumber) & 15) == 0)
+                result.occlusionQueries.push_back(octant);
+            break;
+        }
     }
     else
     {
         // When occlusion not in use, reset all traversed octants to visible
-        octant->lastVisibility = true;
+        octant->ResetVisibility(VIS_VISIBLE);
     }
 
     const std::vector<Drawable*>& drawables = octant->Drawables();
@@ -834,45 +853,14 @@ void Renderer::CheckOcclusionQueries()
 {
     ZoneScoped;
 
-    octantIndex = 0;
-    unsigned short lastFrame = frameNumber - 1;
-    if (!lastFrame)
-        --lastFrame;
+    static std::vector<OcclusionQueryResult> results;
+    results.clear();
+    graphics->CheckOcclusionQueryResults(results);
 
-    for (size_t i = 0; i < rootLevelOctants.size(); ++i)
+    for (auto it = results.begin(); it != results.end(); ++it)
     {
-        Octant* octant = rootLevelOctants[i];
-        if (octant == octree->Root())
-            continue;
-
-        CheckOcclusionQueries(lastFrame, octant);
-    }
-}
-
-void Renderer::CheckOcclusionQueries(unsigned short lastFrame, Octant* octant)
-{
-    bool result = octant->CheckQuery();
-
-    if (result)
-    {
-        if (octant->lastTraversed == lastFrame)
-        {
-            ++octantIndex;
-
-            // Issue new query if was invisible or has been visible for a while
-            if (!octant->lastVisibility || ((octantIndex ^ frameNumber) & 15) == 0)
-                queryQueue.push_back(octant);
-        }
-    }
-    
-    if (octant->HasChildren())
-    {
-        for (size_t i = 0; i < NUM_OCTANTS; ++i)
-        {
-            Octant* child = octant->Child(i);
-            if (child)
-                CheckOcclusionQueries(lastFrame, child);
-        }
+        Octant* octant = static_cast<Octant*>(it->object);
+        octant->OnOcclusionQueryResult(it->visible);
     }
 }
 
@@ -895,37 +883,41 @@ void Renderer::RenderOcclusionQueries()
 
     graphics->SetRenderState(BLEND_REPLACE, CULL_BACK, CMP_LESS, false, false);
 
-    for (auto it = queryQueue.begin(); it != queryQueue.end(); ++it)
+    for (size_t i = 0; i < NUM_OCTANT_TASKS; ++i)
     {
-        Octant* octant = *it;
-
-        const BoundingBox& octantBox = octant->CullingBox();
-        BoundingBox box(octantBox.min - margin, octantBox.max + margin);
-        Vector3 size = box.HalfSize();
-        Vector3 center = box.Center();
-
-        // If bounding box could be clipped by near plane, assume visible
-        if (box.Distance(cameraPosition) < 2.0f * nearClip)
+        for (auto it = octantResults[i].occlusionQueries.begin(); it != octantResults[i].occlusionQueries.end(); ++it)
         {
-            octant->lastVisibility = true;
-            continue;
+            Octant* octant = *it;
+
+            const BoundingBox& octantBox = octant->CullingBox();
+            BoundingBox box(octantBox.min - margin, octantBox.max + margin);
+            Vector3 size = box.HalfSize();
+            Vector3 center = box.Center();
+
+            // If bounding box could be clipped by near plane, assume visible without performing query
+            if (box.Distance(cameraPosition) < 2.0f * nearClip)
+            {
+                octant->OnOcclusionQueryResult(true);
+                continue;
+            }
+
+            boxMatrix.m00 = size.x;
+            boxMatrix.m11 = size.y;
+            boxMatrix.m22 = size.z;
+            boxMatrix.m03 = center.x;
+            boxMatrix.m13 = center.y;
+            boxMatrix.m23 = center.z;
+
+            graphics->SetUniform(program, U_WORLDMATRIX, boxMatrix);
+
+            unsigned queryId = graphics->BeginOcclusionQuery(octant);
+            graphics->DrawIndexed(PT_TRIANGLE_LIST, 0, NUM_BOX_INDICES);
+            graphics->EndOcclusionQuery();
+
+            // Store query to octant to make sure we don't re-test it until result arrives
+            octant->OnOcclusionQuery(queryId);
         }
-
-        boxMatrix.m00 = size.x;
-        boxMatrix.m11 = size.y;
-        boxMatrix.m22 = size.z;
-        boxMatrix.m03 = center.x;
-        boxMatrix.m13 = center.y;
-        boxMatrix.m23 = center.z;
-
-        graphics->SetUniform(program, U_WORLDMATRIX, boxMatrix);
-
-        octant->BeginQuery();
-        graphics->DrawIndexed(PT_TRIANGLE_LIST, 0, NUM_BOX_INDICES);
-        octant->EndQuery();
     }
-
-    queryQueue.clear();
 }
 
 void Renderer::DefineFaceSelectionTextures()

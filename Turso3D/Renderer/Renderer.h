@@ -61,12 +61,16 @@ struct ThreadOctantResult
     size_t taskOctantIdx;
     /// Batch collection task index.
     size_t batchTaskIdx;
+    /// Octant index for skipping occlusion tests
+    size_t octantIdx;
     /// Intermediate octant list.
     std::vector<std::pair<Octant*, unsigned char> > octants;
     /// Intermediate light drawable list.
     std::vector<LightDrawable*> lights;
     /// Tasks for main view batches collection, queued by the octant collection task when it finishes.
     std::vector<AutoPtr<CollectBatchesTask> > collectBatchesTasks;
+    /// New occlusion queries to be issued.
+    std::vector<Octant*> occlusionQueries;
 };
 
 /// Per-thread results for batch collection.
@@ -283,8 +287,6 @@ private:
     LightDrawable* dirLight;
     /// Accepted point and spot lights in frustum.
     std::vector<LightDrawable*> lights;
-    /// Current frame's occlusion query queue.
-    std::vector<Octant*> queryQueue;
     /// Counter to stagger occlusion queries for previously visible octants.
     size_t octantIndex;
     /// Shadow maps.

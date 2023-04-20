@@ -1,5 +1,6 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
+#include "../Graphics/Graphics.h"
 #include "../IO/Log.h"
 #include "../Math/Ray.h"
 #include "DebugRenderer.h"
@@ -7,7 +8,6 @@
 
 #include <cassert>
 #include <algorithm>
-#include <glew.h>
 #include <tracy/Tracy.hpp>
 
 static const float DEFAULT_OCTREE_SIZE = 1000.0f;
@@ -52,77 +52,24 @@ struct ReinsertDrawablesTask : public MemberFunctionTask<Octree>
     Drawable** end;
 };
 
-void Octant::BeginQuery()
+Octant::Octant() :
+    visibility(VIS_VISIBLE),
+    numChildren(0),
+    queryId(0),
+    parent(nullptr)
 {
-    if (freeQueries.size())
-    {
-        queryId = freeQueries.back();
-        freeQueries.pop_back();
-    }
-    else
-        glGenQueries(1, &queryId);
-
-    glBeginQuery(GL_ANY_SAMPLES_PASSED, queryId);
-    queryIssued = true;
-}
-
-void Octant::EndQuery()
-{
-    glEndQuery(GL_ANY_SAMPLES_PASSED);
-}
-
-bool Octant::CheckQuery()
-{
-    if (!queryIssued)
-        return true;
-
-    GLuint available = 0;
-    glGetQueryObjectuiv(queryId, GL_QUERY_RESULT_AVAILABLE, &available);
-
-    if (available)
-    {
-        bool previousVisibility = lastVisibility;
-
-        GLuint passed = 0;
-        glGetQueryObjectuiv(queryId, GL_QUERY_RESULT, &passed);
-        
-        lastVisibility = passed > 0;
-        if (lastVisibility && !previousVisibility && numChildren)
-            PushVisibilityToChildren();
-        if (lastVisibility)
-            PushVisibilityToParents();
-
-        freeQueries.push_back(queryId);
-        queryId = 0;
-        queryIssued = false;
-
-        return true;
-    }
-    else
-        return false;
-}
-
-void Octant::PushVisibilityToChildren()
-{
+    numChildren = 0;
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
-    {
-        if (children[i])
-        {
-            children[i]->lastVisibility = true;
-            if (children[i]->numChildren)
-                children[i]->PushVisibilityToChildren();
-        }
-    }
+        children[i] = nullptr;
 }
 
-void Octant::PushVisibilityToParents()
+Octant::~Octant()
 {
-    Octant* octant = parent;
-
-    while (octant && !octant->lastVisibility)
+    if (queryId)
     {
-        octant->lastVisibility = true;
-        octant = octant->parent;
+        Graphics* graphics = Object::Subsystem<Graphics>();
+        if (graphics)
+            graphics->FreeOcclusionQuery(queryId);
     }
 }
 
@@ -134,13 +81,10 @@ void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigne
     fittingBox = BoundingBox(worldBoundingBox.min - halfSize, worldBoundingBox.max + halfSize);
 
     level = level_;
-    numChildren = 0;
+
     childIndex = childIndex_;
     flags = OF_CULLING_BOX_DIRTY;
     parent = parent_;
-
-    for (size_t i = 0; i < NUM_OCTANTS; ++i)
-        children[i] = nullptr;
 }
 
 void Octant::OnRenderDebug(DebugRenderer* debug)
@@ -178,6 +122,43 @@ const BoundingBox& Octant::CullingBox() const
     }
 
     return cullingBox;
+}
+
+void Octant::OnOcclusionQuery(unsigned queryId_)
+{
+    // Should not have an existing query in flight
+    assert(!queryId);
+
+    // Mark pending
+    queryId = queryId_;
+}
+
+void Octant::OnOcclusionQueryResult(bool visible)
+{
+    // Mark not pending
+    queryId = 0;
+
+    OctantVisibility lastVisibility = visibility;
+    OctantVisibility newVisibility = visible ? VIS_VISIBLE : VIS_OCCLUDED;
+
+    visibility = newVisibility;
+
+    if (lastVisibility == VIS_OCCLUDED && newVisibility == VIS_VISIBLE)
+    {
+        // If came into view after being occluded, mark children as unknown visibility (rendered, but should be queried as soon as possible)
+        if (numChildren)
+            PushVisibilityToChildren(this, VIS_UNKNOWN);
+    }
+    else if (newVisibility == VIS_VISIBLE)
+    {
+        // If is visible now, push visibility to parents
+        PushVisibilityToParents(VIS_VISIBLE);
+    }
+    else if (newVisibility == VIS_OCCLUDED && parent && parent->visibility == VIS_VISIBLE)
+    {
+        // If became occluded, mark parent unknown so it will be tested next
+        parent->visibility = VIS_UNKNOWN;
+    }
 }
 
 Octree::Octree() :

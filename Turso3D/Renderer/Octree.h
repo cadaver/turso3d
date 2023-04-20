@@ -9,12 +9,20 @@
 #include <atomic>
 
 static const size_t NUM_OCTANTS = 8;
-static const unsigned short OF_DRAWABLES_SORT_DIRTY = 0x1;
-static const unsigned short OF_CULLING_BOX_DIRTY = 0x2;
+static const unsigned char OF_DRAWABLES_SORT_DIRTY = 0x1;
+static const unsigned char OF_CULLING_BOX_DIRTY = 0x2;
 
 class Ray;
 class WorkQueue;
 struct ReinsertDrawablesTask;
+
+/// %Octant occlusion query visibility states.
+enum OctantVisibility
+{
+    VIS_OCCLUDED = 0,
+    VIS_UNKNOWN,
+    VIS_VISIBLE
+};
 
 /// Structure for raycast query results.
 struct RaycastResult
@@ -22,13 +30,13 @@ struct RaycastResult
     /// Hit world position.
     Vector3 position;
     /// Hit world normal.
-    Vector3 normal;
-    /// Hit distance along the ray.
-    float distance;
-    /// Hit drawable.
-    Drawable* drawable;
-    /// Hit geometry index or other, subclass-specific subobject index.
-    size_t subObject;
+Vector3 normal;
+/// Hit distance along the ray.
+float distance;
+/// Hit drawable.
+Drawable* drawable;
+/// Hit geometry index or other, subclass-specific subobject index.
+size_t subObject;
 };
 
 /// %Octree cell, contains up to 8 child octants.
@@ -37,6 +45,11 @@ class Octant
     friend class Octree;
 
 public:
+    /// Construct with defaults.
+    Octant();
+    /// Destruct. If has a pending occlusion query, free it.
+    ~Octant();
+
     /// Initialize parent and bounds.
     void Initialize(Octant* parent, const BoundingBox& boundingBox, unsigned char level, unsigned char childIndex);
     /// Add debug geometry to be rendered.
@@ -54,6 +67,10 @@ public:
     Octant* Parent() const { return parent; }
     /// Return child octant index based on position.
     unsigned char ChildIndex(const Vector3& position) const { unsigned char ret = position.x < center.x ? 0 : 1; ret += position.y < center.y ? 0 : 2; ret += position.z < center.z ? 0 : 4; return ret; }
+    /// Return last occlusion visibility status.
+    OctantVisibility Visibility() const { return visibility; }
+    /// Return whether is pending an occlusion query result.
+    bool OcclusionQueryPending() const { return queryId != 0; }
 
     /// Test if a drawable should be inserted in this octant or if a smaller child octant should be created.
     bool FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) const
@@ -79,7 +96,7 @@ public:
     void MarkCullingBoxDirty() const
     {
         const Octant* octant = this;
-        
+
         while (octant && !octant->TestFlag(OF_CULLING_BOX_DIRTY))
         {
             octant->SetFlag(OF_CULLING_BOX_DIRTY, true);
@@ -92,21 +109,42 @@ public:
     /// Test bit flag. Called internally.
     bool TestFlag(unsigned char bit) const { return (flags & bit) != 0; }
 
-    /// Issue occlusion query. Create query if necessary.
-    void BeginQuery();
-    /// End occlusion query.
-    void EndQuery();
-    /// Check for query result if available. Return true if was available, and update visibility state. If was invisible previously, push down visibility to children. If is visible now, push up visibility to parents.
-    bool CheckQuery();
-    /// Push visibility to child octants.
-    void PushVisibilityToChildren();
-    /// Push visibility to parent octants.
-    void PushVisibilityToParents();
+    /// React to occlusion query begin.
+    void OnOcclusionQuery(unsigned queryId);
+    /// React to occlusion query result. Push changed visibility to parents or children as necessary.
+    void OnOcclusionQueryResult(bool visible);
 
-    unsigned queryId = 0;
-    unsigned short lastTraversed;
-    bool queryIssued = false;
-    bool lastVisibility = true;
+    /// Push visibility status to child octants.
+    void PushVisibilityToChildren(Octant* octant, OctantVisibility newVisibility)
+    {
+        for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        {
+            if (octant->children[i])
+            {
+                octant->children[i]->visibility = newVisibility;
+                if (octant->children[i]->numChildren)
+                    PushVisibilityToChildren(octant->children[i], newVisibility);
+            }
+        }
+    }
+
+    /// Push visibility status to parent octants.
+    void PushVisibilityToParents(OctantVisibility newVisibility)
+    {
+        Octant* octant = parent;
+
+        while (octant)
+        {
+            octant->visibility = newVisibility;
+            octant = octant->parent;
+        }
+    }
+
+    /// Reset visibility status manually.
+    void ResetVisibility(OctantVisibility newVisibility)
+    {
+        visibility = newVisibility;
+    }
 
 private:
     /// Combined drawable and child octant bounding box. Used for culling tests.
@@ -119,6 +157,8 @@ private:
     Vector3 center;
     /// Bounding box half size.
     Vector3 halfSize;
+    /// Last occlusion query visibility.
+    OctantVisibility visibility;
     /// Subdivision level, decreasing for child octants.
     unsigned char level;
     /// Number of child octants.
@@ -131,6 +171,8 @@ private:
     Octant* children[NUM_OCTANTS];
     /// Parent octant.
     Octant* parent;
+    /// Occlusion query id, or 0 if no query pending.
+    unsigned queryId;
 };
 
 /// Acceleration structure for rendering. Should be created as a child of the scene root.
