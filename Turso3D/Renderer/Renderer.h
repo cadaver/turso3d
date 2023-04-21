@@ -210,6 +210,8 @@ private:
     void SortShadowBatches(ShadowMap& shadowMap);
     /// Upload instance transforms before rendering.
     void UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms);
+    /// Upload light uniform buffer and cluster texture data.
+    void UpdateLightData();
     /// Render a batch queue.
     void RenderBatches(Camera* camera, const BatchQueue& queue);
     /// Check occlusion query results and propagate visibility hierarchically.

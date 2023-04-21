@@ -296,6 +296,10 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     // Process moved / animated objects' octree reinsertions
     octree->Update(frameNumber);
 
+    // Check arrived occlusion query results while octree update goes on, then finish octree update
+    CheckOcclusionQueries();
+    octree->FinishUpdate();
+
     // Enable threaded update during geometry / light gathering in case nodes' OnPrepareRender() causes further reinsertion queuing
     octree->SetThreadedUpdate(workQueue->NumThreads() > 1);
 
@@ -309,9 +313,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
         if (rootOctant->Child(i))
             rootLevelOctants.push_back(rootOctant->Child(i));
     }
-
-    // Check arrived occlusion query results now before beginning octant processing
-    CheckOcclusionQueries();
 
     // Keep track of both batch + octant task progress before main batches can be sorted (batch tasks will add to the counter when queued)
     numPendingBatchTasks.store((int)rootLevelOctants.size());
@@ -433,9 +434,7 @@ void Renderer::RenderOpaque(bool clear)
 
     // Update main batches' instance transforms & light data
     UpdateInstanceTransforms(instanceTransforms);
-    ImageLevel clusterLevel(IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RG32U, clusterData);
-    clusterTexture->SetData(0, IntBox(0, 0, 0, NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), clusterLevel);
-    lightDataBuffer->SetData(0, lights.size() * sizeof(LightData), lightData);
+    UpdateLightData();
 
     if (shadowMaps.size())
     {
@@ -691,6 +690,8 @@ void Renderer::SortShadowBatches(ShadowMap& shadowMap)
 
 void Renderer::UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms)
 {
+    ZoneScoped;
+
     if (hasInstancing && transforms.size())
     {
         if (instanceVertexBuffer->NumVertices() < transforms.size())
@@ -698,6 +699,15 @@ void Renderer::UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms
         else
             instanceVertexBuffer->SetData(0, transforms.size(), &transforms[0]);
     }
+}
+
+void Renderer::UpdateLightData()
+{
+    ZoneScoped;
+
+    ImageLevel clusterLevel(IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RG32U, clusterData);
+    clusterTexture->SetData(0, IntBox(0, 0, 0, NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), clusterLevel);
+    lightDataBuffer->SetData(0, lights.size() * sizeof(LightData), lightData);
 }
 
 void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)

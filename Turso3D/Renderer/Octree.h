@@ -189,8 +189,10 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
     
-    /// Process the queue of nodes to be reinserted. Then sort nodes inside changed octants. This will utilize worker threads.
+    /// Process the queue of nodes to be reinserted. This will utilize worker threads.
     void Update(unsigned short frameNumber);
+    /// Finish the octree update.
+    void FinishUpdate();
     /// Resize the octree.
     void Resize(const BoundingBox& boundingBox, int numLevels);
     /// Enable or disable threaded update mode. In threaded mode reinsertions go to per-thread queues.

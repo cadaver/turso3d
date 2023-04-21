@@ -154,7 +154,7 @@ void Octant::OnOcclusionQueryResult(bool visible)
         // If is visible now, push visibility to parents
         PushVisibilityToParents(VIS_VISIBLE);
     }
-    else if (newVisibility == VIS_OCCLUDED && parent && parent->visibility == VIS_VISIBLE)
+    else if (newVisibility == VIS_OCCLUDED && lastVisibility != VIS_OCCLUDED && parent && parent->visibility == VIS_VISIBLE)
     {
         // If became occluded, mark parent unknown so it will be tested next
         parent->visibility = VIS_UNKNOWN;
@@ -209,7 +209,7 @@ void Octree::Update(unsigned short frameNumber_)
     frameNumber = frameNumber_;
 
     // Avoid overhead of threaded update if only a small number of objects to update / reinsert
-    if (updateQueue.size() >= MIN_THREADED_UPDATE)
+    if (updateQueue.size())
     {
         SetThreadedUpdate(true);
 
@@ -232,25 +232,24 @@ void Octree::Update(unsigned short frameNumber_)
 
         numPendingReinsertionTasks.store((int)taskIdx);
         workQueue->QueueTasks(taskIdx, reinterpret_cast<Task**>(&reinsertTasks[0]));
-        
-        // Complete tasks until reinsertions done. There may be e.g. occlusion rasterization going on at the same time
-        while (numPendingReinsertionTasks.load() > 0)
-            workQueue->TryComplete();
-
-        SetThreadedUpdate(false);
-
-        // Now reinsert drawables that actually need reinsertion into a different octant
-        for (auto it = reinsertQueues.begin(); it != reinsertQueues.end(); ++it)
-            ReinsertDrawables(*it);
     }
-    else if (updateQueue.size())
-    {
-        // Execute a complete queue reinsert manually
-        reinsertTasks[0]->start = &updateQueue[0];
-        reinsertTasks[0]->end = &updateQueue[0] + updateQueue.size();
-        reinsertTasks[0]->Complete(0);
-        ReinsertDrawables(reinsertQueues[0]);
-    }
+    else
+        numPendingReinsertionTasks.store(0);
+}
+
+void Octree::FinishUpdate()
+{
+    ZoneScoped;
+
+    // Complete tasks until reinsertions done. There may be e.g. occlusion rasterization going on at the same time
+    while (numPendingReinsertionTasks.load() > 0)
+        workQueue->TryComplete();
+
+    SetThreadedUpdate(false);
+
+    // Now reinsert drawables that actually need reinsertion into a different octant
+    for (auto it = reinsertQueues.begin(); it != reinsertQueues.end(); ++it)
+        ReinsertDrawables(*it);
 
     updateQueue.clear();
 
