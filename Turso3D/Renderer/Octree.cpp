@@ -58,7 +58,6 @@ Octant::Octant() :
     queryId(0),
     parent(nullptr)
 {
-    numChildren = 0;
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
         children[i] = nullptr;
 }
