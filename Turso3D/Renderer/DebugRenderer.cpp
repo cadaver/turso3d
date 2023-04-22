@@ -19,10 +19,13 @@ DebugRenderer::DebugRenderer()
     vertexElements.push_back(VertexElement(ELEM_UBYTE4, SEM_COLOR));
 
     indexBuffer = new IndexBuffer();
+
+    shaderProgram = Subsystem<Graphics>()->CreateProgram("Shaders/DebugLines.glsl");
 }
 
 DebugRenderer::~DebugRenderer()
 {
+    RemoveSubsystem(this);
 }
 
 void DebugRenderer::SetView(Camera* camera)
@@ -290,7 +293,7 @@ void DebugRenderer::Render()
     ZoneScoped;
 
     // Early-out if no geometry to render
-    if (!vertices.size())
+    if (!vertices.size() || !shaderProgram)
         return;
 
     if (vertexBuffer->NumVertices() < vertices.size())
@@ -310,9 +313,9 @@ void DebugRenderer::Render()
         indexBuffer->SetData(indices.size(), noDepthIndices.size(), &noDepthIndices[0]);
 
     Graphics* graphics = Subsystem<Graphics>();
-    ShaderProgram* program = graphics->SetProgram("Shaders/DebugLines.glsl");
-    graphics->SetUniform(program, "viewProjMatrix", projection * view);
-    graphics->SetVertexBuffer(vertexBuffer, program);
+    shaderProgram->Bind();
+    graphics->SetUniform(shaderProgram, "viewProjMatrix", projection * view);
+    graphics->SetVertexBuffer(vertexBuffer, shaderProgram);
     graphics->SetIndexBuffer(indexBuffer);
 
     if (indices.size())

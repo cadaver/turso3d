@@ -12,6 +12,7 @@ class Camera;
 class IndexBuffer;
 class Polyhedron;
 class Matrix3x4;
+class ShaderProgram;
 class Sphere;
 class VertexBuffer;
 
@@ -80,9 +81,11 @@ private:
     /// View frustum.
     Frustum frustum;
     /// Vertex buffer for the debug geometry.
-    SharedPtr<VertexBuffer> vertexBuffer;
+    AutoPtr<VertexBuffer> vertexBuffer;
     /// Index buffer for the debug geometry.
-    SharedPtr<IndexBuffer> indexBuffer;
+    AutoPtr<IndexBuffer> indexBuffer;
     /// Vertex elements for the debug vertices.
     std::vector<VertexElement> vertexElements;
+    /// Cached shader program.
+    SharedPtr<ShaderProgram> shaderProgram;
 };

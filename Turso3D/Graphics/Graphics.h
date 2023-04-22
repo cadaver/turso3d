@@ -45,6 +45,8 @@ public:
     void SetViewport(const IntRect& viewRect);
     /// Bind a shader program for use. Return pointer on success or null otherwise. Low performance, provided for convenience.
     ShaderProgram* SetProgram(const std::string& shaderName, const std::string& vsDefines = JSONValue::emptyString, const std::string& fsDefines = JSONValue::emptyString);
+    /// Create a shader program, but do not bind immediately. Return pointer on success or null otherwise.
+    ShaderProgram* CreateProgram(const std::string& shaderName, const std::string& vsDefines = JSONValue::emptyString, const std::string& fsDefines = JSONValue::emptyString);
     /// Set float preset uniform.
     void SetUniform(ShaderProgram* program, PresetUniform uniform, float value);
     /// Set a Vector2 preset uniform.
