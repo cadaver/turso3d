@@ -33,7 +33,7 @@ std::string Material::globalFSDefines;
 Pass::Pass(Material* parent_) :
     parent(parent_),
     blendMode(BLEND_REPLACE),
-    depthTest(CMP_LESS),
+    depthTest(CMP_LESS_EQUAL),
     colorWrite(true),
     depthWrite(true)
 {
@@ -53,7 +53,7 @@ void Pass::LoadJSON(const JSONValue& source)
 
     SetRenderState(
         (BlendMode)ListIndex(source["blendMode"].GetString(), blendModeNames, BLEND_REPLACE), 
-        (CompareMode)ListIndex(source["depthTest"].GetString(), compareModeNames, CMP_LESS),
+        (CompareMode)ListIndex(source["depthTest"].GetString(), compareModeNames, CMP_LESS_EQUAL),
         source.Contains("colorWrite") ? source["colorWrite"].GetBool() : true, 
         source.Contains("depthWrite") ? source["depthWrite"].GetBool() : true
     );
@@ -282,11 +282,11 @@ Material* Material::DefaultMaterial()
 
         Pass* pass = defaultMaterial->CreatePass(PASS_SHADOW);
         pass->SetShader(cache->LoadResource<Shader>("Shaders/Shadow.glsl"), "", "");
-        pass->SetRenderState(BLEND_REPLACE, CMP_LESS, false, true);
+        pass->SetRenderState(BLEND_REPLACE, CMP_LESS_EQUAL, false, true);
 
         pass = defaultMaterial->CreatePass(PASS_OPAQUE);
         pass->SetShader(cache->LoadResource<Shader>("Shaders/NoTexture.glsl"), "", "");
-        pass->SetRenderState(BLEND_REPLACE, CMP_LESS, true, true);
+        pass->SetRenderState(BLEND_REPLACE, CMP_LESS_EQUAL, true, true);
     }
 
     return defaultMaterial;

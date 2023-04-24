@@ -245,7 +245,7 @@ private:
     Octree* octree;
     /// Current scene light environment.
     LightEnvironment* lightEnvironment;
-    /// Current camera.
+    /// Camera used to render the current scene.
     Camera* camera;
     /// Camera frustum.
     Frustum frustum;
@@ -267,6 +267,8 @@ private:
     bool clusterFrustumsDirty;
     /// Instancing supported flag.
     bool hasInstancing;
+    /// Previous frame camera position for occlusion culling bounding box elongation.
+    Vector3 previousCameraPosition;
     /// Root-level octants, used as a starting point for octant and batch collection. The root octant is included if it also contains drawables.
     std::vector<Octant*> rootLevelOctants;
     /// Counter for batch collection tasks remaining. When zero, main batch sorting can begin while other tasks go on.

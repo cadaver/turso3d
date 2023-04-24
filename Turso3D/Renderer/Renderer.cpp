@@ -33,6 +33,7 @@
 static const size_t DRAWABLES_PER_BATCH_TASK = 128;
 static const size_t NUM_BOX_INDICES = 36;
 static const float OCCLUSION_MARGIN = 0.1f;
+static const float MAX_CAMERA_MOVEMENT = 100.0f;
 
 static inline bool CompareDrawableDistances(Drawable* lhs, Drawable* rhs)
 {
@@ -892,12 +893,15 @@ void Renderer::RenderOcclusionQueries()
     boundingBoxVertexBuffer->Bind(MASK_POSITION);
     boundingBoxIndexBuffer->Bind();
 
-    Vector3 margin = Vector3::ONE * OCCLUSION_MARGIN;
     Vector3 cameraPosition = camera->WorldPosition();
+    Vector3 cameraMove = cameraPosition - previousCameraPosition;
+    if (cameraMove.Length() > MAX_CAMERA_MOVEMENT)
+        cameraMove = Vector3::ZERO;
+
     float nearClip = camera->NearClip();
 
     boundingBoxShaderProgram->Bind();
-    graphics->SetRenderState(BLEND_REPLACE, CULL_BACK, CMP_LESS, false, false);
+    graphics->SetRenderState(BLEND_REPLACE, CULL_BACK, CMP_LESS_EQUAL, false, false);
 
     for (size_t i = 0; i < NUM_OCTANT_TASKS; ++i)
     {
@@ -906,7 +910,12 @@ void Renderer::RenderOcclusionQueries()
             Octant* octant = *it;
 
             const BoundingBox& octantBox = octant->CullingBox();
-            BoundingBox box(octantBox.min - margin, octantBox.max + margin);
+            BoundingBox box(octantBox.min - Vector3::ONE * OCCLUSION_MARGIN, octantBox.max + Vector3::ONE * OCCLUSION_MARGIN);
+
+            // If camera moves, elongate the octant bounding box in the move direction
+            if (cameraMove != Vector3::ZERO)
+                box.Merge(BoundingBox(box.min + cameraMove, box.max + cameraMove));
+
             Vector3 size = box.HalfSize();
             Vector3 center = box.Center();
 
@@ -934,6 +943,8 @@ void Renderer::RenderOcclusionQueries()
             octant->OnOcclusionQuery(queryId);
         }
     }
+
+    previousCameraPosition = cameraPosition;
 }
 
 void Renderer::DefineFaceSelectionTextures()
