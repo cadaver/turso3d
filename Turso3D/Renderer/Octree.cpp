@@ -53,7 +53,7 @@ struct ReinsertDrawablesTask : public MemberFunctionTask<Octree>
 };
 
 Octant::Octant() :
-    visibility(VIS_VISIBLE),
+    visibility(VIS_UNKNOWN),
     numChildren(0),
     queryId(0),
     parent(nullptr)
