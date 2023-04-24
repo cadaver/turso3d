@@ -544,7 +544,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
 
             // If octant is visible, stagger queries between frames to reduce their total count
         case VIS_VISIBLE:
-            if (!octant->OcclusionQueryPending() && ((result.octantIdx ^ frameNumber) & 15) == 0)
+            if (!octant->OcclusionQueryPending() && ((result.octantIdx ^ frameNumber) & 7) == 0)
             {
                 // If the octant's parent is already visible too, only test the octant if it is a "leaf octant" with drawables
                 Octant* parent = octant->Parent();
@@ -893,6 +893,7 @@ void Renderer::RenderOcclusionQueries()
     boundingBoxVertexBuffer->Bind(MASK_POSITION);
     boundingBoxIndexBuffer->Bind();
 
+    Vector3 occlusionMargin = OCCLUSION_MARGIN * Vector3::ONE;
     Vector3 cameraPosition = camera->WorldPosition();
     Vector3 cameraMove = cameraPosition - previousCameraPosition;
     if (cameraMove.Length() > MAX_CAMERA_MOVEMENT)
@@ -910,7 +911,7 @@ void Renderer::RenderOcclusionQueries()
             Octant* octant = *it;
 
             const BoundingBox& octantBox = octant->CullingBox();
-            BoundingBox box(octantBox.min - Vector3::ONE * OCCLUSION_MARGIN, octantBox.max + Vector3::ONE * OCCLUSION_MARGIN);
+            BoundingBox box(octantBox.min - occlusionMargin, octantBox.max + occlusionMargin);
 
             // If camera moves, elongate the octant bounding box in the move direction
             if (cameraMove != Vector3::ZERO)
