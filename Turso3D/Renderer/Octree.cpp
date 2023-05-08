@@ -53,7 +53,7 @@ struct ReinsertDrawablesTask : public MemberFunctionTask<Octree>
 };
 
 Octant::Octant() :
-    visibility(VIS_UNKNOWN),
+    visibility(VIS_VISIBLE_UNKNOWN),
     numChildren(0),
     queryId(0),
     parent(nullptr)
@@ -144,9 +144,9 @@ void Octant::OnOcclusionQueryResult(bool visible)
 
     if (lastVisibility == VIS_OCCLUDED && newVisibility == VIS_VISIBLE)
     {
-        // If came into view after being occluded, mark children as unknown visibility (rendered, but should be queried as soon as possible)
+        // If came into view after being occluded, mark children as still occluded but that should be tested in hierarchy
         if (numChildren)
-            PushVisibilityToChildren(this, VIS_UNKNOWN);
+            PushVisibilityToChildren(this, VIS_OCCLUDED_UNKNOWN);
     }
     else if (newVisibility == VIS_VISIBLE)
     {
@@ -156,7 +156,7 @@ void Octant::OnOcclusionQueryResult(bool visible)
     else if (newVisibility == VIS_OCCLUDED && lastVisibility != VIS_OCCLUDED && parent && parent->visibility == VIS_VISIBLE)
     {
         // If became occluded, mark parent unknown so it will be tested next
-        parent->visibility = VIS_UNKNOWN;
+        parent->visibility = VIS_VISIBLE_UNKNOWN;
     }
 }
 

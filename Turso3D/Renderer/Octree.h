@@ -20,7 +20,8 @@ struct ReinsertDrawablesTask;
 enum OctantVisibility
 {
     VIS_OCCLUDED = 0,
-    VIS_UNKNOWN,
+    VIS_OCCLUDED_UNKNOWN,
+    VIS_VISIBLE_UNKNOWN,
     VIS_VISIBLE
 };
 

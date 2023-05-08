@@ -522,7 +522,15 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         // If not already inside all frustum planes, do frustum test and terminate if completely outside
         planeMask = frustum.IsInsideMasked(octantBox, planeMask);
         if (planeMask == 0xff)
+        {
+            // If octant becomes frustum culled, reset its visibility for when it comes back to view, including its children
+            if (octant->Visibility() < VIS_VISIBLE_UNKNOWN)
+            {
+                octant->ResetVisibility(VIS_VISIBLE_UNKNOWN);
+                octant->PushVisibilityToChildren(octant, VIS_VISIBLE_UNKNOWN);
+            }
             return;
+        }
     }
 
     // Process occlusion now before going further
@@ -536,8 +544,24 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
                 result.occlusionQueries.push_back(octant);
             return;
 
+            // If octant was occluded previously, but its parent came into view, issue tests along the hierarchy but do not render on this frame
+        case VIS_OCCLUDED_UNKNOWN:
+            if (!octant->OcclusionQueryPending())
+                result.occlusionQueries.push_back(octant);
+
+            if (octant != octree->Root() && octant->HasChildren())
+            {
+                for (size_t i = 0; i < NUM_OCTANTS; ++i)
+                {
+                    if (octant->Child(i))
+                        CollectOctantsAndLights(octant->Child(i), result, planeMask);
+                }
+            }
+
+            return;
+
             // If octant has unknown visibility, issue query if not pending, but collect child octants and drawables
-        case VIS_UNKNOWN:
+        case VIS_VISIBLE_UNKNOWN:
             if (!octant->OcclusionQueryPending())
                 result.occlusionQueries.push_back(octant);
             break;
@@ -894,18 +918,17 @@ void Renderer::RenderOcclusionQueries()
     boundingBoxIndexBuffer->Bind();
 
     Matrix3 cameraViewRot = camera->ViewMatrix().RotationMatrix();
-    Matrix3 viewRotInverse = cameraViewRot.Inverse();
-    Vector3 occlusionMargin = OCCLUSION_MARGIN * Vector3::ONE;
     float nearClip = camera->NearClip();
 
-    // Consider camera's strafing motion and use it to elongate the bounding boxes. Use 4x movement speed for possible 4 frame latency in query results
+    // Consider camera's strafing motion and use it to enlarge the bounding boxes. Use 4x movement speed for possible 4 frame latency in query results
+    /// \todo Process camera rotation in a similar manner
     Vector3 cameraPosition = camera->WorldPosition();
     Vector3 cameraMove = cameraPosition - previousCameraPosition;
     if (cameraMove.Length() > MAX_CAMERA_MOVEMENT)
         cameraMove = Vector3::ZERO;
     cameraMove = cameraViewRot * cameraMove;
     cameraMove.z = 0.0f;
-    cameraMove = 4.0f * viewRotInverse * cameraMove;
+    Vector3 enlargement = (OCCLUSION_MARGIN + 4.0f * cameraMove.Length()) * Vector3::ONE;
 
     boundingBoxShaderProgram->Bind();
     graphics->SetRenderState(BLEND_REPLACE, CULL_BACK, CMP_LESS_EQUAL, false, false);
@@ -917,7 +940,7 @@ void Renderer::RenderOcclusionQueries()
             Octant* octant = *it;
 
             const BoundingBox& octantBox = octant->CullingBox();
-            BoundingBox box(octantBox.min - occlusionMargin, octantBox.max + occlusionMargin);
+            BoundingBox box(octantBox.min - enlargement, octantBox.max + enlargement);
 
             // Elongate the octant bounding box in the camera strafe move direction
             if (!cameraMove.Equals(Vector3::ZERO))
