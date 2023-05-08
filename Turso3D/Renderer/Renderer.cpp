@@ -893,13 +893,19 @@ void Renderer::RenderOcclusionQueries()
     boundingBoxVertexBuffer->Bind(MASK_POSITION);
     boundingBoxIndexBuffer->Bind();
 
+    Matrix3 cameraViewRot = camera->ViewMatrix().RotationMatrix();
+    Matrix3 viewRotInverse = cameraViewRot.Inverse();
     Vector3 occlusionMargin = OCCLUSION_MARGIN * Vector3::ONE;
+    float nearClip = camera->NearClip();
+
+    // Consider camera's strafing motion and use it to elongate the bounding boxes. Use 4x movement speed for possible 4 frame latency in query results
     Vector3 cameraPosition = camera->WorldPosition();
     Vector3 cameraMove = cameraPosition - previousCameraPosition;
     if (cameraMove.Length() > MAX_CAMERA_MOVEMENT)
         cameraMove = Vector3::ZERO;
-
-    float nearClip = camera->NearClip();
+    cameraMove = cameraViewRot * cameraMove;
+    cameraMove.z = 0.0f;
+    cameraMove = 4.0f * viewRotInverse * cameraMove;
 
     boundingBoxShaderProgram->Bind();
     graphics->SetRenderState(BLEND_REPLACE, CULL_BACK, CMP_LESS_EQUAL, false, false);
@@ -913,8 +919,8 @@ void Renderer::RenderOcclusionQueries()
             const BoundingBox& octantBox = octant->CullingBox();
             BoundingBox box(octantBox.min - occlusionMargin, octantBox.max + occlusionMargin);
 
-            // If camera moves, elongate the octant bounding box in the move direction
-            if (cameraMove != Vector3::ZERO)
+            // Elongate the octant bounding box in the camera strafe move direction
+            if (!cameraMove.Equals(Vector3::ZERO))
                 box.Merge(BoundingBox(box.min + cameraMove, box.max + cameraMove));
 
             Vector3 size = box.HalfSize();
