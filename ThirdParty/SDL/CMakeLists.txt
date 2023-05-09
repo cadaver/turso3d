@@ -479,7 +479,6 @@ set_option(SDL_COCOA               "Use Cocoa video driver" ${APPLE})
 set_option(SDL_DIRECTX             "Use DirectX for Windows audio/video" ${WINDOWS})
 set_option(SDL_XINPUT              "Use Xinput for Windows" ${WINDOWS})
 set_option(SDL_WASAPI              "Use the Windows WASAPI audio driver" ${WINDOWS})
-set_option(SDL_RENDER_DISABLED     "Disable rendering functions" ON)
 set_option(SDL_RENDER_D3D          "Enable the Direct3D render driver" OFF)
 set_option(SDL_RENDER_METAL        "Enable the Metal render driver" OFF)
 set_option(SDL_VIVANTE             "Use Vivante EGL video driver" ${UNIX_SYS})
@@ -509,6 +508,9 @@ dep_option(SDL_TESTS           "Build the test directory" OFF SDL_TEST OFF)
 set_option(SDL_INSTALL_TESTS   "Install test-cases" OFF)
 
 set(HAVE_STATIC_PIC "${SDL_STATIC_PIC}")
+
+# Turso3D: unconditionally disable render functionality as unnecessary
+set(SDL_RENDER_DISABLED 1)
 
 if(SDL_HIDAPI)
   if(HIDAPI_ONLY_LIBUSB)
