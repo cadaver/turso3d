@@ -292,7 +292,7 @@ void DebugRenderer::Render()
 {
     ZoneScoped;
 
-    // Early-out if no geometry to render
+    // Early-out if no geometry to render or shader failed to load
     if (!vertices.size() || !shaderProgram)
         return;
 

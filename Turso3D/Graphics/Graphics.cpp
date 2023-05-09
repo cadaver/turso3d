@@ -608,6 +608,76 @@ void Graphics::DrawQuad()
     Draw(PT_TRIANGLE_LIST, 0, 6);
 }
 
+unsigned Graphics::BeginOcclusionQuery(void* object)
+{
+    GLuint queryId;
+
+    if (freeQueries.size())
+    {
+        queryId = freeQueries.back();
+        freeQueries.pop_back();
+    }
+    else
+        glGenQueries(1, &queryId);
+
+    glBeginQuery(GL_ANY_SAMPLES_PASSED, queryId);
+    pendingQueries.push_back(std::make_pair(queryId, object));
+
+    return queryId;
+}
+
+void Graphics::EndOcclusionQuery()
+{
+    glEndQuery(GL_ANY_SAMPLES_PASSED);
+}
+
+
+void Graphics::FreeOcclusionQuery(unsigned queryId)
+{
+    if (!queryId)
+        return;
+
+    for (auto it = pendingQueries.begin(); it != pendingQueries.end(); ++it)
+    {
+        if (it->first == queryId)
+        {
+            pendingQueries.erase(it);
+            break;
+        }
+    }
+
+    glDeleteQueries(1, &queryId);
+}
+
+void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& result)
+{
+    ZoneScoped;
+
+    for (auto it = pendingQueries.begin(); it != pendingQueries.end();)
+    {
+        GLuint queryId = it->first;
+        GLuint available = 0;
+        glGetQueryObjectuiv(queryId, GL_QUERY_RESULT_AVAILABLE, &available);
+
+        if (available)
+        {
+            GLuint passed = 0;
+            glGetQueryObjectuiv(queryId, GL_QUERY_RESULT, &passed);
+
+            OcclusionQueryResult newResult;
+            newResult.id = queryId;
+            newResult.object = it->second;
+            newResult.visible = passed > 0;
+            result.push_back(newResult);
+
+            freeQueries.push_back(queryId);
+            it = pendingQueries.erase(it);
+        }
+        else
+            ++it;
+    }
+}
+
 IntVector2 Graphics::Size() const
 {
     IntVector2 size;

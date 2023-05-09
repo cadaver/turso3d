@@ -17,6 +17,17 @@ class UniformBuffer;
 class VertexBuffer;
 struct SDL_Window;
 
+/// Occlusion query result.
+struct OcclusionQueryResult
+{
+    /// Query ID.
+    unsigned id;
+    /// Associated object.
+    void* object;
+    /// Visibility result.
+    bool visible;
+};
+
 /// %Graphics rendering context and application window.
 class Graphics : public Object
 {
@@ -98,6 +109,15 @@ public:
     /// Draw a quad with current renderstate. The quad vertex buffer is left bound.
     void DrawQuad();
 
+    /// Begin an occlusion query and associate an object with it for checking results. Return the query ID.
+    unsigned BeginOcclusionQuery(void* object);
+    /// End an occlusion query.
+    void EndOcclusionQuery();
+    /// Free an occlusion query when its associated object is destroyed early.
+    void FreeOcclusionQuery(unsigned id);
+    /// Check for and return arrived query results. These are only retained for one frame.
+    void CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& result);
+
     /// Return whether is initialized.
     bool IsInitialized() const { return context != nullptr; }
     /// Return whether has instancing support.
@@ -149,6 +169,10 @@ private:
     bool hasInstancing;
     /// Whether instance vertex elements are enabled.
     bool instancingEnabled;
+    /// Pending occlusion queries.
+    std::vector<std::pair<unsigned, void*> > pendingQueries;
+    /// Free occlusion queries.
+    std::vector<unsigned> freeQueries;
 };
 
 /// Register Graphics related object factories and attributes.

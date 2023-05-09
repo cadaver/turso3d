@@ -1,4 +1,4 @@
-// For conditions of distribution and use, see copyright notice in License.txt
+// For conditions of distribution and use, seecopyright notice in License.txt
 
 #include "../Graphics/FrameBuffer.h"
 #include "../Graphics/Graphics.h"
@@ -22,8 +22,6 @@
 #include "LightEnvironment.h"
 #include "Material.h"
 #include "Model.h"
-#include "Occluder.h"
-#include "OcclusionBuffer.h"
 #include "Octree.h"
 #include "Renderer.h"
 #include "StaticModel.h"
@@ -33,7 +31,9 @@
 #include <tracy/Tracy.hpp>
 
 static const size_t DRAWABLES_PER_BATCH_TASK = 128;
-static const int OCCLUSION_BUFFER_WIDTH = 256;
+static const size_t NUM_BOX_INDICES = 36;
+static const float OCCLUSION_MARGIN = 0.1f;
+static const float MAX_CAMERA_MOVEMENT = 100.0f;
 
 static inline bool CompareDrawableDistances(Drawable* lhs, Drawable* rhs)
 {
@@ -114,8 +114,10 @@ void ThreadOctantResult::Clear()
     drawableAcc = 0;
     taskOctantIdx = 0;
     batchTaskIdx = 0;
+    octantIdx = 0;
     lights.clear();
     octants.clear();
+    occlusionQueries.clear();
 }
 
 void ThreadBatchResult::Clear()
@@ -176,8 +178,6 @@ Renderer::Renderer() :
         instanceVertexElements.push_back(VertexElement(ELEM_VECTOR4, SEM_TEXCOORD, 5));
     }
 
-    occlusionBuffer = new OcclusionBuffer();
-
     clusterTexture = new Texture();
     clusterTexture->Define(TEX_3D, IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RGBA32U, 1);
     clusterTexture->DefineSampler(FILTER_POINT, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
@@ -209,6 +209,8 @@ Renderer::Renderer() :
 
     processLightsTask = new MemberFunctionTask<Renderer>(this, &Renderer::ProcessLightsWork);
     processShadowCastersTask = new MemberFunctionTask<Renderer>(this, &Renderer::ProcessShadowCastersWork);
+
+    DefineBoundingBoxGeometry();
 }
 
 Renderer::~Renderer()
@@ -248,7 +250,7 @@ void Renderer::SetShadowDepthBiasMul(float depthBiasMul_, float slopeScaleBiasMu
     shadowMapsDirty = true;
 }
 
-void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bool useOcclusion)
+void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bool useOcclusion_)
 {
     ZoneScoped;
 
@@ -268,6 +270,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
         ++frameNumber;
 
     drawShadows = shadowMaps.size() ? drawShadows_ : false;
+    useOcclusion = useOcclusion_;
     frustum = camera->WorldFrustum();
     viewMask = camera->ViewMask();
 
@@ -278,7 +281,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     opaqueBatches.Clear();
     alphaBatches.Clear();
     lights.clear();
-    occluders.clear();
     instanceTransforms.clear();
     
     minZ = M_MAX_FLOAT;
@@ -292,17 +294,12 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     for (auto it = shadowMaps.begin(); it != shadowMaps.end(); ++it)
         it->Clear();
 
-    // If needed, find occluders from the separate occluder octree and begin rasterizing them
-    if (useOcclusion)
-    {
-        octree->FindOccludersMasked(reinterpret_cast<std::vector<Drawable*>&>(occluders), frustum, viewMask);
-        SubmitOccluders();
-    }
-    else
-        occlusionBuffer->Reset();
-
     // Process moved / animated objects' octree reinsertions
     octree->Update(frameNumber);
+
+    // Check arrived occlusion query results while octree update goes on, then finish octree update
+    CheckOcclusionQueries();
+    octree->FinishUpdate();
 
     // Enable threaded update during geometry / light gathering in case nodes' OnPrepareRender() causes further reinsertion queuing
     octree->SetThreadedUpdate(workQueue->NumThreads() > 1);
@@ -333,10 +330,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
 
     // Ensure shadow view processing doesn't happen before lights have been found and processed
     processShadowCastersTask->AddDependency(processLightsTask);
-
-    // Before starting, ensure occluders have been rasterized
-    if (occluders.size())
-        occlusionBuffer->Complete();
 
     workQueue->QueueTasks(rootLevelOctants.size(), reinterpret_cast<Task**>(&collectOctantsTasks[0]));
 
@@ -442,9 +435,7 @@ void Renderer::RenderOpaque(bool clear)
 
     // Update main batches' instance transforms & light data
     UpdateInstanceTransforms(instanceTransforms);
-    ImageLevel clusterLevel(IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RG32U, clusterData);
-    clusterTexture->SetData(0, IntBox(0, 0, 0, NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), clusterLevel);
-    lightDataBuffer->SetData(0, lights.size() * sizeof(LightData), lightData);
+    UpdateLightData();
 
     if (shadowMaps.size())
     {
@@ -461,6 +452,10 @@ void Renderer::RenderOpaque(bool clear)
         graphics->Clear(true, true, IntRect::ZERO, lightEnvironment ? lightEnvironment->FogColor() : DEFAULT_FOG_COLOR);
 
     RenderBatches(camera, opaqueBatches);
+
+    // Render occlusion now after opaques
+    if (useOcclusion)
+        RenderOcclusionQueries();
 }
 
 void Renderer::RenderAlpha()
@@ -510,9 +505,6 @@ void Renderer::RenderDebug()
             }
         }
     }
-
-    for (auto it = occluders.begin(); it != occluders.end(); ++it)
-        (*it)->OnRenderDebug(debug);
 }
 
 Texture* Renderer::ShadowMapTexture(size_t index) const
@@ -520,86 +512,78 @@ Texture* Renderer::ShadowMapTexture(size_t index) const
     return index < shadowMaps.size() ? shadowMaps[index].texture : nullptr;
 }
 
-OcclusionBuffer* Renderer::GetOcclusionBuffer() const
-{
-    return occlusionBuffer;
-}
-
-void Renderer::SubmitOccluders()
-{
-    ZoneScoped;
-
-    // Reset occlusion batches from last frame
-    occlusionBuffer->Reset();
-
-    // Early-out if no occluders in view
-    if (!occluders.size())
-        return;
-
-    // Check each occluder for max. distance
-    for (auto it = occluders.begin(); it != occluders.end(); ++it)
-    {
-        OccluderDrawable* drawable = *it;
-        drawable->OnPrepareRender(frameNumber, camera);
-    }
-
-    // Sort occluders by increasing distance. Discarded occluders have set maximum distance
-    std::sort(occluders.begin(), occluders.end(), CompareDrawableDistances);
-
-    // Check if had no accepted occluders, switch to no occlusion in that case
-    if (occluders[0]->Distance() >= M_MAX_FLOAT)
-    {
-        occluders.clear();
-        return;
-    }
-
-    int width = OCCLUSION_BUFFER_WIDTH;
-    int height = (int)((float)width / camera->AspectRatio() + 0.5f);
-    occlusionBuffer->SetSize(width, height);
-    occlusionBuffer->SetView(camera);
-    
-    for (size_t i = 0; i < occluders.size(); ++i)
-    {
-        OccluderDrawable* occluder = occluders[i];
-        if (occluder->Distance() >= M_MAX_FLOAT)
-            break;
-
-        const Matrix3x4& worldTransform = occluder->WorldTransform();
-        const SourceBatches& batches = occluder->Batches();
-        size_t numGeometries = batches.NumGeometries();
-
-        for (size_t j = 0; j < numGeometries; ++j)
-        {
-            Geometry* geometry = batches.GetGeometry(j);
-            if (geometry->cpuPositionData)
-            {
-                if (geometry->cpuIndexData)
-                    occlusionBuffer->AddTriangles(worldTransform, geometry->cpuPositionData, sizeof(Vector3), geometry->cpuIndexData, geometry->cpuIndexSize, geometry->cpuDrawStart, geometry->drawCount);
-                else
-                    occlusionBuffer->AddTriangles(worldTransform, geometry->cpuPositionData, sizeof(Vector3), geometry->cpuDrawStart, geometry->drawCount);
-            }
-        }
-    }
-
-    // Start rasterization in worker threads
-    occlusionBuffer->DrawTriangles();
-}
-
 void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, unsigned char planeMask)
 {
     const BoundingBox& octantBox = octant->CullingBox();
+    ++result.octantIdx;
 
     if (planeMask)
     {
         // If not already inside all frustum planes, do frustum test and terminate if completely outside
         planeMask = frustum.IsInsideMasked(octantBox, planeMask);
         if (planeMask == 0xff)
+        {
+            // If octant becomes frustum culled, reset its visibility for when it comes back to view, including its children
+            if (useOcclusion && octant->Visibility() != VIS_OUTSIDE_FRUSTUM)
+                octant->SetVisibility(VIS_OUTSIDE_FRUSTUM, true);
             return;
+        }
     }
 
-    // Check octant occlusion before proceeding further
-    if (occluders.size() && !occlusionBuffer->IsVisible(octantBox))
-        return;
+    // Process occlusion now before going further
+    if (useOcclusion)
+    {
+        // If was previously outside frustum, reset to visible but occlusion unknown
+        if (octant->Visibility() == VIS_OUTSIDE_FRUSTUM)
+            octant->SetVisibility(VIS_VISIBLE_UNKNOWN, true);
+
+        switch (octant->Visibility())
+        {
+            // If octant is occluded, issue query if not pending, and do not process further this frame
+        case VIS_OCCLUDED:
+            if (!octant->OcclusionQueryPending())
+                result.occlusionQueries.push_back(octant);
+            return;
+
+            // If octant was occluded previously, but its parent came into view, issue tests along the hierarchy but do not render on this frame
+        case VIS_OCCLUDED_UNKNOWN:
+            if (!octant->OcclusionQueryPending())
+                result.occlusionQueries.push_back(octant);
+
+            if (octant != octree->Root() && octant->HasChildren())
+            {
+                for (size_t i = 0; i < NUM_OCTANTS; ++i)
+                {
+                    if (octant->Child(i))
+                        CollectOctantsAndLights(octant->Child(i), result, planeMask);
+                }
+            }
+
+            return;
+
+            // If octant has unknown visibility, issue query if not pending, but collect child octants and drawables
+        case VIS_VISIBLE_UNKNOWN:
+            if (!octant->OcclusionQueryPending())
+                result.occlusionQueries.push_back(octant);
+            break;
+
+            // If octant is visible, stagger queries between frames to reduce their total count
+        case VIS_VISIBLE:
+            if (!octant->OcclusionQueryPending() && ((result.octantIdx ^ frameNumber) & 15) == 0)
+            {
+                // If the octant's parent is already visible too, only test the octant if it is a "leaf octant" with drawables
+                Octant* parent = octant->Parent();
+                if (octant->Drawables().size() > 0 || (parent && parent->Visibility() != VIS_VISIBLE))
+                    result.occlusionQueries.push_back(octant);
+            }
+            break;
+        }
+    }
+    else
+    {
+        // When occlusion not in use, reset all traversed octants to visible
+        octant->SetVisibility(VIS_VISIBLE, false);
+    }
 
     const std::vector<Drawable*>& drawables = octant->Drawables();
 
@@ -610,8 +594,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         if (drawable->TestFlag(DF_LIGHT))
         {
             const BoundingBox& lightBox = drawable->WorldBoundingBox();
-            // Test each light's occlusion separately before storing, as lights make the rendering more expensive and are limited per view
-            if ((drawable->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(lightBox, planeMask)) && (!occluders.size() || occlusionBuffer->IsVisible(lightBox)) && drawable->OnPrepareRender(frameNumber, camera))
+            if ((drawable->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(lightBox, planeMask)) && drawable->OnPrepareRender(frameNumber, camera))
                 result.lights.push_back(static_cast<LightDrawable*>(drawable));
         }
         // Lights are sorted first in octants, so break when first geometry encountered. Store the octant for batch collecting
@@ -733,6 +716,8 @@ void Renderer::SortShadowBatches(ShadowMap& shadowMap)
 
 void Renderer::UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms)
 {
+    ZoneScoped;
+
     if (hasInstancing && transforms.size())
     {
         if (instanceVertexBuffer->NumVertices() < transforms.size())
@@ -740,6 +725,15 @@ void Renderer::UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms
         else
             instanceVertexBuffer->SetData(0, transforms.size(), &transforms[0]);
     }
+}
+
+void Renderer::UpdateLightData()
+{
+    ZoneScoped;
+
+    ImageLevel clusterLevel(IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RG32U, clusterData);
+    clusterTexture->SetData(0, IntBox(0, 0, 0, NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), clusterLevel);
+    lightDataBuffer->SetData(0, lights.size() * sizeof(LightData), lightData);
 }
 
 void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
@@ -896,6 +890,94 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
     }
 }
 
+void Renderer::CheckOcclusionQueries()
+{
+    static std::vector<OcclusionQueryResult> results;
+    results.clear();
+    graphics->CheckOcclusionQueryResults(results);
+
+    {
+        ZoneScopedN("PropagateVisibility");
+
+        for (auto it = results.begin(); it != results.end(); ++it)
+        {
+            Octant* octant = static_cast<Octant*>(it->object);
+            octant->OnOcclusionQueryResult(it->visible);
+        }
+    }
+}
+
+void Renderer::RenderOcclusionQueries()
+{
+    ZoneScoped;
+
+    if (!boundingBoxShaderProgram)
+        return;
+
+    Matrix3x4 boxMatrix(Matrix3x4::IDENTITY);
+    boundingBoxVertexBuffer->Bind(MASK_POSITION);
+    boundingBoxIndexBuffer->Bind();
+
+    Matrix3 cameraViewRot = camera->ViewMatrix().RotationMatrix();
+    float nearClip = camera->NearClip();
+
+    // Consider camera's strafing motion and use it to enlarge the bounding boxes. Use 4x movement speed for possible 4 frame latency in query results
+    /// \todo Process camera rotation in a similar manner
+    Vector3 cameraPosition = camera->WorldPosition();
+    Vector3 cameraMove = cameraPosition - previousCameraPosition;
+    if (cameraMove.Length() > MAX_CAMERA_MOVEMENT)
+        cameraMove = Vector3::ZERO;
+    cameraMove = cameraViewRot * cameraMove;
+    cameraMove.z = 0.0f;
+    Vector3 enlargement = (OCCLUSION_MARGIN + 4.0f * cameraMove.Length()) * Vector3::ONE;
+
+    boundingBoxShaderProgram->Bind();
+    graphics->SetRenderState(BLEND_REPLACE, CULL_BACK, CMP_LESS_EQUAL, false, false);
+
+    for (size_t i = 0; i < NUM_OCTANT_TASKS; ++i)
+    {
+        for (auto it = octantResults[i].occlusionQueries.begin(); it != octantResults[i].occlusionQueries.end(); ++it)
+        {
+            Octant* octant = *it;
+
+            const BoundingBox& octantBox = octant->CullingBox();
+            BoundingBox box(octantBox.min - enlargement, octantBox.max + enlargement);
+
+            // Elongate the octant bounding box in the camera strafe move direction
+            if (!cameraMove.Equals(Vector3::ZERO))
+                box.Merge(BoundingBox(box.min + cameraMove, box.max + cameraMove));
+
+            Vector3 size = box.HalfSize();
+            Vector3 center = box.Center();
+
+            // If bounding box could be clipped by near plane, assume visible without performing query
+            if (box.Distance(cameraPosition) < 2.0f * nearClip)
+            {
+                octant->OnOcclusionQueryResult(true);
+                continue;
+            }
+
+            boxMatrix.m00 = size.x;
+            boxMatrix.m11 = size.y;
+            boxMatrix.m22 = size.z;
+            boxMatrix.m03 = center.x;
+            boxMatrix.m13 = center.y;
+            boxMatrix.m23 = center.z;
+
+            graphics->SetUniform(boundingBoxShaderProgram, U_WORLDMATRIX, boxMatrix);
+
+            unsigned queryId = graphics->BeginOcclusionQuery(octant);
+            graphics->DrawIndexed(PT_TRIANGLE_LIST, 0, NUM_BOX_INDICES);
+            graphics->EndOcclusionQuery();
+
+            // Store query to octant to make sure we don't re-test it until result arrives
+            octant->OnOcclusionQuery(queryId);
+        }
+    }
+
+    previousCameraPosition = cameraPosition;
+}
+
 void Renderer::DefineFaceSelectionTextures()
 {
     if (faceSelectionTexture1 && faceSelectionTexture2)
@@ -938,6 +1020,45 @@ void Renderer::DefineFaceSelectionTextures()
 
     faceSelectionTexture2->Define(TEX_CUBE, IntVector3(1, 1, MAX_CUBE_FACES), FMT_RGBA32F, 1, 1, &faces2[0]);
     faceSelectionTexture2->DefineSampler(FILTER_POINT, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
+}
+
+void Renderer::DefineBoundingBoxGeometry()
+{
+    float boxVertexData[] = {
+        -1.0f, 1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f,
+        1.0f, 1.0f, -1.0f,
+        1.0f, -1.0f, -1.0f,
+        1.0f, 1.0f, 1.0f,
+        1.0f, -1.0f, 1.0f,
+        -1.0f, 1.0f, 1.0f,
+        -1.0f, -1.0f, 1.0f
+    };
+
+    std::vector<VertexElement> vertexDeclaration;
+    vertexDeclaration.push_back(VertexElement(ELEM_VECTOR3, SEM_POSITION));
+    boundingBoxVertexBuffer = new VertexBuffer();
+    boundingBoxVertexBuffer->Define(USAGE_DEFAULT, 8, vertexDeclaration, boxVertexData);
+
+    unsigned short boxIndexData[] = {
+        0, 2, 1,
+        2, 3, 1,
+        2, 4, 3,
+        4, 5, 3,
+        4, 6, 5,
+        6, 7, 5,
+        6, 0, 7,
+        0, 1, 7,
+        4, 2, 0,
+        6, 4, 0,
+        1, 3, 5,
+        1, 5, 7
+    };
+
+    boundingBoxIndexBuffer = new IndexBuffer();
+    boundingBoxIndexBuffer->Define(USAGE_DEFAULT, NUM_BOX_INDICES, sizeof(unsigned short), boxIndexData);
+
+    boundingBoxShaderProgram = graphics->CreateProgram("Shaders/BoundingBox.glsl");
 }
 
 void Renderer::DefineClusterFrustums()
@@ -1669,7 +1790,6 @@ void RegisterRendererLibrary()
     OctreeNode::RegisterObject();
     GeometryNode::RegisterObject();
     StaticModel::RegisterObject();
-    Occluder::RegisterObject();
     AnimatedModel::RegisterObject();
     Light::RegisterObject();
     LightEnvironment::RegisterObject();
