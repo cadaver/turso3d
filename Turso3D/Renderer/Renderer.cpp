@@ -524,11 +524,8 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         if (planeMask == 0xff)
         {
             // If octant becomes frustum culled, reset its visibility for when it comes back to view, including its children
-            if (octant->Visibility() < VIS_VISIBLE_UNKNOWN)
-            {
-                octant->ResetVisibility(VIS_VISIBLE_UNKNOWN);
-                octant->PushVisibilityToChildren(octant, VIS_VISIBLE_UNKNOWN);
-            }
+            if (useOcclusion && octant->Visibility() != VIS_OUTSIDE_FRUSTUM)
+                octant->SetVisibility(VIS_OUTSIDE_FRUSTUM, true);
             return;
         }
     }
@@ -536,6 +533,10 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
     // Process occlusion now before going further
     if (useOcclusion)
     {
+        // If was previously outside frustum, reset to visible but occlusion unknown
+        if (octant->Visibility() == VIS_OUTSIDE_FRUSTUM)
+            octant->SetVisibility(VIS_VISIBLE_UNKNOWN, true);
+
         switch (octant->Visibility())
         {
             // If octant is occluded, issue query if not pending, and do not process further this frame
@@ -568,7 +569,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
 
             // If octant is visible, stagger queries between frames to reduce their total count
         case VIS_VISIBLE:
-            if (!octant->OcclusionQueryPending() && ((result.octantIdx ^ frameNumber) & 7) == 0)
+            if (!octant->OcclusionQueryPending() && ((result.octantIdx ^ frameNumber) & 15) == 0)
             {
                 // If the octant's parent is already visible too, only test the octant if it is a "leaf octant" with drawables
                 Octant* parent = octant->Parent();
@@ -581,7 +582,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
     else
     {
         // When occlusion not in use, reset all traversed octants to visible
-        octant->ResetVisibility(VIS_VISIBLE);
+        octant->SetVisibility(VIS_VISIBLE, false);
     }
 
     const std::vector<Drawable*>& drawables = octant->Drawables();

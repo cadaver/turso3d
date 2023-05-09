@@ -137,12 +137,16 @@ void Octant::OnOcclusionQueryResult(bool visible)
     // Mark not pending
     queryId = 0;
 
+    // Do not change visibility if currently outside
+    if (visibility == VIS_OUTSIDE_FRUSTUM)
+        return;
+
     OctantVisibility lastVisibility = visibility;
     OctantVisibility newVisibility = visible ? VIS_VISIBLE : VIS_OCCLUDED;
 
     visibility = newVisibility;
 
-    if (lastVisibility == VIS_OCCLUDED && newVisibility == VIS_VISIBLE)
+    if (lastVisibility <= VIS_OCCLUDED_UNKNOWN && newVisibility == VIS_VISIBLE)
     {
         // If came into view after being occluded, mark children as still occluded but that should be tested in hierarchy
         if (numChildren)

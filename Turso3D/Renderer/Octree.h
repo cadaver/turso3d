@@ -19,7 +19,8 @@ struct ReinsertDrawablesTask;
 /// %Octant occlusion query visibility states.
 enum OctantVisibility
 {
-    VIS_OCCLUDED = 0,
+    VIS_OUTSIDE_FRUSTUM = 0,
+    VIS_OCCLUDED,
     VIS_OCCLUDED_UNKNOWN,
     VIS_VISIBLE_UNKNOWN,
     VIS_VISIBLE
@@ -112,7 +113,7 @@ public:
 
     /// React to occlusion query begin.
     void OnOcclusionQuery(unsigned queryId);
-    /// React to occlusion query result. Push changed visibility to parents or children as necessary.
+    /// React to occlusion query result. Push changed visibility to parents or children as necessary. If outside frustum, no operation.
     void OnOcclusionQueryResult(bool visible);
 
     /// Push visibility status to child octants.
@@ -141,10 +142,13 @@ public:
         }
     }
 
-    /// Reset visibility status manually.
-    void ResetVisibility(OctantVisibility newVisibility)
+    /// Set visibility status manually.
+    void SetVisibility(OctantVisibility newVisibility, bool pushToChildren = false)
     {
         visibility = newVisibility;
+
+        if (pushToChildren)
+            PushVisibilityToChildren(this, newVisibility);
     }
 
 private:
