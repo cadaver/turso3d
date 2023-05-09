@@ -32,13 +32,13 @@ struct RaycastResult
     /// Hit world position.
     Vector3 position;
     /// Hit world normal.
-Vector3 normal;
-/// Hit distance along the ray.
-float distance;
-/// Hit drawable.
-Drawable* drawable;
-/// Hit geometry index or other, subclass-specific subobject index.
-size_t subObject;
+    Vector3 normal;
+    /// Hit distance along the ray.
+    float distance;
+    /// Hit drawable.
+    Drawable* drawable;
+    /// Hit geometry index or other, subclass-specific subobject index.
+    size_t subObject;
 };
 
 /// %Octree cell, contains up to 8 child octants.
