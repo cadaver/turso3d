@@ -567,7 +567,7 @@ void Octree::CollectDrawables(std::vector<Drawable*>& result, Octant* octant, un
 
 void Octree::CollectDrawables(std::vector<RaycastResult>& result, Octant* octant, const Ray& ray, unsigned short drawableFlags, float maxDistance, unsigned layerMask) const
 {
-    float octantDist = ray.HitDistance(octant->fittingBox);
+    float octantDist = ray.HitDistance(octant->CullingBox());
     if (octantDist >= maxDistance)
         return;
 
@@ -592,7 +592,7 @@ void Octree::CollectDrawables(std::vector<RaycastResult>& result, Octant* octant
 
 void Octree::CollectDrawables(std::vector<std::pair<Drawable*, float> >& result, Octant* octant, const Ray& ray, unsigned short drawableFlags, float maxDistance, unsigned layerMask) const
 {
-    float octantDist = ray.HitDistance(octant->fittingBox);
+    float octantDist = ray.HitDistance(octant->CullingBox());
     if (octantDist >= maxDistance)
         return;
 

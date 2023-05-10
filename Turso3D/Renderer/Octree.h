@@ -297,7 +297,7 @@ private:
     /// Collect nodes matching flags using a volume such as frustum or sphere.
     template <class T> void CollectDrawables(std::vector<Drawable*>& result, Octant* octant, const T& volume, unsigned short drawableFlags, unsigned layerMask) const
     {
-        Intersection res = volume.IsInside(octant->fittingBox);
+        Intersection res = volume.IsInside(octant->CullingBox());
         if (res == OUTSIDE)
             return;
         
@@ -331,7 +331,7 @@ private:
     {
         if (planeMask)
         {
-            planeMask = frustum.IsInsideMasked(octant->fittingBox, planeMask);
+            planeMask = frustum.IsInsideMasked(octant->CullingBox(), planeMask);
             // Terminate if octant completely outside frustum
             if (planeMask == 0xff)
                 return;
