@@ -6,7 +6,7 @@
 #include "../Object/Ptr.h"
 #include "GraphicsDefs.h"
 
-/// GPU buffer for shader program uniform data. Currently used for per-view camera parameters, Forward+ light data and skinning matrices. Not recommended to be used for small rapidly changing data like object's world matrix; bare uniforms will perform better.
+/// GPU buffer for shader program uniform data. Currently used for per-view camera parameters, Forward+ light data, skinning matrices and materials. Not recommended to be used for small rapidly changing data like object's world matrix; bare uniforms will perform better.
 class UniformBuffer : public RefCounted
 {
 public:
