@@ -12,8 +12,12 @@
     "0": "StoneDiffuse.dds",
     "1": "StoneNormal.dds"
   },
-  "uniformValues": {
-    "matDiffColor": "1 1 1 1",
-    "matSpecColor": "1 1 1 16"
-  }
+  "uniforms": [
+    {
+      "matDiffColor": "1 1 1 1"
+    },
+    {
+      "matSpecColor": "1 1 1 16"
+    }
+  ]
 }

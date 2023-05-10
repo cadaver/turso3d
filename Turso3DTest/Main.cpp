@@ -153,8 +153,8 @@ void CreateScene(Scene* scene, Camera* camera, int preset)
         camera->SetFarClip(500.0f);
 
         SharedPtr<Material> customMat = Material::DefaultMaterial()->Clone();
-        customMat->SetUniform(U_MATDIFFCOLOR, Vector4(0.75f, 0.35f, 0.0f, 1.0f));
-        customMat->SetUniform(U_MATSPECCOLOR, Vector4(0.75f / 3.0f, 0.35f / 3.0f, 0.0f, 1.0f));
+        customMat->SetUniform("matDiffColor", Vector4(0.75f, 0.35f, 0.0f, 1.0f));
+        customMat->SetUniform("matSpecColor", Vector4(0.75f / 3.0f, 0.35f / 3.0f, 0.0f, 1.0f));
 
         for (int y = -125; y <= 125; ++y)
         {

@@ -66,7 +66,6 @@ int NumberPostfix(const std::string& string)
 }
 
 ShaderProgram::ShaderProgram(const std::string& sourceCode, const std::string& shaderName_, const std::string& vsDefines, const std::string& fsDefines) :
-    lastPerMaterialUniforms(0),
     program(0)
 {
     assert(Object::Subsystem<Graphics>()->IsInitialized());

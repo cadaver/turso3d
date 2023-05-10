@@ -15,6 +15,7 @@ class JSONFile;
 class JSONValue;
 class Material;
 class Texture;
+class UniformBuffer;
 
 enum PassType
 {
@@ -125,8 +126,20 @@ public:
     void ResetTextures();
     /// Set shader defines for all passes.
     void SetShaderDefines(const std::string& vsDefines, const std::string& fsDefines);
-    /// Set an uniform value. For simplicity and performance, all material uniforms are Vector4's.
-    void SetUniform(PresetUniform uniform, const Vector4& value);
+    /// Define uniform buffer layout. All material uniforms are Vector4's for simplicity.
+    void DefineUniforms(size_t numUniforms, const char** uniformNames);
+    /// Define uniform buffer layout.
+    void DefineUniforms(const std::vector<std::string>& uniformNames);
+    /// Define uniform buffer layout with initial values.
+    void DefineUniforms(const std::vector<std::pair<std::string, Vector4> >& uniforms);
+    /// Set an uniform value by index.
+    void SetUniform(size_t index, const Vector4& value);
+    /// Set an uniform value by name.
+    void SetUniform(const std::string& name, const Vector4& value);
+    /// Set an uniform value by name.
+    void SetUniform(const char* name, const Vector4& value);
+    /// Set an uniform value by name hash.
+    void SetUniform(StringHash nameHash, const Vector4& value);
     /// Set culling mode, shared by all passes.
     void SetCullMode(CullMode mode);
 
@@ -134,14 +147,25 @@ public:
     Pass* GetPass(PassType type) const { return passes[type]; }
     /// Return texture by texture unit.
     Texture* GetTexture(size_t index) const { return textures[index]; }
+    /// Return the uniform buffer. Update first if dirty.
+    UniformBuffer* GetUniformBuffer() const;
+    /// Return number of uniforms.
+    size_t NumUniforms() const { return uniformValues.size(); }
+    /// Return uniform value by index.
+    const Vector4& Uniform(size_t index) const { return uniformValues[index]; }
+    /// Return uniform value by name.
+    const Vector4& Uniform(const std::string& name) const;
+    /// Return uniform value by name.
+    const Vector4& Uniform(const char* name) const;
+    /// Return uniform value by name hash.
+    const Vector4& Uniform(StringHash nameHash) const;
+    /// Return culling mode.
+    CullMode GetCullMode() const { return cullMode; }
+
     /// Return vertex shader defines.
     const std::string& VSDefines() const { return vsDefines; }
     /// Return fragment shader defines.
     const std::string& FSDefines() const { return fsDefines; }
-    /// Return uniform values.
-    const std::map<PresetUniform, Vector4>& UniformValues() const { return uniformValues; }
-    /// Return culling mode.
-    CullMode GetCullMode() const { return cullMode; }
 
     /// Set global (lighting-related) shader defines. Resets all loaded pass shaders.
     static void SetGlobalShaderDefines(const std::string& vsDefines, const std::string& fsDefines);
@@ -159,8 +183,14 @@ private:
     SharedPtr<Pass> passes[MAX_PASS_TYPES];
     /// Material textures.
     SharedPtr<Texture> textures[MAX_MATERIAL_TEXTURE_UNITS];
+    /// Uniform buffer.
+    mutable SharedPtr<UniformBuffer> uniformBuffer;
+    /// Uniform name hashes.
+    std::vector<StringHash> uniformNameHashes;
     /// Uniform values.
-    std::map<PresetUniform, Vector4> uniformValues;
+    std::vector<Vector4> uniformValues;
+    /// Uniforms dirty flag.
+    mutable bool uniformsDirty;
     /// Vertex shader defines for all passes.
     std::string vsDefines;
     /// Fragment shader defines for all passes.

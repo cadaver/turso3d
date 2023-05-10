@@ -37,9 +37,6 @@ public:
     /// Return the OpenGL shader program identifier. Zero if not successfully compiled and linked.
     unsigned GLProgram() const { return program; }
 
-    /// Last per-material uniform assignment. Used by Renderer.
-    unsigned lastPerMaterialUniforms;
-
 private:
     /// Compile & link.
     void Create(const std::string& sourceCode, const std::vector<std::string>& vsDefines, const std::vector<std::string>& fsDefines);

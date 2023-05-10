@@ -11,8 +11,12 @@
   "textures": {
     "0": "Mushroom.dds"
   },
-  "uniformValues": {
-    "matDiffColor": "1 1 1 1",
-    "matSpecColor": "0.25 0.25 0.25 1"
-  }
+  "uniforms": [
+    {
+      "matDiffColor": "1 1 1 1"
+    },
+    {
+      "matSpecColor": "0.25 0.25 0.25 1"
+    }
+  ]
 }

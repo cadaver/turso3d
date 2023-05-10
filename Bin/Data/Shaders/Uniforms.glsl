@@ -31,7 +31,7 @@ layout(std140) uniform LightData1
 };
 
 #ifdef SKINNED
-layout(std140) uniform SkinMatrixData2
+layout(std140) uniform PerObjectData2
 {
     mat3x4 skinMatrices[96];
 };

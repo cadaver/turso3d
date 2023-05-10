@@ -160,12 +160,10 @@ enum TextureAddressMode
     ADDRESS_MIRROR_ONCE
 };
 
-/// Preset uniforms.
+/// Preset uniforms outside uniform buffers.
 enum PresetUniform
 {
     U_WORLDMATRIX,
-    U_MATDIFFCOLOR,
-    U_MATSPECCOLOR,
     MAX_PRESET_UNIFORMS
 };
 
@@ -174,7 +172,8 @@ enum UniformBufferBindings
 {
     UB_PERVIEWDATA = 0,
     UB_LIGHTDATA,
-    UB_SKINMATRICES
+    UB_OBJECTDATA,
+    UB_MATERIALDATA
 };
 
 /// Geometry types for vertex shader.

@@ -28,10 +28,14 @@ in vec2 vTexCoord;
 noperspective in vec2 vScreenPos;
 out vec4 fragColor[2];
 
+layout(std140) uniform PerMaterialData3
+{
+    vec4 matDiffColor;
+    vec4 matSpecColor;
+};
+
 uniform sampler2D diffuseTex0;
 uniform sampler2D normalTex1;
-uniform vec4 matDiffColor;
-uniform vec4 matSpecColor;
 
 vec3 DecodeNormal(vec4 normalInput)
 {

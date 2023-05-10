@@ -148,7 +148,7 @@ void AnimatedModelDrawable::OnRender(ShaderProgram*, size_t)
         animatedModelFlags &= ~AMF_SKINNING_BUFFER_DIRTY;
     }
 
-    skinMatrixBuffer->Bind(UB_SKINMATRICES);
+    skinMatrixBuffer->Bind(UB_OBJECTDATA);
 }
 
 void AnimatedModelDrawable::OnRaycast(std::vector<RaycastResult>& dest, const Ray& ray, float maxDistance_)
@@ -426,6 +426,11 @@ void AnimatedModel::RemoveAnimationState(const std::string& animationName)
     RemoveAnimationState(StringHash(animationName));
 }
 
+void AnimatedModel::RemoveAnimationState(const char* animationName)
+{
+    RemoveAnimationState(StringHash(animationName));
+}
+
 void AnimatedModel::RemoveAnimationState(StringHash animationNameHash)
 {
     AnimatedModelDrawable* modelDrawable = static_cast<AnimatedModelDrawable*>(drawable);
@@ -495,6 +500,11 @@ AnimationState* AnimatedModel::FindAnimationState(Animation* animation) const
 }
 
 AnimationState* AnimatedModel::FindAnimationState(const std::string& animationName) const
+{
+    return GetAnimationState(StringHash(animationName));
+}
+
+AnimationState* AnimatedModel::FindAnimationState(const char* animationName) const
 {
     return GetAnimationState(StringHash(animationName));
 }

@@ -158,7 +158,6 @@ Renderer::Renderer() :
     workQueue(Subsystem<WorkQueue>()),
     frameNumber(0),
     clusterFrustumsDirty(true),
-    lastPerMaterialUniforms(0),
     depthBiasMul(1.0f),
     slopeScaleBiasMul(1.0f)
 {
@@ -829,10 +828,11 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
                         texture->Bind(i);
                 }
 
+                UniformBuffer* materialUniforms = material->GetUniformBuffer();
+                if (materialUniforms)
+                    materialUniforms->Bind(UB_MATERIALDATA);
+
                 lastMaterial = material;
-                ++lastPerMaterialUniforms;
-                if (!lastPerMaterialUniforms)
-                    ++lastPerMaterialUniforms;
             }
 
             CullMode cullMode = material->GetCullMode();
@@ -847,15 +847,6 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
             graphics->SetRenderState(batch.pass->GetBlendMode(), cullMode, batch.pass->GetDepthTest(), batch.pass->GetColorWrite(), batch.pass->GetDepthWrite());
 
             lastPass = batch.pass;
-        }
-
-        if (program->lastPerMaterialUniforms != lastPerMaterialUniforms)
-        {
-            const std::map<PresetUniform, Vector4>& uniformValues = material->UniformValues();
-            for (auto uIt = uniformValues.begin(); uIt != uniformValues.end(); ++uIt)
-                graphics->SetUniform(program, uIt->first, uIt->second);
-
-            program->lastPerMaterialUniforms = lastPerMaterialUniforms;
         }
 
         Geometry* geometry = batch.geometry;

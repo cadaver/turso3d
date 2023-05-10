@@ -22,8 +22,12 @@ in vec3 vViewNormal;
 noperspective in vec2 vScreenPos;
 out vec4 fragColor[2];
 
-uniform vec4 matDiffColor;
-uniform vec4 matSpecColor;
+layout(std140) uniform PerMaterialData3
+{
+    vec4 matDiffColor;
+    vec4 matSpecColor;
+};
+
 #endif
 
 void vert()

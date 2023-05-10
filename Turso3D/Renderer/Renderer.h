@@ -305,8 +305,6 @@ private:
     Pass* lastPass;
     /// Last material used for rendering.
     Material* lastMaterial;
-    /// Last material uniforms assignment number.
-    unsigned lastPerMaterialUniforms;
     /// Constant depth bias multiplier.
     float depthBiasMul;
     /// Slope-scaled depth bias multiplier.

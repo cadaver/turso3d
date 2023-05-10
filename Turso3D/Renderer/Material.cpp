@@ -1,6 +1,7 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../Graphics/Texture.h"
+#include "../Graphics/UniformBuffer.h"
 #include "../IO/StringUtils.h"
 #include "../Resource/JSONFile.h"
 #include "../Resource/ResourceCache.h"
@@ -87,7 +88,8 @@ void Pass::ResetShaderPrograms()
 }
 
 Material::Material() :
-    cullMode(CULL_BACK)
+    cullMode(CULL_BACK),
+    uniformsDirty(false)
 {
     allMaterials.insert(this);
 }
@@ -112,16 +114,22 @@ bool Material::BeginLoad(Stream& source)
 
     const JSONValue& root = loadJSON->Root();
 
-    uniformValues.clear();
-    if (root.Contains("uniformValues"))
+    if (root.Contains("uniforms"))
     {
-        const JSONObject& jsonUniformValues = root["uniformValues"].GetObject();
-        for (auto it = jsonUniformValues.begin(); it != jsonUniformValues.end(); ++it)
+        std::vector<std::pair<std::string, Vector4> > newUniforms;
+
+        const JSONArray& jsonUniforms = root["uniforms"].GetArray();
+        for (auto it = jsonUniforms.begin(); it != jsonUniforms.end(); ++it)
         {
-            PresetUniform uniform = (PresetUniform)ListIndex(it->first.c_str(), presetUniformNames, MAX_PRESET_UNIFORMS);
-            if (uniform != MAX_PRESET_UNIFORMS)
-                uniformValues[uniform] = Vector4(it->second.GetString());
+            const JSONObject& jsonUniform = it->GetObject();
+            if (jsonUniform.size() == 1)
+            {
+                auto uIt = jsonUniform.begin();
+                newUniforms.push_back(std::make_pair(uIt->first, Vector4(uIt->second.GetString())));
+            }
         }
+
+        DefineUniforms(newUniforms);
     }
 
     if (root.Contains("cullMode"))
@@ -176,11 +184,6 @@ SharedPtr<Material> Material::Clone()
     SharedPtr<Material> ret(Object::Create<Material>());
     
     ret->cullMode = cullMode;
-    for (size_t i = 0; i < MAX_MATERIAL_TEXTURE_UNITS; ++i)
-        ret->textures[i] = textures[i];
-    ret->uniformValues = uniformValues;
-    ret->vsDefines = vsDefines;
-    ret->fsDefines = fsDefines;
 
     for (size_t i = 0; i < MAX_PASS_TYPES; ++i)
     {
@@ -193,6 +196,15 @@ SharedPtr<Material> Material::Clone()
             clonePass->SetRenderState(pass->GetBlendMode(), pass->GetDepthTest(), pass->GetColorWrite(), pass->GetDepthWrite());
         }
     }
+
+    for (size_t i = 0; i < MAX_MATERIAL_TEXTURE_UNITS; ++i)
+        ret->textures[i] = textures[i];
+
+    ret->uniformBuffer = uniformBuffer;
+    ret->uniformValues = uniformValues;
+    ret->uniformNameHashes = uniformNameHashes;
+    ret->vsDefines = vsDefines;
+    ret->fsDefines = fsDefines;
 
     return ret;
 }
@@ -238,6 +250,74 @@ void Material::SetShaderDefines(const std::string& vsDefines_, const std::string
     }
 }
 
+void Material::DefineUniforms(size_t numUniforms, const char** uniformNames)
+{
+    uniformNameHashes.resize(numUniforms);
+    uniformValues.resize(numUniforms);
+
+    for (size_t i = 0; i < numUniforms; ++i)
+        uniformNameHashes[i] = StringHash(uniformNames[i]);
+
+    uniformsDirty = true;
+}
+
+void Material::DefineUniforms(const std::vector<std::string>& uniformNames)
+{
+    uniformNameHashes.resize(uniformNames.size());
+    uniformValues.resize(uniformNames.size());
+
+    for (size_t i = 0; i < uniformNames.size(); ++i)
+        uniformNameHashes[i] = StringHash(uniformNames[i]);
+
+    uniformsDirty = true;
+}
+
+void Material::DefineUniforms(const std::vector<std::pair<std::string, Vector4> >& uniforms)
+{
+    uniformValues.resize(uniforms.size());
+    uniformNameHashes.resize(uniforms.size());
+
+    for (size_t i = 0; i < uniforms.size(); ++i)
+    {
+        uniformNameHashes[i] = StringHash(uniforms[i].first);
+        uniformValues[i] = uniforms[i].second;
+    }
+
+    uniformsDirty = true;
+}
+
+void Material::SetUniform(size_t index, const Vector4& value)
+{
+    if (index >= uniformValues.size())
+        return;
+
+    uniformValues[index] = value;
+    uniformsDirty = true;
+}
+
+void Material::SetUniform(const std::string& name_, const Vector4& value)
+{
+    SetUniform(StringHash(name_), value);
+}
+
+void Material::SetUniform(const char* name_, const Vector4& value)
+{
+    SetUniform(StringHash(name_), value);
+}
+
+void Material::SetUniform(StringHash nameHash_, const Vector4& value)
+{
+    for (size_t i = 0; i < uniformNameHashes.size(); ++i)
+    {
+        if (uniformNameHashes[i] == nameHash_)
+        {
+            uniformValues[i] = value;
+            uniformsDirty = true;
+            return;
+        }
+    }
+}
+
 void Material::SetGlobalShaderDefines(const std::string& vsDefines_, const std::string& fsDefines_)
 {
     globalVSDefines = vsDefines_;
@@ -259,14 +339,52 @@ void Material::SetGlobalShaderDefines(const std::string& vsDefines_, const std::
     }
 }
 
-void Material::SetUniform(PresetUniform uniform, const Vector4& value)
-{
-    uniformValues[uniform] = value;
-}
-
 void Material::SetCullMode(CullMode mode)
 {
     cullMode = mode;
+}
+
+UniformBuffer* Material::GetUniformBuffer() const
+{
+    if (uniformsDirty)
+    {
+        // If is a shared uniform buffer from clone operation, make unique now
+        if (!uniformBuffer || uniformBuffer->Refs() > 1)
+            uniformBuffer = new UniformBuffer();
+
+        if (uniformValues.size())
+        {
+            if (uniformBuffer->Size() != uniformValues.size() * sizeof(Vector4))
+                uniformBuffer->Define(USAGE_DEFAULT, uniformValues.size() * sizeof(Vector4), &uniformValues[0]);
+            else
+                uniformBuffer->SetData(0, uniformValues.size() * sizeof(Vector4), &uniformValues[0]);
+        }
+
+        uniformsDirty = false;
+    }
+
+    return uniformBuffer;
+}
+
+const Vector4& Material::Uniform(const std::string& name_) const
+{
+    return Uniform(StringHash(name_));
+}
+
+const Vector4& Material::Uniform(const char* name_) const
+{
+    return Uniform(StringHash(name_));
+}
+
+const Vector4& Material::Uniform(StringHash nameHash_) const
+{
+    for (size_t i = 0; i < uniformNameHashes.size(); ++i)
+    {
+        if (uniformNameHashes[i] == nameHash_)
+            return uniformValues[i];
+    }
+
+    return Vector4::ZERO;
 }
 
 Material* Material::DefaultMaterial()
@@ -277,8 +395,11 @@ Material* Material::DefaultMaterial()
     if (!defaultMaterial)
     {
         defaultMaterial = Create<Material>();
-        defaultMaterial->SetUniform(U_MATDIFFCOLOR, Vector4::ONE);
-        defaultMaterial->SetUniform(U_MATSPECCOLOR, Vector4(0.25f, 0.25f, 0.25f, 1.0f));
+
+        std::vector<std::pair<std::string, Vector4> > defaultUniforms;
+        defaultUniforms.push_back(std::make_pair("matDiffColor", Vector4::ONE));
+        defaultUniforms.push_back(std::make_pair("matSpecColor", Vector4(0.25f, 0.25f, 0.25f, 1.0f)));
+        defaultMaterial->DefineUniforms(defaultUniforms);
 
         Pass* pass = defaultMaterial->CreatePass(PASS_SHADOW);
         pass->SetShader(cache->LoadResource<Shader>("Shaders/Shadow.glsl"), "", "");

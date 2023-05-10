@@ -186,6 +186,8 @@ public:
     void RemoveAnimationState(Animation* animation);
     /// Remove an animation by animation name.
     void RemoveAnimationState(const std::string& animationName);
+    /// Remove an animation by animation name.
+    void RemoveAnimationState(const char* animationName);
     /// Remove an animation by animation name hash.
     void RemoveAnimationState(StringHash animationNameHash);
     /// Remove an animation by AnimationState pointer.
@@ -211,6 +213,8 @@ public:
     AnimationState* FindAnimationState(Animation* animation) const;
     /// Return animation state by animation name.
     AnimationState* FindAnimationState(const std::string& animationName) const;
+    /// Return animation state by animation name.
+    AnimationState* FindAnimationState(const char* animationName) const;
     /// Return animation state by animation name hash.
     AnimationState* FindAnimationState(StringHash animationNameHash) const;
 

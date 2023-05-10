@@ -139,7 +139,7 @@ void CalculateLight(uint index, vec4 worldPos, vec3 normal, vec4 matDiffColor, v
 
 void CalculateLighting(vec4 worldPos, vec3 normal, vec2 screenPos, vec4 matDiffColor, vec4 matSpecColor, out vec3 diffuseLight, out vec3 specularLight)
 {
-    diffuseLight = vec3(ambientColor.rgb);
+    diffuseLight = vec3(matDiffColor.rgb * ambientColor.rgb);
     specularLight = vec3(0.0, 0.0, 0.0);
 
     CalculateDirLight(worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
