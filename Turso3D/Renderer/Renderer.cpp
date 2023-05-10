@@ -918,17 +918,14 @@ void Renderer::RenderOcclusionQueries()
     boundingBoxVertexBuffer->Bind(MASK_POSITION);
     boundingBoxIndexBuffer->Bind();
 
-    Matrix3 cameraViewRot = camera->ViewMatrix().RotationMatrix();
+    //Matrix3 cameraViewRot = camera->ViewMatrix().RotationMatrix();
     float nearClip = camera->NearClip();
 
-    // Consider camera's strafing motion and use it to enlarge the bounding boxes. Use 4x movement speed for possible 4 frame latency in query results
-    /// \todo Process camera rotation in a similar manner
+    // Use camera's motion since last frame to enlarge the bounding boxes. Use 4x movement speed for possible 4 frame latency in query results
     Vector3 cameraPosition = camera->WorldPosition();
     Vector3 cameraMove = cameraPosition - previousCameraPosition;
     if (cameraMove.Length() > MAX_CAMERA_MOVEMENT)
         cameraMove = Vector3::ZERO;
-    cameraMove = cameraViewRot * cameraMove;
-    cameraMove.z = 0.0f;
     Vector3 enlargement = (OCCLUSION_MARGIN + 4.0f * cameraMove.Length()) * Vector3::ONE;
 
     boundingBoxShaderProgram->Bind();
