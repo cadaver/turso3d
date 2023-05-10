@@ -33,7 +33,6 @@
 static const size_t DRAWABLES_PER_BATCH_TASK = 128;
 static const size_t NUM_BOX_INDICES = 36;
 static const float OCCLUSION_MARGIN = 0.1f;
-static const float MAX_CAMERA_MOVEMENT = 100.0f;
 
 static inline bool CompareDrawableDistances(Drawable* lhs, Drawable* rhs)
 {
@@ -918,14 +917,11 @@ void Renderer::RenderOcclusionQueries()
     boundingBoxVertexBuffer->Bind(MASK_POSITION);
     boundingBoxIndexBuffer->Bind();
 
-    //Matrix3 cameraViewRot = camera->ViewMatrix().RotationMatrix();
     float nearClip = camera->NearClip();
 
-    // Use camera's motion since last frame to enlarge the bounding boxes. Use 4x movement speed for possible 4 frame latency in query results
+    // Use camera's motion since last frame to enlarge the bounding boxes. Use multiplied movement speed to account for latency in query results
     Vector3 cameraPosition = camera->WorldPosition();
     Vector3 cameraMove = cameraPosition - previousCameraPosition;
-    if (cameraMove.Length() > MAX_CAMERA_MOVEMENT)
-        cameraMove = Vector3::ZERO;
     Vector3 enlargement = (OCCLUSION_MARGIN + 4.0f * cameraMove.Length()) * Vector3::ONE;
 
     boundingBoxShaderProgram->Bind();
@@ -940,19 +936,15 @@ void Renderer::RenderOcclusionQueries()
             const BoundingBox& octantBox = octant->CullingBox();
             BoundingBox box(octantBox.min - enlargement, octantBox.max + enlargement);
 
-            // Elongate the octant bounding box in the camera strafe move direction
-            if (!cameraMove.Equals(Vector3::ZERO))
-                box.Merge(BoundingBox(box.min + cameraMove, box.max + cameraMove));
-
-            Vector3 size = box.HalfSize();
-            Vector3 center = box.Center();
-
             // If bounding box could be clipped by near plane, assume visible without performing query
             if (box.Distance(cameraPosition) < 2.0f * nearClip)
             {
                 octant->OnOcclusionQueryResult(true);
                 continue;
             }
+
+            Vector3 size = box.HalfSize();
+            Vector3 center = box.Center();
 
             boxMatrix.m00 = size.x;
             boxMatrix.m11 = size.y;
