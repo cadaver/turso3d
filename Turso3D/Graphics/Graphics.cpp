@@ -92,7 +92,8 @@ Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize) :
     lastDepthBias(false),
     vsync(false),
     hasInstancing(false),
-    instancingEnabled(false)
+    instancingEnabled(false),
+    lastFrameTime(0.0f)
 {
     RegisterSubsystem(this);
     RegisterGraphicsLibrary();
@@ -196,6 +197,8 @@ bool Graphics::Initialize()
     DefineQuadVertexBuffer();
 
     SetVSync(vsync);
+    frameTimer.Reset();
+
     return true;
 }
 
@@ -223,6 +226,9 @@ void Graphics::Present()
     ZoneScoped;
 
     SDL_GL_SwapWindow(window);
+
+    lastFrameTime = 0.000001f * frameTimer.ElapsedUSec();
+    frameTimer.Reset();
 }
 
 void Graphics::SetFrameBuffer(FrameBuffer* buffer)

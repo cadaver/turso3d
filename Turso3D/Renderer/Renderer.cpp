@@ -285,6 +285,10 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     maxZ = 0.0f;
     geometryBounds.Undefine();
 
+    // Calculate stagger for occlusion queries based on frametime
+    float fps = 1.0f / (Max(graphics->LastFrameTime(), 0.0001f));
+    occlusionStagger = Max(2, NextPowerOfTwo((int)sqrtf(fps)));
+
     for (size_t i = 0; i < NUM_OCTANT_TASKS; ++i)
         octantResults[i].Clear();
     for (size_t i = 0; i < batchResults.size(); ++i)
@@ -531,9 +535,9 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
     // Process occlusion now before going further
     if (useOcclusion)
     {
-        // If was previously outside frustum, reset to visible but occlusion unknown
+        // If was previously outside frustum, reset to visible
         if (octant->Visibility() == VIS_OUTSIDE_FRUSTUM)
-            octant->SetVisibility(VIS_VISIBLE_UNKNOWN, true);
+            octant->SetVisibility(VIS_VISIBLE, false);
 
         switch (octant->Visibility())
         {
@@ -567,7 +571,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
 
             // If octant is visible, stagger queries between frames to reduce their total count
         case VIS_VISIBLE:
-            if (!octant->OcclusionQueryPending() && ((result.octantIdx ^ frameNumber) & 15) == 0)
+            if (!octant->OcclusionQueryPending() && ((result.octantIdx ^ frameNumber) & (occlusionStagger - 1)) == 0)
             {
                 // If the octant's parent is already visible too, only test the octant if it is a "leaf octant" with drawables
                 Octant* parent = octant->Parent();

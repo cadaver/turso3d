@@ -7,6 +7,7 @@
 #include "../Math/IntRect.h"
 #include "../Math/Matrix3x4.h"
 #include "../Object/Object.h"
+#include "../Time/Timer.h"
 #include "GraphicsDefs.h"
 
 class FrameBuffer;
@@ -117,6 +118,8 @@ public:
     void FreeOcclusionQuery(unsigned id);
     /// Check for and return arrived query results. These are only retained for one frame.
     void CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& result);
+    /// Return number of pending occlusion queries.
+    size_t PendingOcclusionQueries() const { return pendingQueries.size(); }
 
     /// Return whether is initialized.
     bool IsInitialized() const { return context != nullptr; }
@@ -138,6 +141,8 @@ public:
     bool IsFullscreen() const;
     /// Return whether is using vertical sync.
     bool VSync() const { return vsync; }
+    /// Return deltatime in seconds between two latest presents.
+    float LastFrameTime() const { return lastFrameTime; }
     /// Return the OS-level window.
     SDL_Window* Window() const { return window; }
 
@@ -173,6 +178,10 @@ private:
     std::vector<std::pair<unsigned, void*> > pendingQueries;
     /// Free occlusion queries.
     std::vector<unsigned> freeQueries;
+    /// Frame timer.
+    HiresTimer frameTimer;
+    /// Last frame time in seconds.
+    float lastFrameTime;
 };
 
 /// Register Graphics related object factories and attributes.
