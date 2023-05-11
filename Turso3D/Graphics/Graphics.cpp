@@ -659,12 +659,21 @@ void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& res
 {
     ZoneScoped;
 
-    for (auto it = pendingQueries.begin(); it != pendingQueries.end();)
+    GLuint available = 0;
+    size_t newest = 0;
+    
+    for (size_t i = pendingQueries.size() - 1; i < pendingQueries.size(); --i)
     {
-        GLuint queryId = it->first;
-        GLuint available = 0;
-        glGetQueryObjectuiv(queryId, GL_QUERY_RESULT_AVAILABLE, &available);
+        GLuint queryId = pendingQueries[i].first;
 
+        if (!available)
+        {
+            glGetQueryObjectuiv(queryId, GL_QUERY_RESULT_AVAILABLE, &available);
+            if (available)
+                newest = i;
+        }
+
+        // If query result is available, assume all the earlier queries are available too
         if (available)
         {
             GLuint passed = 0;
@@ -672,16 +681,17 @@ void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& res
 
             OcclusionQueryResult newResult;
             newResult.id = queryId;
-            newResult.object = it->second;
+            newResult.object = pendingQueries[i].second;
             newResult.visible = passed > 0;
             result.push_back(newResult);
 
             freeQueries.push_back(queryId);
-            it = pendingQueries.erase(it);
         }
-        else
-            ++it;
     }
+
+    // Erase pending queries no longer needed in one go
+    if (available)
+        pendingQueries.erase(pendingQueries.begin(), pendingQueries.begin() + (newest + 1));
 }
 
 IntVector2 Graphics::Size() const

@@ -13,6 +13,7 @@
 #include "../Math/Random.h"
 #include "../Resource/ResourceCache.h"
 #include "../Scene/Scene.h"
+#include "../Time/Profiler.h"
 #include "AnimatedModel.h"
 #include "Animation.h"
 #include "Batch.h"
@@ -287,7 +288,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
 
     // Calculate stagger for occlusion queries based on frametime
     float fps = 1.0f / (Max(graphics->LastFrameTime(), 0.0001f));
-    occlusionStagger = Max(2, NextPowerOfTwo((int)sqrtf(fps)));
+    occlusionStagger = Max(8, NextPowerOfTwo((int)sqrtf(fps)));
 
     for (size_t i = 0; i < NUM_OCTANT_TASKS; ++i)
         octantResults[i].Clear();
@@ -886,6 +887,8 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
 
 void Renderer::CheckOcclusionQueries()
 {
+    PROFILE(ReadOcclusionQueries);
+
     static std::vector<OcclusionQueryResult> results;
     results.clear();
     graphics->CheckOcclusionQueryResults(results);
@@ -903,6 +906,8 @@ void Renderer::CheckOcclusionQueries()
 
 void Renderer::RenderOcclusionQueries()
 {
+    PROFILE(DrawOcclusionQueries);
+
     ZoneScoped;
 
     if (!boundingBoxShaderProgram)
