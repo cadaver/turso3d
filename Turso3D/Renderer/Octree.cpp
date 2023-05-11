@@ -137,7 +137,7 @@ void Octant::OnOcclusionQueryResult(bool visible)
     // Mark not pending
     queryId = 0;
 
-    // Do not change visibility if currently outside
+    // Do not change visibility if currently outside the frustum
     if (visibility == VIS_OUTSIDE_FRUSTUM)
         return;
 
@@ -152,15 +152,22 @@ void Octant::OnOcclusionQueryResult(bool visible)
         if (numChildren)
             PushVisibilityToChildren(this, VIS_OCCLUDED_UNKNOWN);
     }
-    else if (newVisibility == VIS_VISIBLE)
-    {
-        // If is visible now, push visibility to parents
-        PushVisibilityToParents(VIS_VISIBLE);
-    }
     else if (newVisibility == VIS_OCCLUDED && lastVisibility != VIS_OCCLUDED && parent && parent->visibility == VIS_VISIBLE)
     {
         // If became occluded, mark parent unknown so it will be tested next
         parent->visibility = VIS_VISIBLE_UNKNOWN;
+    }
+
+    // Whenever is visible, push visibility to parents if they are not visible yet
+    if (newVisibility == VIS_VISIBLE)
+    {
+        Octant* octant = parent;
+
+        while (octant && octant->visibility != newVisibility)
+        {
+            octant->visibility = newVisibility;
+            octant = octant->parent;
+        }
     }
 }
 

@@ -130,18 +130,6 @@ public:
         }
     }
 
-    /// Push visibility status to parent octants.
-    void PushVisibilityToParents(OctantVisibility newVisibility)
-    {
-        Octant* octant = parent;
-
-        while (octant && octant->visibility != newVisibility)
-        {
-            octant->visibility = newVisibility;
-            octant = octant->parent;
-        }
-    }
-
     /// Set visibility status manually.
     void SetVisibility(OctantVisibility newVisibility, bool pushToChildren = false)
     {
