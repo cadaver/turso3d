@@ -13,7 +13,6 @@
 #include "../Math/Random.h"
 #include "../Resource/ResourceCache.h"
 #include "../Scene/Scene.h"
-#include "../Time/Profiler.h"
 #include "AnimatedModel.h"
 #include "Animation.h"
 #include "Batch.h"
@@ -887,8 +886,6 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
 
 void Renderer::CheckOcclusionQueries()
 {
-    PROFILE(ReadOcclusionQueries);
-
     static std::vector<OcclusionQueryResult> results;
     results.clear();
     graphics->CheckOcclusionQueryResults(results);
@@ -906,8 +903,6 @@ void Renderer::CheckOcclusionQueries()
 
 void Renderer::RenderOcclusionQueries()
 {
-    PROFILE(DrawOcclusionQueries);
-
     ZoneScoped;
 
     if (!boundingBoxShaderProgram)

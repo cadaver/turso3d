@@ -659,39 +659,34 @@ void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& res
 {
     ZoneScoped;
 
-    GLuint available = 0;
-    size_t newest = 0;
-    
-    for (size_t i = pendingQueries.size() - 1; i < pendingQueries.size(); --i)
+    for (auto it = pendingQueries.begin(); it != pendingQueries.end(); ++it)
     {
-        GLuint queryId = pendingQueries[i].first;
-
+        GLuint queryId = it->first;
+        GLuint available = 0;
+        glGetQueryObjectuiv(queryId, GL_QUERY_RESULT_AVAILABLE, &available);
+        
+        // Break when first not available query encountered
         if (!available)
         {
-            glGetQueryObjectuiv(queryId, GL_QUERY_RESULT_AVAILABLE, &available);
-            if (available)
-                newest = i;
+            if (it != pendingQueries.begin())
+                pendingQueries.erase(pendingQueries.begin(), it);
+            return;
         }
 
-        // If query result is available, assume all the earlier queries are available too
-        if (available)
-        {
-            GLuint passed = 0;
-            glGetQueryObjectuiv(queryId, GL_QUERY_RESULT, &passed);
+        GLuint passed = 0;
+        glGetQueryObjectuiv(queryId, GL_QUERY_RESULT, &passed);
 
-            OcclusionQueryResult newResult;
-            newResult.id = queryId;
-            newResult.object = pendingQueries[i].second;
-            newResult.visible = passed > 0;
-            result.push_back(newResult);
+        OcclusionQueryResult newResult;
+        newResult.id = queryId;
+        newResult.object = it->second;
+        newResult.visible = passed > 0;
+        result.push_back(newResult);
 
-            freeQueries.push_back(queryId);
-        }
+        freeQueries.push_back(queryId);
     }
 
-    // Erase pending queries no longer needed in one go
-    if (available)
-        pendingQueries.erase(pendingQueries.begin(), pendingQueries.begin() + (newest + 1));
+    // If got to the end, clear all pending queries
+    pendingQueries.clear();
 }
 
 IntVector2 Graphics::Size() const
