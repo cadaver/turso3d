@@ -659,34 +659,29 @@ void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& res
 {
     ZoneScoped;
 
-    for (auto it = pendingQueries.begin(); it != pendingQueries.end(); ++it)
+    for (auto it = pendingQueries.begin(); it != pendingQueries.end();)
     {
         GLuint queryId = it->first;
         GLuint available = 0;
         glGetQueryObjectuiv(queryId, GL_QUERY_RESULT_AVAILABLE, &available);
-        
-        // Break when first not available query encountered
-        if (!available)
+
+        if (available)
         {
-            if (it != pendingQueries.begin())
-                pendingQueries.erase(pendingQueries.begin(), it);
-            return;
+            GLuint passed = 0;
+            glGetQueryObjectuiv(queryId, GL_QUERY_RESULT, &passed);
+
+            OcclusionQueryResult newResult;
+            newResult.id = queryId;
+            newResult.object = it->second;
+            newResult.visible = passed > 0;
+            result.push_back(newResult);
+
+            freeQueries.push_back(queryId);
+            it = pendingQueries.erase(it);
         }
-
-        GLuint passed = 0;
-        glGetQueryObjectuiv(queryId, GL_QUERY_RESULT, &passed);
-
-        OcclusionQueryResult newResult;
-        newResult.id = queryId;
-        newResult.object = it->second;
-        newResult.visible = passed > 0;
-        result.push_back(newResult);
-
-        freeQueries.push_back(queryId);
+        else
+            ++it;
     }
-
-    // If got to the end, clear all pending queries
-    pendingQueries.clear();
 }
 
 IntVector2 Graphics::Size() const
