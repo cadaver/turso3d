@@ -81,6 +81,8 @@ static const unsigned glBlendOp[] =
     GL_FUNC_REVERSE_SUBTRACT
 };
 
+unsigned occlusionQueryType = GL_SAMPLES_PASSED;
+
 Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize) :
     window(nullptr),
     context(nullptr),
@@ -170,6 +172,10 @@ bool Graphics::Initialize()
         LOGERROR("Could not initialize OpenGL 3.2");
         return false;
     }
+
+    // "Any samples passed" is potentially faster if supported
+    if (GLEW_VERSION_3_3)
+        occlusionQueryType = GL_ANY_SAMPLES_PASSED;
 
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -626,7 +632,7 @@ unsigned Graphics::BeginOcclusionQuery(void* object)
     else
         glGenQueries(1, &queryId);
 
-    glBeginQuery(GL_ANY_SAMPLES_PASSED, queryId);
+    glBeginQuery(occlusionQueryType, queryId);
     pendingQueries.push_back(std::make_pair(queryId, object));
 
     return queryId;
@@ -634,7 +640,7 @@ unsigned Graphics::BeginOcclusionQuery(void* object)
 
 void Graphics::EndOcclusionQuery()
 {
-    glEndQuery(GL_ANY_SAMPLES_PASSED);
+    glEndQuery(occlusionQueryType);
 }
 
 
@@ -659,11 +665,13 @@ void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& res
 {
     ZoneScoped;
 
-    for (auto it = pendingQueries.begin(); it != pendingQueries.end();)
+    GLuint available = 0;
+
+    for (size_t i = pendingQueries.size() - 1; i < pendingQueries.size(); --i)
     {
-        GLuint queryId = it->first;
-        GLuint available = 0;
-        glGetQueryObjectuiv(queryId, GL_QUERY_RESULT_AVAILABLE, &available);
+        GLuint queryId = pendingQueries[i].first;
+        if (!available)
+            glGetQueryObjectuiv(queryId, GL_QUERY_RESULT_AVAILABLE, &available);
 
         if (available)
         {
@@ -672,15 +680,13 @@ void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& res
 
             OcclusionQueryResult newResult;
             newResult.id = queryId;
-            newResult.object = it->second;
+            newResult.object = pendingQueries[i].second;
             newResult.visible = passed > 0;
             result.push_back(newResult);
 
             freeQueries.push_back(queryId);
-            it = pendingQueries.erase(it);
+            pendingQueries.erase(pendingQueries.begin() + i);
         }
-        else
-            ++it;
     }
 }
 
