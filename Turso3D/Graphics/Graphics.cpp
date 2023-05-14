@@ -667,9 +667,11 @@ void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& res
 
     GLuint available = 0;
 
+    // To save API calls, go through queries in reverse order and assume that if a later query has its result available, then all earlier queries will have too
     for (size_t i = pendingQueries.size() - 1; i < pendingQueries.size(); --i)
     {
         GLuint queryId = pendingQueries[i].first;
+
         if (!available)
             glGetQueryObjectuiv(queryId, GL_QUERY_RESULT_AVAILABLE, &available);
 
