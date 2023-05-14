@@ -344,6 +344,8 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
         if (input->KeyPressed(SDLK_f))
             graphics->SetFullscreen(!graphics->IsFullscreen());
+        if (input->KeyPressed(SDLK_v))
+            graphics->SetVSync(!graphics->VSync());
 
         // Camera movement
         IntVector2 mouseMove = input->MouseMove();

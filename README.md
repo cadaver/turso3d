@@ -21,3 +21,5 @@ Experimental 3D / game engine technology partially based on the Urho3D codebase.
 - 4 toggle scene debug draw
 - 5 toggle shadow debug draw
 - F toggle fullscreen
+- V toggle vsync
+
