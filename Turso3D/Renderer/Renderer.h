@@ -61,8 +61,6 @@ struct ThreadOctantResult
     size_t taskOctantIdx;
     /// Batch collection task index.
     size_t batchTaskIdx;
-    /// Octant index for skipping occlusion tests
-    size_t octantIdx;
     /// Intermediate octant list.
     std::vector<std::pair<Octant*, unsigned char> > octants;
     /// Intermediate light drawable list.

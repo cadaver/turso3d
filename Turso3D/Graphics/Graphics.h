@@ -141,7 +141,7 @@ public:
     bool IsFullscreen() const;
     /// Return whether is using vertical sync.
     bool VSync() const { return vsync; }
-    /// Return deltatime in seconds between two latest presents.
+    /// Return last frame interval in seconds.
     float LastFrameTime() const { return lastFrameTime; }
     /// Return the OS-level window.
     SDL_Window* Window() const { return window; }
@@ -180,7 +180,7 @@ private:
     std::vector<unsigned> freeQueries;
     /// Frame timer.
     HiresTimer frameTimer;
-    /// Last frame time in seconds.
+    /// Last frame interval in seconds.
     float lastFrameTime;
 };
 

@@ -113,7 +113,6 @@ void ThreadOctantResult::Clear()
     drawableAcc = 0;
     taskOctantIdx = 0;
     batchTaskIdx = 0;
-    octantIdx = 0;
     lights.clear();
     octants.clear();
     occlusionQueries.clear();
@@ -517,7 +516,6 @@ Texture* Renderer::ShadowMapTexture(size_t index) const
 void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, unsigned char planeMask)
 {
     const BoundingBox& octantBox = octant->CullingBox();
-    ++result.octantIdx;
 
     if (planeMask)
     {
@@ -535,9 +533,9 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
     // Process occlusion now before going further
     if (useOcclusion)
     {
-        // If was previously outside frustum, reset to visible
+        // If was previously outside frustum, reset to visible-unknown
         if (octant->Visibility() == VIS_OUTSIDE_FRUSTUM)
-            octant->SetVisibility(VIS_VISIBLE, false);
+            octant->SetVisibility(VIS_VISIBLE_UNKNOWN, false);
 
         switch (octant->Visibility())
         {
@@ -571,7 +569,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
 
             // If octant is visible, stagger queries between frames to reduce their total count
         case VIS_VISIBLE:
-            if (!octant->OcclusionQueryPending() && ((result.octantIdx ^ frameNumber) & (occlusionStagger - 1)) == 0)
+            if (!octant->OcclusionQueryPending() && ((octant->StaggerIndex() ^ frameNumber) & (occlusionStagger - 1)) == 0)
             {
                 // If the octant's parent is already visible too, only test the octant if it is a "leaf octant" with drawables
                 Octant* parent = octant->Parent();

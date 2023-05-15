@@ -2,6 +2,7 @@
 
 #include "../Graphics/Graphics.h"
 #include "../IO/Log.h"
+#include "../Math/Random.h"
 #include "../Math/Ray.h"
 #include "DebugRenderer.h"
 #include "Octree.h"
@@ -54,9 +55,10 @@ struct ReinsertDrawablesTask : public MemberFunctionTask<Octree>
 
 Octant::Octant() :
     visibility(VIS_VISIBLE),
+    staggerIndex(Rand() & 0xff),
     numChildren(0),
-    queryId(0),
-    parent(nullptr)
+    parent(nullptr),
+    queryId(0)
 {
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
         children[i] = nullptr;
@@ -80,7 +82,6 @@ void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigne
     fittingBox = BoundingBox(worldBoundingBox.min - halfSize, worldBoundingBox.max + halfSize);
 
     level = level_;
-
     childIndex = childIndex_;
     flags = OF_CULLING_BOX_DIRTY;
     parent = parent_;
@@ -141,10 +142,10 @@ void Octant::OnOcclusionQueryResult(bool visible)
     if (visibility == VIS_OUTSIDE_FRUSTUM)
         return;
 
-    OctantVisibility lastVisibility = visibility;
+    OctantVisibility lastVisibility = (OctantVisibility)visibility;
     OctantVisibility newVisibility = visible ? VIS_VISIBLE : VIS_OCCLUDED;
 
-    visibility = newVisibility;
+    visibility = (unsigned char)newVisibility;
 
     if (lastVisibility <= VIS_OCCLUDED_UNKNOWN && newVisibility == VIS_VISIBLE)
     {
@@ -165,7 +166,7 @@ void Octant::OnOcclusionQueryResult(bool visible)
 
         while (octant && octant->visibility != newVisibility)
         {
-            octant->visibility = newVisibility;
+            octant->visibility = (unsigned char)newVisibility;
             octant = octant->parent;
         }
     }
