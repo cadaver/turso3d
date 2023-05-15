@@ -267,7 +267,7 @@ private:
     bool hasInstancing;
     /// Previous frame camera position for occlusion culling bounding box elongation.
     Vector3 previousCameraPosition;
-    /// Occlusion query staggering value, always a power of two. Defined based on framerate. Lower framerates use less staggering so that occlusion result converges in less frames.
+    /// Occlusion query staggering value, always a power of two - 1. Defined based on framerate. Lower framerates use less staggering so that occlusion result converges in less frames.
     size_t occlusionStagger;
     /// Root-level octants, used as a starting point for octant and batch collection. The root octant is included if it also contains drawables.
     std::vector<Octant*> rootLevelOctants;

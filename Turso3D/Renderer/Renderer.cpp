@@ -286,7 +286,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
 
     // Calculate stagger for occlusion queries based on frametime
     float fps = 1.0f / (Max(graphics->LastFrameTime(), 0.0001f));
-    occlusionStagger = Max(8, NextPowerOfTwo((int)sqrtf(fps)));
+    occlusionStagger = Max(8, NextPowerOfTwo((int)sqrtf(fps))) - 1;
 
     for (size_t i = 0; i < NUM_OCTANT_TASKS; ++i)
         octantResults[i].Clear();
@@ -569,7 +569,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
 
             // If octant is visible, stagger queries between frames to reduce their total count
         case VIS_VISIBLE:
-            if (!octant->OcclusionQueryPending() && ((octant->StaggerIndex() ^ frameNumber) & (occlusionStagger - 1)) == 0)
+            if (!octant->OcclusionQueryPending() && ((octant->StaggerIndex() ^ frameNumber) & occlusionStagger) == 0)
             {
                 // If the octant's parent is already visible too, only test the octant if it is a "leaf octant" with drawables
                 Octant* parent = octant->Parent();
@@ -581,8 +581,8 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
     }
     else
     {
-        // When occlusion not in use, reset all traversed octants to visible
-        octant->SetVisibility(VIS_VISIBLE, false);
+        // When occlusion not in use, reset all traversed octants to visible-unknown
+        octant->SetVisibility(VIS_VISIBLE_UNKNOWN, false);
     }
 
     const std::vector<Drawable*>& drawables = octant->Drawables();
