@@ -162,17 +162,6 @@ Rect BoundingBox::Projected(const Matrix4& projection) const
     return rect;
 }
 
-std::pair<float, float> BoundingBox::Projected(const Vector3& axis) const
-{
-    Vector3 center = Center();
-    Vector3 edge = max - center;
-
-    float cProj = axis.DotProduct(center);
-    float eProj = Abs(edge.DotProduct(axis.Abs()));
-
-    return std::make_pair(cProj - eProj, cProj + eProj);
-}
-
 Intersection BoundingBox::IsInside(const Sphere& sphere) const
 {
     float distSquared = 0;

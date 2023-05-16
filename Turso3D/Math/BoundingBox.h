@@ -298,8 +298,18 @@ public:
     BoundingBox Transformed(const Matrix3x4 & transform) const;
     /// Return projected by a 4x4 projection matrix.
     Rect Projected(const Matrix4 & projection) const;
+
     /// Return projected by an axis to 1D coordinates.
-    std::pair<float, float> Projected(const Vector3& axis) const;
+    std::pair<float, float> Projected(const Vector3& axis) const
+    {
+        Vector3 center = Center();
+        Vector3 edge = max - center;
+
+        float cProj = axis.DotProduct(center);
+        float eProj = Abs(edge.DotProduct(axis.Abs()));
+
+        return std::make_pair(cProj - eProj, cProj + eProj);
+    }
     
     /// Return as string.
     std::string ToString() const;

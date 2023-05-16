@@ -213,18 +213,6 @@ std::pair<float, float> Frustum::Projected(const Vector3& axis) const
     return ret;
 }
 
-Intersection Frustum::IsInsideSAT(const BoundingBox& box, const SATData& data) const
-{
-    for (size_t i = 0; i < NUM_SAT_AXES; ++i)
-    {
-        std::pair<float, float> bProj = box.Projected(data.axes[i]);
-        if (data.fProj[i].second < bProj.first || bProj.second < data.fProj[i].first)
-            return OUTSIDE;
-    }
-
-    return INSIDE;
-}
-
 void Frustum::UpdatePlanes()
 {
     planes[PLANE_NEAR].Define(vertices[2], vertices[1], vertices[0]);

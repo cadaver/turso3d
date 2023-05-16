@@ -195,8 +195,18 @@ public:
         return INSIDE;
     }
 
-    /// Test if a bounding box is (partially) inside or outside using SAT. Is slower but more correct. The SAT helper data needs to be calculated beforehand to speed up.
-    Intersection IsInsideSAT(const BoundingBox& box, const SATData& data) const;
+    /// Test if a bounding box is (partially) inside or outside using SAT. Is slower but correct. The SAT helper data needs to be calculated beforehand to speed up.
+    Intersection IsInsideSAT(const BoundingBox& box, const SATData& data) const
+    {
+        for (size_t i = 0; i < NUM_SAT_AXES; ++i)
+        {
+            std::pair<float, float> bProj = box.Projected(data.axes[i]);
+            if (data.fProj[i].second < bProj.first || bProj.second < data.fProj[i].first)
+                return OUTSIDE;
+        }
+
+        return INSIDE;
+    }
     
     /// Return distance of a point to the frustum, or 0 if inside.
     float Distance(const Vector3& point) const
