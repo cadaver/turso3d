@@ -165,6 +165,75 @@ Rect Frustum::Projected(const Matrix4& projection) const
     return rect;
 }
 
+void Frustum::Projected(const Vector3& axis, float& aMin, float& aMax) const
+{
+    aMin = aMax = axis.DotProduct(vertices[0]);
+
+    for (size_t i = 1; i < NUM_FRUSTUM_VERTICES; ++i)
+    {
+        float d = axis.DotProduct(vertices[i]);
+        aMin = Min(d, aMin);
+        aMax = Max(d, aMax);
+    }
+}
+
+Intersection Frustum::IsInsideSAT(const BoundingBox& box) const
+{
+    static const Vector3 boxNormals[3] = { 
+        Vector3::RIGHT, 
+        Vector3::UP, 
+        Vector3::FORWARD 
+    };
+
+    // Project to box planes
+    for (size_t i = 0; i < 3; ++i)
+    {
+        float fMin, fMax, bMin, bMax;
+
+        Projected(boxNormals[i], fMin, fMax);
+        box.Projected(boxNormals[i], bMin, bMax);
+        if (fMax < bMin || bMax < fMin)
+            return OUTSIDE;
+    }
+
+    // Project to frustum planes
+    for (size_t i = 1; i < NUM_FRUSTUM_PLANES; ++i)
+    {
+        float fMin, fMax, bMin, bMax;
+
+        Projected(planes[i].normal, fMin, fMax);
+        box.Projected(planes[i].normal, bMin, bMax);
+        if (fMax < bMin || bMax < fMin)
+            return OUTSIDE;
+    }
+
+    // Finally project to cross products of edges
+    Vector3 frustumEdges[6] = {
+        vertices[0] - vertices[2],
+        vertices[0] - vertices[1],
+        vertices[4] - vertices[0],
+        vertices[5] - vertices[1],
+        vertices[6] - vertices[2],
+        vertices[7] - vertices[3]
+    };
+
+    for (size_t i = 0; i < 3; ++i)
+    {
+        for (size_t j = 0; j < 6; ++j)
+        {
+            float fMin, fMax, bMin, bMax;
+            Vector3 normal = boxNormals[i].CrossProduct(frustumEdges[j]);
+
+            Projected(normal, fMin, fMax);
+            box.Projected(normal, bMin, bMax);
+            if (fMax < bMin || bMax < fMin)
+                return OUTSIDE;
+        }
+    }
+
+    return INSIDE;
+}
+
 void Frustum::UpdatePlanes()
 {
     planes[PLANE_NEAR].Define(vertices[2], vertices[1], vertices[0]);

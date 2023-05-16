@@ -181,6 +181,9 @@ public:
         
         return INSIDE;
     }
+
+    /// Test if a bounding box is (partially) inside or outside using SAT. Is slower but more correct.
+    Intersection IsInsideSAT(const BoundingBox& box) const;
     
     /// Return distance of a point to the frustum, or 0 if inside.
     float Distance(const Vector3& point) const
@@ -198,6 +201,8 @@ public:
     Frustum Transformed(const Matrix3x4& transform) const;
     /// Return projected by a 4x4 projection matrix.
     Rect Projected(const Matrix4& transform) const;
+    /// Return projected by an axis to 1D coordinates.
+    void Projected(const Vector3& axis, float& aMin, float& aMax) const;
     
     /// Update the planes. Called internally.
     void UpdatePlanes();

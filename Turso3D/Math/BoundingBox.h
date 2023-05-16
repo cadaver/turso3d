@@ -279,7 +279,7 @@ public:
     Intersection IsInside(const Sphere& sphere) const;
     /// Test if a sphere is (partially) inside or outside.
     Intersection IsInsideFast(const Sphere& sphere) const;
-    
+
     /// Return closest distance of a point to the faces of the box, or 0 if inside.
     float Distance(const Vector3 & point) const
     {
@@ -298,6 +298,8 @@ public:
     BoundingBox Transformed(const Matrix3x4 & transform) const;
     /// Return projected by a 4x4 projection matrix.
     Rect Projected(const Matrix4 & projection) const;
+    /// Return projected by an axis to 1D coordinates.
+    void Projected(const Vector3& axis, float& aMin, float& aMax) const;
     
     /// Return as string.
     std::string ToString() const;

@@ -930,7 +930,8 @@ void Renderer::RenderOcclusionQueries()
             BoundingBox box(octantBox.min - enlargement, octantBox.max + enlargement);
 
             // If bounding box could be clipped by near plane, assume visible without performing query
-            if (box.Distance(cameraPosition) < 2.0f * nearClip)
+            // Also since the frustum-AABB check is fast instead of 100% correct, do a more accurate SAT test to avoid a false negative due to no pixels being rasterized
+            if (box.Distance(cameraPosition) < 2.0f * nearClip || (frustum.IsInside(box) == INTERSECTS && !frustum.IsInsideSAT(box)))
             {
                 octant->OnOcclusionQueryResult(true);
                 continue;

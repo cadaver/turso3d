@@ -162,6 +162,18 @@ Rect BoundingBox::Projected(const Matrix4& projection) const
     return rect;
 }
 
+void BoundingBox::Projected(const Vector3& axis, float& aMin, float& aMax) const
+{
+    Vector3 center = Center();
+    Vector3 edge = max - center;
+
+    float c = axis.DotProduct(center);
+    float e = Abs(edge.DotProduct(axis.Abs()));
+
+    aMin = c - e;
+    aMax = c + e;
+}
+
 Intersection BoundingBox::IsInside(const Sphere& sphere) const
 {
     float distSquared = 0;
@@ -252,6 +264,7 @@ Intersection BoundingBox::IsInsideFast(const Sphere& sphere) const
     else
         return INSIDE;
 }
+
 
 std::string BoundingBox::ToString() const
 {
