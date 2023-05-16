@@ -20,6 +20,19 @@ enum FrustumPlane
 
 static const size_t NUM_FRUSTUM_PLANES = 6;
 static const size_t NUM_FRUSTUM_VERTICES = 8;
+static const size_t NUM_SAT_AXES = 3 + 5 + 3 * 6;
+
+/// Helper data for speeding up SAT tests of bounding boxes against a frustum. This needs to be calculated once for a given frustum.
+struct SATData
+{
+    /// Calculate from a frustum.
+    void Calculate(const Frustum& frustum);
+
+    /// Bounding box normal axes, frustum normal axes and edge cross product axes.
+    Vector3 axes[NUM_SAT_AXES];
+    /// 1D coordinates of the frustum projected to each axis.
+    std::pair<float, float> fProj[NUM_SAT_AXES];
+};
 
 /// Convex constructed of 6 planes.
 class Frustum
@@ -182,8 +195,8 @@ public:
         return INSIDE;
     }
 
-    /// Test if a bounding box is (partially) inside or outside using SAT. Is slower but more correct.
-    Intersection IsInsideSAT(const BoundingBox& box) const;
+    /// Test if a bounding box is (partially) inside or outside using SAT. Is slower but more correct. The SAT helper data needs to be calculated beforehand to speed up.
+    Intersection IsInsideSAT(const BoundingBox& box, const SATData& data) const;
     
     /// Return distance of a point to the frustum, or 0 if inside.
     float Distance(const Vector3& point) const
@@ -202,7 +215,7 @@ public:
     /// Return projected by a 4x4 projection matrix.
     Rect Projected(const Matrix4& transform) const;
     /// Return projected by an axis to 1D coordinates.
-    void Projected(const Vector3& axis, float& aMin, float& aMax) const;
+    std::pair<float, float> Projected(const Vector3& axis) const;
     
     /// Update the planes. Called internally.
     void UpdatePlanes();

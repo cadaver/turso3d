@@ -299,7 +299,7 @@ public:
     /// Return projected by a 4x4 projection matrix.
     Rect Projected(const Matrix4 & projection) const;
     /// Return projected by an axis to 1D coordinates.
-    void Projected(const Vector3& axis, float& aMin, float& aMax) const;
+    std::pair<float, float> Projected(const Vector3& axis) const;
     
     /// Return as string.
     std::string ToString() const;

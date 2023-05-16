@@ -911,6 +911,8 @@ void Renderer::RenderOcclusionQueries()
     boundingBoxIndexBuffer->Bind();
 
     float nearClip = camera->NearClip();
+    SATData frustumSATData;
+    frustumSATData.Calculate(frustum);
 
     // Use camera's motion since last frame to enlarge the bounding boxes. Use multiplied movement speed to account for latency in query results
     Vector3 cameraPosition = camera->WorldPosition();
@@ -931,7 +933,7 @@ void Renderer::RenderOcclusionQueries()
 
             // If bounding box could be clipped by near plane, assume visible without performing query
             // Also since the frustum-AABB check is fast instead of 100% correct, do a more accurate SAT test to avoid a false negative due to no pixels being rasterized
-            if (box.Distance(cameraPosition) < 2.0f * nearClip || (frustum.IsInside(box) == INTERSECTS && !frustum.IsInsideSAT(box)))
+            if (box.Distance(cameraPosition) < 2.0f * nearClip || (frustum.IsInside(octantBox) == INTERSECTS && !frustum.IsInsideSAT(octantBox, frustumSATData)))
             {
                 octant->OnOcclusionQueryResult(true);
                 continue;

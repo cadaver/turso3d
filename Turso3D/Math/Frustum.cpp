@@ -30,6 +30,39 @@ void ProjectAndMergeEdge(Vector3 v0, Vector3 v1, Rect& rect, const Matrix4& proj
     rect.Merge(Vector2(tV1.x, tV1.y));
 }
 
+void SATData::Calculate(const Frustum& frustum)
+{
+    // Add box normals (constant)
+    size_t idx = 0;
+    axes[idx++] = Vector3::RIGHT;
+    axes[idx++] = Vector3::UP;
+    axes[idx++] = Vector3::FORWARD;
+
+    // Add frustum normals. Disregard the near plane as it only points the other way from the far plane
+    for (size_t i = 1; i < NUM_FRUSTUM_PLANES; ++i)
+        axes[idx++] = frustum.planes[i].normal;
+
+    // Finally add cross product axes
+    Vector3 frustumEdges[6] = {
+        frustum.vertices[0] - frustum.vertices[2],
+        frustum.vertices[0] - frustum.vertices[1],
+        frustum.vertices[4] - frustum.vertices[0],
+        frustum.vertices[5] - frustum.vertices[1],
+        frustum.vertices[6] - frustum.vertices[2],
+        frustum.vertices[7] - frustum.vertices[3]
+    };
+
+    for (size_t i = 0; i < 3; ++i)
+    {
+        for (size_t j = 0; j < 6; ++j)
+            axes[idx++] = axes[i].CrossProduct(frustumEdges[j]);
+    }
+
+    // Now precalculate the projections of the frustum on each axis
+    for (size_t i = 0; i < NUM_SAT_AXES; ++i)
+        fProj[i] = frustum.Projected(axes[i]);
+}
+
 Frustum::Frustum()
 {
     for (size_t i = 0; i < NUM_FRUSTUM_VERTICES; ++i)
@@ -165,70 +198,28 @@ Rect Frustum::Projected(const Matrix4& projection) const
     return rect;
 }
 
-void Frustum::Projected(const Vector3& axis, float& aMin, float& aMax) const
+std::pair<float, float> Frustum::Projected(const Vector3& axis) const
 {
-    aMin = aMax = axis.DotProduct(vertices[0]);
+    std::pair<float, float> ret;
+    ret.first = ret.second = axis.DotProduct(vertices[0]);
 
     for (size_t i = 1; i < NUM_FRUSTUM_VERTICES; ++i)
     {
-        float d = axis.DotProduct(vertices[i]);
-        aMin = Min(d, aMin);
-        aMax = Max(d, aMax);
+        float proj = axis.DotProduct(vertices[i]);
+        ret.first = Min(proj, ret.first);
+        ret.second = Max(proj, ret.second);
     }
+
+    return ret;
 }
 
-Intersection Frustum::IsInsideSAT(const BoundingBox& box) const
+Intersection Frustum::IsInsideSAT(const BoundingBox& box, const SATData& data) const
 {
-    static const Vector3 boxNormals[3] = { 
-        Vector3::RIGHT, 
-        Vector3::UP, 
-        Vector3::FORWARD 
-    };
-
-    // Project to box planes
-    for (size_t i = 0; i < 3; ++i)
+    for (size_t i = 0; i < NUM_SAT_AXES; ++i)
     {
-        float fMin, fMax, bMin, bMax;
-
-        Projected(boxNormals[i], fMin, fMax);
-        box.Projected(boxNormals[i], bMin, bMax);
-        if (fMax < bMin || bMax < fMin)
+        std::pair<float, float> bProj = box.Projected(data.axes[i]);
+        if (data.fProj[i].second < bProj.first || bProj.second < data.fProj[i].first)
             return OUTSIDE;
-    }
-
-    // Project to frustum planes
-    for (size_t i = 1; i < NUM_FRUSTUM_PLANES; ++i)
-    {
-        float fMin, fMax, bMin, bMax;
-
-        Projected(planes[i].normal, fMin, fMax);
-        box.Projected(planes[i].normal, bMin, bMax);
-        if (fMax < bMin || bMax < fMin)
-            return OUTSIDE;
-    }
-
-    // Finally project to cross products of edges
-    Vector3 frustumEdges[6] = {
-        vertices[0] - vertices[2],
-        vertices[0] - vertices[1],
-        vertices[4] - vertices[0],
-        vertices[5] - vertices[1],
-        vertices[6] - vertices[2],
-        vertices[7] - vertices[3]
-    };
-
-    for (size_t i = 0; i < 3; ++i)
-    {
-        for (size_t j = 0; j < 6; ++j)
-        {
-            float fMin, fMax, bMin, bMax;
-            Vector3 normal = boxNormals[i].CrossProduct(frustumEdges[j]);
-
-            Projected(normal, fMin, fMax);
-            box.Projected(normal, bMin, bMax);
-            if (fMax < bMin || bMax < fMin)
-                return OUTSIDE;
-        }
     }
 
     return INSIDE;
