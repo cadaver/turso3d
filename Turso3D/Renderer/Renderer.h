@@ -289,7 +289,7 @@ private:
     /// Counters for shadow views remaining per shadowmap. When zero, the shadow batches can be sorted.
     std::atomic<int> numPendingShadowViews[2];
     /// Per-octree branch octant collection results.
-    ThreadOctantResult octantResults[NUM_OCTANT_TASKS];
+    AutoArrayPtr<ThreadOctantResult> octantResults;
     /// Per-worker thread batch collection results.
     std::vector<ThreadBatchResult> batchResults;
     /// Minimum Z value for all geometries in frustum.

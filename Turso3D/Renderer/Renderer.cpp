@@ -189,6 +189,7 @@ Renderer::Renderer() :
     lightDataBuffer = new UniformBuffer();
     lightDataBuffer->Define(USAGE_DYNAMIC, MAX_LIGHTS * sizeof(LightData));
 
+    octantResults = new ThreadOctantResult[NUM_OCTANT_TASKS];
     batchResults.resize(workQueue->NumThreads());
 
     for (size_t i = 0; i < NUM_OCTANTS + 1; ++i)
