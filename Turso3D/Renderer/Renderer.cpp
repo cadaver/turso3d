@@ -179,8 +179,7 @@ Renderer::Renderer() :
     clusterTexture->Define(TEX_3D, IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RGBA32U, 1);
     clusterTexture->DefineSampler(FILTER_POINT, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
 
-    clusterFrustums = new Frustum[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
-    clusterBoundingBoxes = new BoundingBox[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
+    clusterCullData = new ClusterCullData[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
     clusterData = new unsigned char[MAX_LIGHTS_CLUSTER * NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
     lightData = new LightData[MAX_LIGHTS + 1];
 
@@ -297,6 +296,10 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
 
     // Process moved / animated objects' octree reinsertions
     octree->Update(frameNumber);
+
+    // Precalculate SAT test parameters for accurate frustum test (verify what octants to occlusion query)
+    if (useOcclusion)
+        frustumSATData.Calculate(frustum);
 
     // Check arrived occlusion query results while octree update goes on, then finish octree update
     CheckOcclusionQueries();
@@ -541,15 +544,12 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         {
             // If octant is occluded, issue query if not pending, and do not process further this frame
         case VIS_OCCLUDED:
-            if (!octant->OcclusionQueryPending())
-                result.occlusionQueries.push_back(octant);
+            AddOcclusionQuery(octant, result, planeMask);
             return;
 
             // If octant was occluded previously, but its parent came into view, issue tests along the hierarchy but do not render on this frame
         case VIS_OCCLUDED_UNKNOWN:
-            if (!octant->OcclusionQueryPending())
-                result.occlusionQueries.push_back(octant);
-
+            AddOcclusionQuery(octant, result, planeMask);
             if (octant != octree->Root() && octant->HasChildren())
             {
                 for (size_t i = 0; i < NUM_OCTANTS; ++i)
@@ -558,13 +558,11 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
                         CollectOctantsAndLights(octant->Child(i), result, planeMask);
                 }
             }
-
             return;
 
             // If octant has unknown visibility, issue query if not pending, but collect child octants and drawables
         case VIS_VISIBLE_UNKNOWN:
-            if (!octant->OcclusionQueryPending())
-                result.occlusionQueries.push_back(octant);
+            AddOcclusionQuery(octant, result, planeMask);
             break;
 
             // If octant is visible, stagger queries between frames to reduce their total count
@@ -574,7 +572,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
                 // If the octant's parent is already visible too, only test the octant if it is a "leaf octant" with drawables
                 Octant* parent = octant->Parent();
                 if (octant->Drawables().size() > 0 || (parent && parent->Visibility() != VIS_VISIBLE))
-                    result.occlusionQueries.push_back(octant);
+                    AddOcclusionQuery(octant, result, planeMask);
             }
             break;
         }
@@ -633,6 +631,14 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
                 CollectOctantsAndLights(octant->Child(i), result, planeMask);
         }
     }
+}
+
+void Renderer::AddOcclusionQuery(Octant* octant, ThreadOctantResult& result, unsigned char planeMask)
+{
+    // No-op if previous query still ongoing. Also If the octant intersects the frustum, verify with SAT test that it actually covers some screen area
+    // Otherwise the occlusion test will produce a false negative
+    if (!octant->OcclusionQueryPending() && (!planeMask || frustum.IsInsideSAT(octant->CullingBox(), frustumSATData)))
+        result.occlusionQueries.push_back(octant);
 }
 
 bool Renderer::AllocateShadowMap(LightDrawable* light)
@@ -907,18 +913,15 @@ void Renderer::RenderOcclusionQueries()
         return;
 
     Matrix3x4 boxMatrix(Matrix3x4::IDENTITY);
-    boundingBoxVertexBuffer->Bind(MASK_POSITION);
-    boundingBoxIndexBuffer->Bind();
-
     float nearClip = camera->NearClip();
-    SATData frustumSATData;
-    frustumSATData.Calculate(frustum);
 
     // Use camera's motion since last frame to enlarge the bounding boxes. Use multiplied movement speed to account for latency in query results
     Vector3 cameraPosition = camera->WorldPosition();
     Vector3 cameraMove = cameraPosition - previousCameraPosition;
     Vector3 enlargement = (OCCLUSION_MARGIN + 4.0f * cameraMove.Length()) * Vector3::ONE;
 
+    boundingBoxVertexBuffer->Bind(MASK_POSITION);
+    boundingBoxIndexBuffer->Bind();
     boundingBoxShaderProgram->Bind();
     graphics->SetRenderState(BLEND_REPLACE, CULL_BACK, CMP_LESS_EQUAL, false, false);
 
@@ -932,8 +935,7 @@ void Renderer::RenderOcclusionQueries()
             BoundingBox box(octantBox.min - enlargement, octantBox.max + enlargement);
 
             // If bounding box could be clipped by near plane, assume visible without performing query
-            // Also since the frustum-AABB check is fast instead of 100% correct, do a more accurate SAT test to avoid a false negative due to no pixels being rasterized
-            if (box.Distance(cameraPosition) < 2.0f * nearClip || (frustum.IsInside(octantBox) == INTERSECTS && !frustum.IsInsideSAT(octantBox, frustumSATData)))
+            if (box.Distance(cameraPosition) < 2.0f * nearClip)
             {
                 octant->OnOcclusionQueryResult(true);
                 continue;
@@ -1076,16 +1078,19 @@ void Renderer::DefineClusterFrustums()
             {
                 for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
                 {
-                    clusterFrustums[idx].vertices[0] = cameraProjInverse * Vector3(-1.0f + xStep * (x + 1), 1.0f - yStep * y, near);
-                    clusterFrustums[idx].vertices[1] = cameraProjInverse * Vector3(-1.0f + xStep * (x + 1), 1.0f - yStep * (y + 1), near);
-                    clusterFrustums[idx].vertices[2] = cameraProjInverse * Vector3(-1.0f + xStep * x, 1.0f - yStep * (y + 1), near);
-                    clusterFrustums[idx].vertices[3] = cameraProjInverse * Vector3(-1.0f + xStep * x, 1.0f - yStep * y, near);
-                    clusterFrustums[idx].vertices[4] = cameraProjInverse * Vector3(-1.0f + xStep * (x + 1), 1.0f - yStep * y, far);
-                    clusterFrustums[idx].vertices[5] = cameraProjInverse * Vector3(-1.0f + xStep * (x + 1), 1.0f - yStep * (y + 1), far);
-                    clusterFrustums[idx].vertices[6] = cameraProjInverse * Vector3(-1.0f + xStep * x, 1.0f - yStep * (y + 1), far);
-                    clusterFrustums[idx].vertices[7] = cameraProjInverse * Vector3(-1.0f + xStep * x, 1.0f - yStep * y, far);
-                    clusterFrustums[idx].UpdatePlanes();
-                    clusterBoundingBoxes[idx].Define(clusterFrustums[idx]);
+                    Frustum& clusterFrustum = clusterCullData[idx].frustum;
+                    BoundingBox& clusterBox = clusterCullData[idx].boundingBox;
+
+                    clusterFrustum.vertices[0] = cameraProjInverse * Vector3(-1.0f + xStep * (x + 1), 1.0f - yStep * y, near);
+                    clusterFrustum.vertices[1] = cameraProjInverse * Vector3(-1.0f + xStep * (x + 1), 1.0f - yStep * (y + 1), near);
+                    clusterFrustum.vertices[2] = cameraProjInverse * Vector3(-1.0f + xStep * x, 1.0f - yStep * (y + 1), near);
+                    clusterFrustum.vertices[3] = cameraProjInverse * Vector3(-1.0f + xStep * x, 1.0f - yStep * y, near);
+                    clusterFrustum.vertices[4] = cameraProjInverse * Vector3(-1.0f + xStep * (x + 1), 1.0f - yStep * y, far);
+                    clusterFrustum.vertices[5] = cameraProjInverse * Vector3(-1.0f + xStep * (x + 1), 1.0f - yStep * (y + 1), far);
+                    clusterFrustum.vertices[6] = cameraProjInverse * Vector3(-1.0f + xStep * x, 1.0f - yStep * (y + 1), far);
+                    clusterFrustum.vertices[7] = cameraProjInverse * Vector3(-1.0f + xStep * x, 1.0f - yStep * y, far);
+                    clusterFrustum.UpdatePlanes();
+                    clusterBox.Define(clusterFrustum);
                     ++idx;
                 }
             }
@@ -1463,12 +1468,12 @@ void Renderer::ProcessShadowCastersWork(Task*, unsigned)
 
     // Clear per-cluster light data from previous frame, update cluster frustums and bounding boxes if camera changed, then queue light culling tasks for the needed scene range
     DefineClusterFrustums();
-    memset(numClusterLights, 0, sizeof numClusterLights);
     memset(clusterData, 0, MAX_LIGHTS_CLUSTER * NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z);
     for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
     {
         size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
-        if (minZ > clusterFrustums[idx].vertices[4].z || maxZ < clusterFrustums[idx].vertices[0].z)
+        const Frustum& clusterFrustum = clusterCullData[idx].frustum;
+        if (minZ > clusterFrustum.vertices[4].z || maxZ < clusterFrustum.vertices[0].z)
             continue;
         workQueue->QueueTask(cullLightsTasks[z]);
     }
@@ -1710,6 +1715,16 @@ void Renderer::CullLightsToFrustumWork(Task* task, unsigned)
     size_t z = static_cast<CullLightsTask*>(task)->z;
     const Matrix3x4& cameraView = camera->ViewMatrix();
 
+    // Clear old light data first
+    size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
+    ClusterCullData* cullData = &clusterCullData[idx];
+    for (size_t i = 0; i < NUM_CLUSTER_X * NUM_CLUSTER_Y; ++i)
+    {
+        cullData->numLights = 0;
+        ++cullData;
+    }
+
+    // Go through lights and add to each affected cluster. Do culling checks both ways to reduce false positives
     for (size_t i = 0; i < lights.size(); ++i)
     {
         LightDrawable* light = lights[i];
@@ -1721,18 +1736,23 @@ void Renderer::CullLightsToFrustumWork(Task* task, unsigned)
             float minViewZ = bounds.center.z - light->Range();
             float maxViewZ = bounds.center.z + light->Range();
 
-            size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
-            if (minViewZ > clusterFrustums[idx].vertices[4].z || maxViewZ < clusterFrustums[idx].vertices[0].z || numClusterLights[idx] >= MAX_LIGHTS_CLUSTER)
+            idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
+            cullData = &clusterCullData[idx];
+            if (minViewZ > cullData->frustum.vertices[4].z || maxViewZ < cullData->frustum.vertices[0].z)
                 continue;
 
             for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
             {
                 for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
                 {
-                    if (bounds.IsInsideFast(clusterBoundingBoxes[idx]) && clusterFrustums[idx].IsInsideFast(bounds))
-                        clusterData[(idx << 4) + numClusterLights[idx]++] = (unsigned char)(i + 1);
+                    if (cullData->numLights < MAX_LIGHTS_CLUSTER)
+                    {
+                        if (bounds.IsInsideFast(cullData->boundingBox) && cullData->frustum.IsInsideFast(bounds))
+                            clusterData[(idx << 4) + cullData->numLights++] = (unsigned char)(i + 1);
+                    }
 
                     ++idx;
+                    ++cullData;
                 }
             }
         }
@@ -1743,18 +1763,23 @@ void Renderer::CullLightsToFrustumWork(Task* task, unsigned)
             float minViewZ = boundsBox.min.z;
             float maxViewZ = boundsBox.max.z;
 
-            size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
-            if (minViewZ > clusterFrustums[idx].vertices[4].z || maxViewZ < clusterFrustums[idx].vertices[0].z || numClusterLights[idx] >= MAX_LIGHTS_CLUSTER)
+            idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
+            cullData = &clusterCullData[idx];
+            if (minViewZ > cullData->frustum.vertices[4].z || maxViewZ < cullData->frustum.vertices[0].z)
                 continue;
 
             for (size_t y = 0; y < NUM_CLUSTER_Y; ++y)
             {
                 for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
                 {
-                    if (bounds.IsInsideFast(clusterBoundingBoxes[idx]) && clusterFrustums[idx].IsInsideFast(boundsBox))
-                        clusterData[(idx << 4) + numClusterLights[idx]++] = (unsigned char)(i + 1);
+                    if (cullData->numLights < MAX_LIGHTS_CLUSTER)
+                    {
+                        if (bounds.IsInsideFast(cullData->boundingBox) && cullData->frustum.IsInsideFast(boundsBox))
+                            clusterData[(idx << 4) + cullData->numLights++] = (unsigned char)(i + 1);
+                    }
 
                     ++idx;
+                    ++cullData;
                 }
             }
         }

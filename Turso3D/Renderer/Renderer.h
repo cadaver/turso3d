@@ -168,6 +168,17 @@ struct LightData
     Matrix4 shadowMatrix;
 };
 
+/// Per-cluster data for culling lights.
+struct ClusterCullData
+{
+    /// Cluster frustum.
+    Frustum frustum;
+    /// Cluster bounding box.
+    BoundingBox boundingBox;
+    /// Number of lights already in cluster.
+    unsigned char numLights;
+};
+
 /// High-level rendering subsystem. Performs rendering of 3D scenes.
 class Renderer : public Object
 {
@@ -200,6 +211,8 @@ public:
 private:
     /// Collect octants and lights from the octree recursively. Queue batch collection tasks while ongoing.
     void CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, unsigned char planeMask = 0x3f);
+    /// Add an occlusion query for the octant if applicable.
+    void AddOcclusionQuery(Octant* octant, ThreadOctantResult& result, unsigned char planeMask);
     /// Allocate shadow map for a light. Return true on success.
     bool AllocateShadowMap(LightDrawable* light);
     /// Sort main opaque and alpha batch queues.
@@ -289,8 +302,6 @@ private:
     LightDrawable* dirLight;
     /// Accepted point and spot lights in frustum.
     std::vector<LightDrawable*> lights;
-    /// Counter to stagger occlusion queries for previously visible octants.
-    size_t octantIndex;
     /// Shadow maps.
     std::vector<ShadowMap> shadowMaps;
     /// Opaque batches.
@@ -309,6 +320,18 @@ private:
     float depthBiasMul;
     /// Slope-scaled depth bias multiplier.
     float slopeScaleBiasMul;
+    /// Last projection matrix used to initialize cluster frustums.
+    Matrix4 lastClusterFrustumProj;
+    /// Cluster frustums, bounding boxes and number of found lights.
+    AutoArrayPtr<ClusterCullData> clusterCullData;
+    /// Cluster uniform buffer data CPU copy.
+    AutoArrayPtr<unsigned char> clusterData;
+    /// Light uniform buffer data CPU copy.
+    AutoArrayPtr<LightData> lightData;
+    /// Per-view uniform buffer data CPU copy.
+    PerViewUniforms perViewData;
+    /// Frustum SAT test data for verifying whether to add an occlusion query.
+    SATData frustumSATData;
     /// Tasks for octant collection.
     AutoPtr<CollectOctantsTask> collectOctantsTasks[NUM_OCTANT_TASKS];
     /// %Task for light processing.
@@ -345,20 +368,6 @@ private:
     AutoPtr<FrameBuffer> staticObjectShadowFbo;
     /// Vertex elements for the instancing buffer.
     std::vector<VertexElement> instanceVertexElements;
-    /// Last projection matrix used to initialize cluster frustums.
-    Matrix4 lastClusterFrustumProj;
-    /// Amount of lights per cluster.
-    unsigned char numClusterLights[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
-    /// Cluster frustums for lights.
-    AutoArrayPtr<Frustum> clusterFrustums;
-    /// Cluster bounding boxes.
-    AutoArrayPtr<BoundingBox> clusterBoundingBoxes;
-    /// Cluster data CPU copy.
-    AutoArrayPtr<unsigned char> clusterData;
-    /// Light constantbuffer data CPU copy.
-    AutoArrayPtr<LightData> lightData;
-    /// Per-view uniform data CPU copy.
-    PerViewUniforms perViewData;
 };
 
 /// Register Renderer related object factories and attributes.
