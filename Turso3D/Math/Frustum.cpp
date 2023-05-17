@@ -30,6 +30,8 @@ void ProjectAndMergeEdge(Vector3 v0, Vector3 v1, Rect& rect, const Matrix4& proj
     rect.Merge(Vector2(tV1.x, tV1.y));
 }
 
+// SAT test code inspired by https://github.com/juj/MathGeoLib/
+
 void SATData::Calculate(const Frustum& frustum)
 {
     // Add box normals (constant)

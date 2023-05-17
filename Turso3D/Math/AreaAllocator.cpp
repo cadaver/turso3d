@@ -4,6 +4,8 @@
 
 #include <vector>
 
+// AreaAllocator code inspired by https://github.com/juj/RectangleBinPack
+
 AreaAllocator::AreaAllocator()
 {
     Reset(0, 0);
