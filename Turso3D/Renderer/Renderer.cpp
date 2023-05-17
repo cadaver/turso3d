@@ -569,7 +569,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
 
             // If octant is visible, stagger queries between frames to reduce their total count
         case VIS_VISIBLE:
-            if (!octant->OcclusionQueryPending() && ((octant->StaggerIndex() ^ frameNumber) & occlusionStagger) == 0)
+            if (!octant->OcclusionQueryPending() && ((octant->OcclusionStaggerIndex() ^ frameNumber) & occlusionStagger) == 0)
             {
                 // If the octant's parent is already visible too, only test the octant if it is a "leaf octant" with drawables
                 Octant* parent = octant->Parent();

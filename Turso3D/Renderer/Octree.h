@@ -72,9 +72,9 @@ public:
     /// Return last occlusion visibility status.
     OctantVisibility Visibility() const { return (OctantVisibility)visibility; }
     /// Return whether is pending an occlusion query result.
-    bool OcclusionQueryPending() const { return queryId != 0; }
+    bool OcclusionQueryPending() const { return occlusionQueryId != 0; }
     /// Return occlusion query stagger index.
-    unsigned char StaggerIndex() const { return staggerIndex; }
+    unsigned char OcclusionStaggerIndex() const { return occlusionStaggerIndex; }
 
     /// Test if a drawable should be inserted in this octant or if a smaller child octant should be created.
     bool FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) const
@@ -108,11 +108,6 @@ public:
         }
     }
 
-    /// Set bit flag. Called internally.
-    void SetFlag(unsigned char bit, bool set) const { if (set) flags |= bit; else flags &= ~bit; }
-    /// Test bit flag. Called internally.
-    bool TestFlag(unsigned char bit) const { return (flags & bit) != 0; }
-
     /// React to occlusion query begin.
     void OnOcclusionQuery(unsigned queryId);
     /// React to occlusion query result. Push changed visibility to parents or children as necessary. If outside frustum, no operation.
@@ -141,6 +136,11 @@ public:
             PushVisibilityToChildren(this, newVisibility);
     }
 
+    /// Set bit flag. Called internally.
+    void SetFlag(unsigned char bit, bool set) const { if (set) flags |= bit; else flags &= ~bit; }
+    /// Test bit flag. Called internally.
+    bool TestFlag(unsigned char bit) const { return (flags & bit) != 0; }
+
 private:
     /// Combined drawable and child octant bounding box. Used for culling tests.
     mutable BoundingBox cullingBox;
@@ -152,24 +152,24 @@ private:
     Vector3 center;
     /// Bounding box half size.
     Vector3 halfSize;
-    /// Last occlusion query visibility.
-    unsigned char visibility;
-    /// Occlusion query random stagger index.
-    unsigned char staggerIndex;
-    /// Subdivision level, decreasing for child octants.
-    unsigned char level;
-    /// Number of child octants.
-    unsigned char numChildren;
-    /// The child index of this octant.
-    unsigned char childIndex;
-    /// Dirty flags.
-    mutable unsigned char flags;
     /// Child octants.
     Octant* children[NUM_OCTANTS];
     /// Parent octant.
     Octant* parent;
+    /// Last occlusion query visibility.
+    unsigned char visibility;
     /// Occlusion query id, or 0 if no query pending.
-    unsigned queryId;
+    unsigned occlusionQueryId;
+    /// Occlusion query random stagger index.
+    unsigned char occlusionStaggerIndex;
+    /// Number of child octants.
+    unsigned char numChildren;
+    /// Subdivision level, decreasing for child octants.
+    unsigned char level;
+    /// The child index of this octant.
+    unsigned char childIndex;
+    /// Dirty flags.
+    mutable unsigned char flags;
 };
 
 /// Acceleration structure for rendering. Should be created as a child of the scene root.

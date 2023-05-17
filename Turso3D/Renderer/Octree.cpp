@@ -54,11 +54,11 @@ struct ReinsertDrawablesTask : public MemberFunctionTask<Octree>
 };
 
 Octant::Octant() :
-    visibility(VIS_VISIBLE_UNKNOWN),
-    staggerIndex(Rand() & 0xff),
-    numChildren(0),
     parent(nullptr),
-    queryId(0)
+    visibility(VIS_VISIBLE_UNKNOWN),
+    occlusionQueryId(0),
+    occlusionStaggerIndex(Rand() & 0xff),
+    numChildren(0)
 {
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
         children[i] = nullptr;
@@ -66,11 +66,11 @@ Octant::Octant() :
 
 Octant::~Octant()
 {
-    if (queryId)
+    if (occlusionQueryId)
     {
         Graphics* graphics = Object::Subsystem<Graphics>();
         if (graphics)
-            graphics->FreeOcclusionQuery(queryId);
+            graphics->FreeOcclusionQuery(occlusionQueryId);
     }
 }
 
@@ -81,10 +81,10 @@ void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigne
     halfSize = worldBoundingBox.HalfSize();
     fittingBox = BoundingBox(worldBoundingBox.min - halfSize, worldBoundingBox.max + halfSize);
 
+    parent = parent_;
     level = level_;
     childIndex = childIndex_;
     flags = OF_CULLING_BOX_DIRTY;
-    parent = parent_;
 }
 
 void Octant::OnRenderDebug(DebugRenderer* debug)
@@ -124,19 +124,19 @@ const BoundingBox& Octant::CullingBox() const
     return cullingBox;
 }
 
-void Octant::OnOcclusionQuery(unsigned queryId_)
+void Octant::OnOcclusionQuery(unsigned queryId)
 {
     // Should not have an existing query in flight
     assert(!queryId);
 
     // Mark pending
-    queryId = queryId_;
+    occlusionQueryId = queryId;
 }
 
 void Octant::OnOcclusionQueryResult(bool visible)
 {
     // Mark not pending
-    queryId = 0;
+    occlusionQueryId = 0;
 
     // Do not change visibility if currently outside the frustum
     if (visibility == VIS_OUTSIDE_FRUSTUM)
