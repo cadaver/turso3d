@@ -127,7 +127,7 @@ const BoundingBox& Octant::CullingBox() const
 void Octant::OnOcclusionQuery(unsigned queryId)
 {
     // Should not have an existing query in flight
-    assert(!queryId);
+    assert(!occlusionQueryId);
 
     // Mark pending
     occlusionQueryId = queryId;

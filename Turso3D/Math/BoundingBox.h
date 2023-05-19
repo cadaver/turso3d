@@ -305,10 +305,10 @@ public:
         Vector3 center = Center();
         Vector3 edge = max - center;
 
-        float cProj = axis.DotProduct(center);
-        float eProj = Abs(axis.Abs().DotProduct(edge));
+        float centerProj = axis.DotProduct(center);
+        float edgeProj = Abs(axis.Abs().DotProduct(edge));
 
-        return std::make_pair(cProj - eProj, cProj + eProj);
+        return std::make_pair(centerProj - edgeProj, centerProj + edgeProj);
     }
     
     /// Return as string.

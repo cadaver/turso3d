@@ -62,7 +62,7 @@ void SATData::Calculate(const Frustum& frustum)
 
     // Now precalculate the projections of the frustum on each axis
     for (size_t i = 0; i < NUM_SAT_AXES; ++i)
-        fProj[i] = frustum.Projected(axes[i]);
+        frustumProj[i] = frustum.Projected(axes[i]);
 }
 
 Frustum::Frustum()

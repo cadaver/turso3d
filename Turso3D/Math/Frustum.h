@@ -31,7 +31,7 @@ struct SATData
     /// Bounding box normal axes, frustum normal axes and edge cross product axes.
     Vector3 axes[NUM_SAT_AXES];
     /// 1D coordinates of the frustum projected to each axis.
-    std::pair<float, float> fProj[NUM_SAT_AXES];
+    std::pair<float, float> frustumProj[NUM_SAT_AXES];
 };
 
 /// Convex constructed of 6 planes.
@@ -80,6 +80,7 @@ public:
     Intersection IsInside(const Sphere& sphere) const
     {
         bool allInside = true;
+
         for (size_t i = 0; i < NUM_FRUSTUM_PLANES; ++i)
         {
             float dist = planes[i].Distance(sphere.center);
@@ -200,8 +201,8 @@ public:
     {
         for (size_t i = 0; i < NUM_SAT_AXES; ++i)
         {
-            std::pair<float, float> bProj = box.Projected(data.axes[i]);
-            if (data.fProj[i].second < bProj.first || bProj.second < data.fProj[i].first)
+            std::pair<float, float> boxProj = box.Projected(data.axes[i]);
+            if (data.frustumProj[i].second < boxProj.first || boxProj.second < data.frustumProj[i].first)
                 return OUTSIDE;
         }
 
@@ -212,6 +213,7 @@ public:
     float Distance(const Vector3& point) const
     {
         float distance = 0.0f;
+
         for (size_t i = 0; i < NUM_FRUSTUM_PLANES; ++i)
             distance = Max(-planes[i].Distance(point), distance);
         
