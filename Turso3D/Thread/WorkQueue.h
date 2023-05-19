@@ -21,13 +21,6 @@ struct Task
     /// Call the work function. Thread index 0 is the main thread.
     virtual void Complete(unsigned threadIndex) = 0;
 
-    /// Add a task depended on. These need to be added for each execution. Adding dependencies is not threadsafe, so should be done before queuing.
-    void AddDependency(Task* task)
-    {
-        task->dependentTasks.push_back(this);
-        numDependencies.fetch_add(1);
-    }
-
     /// Dependent tasks.
     std::vector<Task*> dependentTasks;
     /// Dependency counter. Once zero, this task will be automatically queue itself.
@@ -90,11 +83,13 @@ public:
     /// Destruct. Stop worker threads.
     ~WorkQueue();
 
-    /// Queue a task for execution. If no threads, completes immediately in the main thread. Do not queue tasks with dependencies, they will instead queue themselves.
+    /// Queue a task for execution. If no threads, completes immediately in the main thread.
     void QueueTask(Task* task);
-    /// Queue several tasks execution. If no threads, completes immediately in the main thread. Do not queue tasks with dependencies, they will instead queue themselves.
+    /// Queue several tasks execution. If no threads, completes immediately in the main thread.
     void QueueTasks(size_t count, Task** tasks);
-    /// Complete all currently queued tasks. To be called only from the main thread.
+    /// Add a dependency to a task. These tasks should not be queued via QueueTask(), they will instead queue themselves when the dependencies have finished.
+    void AddDependency(Task* task, Task* dependency);
+    /// Complete all currently queued tasks and tasks with dependencies. To be called only from the main thread. Ensure that all dependencies either have been queued or will be queued by other tasks, otherwise this function never returns.
     void Complete();
     /// Execute a task from the queue if available, then return. To be called only from the main thread. Return true if a task was executed.
     bool TryComplete();

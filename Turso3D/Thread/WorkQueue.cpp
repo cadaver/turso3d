@@ -52,6 +52,7 @@ WorkQueue::~WorkQueue()
 void WorkQueue::QueueTask(Task* task)
 {
     assert(task);
+    assert(task->numDependencies.load() == 0);
 
     if (threads.size())
     {
@@ -84,6 +85,7 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
             std::lock_guard<std::mutex> lock(queueMutex);
             for (size_t i = 0; i < count; ++i)
             {
+                assert(tasks_[i]);
                 assert(tasks_[i]->numDependencies.load() == 0);
                 tasks.push(tasks_[i]);
             }
@@ -106,6 +108,18 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
         for (size_t i = 0; i < count; ++i)
             CompleteTask(tasks_[i], 0);
     }
+}
+
+void WorkQueue::AddDependency(Task* task, Task* dependency)
+{
+    assert(task);
+    assert(dependency);
+
+    dependency->dependentTasks.push_back(task);
+
+    // If this is the first dependency added, increment the global pending task counter so we know to wait for the dependent task in Complete().
+    if (task->numDependencies.fetch_add(1) == 0)
+        numPendingTasks.fetch_add(1);
 }
 
 void WorkQueue::Complete()
@@ -200,8 +214,27 @@ void WorkQueue::CompleteTask(Task* task, unsigned threadIndex_)
         for (auto it = task->dependentTasks.begin(); it != task->dependentTasks.end(); ++it)
         {
             Task* dependentTask = *it;
+
             if (dependentTask->numDependencies.fetch_add(-1) == 1)
-                QueueTask(dependentTask);
+            {
+                if (threads.size())
+                {
+                    {
+                        std::lock_guard<std::mutex> lock(queueMutex);
+                        tasks.push(dependentTask);
+                    }
+
+                    // Note: numPendingTasks counter was already incremented when adding the first dependency, do not do again here
+                    numQueuedTasks.fetch_add(1);
+
+                    signal.notify_one();
+                }
+                else
+                {
+                    // If no threads, execute directly
+                    CompleteTask(dependentTask, 0);
+                }
+            }
         }
 
         task->dependentTasks.clear();

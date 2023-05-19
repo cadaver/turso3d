@@ -330,12 +330,12 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     for (size_t i = 0; i < rootLevelOctants.size(); ++i)
     {
         collectOctantsTasks[i]->startOctant = rootLevelOctants[i];
-        processLightsTask->AddDependency(collectOctantsTasks[i]);
+        workQueue->AddDependency(processLightsTask, collectOctantsTasks[i]);
     }
 
     // Ensure shadow view processing doesn't happen before lights have been found and processed, and batches are ready for sorting
-    processShadowCastersTask->AddDependency(processLightsTask);
-    processShadowCastersTask->AddDependency(batchesReadyTask);
+    workQueue->AddDependency(processShadowCastersTask, processLightsTask);
+    workQueue->AddDependency(processShadowCastersTask, batchesReadyTask);
 
     workQueue->QueueTasks(rootLevelOctants.size(), reinterpret_cast<Task**>(&collectOctantsTasks[0]));
 
@@ -1245,7 +1245,7 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
             collectShadowCastersTasks.push_back(new CollectShadowCastersTask(this, &Renderer::CollectShadowCastersWork));
 
         collectShadowCastersTasks[lightTaskIdx]->light = light;
-        processShadowCastersTask->AddDependency(collectShadowCastersTasks[lightTaskIdx]);
+        workQueue->AddDependency(processShadowCastersTask, collectShadowCastersTasks[lightTaskIdx]);
         ++lightTaskIdx;
     }
 
