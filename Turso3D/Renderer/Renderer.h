@@ -243,6 +243,8 @@ private:
     void CollectBatchesWork(Task* task, unsigned threadIndex);
     /// Work function to collect shadowcasters per shadowcasting light.
     void CollectShadowCastersWork(Task* task, unsigned threadIndex);
+    /// Work function for dummy task that signals batches are ready for sorting.
+    void BatchesReadyWork(Task* task, unsigned threadIndex);
     /// Work function to queue shadowcaster batch collection tasks. Requires batch collection and shadowcaster query tasks to be complete.
     void ProcessShadowCastersWork(Task* task, unsigned threadIndex);
     /// Work function to collect shadowcaster batches per shadow view.
@@ -280,8 +282,8 @@ private:
     bool hasInstancing;
     /// Previous frame camera position for occlusion culling bounding box elongation.
     Vector3 previousCameraPosition;
-    /// Occlusion query staggering value, always a power of two - 1. Defined based on framerate. Lower framerates use less staggering so that occlusion result converges in less frames.
-    size_t occlusionStagger;
+    /// Last frame time for occlusion query staggering.
+    float lastFrameTime;
     /// Root-level octants, used as a starting point for octant and batch collection. The root octant is included if it also contains drawables.
     std::vector<Octant*> rootLevelOctants;
     /// Counter for batch collection tasks remaining. When zero, main batch sorting can begin while other tasks go on.
@@ -338,6 +340,8 @@ private:
     AutoPtr<Task> processLightsTask;
     /// Tasks for shadow light processing.
     std::vector<AutoPtr<CollectShadowCastersTask> > collectShadowCastersTasks;
+    /// Dummy task to ensure batches have been collected.
+    AutoPtr<Task> batchesReadyTask;
     /// %Task for queuing shadow views for further processing.
     AutoPtr<Task> processShadowCastersTask;
     /// Tasks for shadow batch processing.

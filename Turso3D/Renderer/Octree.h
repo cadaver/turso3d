@@ -11,6 +11,7 @@
 static const size_t NUM_OCTANTS = 8;
 static const unsigned char OF_DRAWABLES_SORT_DIRTY = 0x1;
 static const unsigned char OF_CULLING_BOX_DIRTY = 0x2;
+static const float OCCLUSION_QUERY_INTERVAL = 0.133333f; // About 8 frame stagger at 60fps
 
 class Ray;
 class WorkQueue;
@@ -73,8 +74,6 @@ public:
     OctantVisibility Visibility() const { return (OctantVisibility)visibility; }
     /// Return whether is pending an occlusion query result.
     bool OcclusionQueryPending() const { return occlusionQueryId != 0; }
-    /// Return occlusion query stagger index.
-    unsigned char OcclusionStaggerIndex() const { return occlusionStaggerIndex; }
 
     /// Test if a drawable should be inserted in this octant or if a smaller child octant should be created.
     bool FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) const
@@ -120,7 +119,7 @@ public:
         {
             if (octant->children[i])
             {
-                octant->children[i]->visibility = (unsigned char)newVisibility;
+                octant->children[i]->visibility = newVisibility;
                 if (octant->children[i]->numChildren)
                     PushVisibilityToChildren(octant->children[i], newVisibility);
             }
@@ -130,10 +129,30 @@ public:
     /// Set visibility status manually.
     void SetVisibility(OctantVisibility newVisibility, bool pushToChildren = false)
     {
-        visibility = (unsigned char)newVisibility;
+        visibility = newVisibility;
 
         if (pushToChildren)
             PushVisibilityToChildren(this, newVisibility);
+    }
+
+    /// Return true if a new occlusion query should be executed. Use a time interval for already visible octants. Return false if previous query still pending.
+    bool CheckNewOcclusionQuery(float frameTime)
+    {
+        if (visibility != VIS_VISIBLE)
+            return occlusionQueryId == 0;
+
+        occlusionQueryTimer += frameTime;
+
+        if (occlusionQueryId != 0)
+            return false;
+
+        if (occlusionQueryTimer >= OCCLUSION_QUERY_INTERVAL)
+        {
+            occlusionQueryTimer = fmodf(occlusionQueryTimer, OCCLUSION_QUERY_INTERVAL);
+            return true;
+        }
+        else
+            return false;
     }
 
     /// Set bit flag. Called internally.
@@ -157,11 +176,11 @@ private:
     /// Parent octant.
     Octant* parent;
     /// Last occlusion query visibility.
-    unsigned char visibility;
+    OctantVisibility visibility;
     /// Occlusion query id, or 0 if no query pending.
     unsigned occlusionQueryId;
-    /// Occlusion query random stagger index.
-    unsigned char occlusionStaggerIndex;
+    /// Occlusion query interval timer.
+    float occlusionQueryTimer;
     /// Number of child octants.
     unsigned char numChildren;
     /// Subdivision level, decreasing for child octants.

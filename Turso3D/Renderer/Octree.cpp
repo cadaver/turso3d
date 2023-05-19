@@ -57,7 +57,7 @@ Octant::Octant() :
     parent(nullptr),
     visibility(VIS_VISIBLE_UNKNOWN),
     occlusionQueryId(0),
-    occlusionStaggerIndex(Rand() & 0xff),
+    occlusionQueryTimer(Random() * OCCLUSION_QUERY_INTERVAL),
     numChildren(0)
 {
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
@@ -145,7 +145,7 @@ void Octant::OnOcclusionQueryResult(bool visible)
     OctantVisibility lastVisibility = (OctantVisibility)visibility;
     OctantVisibility newVisibility = visible ? VIS_VISIBLE : VIS_OCCLUDED;
 
-    visibility = (unsigned char)newVisibility;
+    visibility = newVisibility;
 
     if (lastVisibility <= VIS_OCCLUDED_UNKNOWN && newVisibility == VIS_VISIBLE)
     {
@@ -166,7 +166,7 @@ void Octant::OnOcclusionQueryResult(bool visible)
 
         while (octant && octant->visibility != newVisibility)
         {
-            octant->visibility = (unsigned char)newVisibility;
+            octant->visibility = newVisibility;
             octant = octant->parent;
         }
     }

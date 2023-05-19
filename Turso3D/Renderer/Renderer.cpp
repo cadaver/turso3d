@@ -205,6 +205,7 @@ Renderer::Renderer() :
     }
 
     processLightsTask = new MemberFunctionTask<Renderer>(this, &Renderer::ProcessLightsWork);
+    batchesReadyTask = new MemberFunctionTask<Renderer>(this, &Renderer::BatchesReadyWork);
     processShadowCastersTask = new MemberFunctionTask<Renderer>(this, &Renderer::ProcessShadowCastersWork);
 
     DefineBoundingBoxGeometry();
@@ -284,9 +285,8 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     maxZ = 0.0f;
     geometryBounds.Undefine();
 
-    // Calculate stagger for occlusion queries based on frametime
-    float fps = 1.0f / (Max(graphics->LastFrameTime(), 0.0001f));
-    occlusionStagger = Max(8, NextPowerOfTwo((int)sqrtf(fps))) - 1;
+    // Stagger for occlusion queries based on last frametime
+    lastFrameTime = graphics->LastFrameTime();
 
     for (size_t i = 0; i < NUM_OCTANT_TASKS; ++i)
         octantResults[i].Clear();
@@ -333,8 +333,9 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
         processLightsTask->AddDependency(collectOctantsTasks[i]);
     }
 
-    // Ensure shadow view processing doesn't happen before lights have been found and processed
+    // Ensure shadow view processing doesn't happen before lights have been found and processed, and batches are ready for sorting
     processShadowCastersTask->AddDependency(processLightsTask);
+    processShadowCastersTask->AddDependency(batchesReadyTask);
 
     workQueue->QueueTasks(rootLevelOctants.size(), reinterpret_cast<Task**>(&collectOctantsTasks[0]));
 
@@ -566,15 +567,12 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
             AddOcclusionQuery(octant, result, planeMask);
             break;
 
-            // If octant is visible, stagger queries between frames to reduce their total count
+            // If the octant's parent is already visible too, only test the octant if it is a "leaf octant" with drawables
+            // Note: visible octants will also add a time-based staggering to reduce queries
         case VIS_VISIBLE:
-            if (!octant->OcclusionQueryPending() && ((octant->OcclusionStaggerIndex() ^ frameNumber) & occlusionStagger) == 0)
-            {
-                // If the octant's parent is already visible too, only test the octant if it is a "leaf octant" with drawables
-                Octant* parent = octant->Parent();
-                if (octant->Drawables().size() > 0 || (parent && parent->Visibility() != VIS_VISIBLE))
-                    AddOcclusionQuery(octant, result, planeMask);
-            }
+            Octant* parent = octant->Parent();
+            if (octant->Drawables().size() > 0 || (parent && parent->Visibility() != VIS_VISIBLE))
+                AddOcclusionQuery(octant, result, planeMask);
             break;
         }
     }
@@ -614,7 +612,6 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         CollectBatchesTask* batchTask = result.collectBatchesTasks[result.batchTaskIdx];
         batchTask->octants.clear();
         batchTask->octants.insert(batchTask->octants.end(), result.octants.begin() + result.taskOctantIdx, result.octants.end());
-        processShadowCastersTask->AddDependency(batchTask);
         numPendingBatchTasks.fetch_add(1);
         workQueue->QueueTask(batchTask);
 
@@ -638,7 +635,7 @@ void Renderer::AddOcclusionQuery(Octant* octant, ThreadOctantResult& result, uns
 {
     // No-op if previous query still ongoing. Also If the octant intersects the frustum, verify with SAT test that it actually covers some screen area
     // Otherwise the occlusion test will produce a false negative
-    if (!octant->OcclusionQueryPending() && (!planeMask || frustum.IsInsideSAT(octant->CullingBox(), frustumSATData)))
+    if (octant->CheckNewOcclusionQuery(lastFrameTime) && (!planeMask || frustum.IsInsideSAT(octant->CullingBox(), frustumSATData)))
         result.occlusionQueries.push_back(octant);
 }
 
@@ -684,6 +681,9 @@ bool Renderer::AllocateShadowMap(LightDrawable* light)
 void Renderer::SortMainBatches()
 {
     ZoneScoped;
+
+    // Signal that shadow view processing is OK to happen
+    workQueue->QueueTask(batchesReadyTask);
 
     for (auto it = batchResults.begin(); it != batchResults.end(); ++it)
     {
@@ -1123,7 +1123,6 @@ void Renderer::CollectOctantsWork(Task* task_, unsigned)
         CollectBatchesTask* batchTask = result.collectBatchesTasks[result.batchTaskIdx];
         batchTask->octants.clear();
         batchTask->octants.insert(batchTask->octants.end(), result.octants.begin() + result.taskOctantIdx, result.octants.end());
-        processShadowCastersTask->AddDependency(batchTask);
         numPendingBatchTasks.fetch_add(1);
         workQueue->QueueTask(batchTask);
     }
@@ -1422,6 +1421,10 @@ void Renderer::CollectShadowCastersWork(Task* task, unsigned)
         std::vector<Drawable*>& shadowCasters = shadowMap.shadowCasters[view.casterListIdx];
         octree->FindDrawablesMasked(shadowCasters, view.shadowFrustum, DF_GEOMETRY | DF_CAST_SHADOWS);
     }
+}
+
+void Renderer::BatchesReadyWork(Task*, unsigned)
+{
 }
 
 void Renderer::ProcessShadowCastersWork(Task*, unsigned)
