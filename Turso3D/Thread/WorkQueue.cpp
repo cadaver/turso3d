@@ -77,10 +77,10 @@ void WorkQueue::QueueTask(Task* task)
 
 void WorkQueue::QueueTasks(size_t count, Task** tasks_)
 {
-    ZoneScoped;
-
     if (threads.size())
     {
+        ZoneScoped;
+
         {
             std::lock_guard<std::mutex> lock(queueMutex);
             for (size_t i = 0; i < count; ++i)
