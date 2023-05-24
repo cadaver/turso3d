@@ -225,7 +225,7 @@ void Renderer::SetupShadowMaps(int dirLightSize, int lightAtlasSize, ImageFormat
     {
         ShadowMap& shadowMap = shadowMaps[i];
 
-        shadowMap.texture->Define(TEX_2D, i == 0 ? IntVector2(dirLightSize * 2, dirLightSize) : IntVector2(lightAtlasSize, lightAtlasSize), format, 1);
+        shadowMap.texture->Define(TEX_2D, i == 0 ? IntVector2(dirLightSize * 2, dirLightSize) : IntVector2(lightAtlasSize, lightAtlasSize), format);
         shadowMap.texture->DefineSampler(COMPARE_BILINEAR, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP, 1);
         shadowMap.fbo->Define(nullptr, shadowMap.texture);
     }
@@ -235,7 +235,7 @@ void Renderer::SetupShadowMaps(int dirLightSize, int lightAtlasSize, ImageFormat
     if (!staticObjectShadowFbo)
         staticObjectShadowFbo = new FrameBuffer();
 
-    staticObjectShadowBuffer->Define(IntVector2(lightAtlasSize, lightAtlasSize), format, 1);
+    staticObjectShadowBuffer->Define(IntVector2(lightAtlasSize, lightAtlasSize), format);
     staticObjectShadowFbo->Define(nullptr, staticObjectShadowBuffer);
 
     DefineFaceSelectionTextures();

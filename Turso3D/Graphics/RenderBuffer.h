@@ -17,7 +17,7 @@ public:
     ~RenderBuffer();
 
     /// Define renderbuffer type and dimensions.
-    bool Define(const IntVector2& size, ImageFormat format, int multisample = 10);
+    bool Define(const IntVector2& size, ImageFormat format, int multisample = 1);
 
     /// Return dimensions.
     const IntVector2& Size() const { return size; }
