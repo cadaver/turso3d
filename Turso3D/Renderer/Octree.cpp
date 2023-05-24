@@ -92,38 +92,6 @@ void Octant::OnRenderDebug(DebugRenderer* debug)
     debug->AddBoundingBox(CullingBox(), Color::GRAY, true);
 }
 
-const BoundingBox& Octant::CullingBox() const
-{
-    if (TestFlag(OF_CULLING_BOX_DIRTY))
-    {
-        if (!numChildren && drawables.empty())
-            cullingBox.Define(center);
-        else
-        {
-            // Use a temporary bounding box for calculations in case many threads call this simultaneously
-            BoundingBox tempBox;
-
-            for (auto it = drawables.begin(); it != drawables.end(); ++it)
-                tempBox.Merge((*it)->WorldBoundingBox());
-
-            if (numChildren)
-            {
-                for (size_t i = 0; i < NUM_OCTANTS; ++i)
-                {
-                    if (children[i])
-                        tempBox.Merge(children[i]->CullingBox());
-                }
-            }
-
-            cullingBox = tempBox;
-        }
-
-        SetFlag(OF_CULLING_BOX_DIRTY, false);
-    }
-
-    return cullingBox;
-}
-
 void Octant::OnOcclusionQuery(unsigned queryId)
 {
     // Should not have an existing query in flight
@@ -172,6 +140,38 @@ void Octant::OnOcclusionQueryResult(bool visible)
     }
 }
 
+const BoundingBox& Octant::CullingBox() const
+{
+    if (TestFlag(OF_CULLING_BOX_DIRTY))
+    {
+        if (!numChildren && drawables.empty())
+            cullingBox.Define(center);
+        else
+        {
+            // Use a temporary bounding box for calculations in case many threads call this simultaneously
+            BoundingBox tempBox;
+
+            for (auto it = drawables.begin(); it != drawables.end(); ++it)
+                tempBox.Merge((*it)->WorldBoundingBox());
+
+            if (numChildren)
+            {
+                for (size_t i = 0; i < NUM_OCTANTS; ++i)
+                {
+                    if (children[i])
+                        tempBox.Merge(children[i]->CullingBox());
+                }
+            }
+
+            cullingBox = tempBox;
+        }
+
+        SetFlag(OF_CULLING_BOX_DIRTY, false);
+    }
+
+    return cullingBox;
+}
+
 Octree::Octree() :
     threadedUpdate(false),
     frameNumber(0),
@@ -183,7 +183,7 @@ Octree::Octree() :
 
     // Have at least 1 task for reinsert processing
     reinsertTasks.push_back(new ReinsertDrawablesTask(this, &Octree::CheckReinsertWork));
-    reinsertQueues.resize(workQueue->NumThreads());
+    reinsertQueues = new std::vector<Drawable*>[workQueue->NumThreads()];
 }
 
 Octree::~Octree()
@@ -252,15 +252,15 @@ void Octree::FinishUpdate()
 {
     ZoneScoped;
 
-    // Complete tasks until reinsertions done. There may be e.g. occlusion rasterization going on at the same time
+    // Complete tasks until reinsertions done. There may other tasks going on at the same time
     while (numPendingReinsertionTasks.load() > 0)
         workQueue->TryComplete();
 
     SetThreadedUpdate(false);
 
     // Now reinsert drawables that actually need reinsertion into a different octant
-    for (auto it = reinsertQueues.begin(); it != reinsertQueues.end(); ++it)
-        ReinsertDrawables(*it);
+    for (size_t i = 0; i < workQueue->NumThreads(); ++i)
+        ReinsertDrawables(reinsertQueues[i]);
 
     updateQueue.clear();
 
@@ -308,7 +308,7 @@ RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, fl
 {
     ZoneScoped;
 
-    // Get first the potential hits
+    // Get the potential hits first
     initialRayResult.clear();
     CollectDrawables(initialRayResult, const_cast<Octant*>(&root), ray, nodeFlags, maxDistance, layerMask);
     std::sort(initialRayResult.begin(), initialRayResult.end(), CompareDrawableDistances);
@@ -390,7 +390,7 @@ void Octree::RemoveDrawable(Drawable* drawable)
         RemoveDrawableFromQueue(drawable, updateQueue);
 
         // Remove also from threaded queues if was left over before next update
-        for (size_t i = 0; i < reinsertQueues.size(); ++i)
+        for (size_t i = 0; i < workQueue->NumThreads(); ++i)
             RemoveDrawableFromQueue(drawable, reinsertQueues[i]);
 
         drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);

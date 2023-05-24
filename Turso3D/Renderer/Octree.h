@@ -57,6 +57,10 @@ public:
     void Initialize(Octant* parent, const BoundingBox& boundingBox, unsigned char level, unsigned char childIndex);
     /// Add debug geometry to be rendered.
     void OnRenderDebug(DebugRenderer* debug);
+    /// React to occlusion query being rendered for the octant. Store the query ID to know not to re-test until have the result.
+    void OnOcclusionQuery(unsigned queryId);
+    /// React to occlusion query result. Push changed visibility to parents or children as necessary. If outside frustum, no operation.
+    void OnOcclusionQueryResult(bool visible);
 
     /// Return the culling box. Update as necessary.
     const BoundingBox& CullingBox() const;
@@ -74,6 +78,10 @@ public:
     OctantVisibility Visibility() const { return (OctantVisibility)visibility; }
     /// Return whether is pending an occlusion query result.
     bool OcclusionQueryPending() const { return occlusionQueryId != 0; }
+    /// Set bit flag. Called internally.
+    void SetFlag(unsigned char bit, bool set) const { if (set) flags |= bit; else flags &= ~bit; }
+    /// Test bit flag. Called internally.
+    bool TestFlag(unsigned char bit) const { return (flags & bit) != 0; }
 
     /// Test if a drawable should be inserted in this octant or if a smaller child octant should be created.
     bool FitBoundingBox(const BoundingBox& box, const Vector3& boxSize) const
@@ -106,11 +114,6 @@ public:
             octant = octant->parent;
         }
     }
-
-    /// React to occlusion query begin.
-    void OnOcclusionQuery(unsigned queryId);
-    /// React to occlusion query result. Push changed visibility to parents or children as necessary. If outside frustum, no operation.
-    void OnOcclusionQueryResult(bool visible);
 
     /// Push visibility status to child octants.
     void PushVisibilityToChildren(Octant* octant, OctantVisibility newVisibility)
@@ -154,11 +157,6 @@ public:
         else
             return false;
     }
-
-    /// Set bit flag. Called internally.
-    void SetFlag(unsigned char bit, bool set) const { if (set) flags |= bit; else flags &= ~bit; }
-    /// Test bit flag. Called internally.
-    bool TestFlag(unsigned char bit) const { return (flags & bit) != 0; }
 
 private:
     /// Combined drawable and child octant bounding box. Used for culling tests.
@@ -211,7 +209,7 @@ public:
     void FinishUpdate();
     /// Resize the octree.
     void Resize(const BoundingBox& boundingBox, int numLevels);
-    /// Enable or disable threaded update mode. In threaded mode reinsertions go to per-thread queues.
+    /// Enable or disable threaded update mode. In threaded mode reinsertions go to per-thread queues, which are processed in FinishUpdate().
     void SetThreadedUpdate(bool enable) { threadedUpdate = enable; }
     /// Queue octree reinsertion for a drawable.
     void QueueUpdate(Drawable* drawable);
@@ -228,7 +226,6 @@ public:
     template <class T> void FindDrawables(std::vector<Drawable*>& result, const T& volume, unsigned short drawableFlags, unsigned layerMask = LAYERMASK_ALL) const { CollectDrawables(result, const_cast<Octant*>(&root), volume, drawableFlags, layerMask); }
     /// Query for drawables using a frustum and masked testing.
     void FindDrawablesMasked(std::vector<Drawable*>& result, const Frustum& frustum, unsigned short drawableFlags, unsigned layerMask = LAYERMASK_ALL) const;
-
     /// Return whether threaded update is enabled.
     bool ThreadedUpdate() const { return threadedUpdate; }
     /// Return the root octant.
@@ -386,7 +383,7 @@ private:
     /// Tasks for threaded reinsert execution.
     std::vector<AutoPtr<ReinsertDrawablesTask> > reinsertTasks;
     /// Intermediate reinsert queues for threaded execution.
-    std::vector<std::vector<Drawable*> > reinsertQueues;
+    AutoArrayPtr<std::vector<Drawable*> > reinsertQueues;
     /// RaycastSingle initial coarse result.
     mutable std::vector<std::pair<Drawable*, float> > initialRayResult;
     /// RaycastSingle final result.

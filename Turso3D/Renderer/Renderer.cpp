@@ -190,7 +190,7 @@ Renderer::Renderer() :
     lightDataBuffer->Define(USAGE_DYNAMIC, MAX_LIGHTS * sizeof(LightData));
 
     octantResults = new ThreadOctantResult[NUM_OCTANT_TASKS];
-    batchResults.resize(workQueue->NumThreads());
+    batchResults = new ThreadBatchResult[workQueue->NumThreads()];
 
     for (size_t i = 0; i < NUM_OCTANTS + 1; ++i)
     {
@@ -218,9 +218,10 @@ Renderer::~Renderer()
 
 void Renderer::SetupShadowMaps(int dirLightSize, int lightAtlasSize, ImageFormat format)
 {
-    shadowMaps.resize(2);
+    if (!shadowMaps)
+        shadowMaps = new ShadowMap[NUM_SHADOW_MAPS];
 
-    for (size_t i = 0; i < shadowMaps.size(); ++i)
+    for (size_t i = 0; i < NUM_SHADOW_MAPS; ++i)
     {
         ShadowMap& shadowMap = shadowMaps[i];
 
@@ -229,9 +230,12 @@ void Renderer::SetupShadowMaps(int dirLightSize, int lightAtlasSize, ImageFormat
         shadowMap.fbo->Define(nullptr, shadowMap.texture);
     }
 
-    staticObjectShadowBuffer = new RenderBuffer();
+    if (!staticObjectShadowBuffer)
+        staticObjectShadowBuffer = new RenderBuffer();
+    if (!staticObjectShadowFbo)
+        staticObjectShadowFbo = new FrameBuffer();
+
     staticObjectShadowBuffer->Define(IntVector2(lightAtlasSize, lightAtlasSize), format, 1);
-    staticObjectShadowFbo = new FrameBuffer();
     staticObjectShadowFbo->Define(nullptr, staticObjectShadowBuffer);
 
     DefineFaceSelectionTextures();
@@ -267,7 +271,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     if (!frameNumber)
         ++frameNumber;
 
-    drawShadows = shadowMaps.size() ? drawShadows_ : false;
+    drawShadows = shadowMaps ? drawShadows_ : false;
     useOcclusion = useOcclusion_;
     frustum = camera->WorldFrustum();
     viewMask = camera->ViewMask();
@@ -290,10 +294,14 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
 
     for (size_t i = 0; i < NUM_OCTANT_TASKS; ++i)
         octantResults[i].Clear();
-    for (size_t i = 0; i < batchResults.size(); ++i)
+    for (size_t i = 0; i < workQueue->NumThreads(); ++i)
         batchResults[i].Clear();
-    for (auto it = shadowMaps.begin(); it != shadowMaps.end(); ++it)
-        it->Clear();
+    
+    if (drawShadows)
+    {
+        for (size_t i = 0; i < NUM_SHADOW_MAPS; ++i)
+            shadowMaps[i].Clear();
+    }
 
     // Process moved / animated objects' octree reinsertions
     octree->Update(frameNumber);
@@ -325,6 +333,11 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     numPendingShadowViews[0].store(0);
     numPendingShadowViews[1].store(0);
 
+    // Ensure shadowcaster processing doesn't happen before lights have been found and processed, and geometry bounds are known
+    // Note: this task is also needed without shadows, as it initiates light grid culling
+    workQueue->AddDependency(processShadowCastersTask, processLightsTask);
+    workQueue->AddDependency(processShadowCastersTask, batchesReadyTask);
+
     // Find octants in view and their plane masks for node frustum culling. At the same time, find lights and process them
     // When octant collection tasks complete, they queue tasks for collecting batches from those octants.
     for (size_t i = 0; i < rootLevelOctants.size(); ++i)
@@ -332,10 +345,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
         collectOctantsTasks[i]->startOctant = rootLevelOctants[i];
         workQueue->AddDependency(processLightsTask, collectOctantsTasks[i]);
     }
-
-    // Ensure shadow view processing doesn't happen before lights have been found and processed, and batches are ready for sorting
-    workQueue->AddDependency(processShadowCastersTask, processLightsTask);
-    workQueue->AddDependency(processShadowCastersTask, batchesReadyTask);
 
     workQueue->QueueTasks(rootLevelOctants.size(), reinterpret_cast<Task**>(&collectOctantsTasks[0]));
 
@@ -354,13 +363,16 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
 
 void Renderer::RenderShadowMaps()
 {
+    if (!shadowMaps)
+        return;
+
     ZoneScoped;
 
     // Unbind shadow textures before rendering to
     Texture::Unbind(TU_DIRLIGHTSHADOW);
     Texture::Unbind(TU_SHADOWATLAS);
 
-    for (size_t i = 0; i < shadowMaps.size(); ++i)
+    for (size_t i = 0; i < NUM_SHADOW_MAPS; ++i)
     {
         ShadowMap& shadowMap = shadowMaps[i];
         if (shadowMap.shadowViews.empty())
@@ -443,7 +455,7 @@ void Renderer::RenderOpaque(bool clear)
     UpdateInstanceTransforms(instanceTransforms);
     UpdateLightData();
 
-    if (shadowMaps.size())
+    if (shadowMaps)
     {
         shadowMaps[0].texture->Bind(TU_DIRLIGHTSHADOW);
         shadowMaps[1].texture->Bind(TU_SHADOWATLAS);
@@ -468,7 +480,7 @@ void Renderer::RenderAlpha()
 {
     ZoneScoped;
 
-    if (shadowMaps.size())
+    if (shadowMaps)
     {
         shadowMaps[0].texture->Bind(TU_DIRLIGHTSHADOW);
         shadowMaps[1].texture->Bind(TU_SHADOWATLAS);
@@ -515,7 +527,7 @@ void Renderer::RenderDebug()
 
 Texture* Renderer::ShadowMapTexture(size_t index) const
 {
-    return index < shadowMaps.size() ? shadowMaps[index].texture : nullptr;
+    return (shadowMaps && index < NUM_SHADOW_MAPS) ? shadowMaps[index].texture : nullptr;
 }
 
 void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& result, unsigned char planeMask)
@@ -682,15 +694,29 @@ void Renderer::SortMainBatches()
 {
     ZoneScoped;
 
-    // Signal that shadow view processing is OK to happen
+    // Shadowcaster processing needs accurate scene min / max Z results, combine them from per-thread data
+    for (size_t i = 0; i < workQueue->NumThreads(); ++i)
+    {
+        ThreadBatchResult& res = batchResults[i];
+        minZ = Min(minZ, res.minZ);
+        maxZ = Max(maxZ, res.maxZ);
+        if (res.geometryBounds.IsDefined())
+            geometryBounds.Merge(res.geometryBounds);
+    }
+
+    minZ = Max(minZ, camera->NearClip());
+
+    // Signal that shadowcaster processing is OK to happen
     workQueue->QueueTask(batchesReadyTask);
 
-    for (auto it = batchResults.begin(); it != batchResults.end(); ++it)
+    // Join per-thread collected batches and sort
+    for (size_t i = 0; i < workQueue->NumThreads(); ++i)
     {
-        if (it->opaqueBatches.size())
-            opaqueBatches.batches.insert(opaqueBatches.batches.end(), it->opaqueBatches.begin(), it->opaqueBatches.end());
-        if (it->alphaBatches.size())
-            alphaBatches.batches.insert(alphaBatches.batches.end(), it->alphaBatches.begin(), it->alphaBatches.end());
+        ThreadBatchResult& res = batchResults[i];
+        if (res.opaqueBatches.size())
+            opaqueBatches.batches.insert(opaqueBatches.batches.end(), res.opaqueBatches.begin(), res.opaqueBatches.end());
+        if (res.alphaBatches.size())
+            alphaBatches.batches.insert(alphaBatches.batches.end(), res.alphaBatches.begin(), res.alphaBatches.end());
     }
 
     opaqueBatches.Sort(instanceTransforms, SORT_STATE_AND_DISTANCE, hasInstancing);
@@ -968,6 +994,7 @@ void Renderer::RenderOcclusionQueries()
 
 void Renderer::DefineFaceSelectionTextures()
 {
+    // Face selection textures do not depend on shadow map size. No-op if already defined
     if (faceSelectionTexture1 && faceSelectionTexture2)
         return;
 
@@ -1187,8 +1214,6 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
     // Go through lights and setup shadowcaster collection tasks
     for (size_t i = 0; i < lights.size(); ++i)
     {
-        ShadowMap& shadowMap = shadowMaps[1];
-
         LightDrawable* light = lights[i];
         float cutoff = light->GetLightType() == LIGHT_SPOT ? cosf(light->Fov() * 0.5f * M_DEGTORAD) : 0.0f;
 
@@ -1216,6 +1241,7 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
         std::vector<ShadowView>& shadowViews = light->ShadowViews();
 
         // Preallocate shadowcaster list
+        ShadowMap& shadowMap = shadowMaps[1];
         size_t casterListIdx = shadowMap.freeCasterListIdx++;
         if (shadowMap.shadowCasters.size() < shadowMap.freeCasterListIdx)
             shadowMap.shadowCasters.resize(shadowMap.freeCasterListIdx);
@@ -1431,44 +1457,36 @@ void Renderer::ProcessShadowCastersWork(Task*, unsigned)
 {
     ZoneScoped;
 
-    // Shadow batches collection needs accurate scene min / max Z results, combine them from per-thread data
-    for (auto it = batchResults.begin(); it != batchResults.end(); ++it)
-    {
-        minZ = Min(minZ, it->minZ);
-        maxZ = Max(maxZ, it->maxZ);
-        if (it->geometryBounds.IsDefined())
-            geometryBounds.Merge(it->geometryBounds);
-    }
-
-    minZ = Max(minZ, camera->NearClip());
-
     // Queue shadow batch collection tasks. These will also perform shadow batch sorting tasks when done
-    size_t shadowTaskIdx = 0;
-    LightDrawable* lastLight = nullptr;
-
-    for (size_t i = 0; i < shadowMaps.size(); ++i)
+    if (drawShadows)
     {
-        ShadowMap& shadowMap = shadowMaps[i];
-        for (size_t j = 0; j < shadowMap.shadowViews.size(); ++j)
+        size_t shadowTaskIdx = 0;
+        LightDrawable* lastLight = nullptr;
+
+        for (size_t i = 0; i < NUM_SHADOW_MAPS; ++i)
         {
-            LightDrawable* light = shadowMap.shadowViews[j]->light;
-            // For a point light, make only one task that will handle all of the views and skip rest
-            if (light->GetLightType() == LIGHT_POINT && light == lastLight)
-                continue;
+            ShadowMap& shadowMap = shadowMaps[i];
+            for (size_t j = 0; j < shadowMap.shadowViews.size(); ++j)
+            {
+                LightDrawable* light = shadowMap.shadowViews[j]->light;
+                // For a point light, make only one task that will handle all of the views and skip rest
+                if (light->GetLightType() == LIGHT_POINT && light == lastLight)
+                    continue;
 
-            lastLight = light;
+                lastLight = light;
 
-            if (collectShadowBatchesTasks.size() <= shadowTaskIdx)
-                collectShadowBatchesTasks.push_back(new CollectShadowBatchesTask(this, &Renderer::CollectShadowBatchesWork));
-            collectShadowBatchesTasks[shadowTaskIdx]->shadowMapIdx = i;
-            collectShadowBatchesTasks[shadowTaskIdx]->viewIdx = j;
-            numPendingShadowViews[i].fetch_add(1);
-            ++shadowTaskIdx;
+                if (collectShadowBatchesTasks.size() <= shadowTaskIdx)
+                    collectShadowBatchesTasks.push_back(new CollectShadowBatchesTask(this, &Renderer::CollectShadowBatchesWork));
+                collectShadowBatchesTasks[shadowTaskIdx]->shadowMapIdx = i;
+                collectShadowBatchesTasks[shadowTaskIdx]->viewIdx = j;
+                numPendingShadowViews[i].fetch_add(1);
+                ++shadowTaskIdx;
+            }
         }
-    }
 
-    if (shadowTaskIdx > 0)
-        workQueue->QueueTasks(shadowTaskIdx, reinterpret_cast<Task**>(&collectShadowBatchesTasks[0]));
+        if (shadowTaskIdx > 0)
+            workQueue->QueueTasks(shadowTaskIdx, reinterpret_cast<Task**>(&collectShadowBatchesTasks[0]));
+    }
 
     // Clear per-cluster light data from previous frame, update cluster frustums and bounding boxes if camera changed, then queue light culling tasks for the needed scene range
     DefineClusterFrustums();

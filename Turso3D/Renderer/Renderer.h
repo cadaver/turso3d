@@ -41,6 +41,7 @@ static const size_t NUM_CLUSTER_Z = 8;
 static const size_t MAX_LIGHTS = 255;
 static const size_t MAX_LIGHTS_CLUSTER = 16;
 static const size_t NUM_OCTANT_TASKS = 9;
+static const size_t NUM_SHADOW_MAPS = 2; // One for directional lights and another for the rest
 
 // Texture units with built-in meanings.
 static const size_t TU_DIRLIGHTSHADOW = 8;
@@ -293,7 +294,7 @@ private:
     /// Per-octree branch octant collection results.
     AutoArrayPtr<ThreadOctantResult> octantResults;
     /// Per-worker thread batch collection results.
-    std::vector<ThreadBatchResult> batchResults;
+    AutoArrayPtr<ThreadBatchResult> batchResults;
     /// Minimum Z value for all geometries in frustum.
     float minZ;
     /// Maximum Z value for all geometries in frustum.
@@ -305,7 +306,7 @@ private:
     /// Accepted point and spot lights in frustum.
     std::vector<LightDrawable*> lights;
     /// Shadow maps.
-    std::vector<ShadowMap> shadowMaps;
+    AutoArrayPtr<ShadowMap> shadowMaps;
     /// Opaque batches.
     BatchQueue opaqueBatches;
     /// Transparent batches.
