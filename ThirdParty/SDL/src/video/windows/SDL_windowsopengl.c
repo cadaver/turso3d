@@ -716,6 +716,10 @@ WIN_GL_CreateContext(_THIS, SDL_Window * window)
             _this->gl_data->wglShareLists(share_context, context);
         }
     } else {
+        // Turso3D hack: detect Intel and convert core profile to compatibility
+        // to work around Intel core profile issues such as vsync failing to be toggled multiple times
+        int is_intel = SDL_FALSE;
+
         PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB;
         HGLRC temp_context = _this->gl_data->wglCreateContext(hdc);
         if (!temp_context) {
@@ -728,6 +732,10 @@ WIN_GL_CreateContext(_THIS, SDL_Window * window)
             WIN_GL_DeleteContext(_this, temp_context);
             return NULL;
         }
+
+        // Turso3D hack: detect Intel and convert core profile to compatibility
+        if (strstr((const char *)glGetString(GL_VENDOR), "Intel") != NULL)
+            is_intel = SDL_TRUE;
 
         wglCreateContextAttribsARB =
             (PFNWGLCREATECONTEXTATTRIBSARBPROC) _this->gl_data->
@@ -746,6 +754,10 @@ WIN_GL_CreateContext(_THIS, SDL_Window * window)
 
             /* SDL profile bits match WGL profile bits */
             if (_this->gl_config.profile_mask != 0) {
+                // Turso3D hack: detect Intel and convert core profile to compatibility
+                if (is_intel && _this->gl_config.profile_mask == SDL_GL_CONTEXT_PROFILE_CORE)
+                    _this->gl_config.profile_mask = SDL_GL_CONTEXT_PROFILE_COMPATIBILITY;
+
                 attribs[iattr++] = WGL_CONTEXT_PROFILE_MASK_ARB;
                 attribs[iattr++] = _this->gl_config.profile_mask;
             }
