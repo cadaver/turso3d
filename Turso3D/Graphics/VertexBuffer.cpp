@@ -56,10 +56,8 @@ VertexBuffer::VertexBuffer() :
 VertexBuffer::~VertexBuffer()
 {
     // Context may be gone at destruction time. In this case just no-op the cleanup
-    if (!Object::Subsystem<Graphics>())
-        return;
-
-    Release();
+    if (Object::Subsystem<Graphics>())
+        Release();
 }
 
 bool VertexBuffer::Define(ResourceUsage usage_, size_t numVertices_, const std::vector<VertexElement>& elements_, const void* data)

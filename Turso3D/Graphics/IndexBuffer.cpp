@@ -23,10 +23,8 @@ IndexBuffer::IndexBuffer() :
 IndexBuffer::~IndexBuffer()
 {
     // Context may be gone at destruction time. In this case just no-op the cleanup
-    if (!Object::Subsystem<Graphics>())
-        return;
-
-    Release();
+    if (Object::Subsystem<Graphics>())
+        Release();
 }
 
 bool IndexBuffer::Define(ResourceUsage usage_, size_t numIndices_, size_t indexSize_, const void* data)

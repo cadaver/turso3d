@@ -78,10 +78,8 @@ ShaderProgram::ShaderProgram(const std::string& sourceCode, const std::string& s
 ShaderProgram::~ShaderProgram()
 {
     // Context may be gone at destruction time. In this case just no-op the cleanup
-    if (!Object::Subsystem<Graphics>())
-        return;
-
-    Release();
+    if (Object::Subsystem<Graphics>())
+        Release();
 }
 
 int ShaderProgram::Uniform(const std::string& name) const
