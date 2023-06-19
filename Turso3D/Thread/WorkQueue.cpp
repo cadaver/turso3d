@@ -56,8 +56,6 @@ void WorkQueue::QueueTask(Task* task)
 
     if (threads.size())
     {
-        assert(task->numDependencies.load() == 0);
-
         {
             std::lock_guard<std::mutex> lock(queueMutex);
             tasks.push(task);
@@ -106,7 +104,11 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
     {
         // If no threads, execute directly
         for (size_t i = 0; i < count; ++i)
+        {
+            assert(tasks_[i]);
+            assert(tasks_[i]->numDependencies.load() == 0);
             CompleteTask(tasks_[i], 0);
+        }
     }
 }
 
