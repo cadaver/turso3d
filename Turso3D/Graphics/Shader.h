@@ -34,10 +34,9 @@ public:
     /// Return shader source code.
     const std::string& SourceCode() const { return sourceCode; }
 
+private:
     /// Sort the defines and strip extra spaces to prevent creation of unnecessary duplicate shader variations.
     std::string NormalizeDefines(const std::string& defines);
-
-private:
     /// Process include statements in the shader source code recursively. Return true if successful.
     bool ProcessIncludes(std::string& code, Stream& source);
 
