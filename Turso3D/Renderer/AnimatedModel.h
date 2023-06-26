@@ -11,7 +11,6 @@ class AnimatedModelDrawable;
 class Animation;
 class AnimationState;
 class UniformBuffer;
-struct ModelBone;
 
 static const unsigned char AMF_ANIMATION_ORDER_DIRTY = 0x1;
 static const unsigned char AMF_ANIMATION_DIRTY = 0x2;

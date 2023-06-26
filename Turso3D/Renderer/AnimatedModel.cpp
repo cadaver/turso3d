@@ -230,12 +230,10 @@ void AnimatedModelDrawable::CreateBones()
     {
         const ModelBone& modelBone = modelBones[i];
 
-        Bone* existingBone = owner->FindChild<Bone>(modelBone.nameHash, true);
-        if (existingBone)
-        {
-            bones[i] = existingBone;
-        }
-        else
+        // Try to find existing bone from scene hierarchy, if not found create new
+        bones[i] = owner->FindChild<Bone>(modelBone.nameHash, true);
+
+        if (!bones[i])
         {
             bones[i] = Object::Create<Bone>();
             bones[i]->SetName(modelBone.name);
