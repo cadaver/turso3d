@@ -277,8 +277,9 @@ private:
                 // Erase empty octants as necessary, but never the root
                 while (!octant->drawables.size() && !octant->numChildren && octant->parent)
                 {
-                    DeleteChildOctant(octant->parent, octant->childIndex);
-                    octant = octant->parent;
+                    Octant* parentOctant = octant->parent;
+                    DeleteChildOctant(parentOctant, octant->childIndex);
+                    octant = parentOctant;
                 }
                 return;
             }
