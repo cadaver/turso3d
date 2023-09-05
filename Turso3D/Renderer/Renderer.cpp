@@ -314,9 +314,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     CheckOcclusionQueries();
     octree->FinishUpdate();
 
-    // Enable threaded update during geometry / light gathering in case nodes' OnPrepareRender() causes further reinsertion queuing
-    octree->SetThreadedUpdate(workQueue->NumThreads() > 1);
-
     // Find the starting points for octree traversal. Include the root if it contains drawables that didn't fit elsewhere
     Octant* rootOctant = octree->Root();
     if (rootOctant->Drawables().size())
@@ -327,6 +324,13 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
         if (rootOctant->Child(i))
             rootLevelOctants.push_back(rootOctant->Child(i));
     }
+
+    // If no root level octants, must early-out the view preparation; there is nothing to render and task dependencies would not complete
+    if (rootLevelOctants.empty())
+        return;
+
+    // Enable threaded update during geometry / light gathering in case nodes' OnPrepareRender() causes further reinsertion queuing
+    octree->SetThreadedUpdate(workQueue->NumThreads() > 1);
 
     // Keep track of both batch + octant task progress before main batches can be sorted (batch tasks will add to the counter when queued)
     numPendingBatchTasks.store((int)rootLevelOctants.size());
