@@ -566,54 +566,48 @@ void Graphics::DrawIndexed(PrimitiveType type, size_t drawStart, size_t drawCoun
 
 void Graphics::DrawInstanced(PrimitiveType type, size_t drawStart, size_t drawCount, VertexBuffer* instanceVertexBuffer, size_t instanceStart, size_t instanceCount)
 {
-    if (!hasInstancing)
+    if (!hasInstancing || !instanceVertexBuffer)
         return;
 
-    if (instanceVertexBuffer)
+    if (!instancingEnabled)
     {
-        if (!instancingEnabled)
-        {
-            glEnableVertexAttribArray(ATTR_TEXCOORD3);
-            glEnableVertexAttribArray(ATTR_TEXCOORD4);
-            glEnableVertexAttribArray(ATTR_TEXCOORD5);
-            instancingEnabled = true;
-        }
-
-        unsigned instanceVertexSize = (unsigned)instanceVertexBuffer->VertexSize();
-
-        instanceVertexBuffer->Bind(0);
-        glVertexAttribPointer(ATTR_TEXCOORD3, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize));
-        glVertexAttribPointer(ATTR_TEXCOORD4, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize + sizeof(Vector4)));
-        glVertexAttribPointer(ATTR_TEXCOORD5, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize + 2 * sizeof(Vector4)));
-        glDrawArraysInstanced(glPrimitiveTypes[type], (GLint)drawStart, (GLsizei)drawCount, (GLsizei)instanceCount);
+        glEnableVertexAttribArray(ATTR_TEXCOORD3);
+        glEnableVertexAttribArray(ATTR_TEXCOORD4);
+        glEnableVertexAttribArray(ATTR_TEXCOORD5);
+        instancingEnabled = true;
     }
+
+    unsigned instanceVertexSize = (unsigned)instanceVertexBuffer->VertexSize();
+
+    instanceVertexBuffer->Bind(0);
+    glVertexAttribPointer(ATTR_TEXCOORD3, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize));
+    glVertexAttribPointer(ATTR_TEXCOORD4, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize + sizeof(Vector4)));
+    glVertexAttribPointer(ATTR_TEXCOORD5, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize + 2 * sizeof(Vector4)));
+    glDrawArraysInstanced(glPrimitiveTypes[type], (GLint)drawStart, (GLsizei)drawCount, (GLsizei)instanceCount);
 }
 
 void Graphics::DrawIndexedInstanced(PrimitiveType type, size_t drawStart, size_t drawCount, VertexBuffer* instanceVertexBuffer, size_t instanceStart, size_t instanceCount)
 {
-    if (!hasInstancing)
-        return;
-
     unsigned indexSize = (unsigned)IndexBuffer::BoundIndexSize();
 
-    if (indexSize && instanceVertexBuffer)
+    if (!hasInstancing || !instanceVertexBuffer || !indexSize)
+        return;
+
+    if (!instancingEnabled)
     {
-        if (!instancingEnabled)
-        {
-            glEnableVertexAttribArray(ATTR_TEXCOORD3);
-            glEnableVertexAttribArray(ATTR_TEXCOORD4);
-            glEnableVertexAttribArray(ATTR_TEXCOORD5);
-            instancingEnabled = true;
-        }
-
-        unsigned instanceVertexSize = (unsigned)instanceVertexBuffer->VertexSize();
-
-        instanceVertexBuffer->Bind(0);
-        glVertexAttribPointer(ATTR_TEXCOORD3, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize));
-        glVertexAttribPointer(ATTR_TEXCOORD4, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize + sizeof(Vector4)));
-        glVertexAttribPointer(ATTR_TEXCOORD5, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize + 2 * sizeof(Vector4)));
-        glDrawElementsInstanced(glPrimitiveTypes[type], (GLsizei)drawCount, indexSize == sizeof(unsigned short) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, (const void*)(drawStart * indexSize), (GLsizei)instanceCount);
+        glEnableVertexAttribArray(ATTR_TEXCOORD3);
+        glEnableVertexAttribArray(ATTR_TEXCOORD4);
+        glEnableVertexAttribArray(ATTR_TEXCOORD5);
+        instancingEnabled = true;
     }
+
+    unsigned instanceVertexSize = (unsigned)instanceVertexBuffer->VertexSize();
+
+    instanceVertexBuffer->Bind(0);
+    glVertexAttribPointer(ATTR_TEXCOORD3, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize));
+    glVertexAttribPointer(ATTR_TEXCOORD4, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize + sizeof(Vector4)));
+    glVertexAttribPointer(ATTR_TEXCOORD5, 4, GL_FLOAT, GL_FALSE, instanceVertexSize, (const void*)(instanceStart * instanceVertexSize + 2 * sizeof(Vector4)));
+    glDrawElementsInstanced(glPrimitiveTypes[type], (GLsizei)drawCount, indexSize == sizeof(unsigned short) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, (const void*)(drawStart * indexSize), (GLsizei)instanceCount);
 }
 
 void Graphics::DrawQuad()

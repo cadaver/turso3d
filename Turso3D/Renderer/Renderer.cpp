@@ -297,7 +297,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     for (size_t i = 0; i < workQueue->NumThreads(); ++i)
         batchResults[i].Clear();
     
-    if (drawShadows)
+    if (shadowMaps)
     {
         for (size_t i = 0; i < NUM_SHADOW_MAPS; ++i)
             shadowMaps[i].Clear();
@@ -1210,7 +1210,7 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
         if (!drawShadows || dirLight->ShadowStrength() >= 1.0f || !AllocateShadowMap(dirLight))
             dirLight->SetShadowMap(nullptr);
     }
-
+    
     shadowMapsDirty = false;
 
     size_t lightTaskIdx = 0;
