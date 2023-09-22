@@ -217,7 +217,7 @@ void Graphics::Resize(const IntVector2& size)
 
 void Graphics::SetFullscreen(bool enable)
 {
-    SDL_SetWindowFullscreen(window, enable ? SDL_WINDOW_FULLSCREEN : 0);
+    SDL_SetWindowFullscreen(window, enable ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
 }
 
 void Graphics::SetVSync(bool enable)
