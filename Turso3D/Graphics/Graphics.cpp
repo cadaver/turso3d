@@ -661,10 +661,41 @@ void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& res
 {
     ZoneScoped;
 
-    for (auto it = pendingQueries.begin(); it != pendingQueries.end(); ++it)
+    if (!vsync && lastFrameTime < 1.0f / 60.0f)
     {
-        GLuint queryId = it->first;
+        // Vsync off and low frame deltatime: wait for query result to avoid stalling. To save API calls, go through queries in reverse order
+        // and assume that if a later query has its result available, then all earlier queries will have too
+        GLuint available = 0;
+
+        for (size_t i = pendingQueries.size() - 1; i < pendingQueries.size(); --i)
         {
+            GLuint queryId = pendingQueries[i].first;
+    
+            if (!available)
+                glGetQueryObjectuiv(queryId, GL_QUERY_RESULT_AVAILABLE, &available);
+    
+            if (available)
+            {
+                GLuint passed = 0;
+                glGetQueryObjectuiv(queryId, GL_QUERY_RESULT, &passed);
+    
+                OcclusionQueryResult newResult;
+                newResult.id = queryId;
+                newResult.object = pendingQueries[i].second;
+                newResult.visible = passed > 0;
+                result.push_back(newResult);
+    
+                freeQueries.push_back(queryId);
+                pendingQueries.erase(pendingQueries.begin() + i);
+            }
+        }
+    }
+    else
+    {
+        // Vsync on or slow frame: check all query results, potentially stalling, to avoid stutter and large false occlusion errors
+        for (auto it = pendingQueries.begin(); it != pendingQueries.end(); ++it)
+        {
+            GLuint queryId = it->first;
             GLuint passed = 0;
             glGetQueryObjectuiv(queryId, GL_QUERY_RESULT, &passed);
 
@@ -676,9 +707,10 @@ void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& res
 
             freeQueries.push_back(queryId);
         }
+
+        pendingQueries.clear();
     }
 
-    pendingQueries.clear();
 }
 
 IntVector2 Graphics::Size() const
