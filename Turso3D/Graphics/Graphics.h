@@ -116,7 +116,7 @@ public:
     void EndOcclusionQuery();
     /// Free an occlusion query when its associated object is destroyed early.
     void FreeOcclusionQuery(unsigned id);
-    /// Check for and return arrived query results. These are only retained for one frame.
+    /// Check for and return arrived query results. These are only retained for one frame. Should be called on the next frame after rendering queries, ie. after Present().
     void CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& result);
     /// Return number of pending occlusion queries.
     size_t PendingOcclusionQueries() const { return pendingQueries.size(); }
