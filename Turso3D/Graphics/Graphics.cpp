@@ -100,7 +100,7 @@ Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize) :
     RegisterSubsystem(this);
     RegisterGraphicsLibrary();
 
-    SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "system");
+    SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitor");
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
@@ -217,7 +217,7 @@ void Graphics::Resize(const IntVector2& size)
 
 void Graphics::SetFullscreen(bool enable)
 {
-    SDL_SetWindowFullscreen(window, enable ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+    SDL_SetWindowFullscreen(window, enable ? SDL_WINDOW_FULLSCREEN : 0);
 }
 
 void Graphics::SetVSync(bool enable)
