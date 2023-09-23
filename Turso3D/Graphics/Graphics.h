@@ -18,6 +18,15 @@ class UniformBuffer;
 class VertexBuffer;
 struct SDL_Window;
 
+/// Fullscreen modes.
+enum FullScreenMode
+{
+    WINDOWED = 0,
+    FULLSCREEN,
+    BORDERLESS_FULLSCREEN,
+    MAX_FULLSCREEN_MODES
+};
+
 /// Occlusion query result.
 struct OcclusionQueryResult
 {
@@ -35,17 +44,19 @@ class Graphics : public Object
     OBJECT(Graphics);
 
 public:
-    /// Create window with initial size and register subsystem and object. Rendering context is not created yet.
-    Graphics(const char* windowTitle, const IntVector2& windowSize);
+    /// Create window with initial screen mode and register subsystem and object. Rendering context is not created yet.
+    Graphics(const char* windowTitle, const IntVector2& windowSize, FullScreenMode mode);
     /// Destruct. Closes the application window.
     ~Graphics();
 
     /// Initialize rendering context. Return true on success.
     bool Initialize();
-    /// Set new window size.
+    /// Set new screen mode.
+    void SetScreenMode(const IntVector2& size, FullScreenMode mode);
+    /// Change window size only.
     void Resize(const IntVector2& size);
-    /// Set fullscreen mode.
-    void SetFullscreen(bool enable);
+    /// Change fullscreen mode only.
+    void SetFullScreen(FullScreenMode mode);
     /// Set vertical sync on/off.
     void SetVSync(bool enable);
     /// Present the contents of the backbuffer.
@@ -137,8 +148,8 @@ public:
     int RenderWidth() const { return RenderSize().x; }
     /// Return window render height.
     int RenderHeight() const { return RenderSize().y; }
-    /// Return whether is fullscreen.
-    bool IsFullscreen() const;
+    /// Return window's current fullscreen mode.
+    FullScreenMode FullScreen() const;
     /// Return whether is using vertical sync.
     bool VSync() const { return vsync; }
     /// Return last frame interval in seconds.

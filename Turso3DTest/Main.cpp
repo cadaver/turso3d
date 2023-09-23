@@ -232,7 +232,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     cache->AddResourceDir(ExecutableDir() + "Data");
 
     // Create the Graphics subsystem to open the application window and initialize OpenGL
-    AutoPtr<Graphics> graphics = new Graphics("Turso3D renderer test", IntVector2(1920, 1080));
+    AutoPtr<Graphics> graphics = new Graphics("Turso3D renderer test", IntVector2(1920, 1080), WINDOWED);
     if (!graphics->Initialize())
         return 1;
 
@@ -343,7 +343,8 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             animate = !animate;
 
         if (input->KeyPressed(SDLK_f))
-            graphics->SetFullscreen(!graphics->IsFullscreen());
+            graphics->SetFullScreen((FullScreenMode)((graphics->FullScreen() + 1) % MAX_FULLSCREEN_MODES));
+
         if (input->KeyPressed(SDLK_v))
             graphics->SetVSync(!graphics->VSync());
 

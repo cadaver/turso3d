@@ -83,7 +83,7 @@ static const unsigned glBlendOp[] =
 
 unsigned occlusionQueryType = GL_SAMPLES_PASSED;
 
-Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize) :
+Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize, FullScreenMode mode) :
     window(nullptr),
     context(nullptr),
     lastBlendMode(MAX_BLEND_MODES),
@@ -127,7 +127,13 @@ Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize) :
     if (!initialSize.x || !initialSize.y || initialSize.x > desktopMode.w || initialSize.y > desktopMode.h)
         initialSize = IntVector2(desktopMode.w, desktopMode.h);
 
-    window = SDL_CreateWindow(windowTitle, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, initialSize.x, initialSize.y, SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
+    unsigned flags = SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI;
+    if (mode == FULLSCREEN)
+        flags |= SDL_WINDOW_FULLSCREEN;
+    else if (mode == BORDERLESS_FULLSCREEN)
+        flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+
+    window = SDL_CreateWindow(windowTitle, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, initialSize.x, initialSize.y, flags);
 }
 
 Graphics::~Graphics()
@@ -210,14 +216,44 @@ bool Graphics::Initialize()
     return true;
 }
 
-void Graphics::Resize(const IntVector2& size)
+void Graphics::SetScreenMode(const IntVector2& size, FullScreenMode mode)
 {
+    // No-op if same size and mode
+    FullScreenMode lastMode = FullScreen();
+    if (size == Size() && mode == lastMode)
+        return;
+
+    // Cancel full screen mode first
+    if (lastMode != WINDOWED)
+        SDL_SetWindowFullscreen(window, 0);
+
     SDL_SetWindowSize(window, size.x, size.y);
+
+    if (mode != WINDOWED)
+    {
+        unsigned flags = 0;
+        if (mode == FULLSCREEN)
+            flags |= SDL_WINDOW_FULLSCREEN;
+        else if (mode == BORDERLESS_FULLSCREEN)
+            flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+        SDL_SetWindowFullscreen(window, flags);
+    }
 }
 
-void Graphics::SetFullscreen(bool enable)
+void Graphics::Resize(const IntVector2& size)
 {
-    SDL_SetWindowFullscreen(window, enable ? SDL_WINDOW_FULLSCREEN : 0);
+    SetScreenMode(size, FullScreen());
+}
+
+void Graphics::SetFullScreen(FullScreenMode mode)
+{
+    unsigned flags = 0;
+    if (mode == FULLSCREEN)
+        flags |= SDL_WINDOW_FULLSCREEN;
+    else if (mode == BORDERLESS_FULLSCREEN)
+        flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+ 
+    SDL_SetWindowFullscreen(window, flags);
 }
 
 void Graphics::SetVSync(bool enable)
@@ -724,12 +760,23 @@ IntVector2 Graphics::RenderSize() const
 {
     IntVector2 size;
     SDL_GL_GetDrawableSize(window, &size.x, &size.y);
-    return size;
+    
+    // Potential SDL bug after fullscreen switch, if zero then use window size instead
+    if (size.x && size.y)
+        return size;
+    else
+        return Size();
 }
 
-bool Graphics::IsFullscreen() const
+FullScreenMode Graphics::FullScreen() const
 {
-    return (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) != 0;
+    unsigned flags = SDL_GetWindowFlags(window);
+    if ((flags & SDL_WINDOW_FULLSCREEN_DESKTOP) == SDL_WINDOW_FULLSCREEN_DESKTOP)
+        return BORDERLESS_FULLSCREEN;
+    else if (flags & SDL_WINDOW_FULLSCREEN)
+        return FULLSCREEN;
+    else
+        return WINDOWED;
 }
 
 void Graphics::DefineQuadVertexBuffer()
