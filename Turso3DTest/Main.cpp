@@ -233,7 +233,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
     // Create the Graphics subsystem to open the application window and initialize OpenGL
     AutoPtr<Graphics> graphics = new Graphics("Turso3D renderer test", IntVector2(1920, 1080), WINDOWED);
-    if (!graphics->Initialize())
+    if (!graphics->IsInitialized())
         return 1;
 
     // Create subsystems that depend on the application window / OpenGL

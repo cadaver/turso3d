@@ -134,51 +134,24 @@ Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize, FullSc
         flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 
     window = SDL_CreateWindow(windowTitle, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, initialSize.x, initialSize.y, flags);
-}
-
-Graphics::~Graphics()
-{
-    if (context)
-    {
-        SDL_GL_DeleteContext(context);
-        context = nullptr;
-    }
-
-    if (window)
-    {
-        SDL_DestroyWindow(window);
-        window = nullptr;
-    }
-
-    SDL_Quit();
-    RemoveSubsystem(this);
-}
-
-bool Graphics::Initialize()
-{
-    ZoneScoped;
-
-    if (context)
-        return true;
-
     if (!window)
     {
-        LOGERROR("Window not opened");
-        return false;
+        LOGERROR("Could not create window");
+        return;
     }
-
+    
     context = SDL_GL_CreateContext(window);
     if (!context)
     {
         LOGERROR("Could not create OpenGL 3.2 context");
-        return false;
+        return;
     }
 
     GLenum err = glewInit();
     if (err != GLEW_OK || !GLEW_VERSION_3_2)
     {
         LOGERROR("Could not initialize OpenGL 3.2");
-        return false;
+        return;
     }
 
     // "Any samples passed" is potentially faster if supported
@@ -213,7 +186,24 @@ bool Graphics::Initialize()
     SetVSync(vsync);
     frameTimer.Reset();
 
-    return true;
+}
+
+Graphics::~Graphics()
+{
+    if (context)
+    {
+        SDL_GL_DeleteContext(context);
+        context = nullptr;
+    }
+
+    if (window)
+    {
+        SDL_DestroyWindow(window);
+        window = nullptr;
+    }
+
+    SDL_Quit();
+    RemoveSubsystem(this);
 }
 
 void Graphics::SetScreenMode(const IntVector2& size, FullScreenMode mode)
@@ -699,7 +689,7 @@ void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& res
 
     if (!vsync && lastFrameTime < 1.0f / 60.0f)
     {
-        // Vsync off and low frame deltatime: wait for query result to avoid stalling. To save API calls, go through queries in reverse order
+        // Vsync off and low frame deltatime: check for query result to avoid stalling. To save API calls, go through queries in reverse order
         // and assume that if a later query has its result available, then all earlier queries will have too
         GLuint available = 0;
 

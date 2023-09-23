@@ -44,13 +44,11 @@ class Graphics : public Object
     OBJECT(Graphics);
 
 public:
-    /// Create window with initial screen mode and register subsystem and object. Rendering context is not created yet.
-    Graphics(const char* windowTitle, const IntVector2& windowSize, FullScreenMode mode);
+    /// Register subsystem object and create window with initial screen mode, and create OpenGL context. Use zero screen size (default) to use desktop resolution. Check success with IsInitialized() before using other functions.
+    Graphics(const char* windowTitle, const IntVector2& windowSize = IntVector2::ZERO, FullScreenMode mode = WINDOWED);
     /// Destruct. Closes the application window.
     ~Graphics();
 
-    /// Initialize rendering context. Return true on success.
-    bool Initialize();
     /// Set new screen mode.
     void SetScreenMode(const IntVector2& size, FullScreenMode mode);
     /// Change window size only.
@@ -132,7 +130,7 @@ public:
     /// Return number of pending occlusion queries.
     size_t PendingOcclusionQueries() const { return pendingQueries.size(); }
 
-    /// Return whether is initialized.
+    /// Return whether the window and OpenGL context are successfully initialized.
     bool IsInitialized() const { return context != nullptr; }
     /// Return whether has instancing support.
     bool HasInstancing() const { return hasInstancing; }
