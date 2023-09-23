@@ -44,7 +44,7 @@ class Graphics : public Object
     OBJECT(Graphics);
 
 public:
-    /// Register subsystem object and create window with initial screen mode, and create OpenGL context. Use zero screen size (default) to use desktop resolution. Check success with IsInitialized() before using other functions.
+    /// Register subsystem object and create window with initial screen mode, and create OpenGL context. Use zero size (default) to use desktop resolution. Check success with IsInitialized() before using other functions.
     Graphics(const char* windowTitle, const IntVector2& windowSize = IntVector2::ZERO, FullScreenMode mode = WINDOWED);
     /// Destruct. Closes the application window.
     ~Graphics();

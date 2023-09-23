@@ -689,7 +689,7 @@ void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& res
 
     if (!vsync && lastFrameTime < 1.0f / 60.0f)
     {
-        // Vsync off and low frame deltatime: check for query result to avoid stalling. To save API calls, go through queries in reverse order
+        // Vsync off and low frametime: check for query result availability to avoid stalling. To save API calls, go through queries in reverse order
         // and assume that if a later query has its result available, then all earlier queries will have too
         GLuint available = 0;
 
@@ -718,7 +718,7 @@ void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& res
     }
     else
     {
-        // Vsync on or slow frame: check all query results, potentially stalling, to avoid stutter and large false occlusion errors
+        // Vsync on or high frametime: check all query results, potentially stalling, to avoid stutter and large false occlusion errors
         for (auto it = pendingQueries.begin(); it != pendingQueries.end(); ++it)
         {
             GLuint queryId = it->first;
