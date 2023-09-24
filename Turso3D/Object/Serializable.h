@@ -76,19 +76,19 @@ public:
     /// Skip binary data of an object's all attributes.
     static void Skip(Stream& source);
     
-    /// Register a per-class attribute, template version. Should not be used for base class attributes unless the type is explicitly specified, as by default the attribute will be re-registered to the base class redundantly.
+    /// Register a per-class attribute, template version. Class should always be specified in the function pointers to ensure the attribute is registered to the intended class.
     template <class T, class U> static void RegisterAttribute(const char* name, U (T::*getFunction)() const, void (T::*setFunction)(U), const U& defaultValue = U(), const char** enumNames = 0)
     {
         RegisterAttribute(T::TypeStatic(), new AttributeImpl<U>(name, new AttributeAccessorImpl<T, U>(getFunction, setFunction), defaultValue, enumNames));
     }
     
-    /// Register a per-class attribute with reference access, template version. Should not be used for base class attributes unless the type is explicitly specified, as by default the attribute will be re-registered to the base class redundantly.
+    /// Register a per-class attribute with reference access, template version. Class should always be specified in the function pointers to ensure the attribute is registered to the intended class.
     template <class T, class U> static void RegisterRefAttribute(const char* name, const U& (T::*getFunction)() const, void (T::*setFunction)(const U&), const U& defaultValue = U(), const char** enumNames = 0)
     {
         RegisterAttribute(T::TypeStatic(), new AttributeImpl<U>(name, new RefAttributeAccessorImpl<T, U>(getFunction, setFunction), defaultValue, enumNames));
     }
 
-    /// Register a per-class attribute with mixed reference access, template version. Should not be used for base class attributes unless the type is explicitly specified, as by default the attribute will be re-registered to the base class redundantly.
+    /// Register a per-class attribute with mixed reference access, template version. Class should always be specified in the function pointers to ensure the attribute is registered to the intended class.
     template <class T, class U> static void RegisterMixedRefAttribute(const char* name, U (T::*getFunction)() const, void (T::*setFunction)(const U&), const U& defaultValue = U(), const char** enumNames = 0)
     {
         RegisterAttribute(T::TypeStatic(), new AttributeImpl<U>(name, new MixedRefAttributeAccessorImpl<T, U>(getFunction, setFunction), defaultValue, enumNames));

@@ -16,6 +16,30 @@ enum ButtonState
     STATE_PRESSED
 };
 
+/// Button press or release event.
+class ButtonEvent : public Event
+{
+public:
+    union
+    {
+        /// Key code.
+        unsigned keyCode;
+        /// Mouse button.
+        unsigned button;
+    };
+
+    /// Repeat flag.
+    bool repeat;
+};
+
+/// Delta motion event.
+class MovementEvent : public Event
+{
+public:
+    /// Delta movement since last frame.
+    IntVector2 delta;
+};
+
 /// %Input collection subsystem.
 class Input : public Object
 {
@@ -41,11 +65,11 @@ public:
     /// Return whether key was pressed or held down this frame.
     bool KeyDown(unsigned keyCode) const { ButtonState state = KeyState(keyCode); return state >= STATE_DOWN; }
     /// Return whether mouse button was pressed this frame.
-    bool MouseButtonPressed(unsigned num) const { return MouseButtonState(num) == STATE_PRESSED; }
+    bool MouseButtonPressed(unsigned button) const { return MouseButtonState(button) == STATE_PRESSED; }
     /// Return whether key was released this frame.
-    bool MouseButtonReleased(unsigned num) const { return MouseButtonState(num) == STATE_RELEASED; }
+    bool MouseButtonReleased(unsigned button) const { return MouseButtonState(button) == STATE_RELEASED; }
     /// Return whether key was pressed or held down this frame.
-    bool MouseButtonDown(unsigned num) const { ButtonState state = MouseButtonState(num); return state >= STATE_DOWN; }
+    bool MouseButtonDown(unsigned button) const { ButtonState state = MouseButtonState(button); return state >= STATE_DOWN; }
     /// Return mouse movement since last frame.
     const IntVector2& MouseMove() const { return mouseMove; }
     /// Return mouse wheel scroll since last frame.
@@ -56,6 +80,25 @@ public:
     bool ShouldExit() const { return shouldExit; }
     /// Return the OS-level window.
     SDL_Window* Window() const { return window; }
+    
+    /// Key press event.
+    ButtonEvent keyPressEvent;
+    /// Key release event.
+    ButtonEvent keyReleaseEvent;
+    /// Mouse button press event.
+    ButtonEvent mousePressEvent;
+    /// Mouse button release event.
+    ButtonEvent mouseReleaseEvent;
+    /// Mouse move event.
+    MovementEvent mouseMoveEvent;
+    /// Mouse wheel scroll event.
+    MovementEvent mouseWheelEvent;
+    /// Window input focus gained event.
+    Event focusGainedEvent;
+    /// Window input focus lost event.
+    Event focusLostEvent;
+    /// Exit request event.
+    Event exitRequestEvent;
 
 private:
     /// OS-level window.

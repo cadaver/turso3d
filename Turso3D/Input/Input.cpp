@@ -41,18 +41,21 @@ void Input::Update()
 
     mouseMove = IntVector2::ZERO;
     mouseWheel = IntVector2::ZERO;
+    shouldExit = false;
 
     unsigned focusFlags = SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS;
     if (focusFlags && !focus)
     {
         focus = true;
         SDL_SetRelativeMouseMode(SDL_TRUE);
+        SendEvent(focusGainedEvent);
     }
     if (!focusFlags && focus)
     {
         focus = false;
         keyStates.clear();
         SDL_SetRelativeMouseMode(SDL_FALSE);
+        SendEvent(focusLostEvent);
     }
 
     SDL_PumpEvents();
@@ -64,23 +67,36 @@ void Input::Update()
         {
         case SDL_QUIT:
             shouldExit = true;
+            SendEvent(exitRequestEvent);
             break;
 
         case SDL_KEYDOWN:
             if (event.key.repeat == 0)
                 keyStates[event.key.keysym.sym] = STATE_PRESSED;
+            keyPressEvent.keyCode = event.key.keysym.sym;
+            keyPressEvent.repeat = event.key.repeat > 0;
+            SendEvent(keyPressEvent);
             break;
 
         case SDL_KEYUP:
             keyStates[event.key.keysym.sym] = STATE_RELEASED;
+            keyPressEvent.keyCode = event.key.keysym.sym;
+            keyPressEvent.repeat = false;
+            SendEvent(keyReleaseEvent);
             break;
 
         case SDL_MOUSEBUTTONDOWN:
             mouseButtonStates[event.button.button] = STATE_PRESSED;
+            mousePressEvent.button = event.button.button;
+            mousePressEvent.repeat = false;
+            SendEvent(mousePressEvent);
             break;
 
         case SDL_MOUSEBUTTONUP:
             mouseButtonStates[event.button.button] = STATE_RELEASED;
+            mouseReleaseEvent.button = event.button.button;
+            mouseReleaseEvent.repeat = false;
+            SendEvent(mouseReleaseEvent);
             break;
 
         case SDL_MOUSEMOTION:
@@ -88,6 +104,8 @@ void Input::Update()
             {
                 mouseMove.x += event.motion.xrel;
                 mouseMove.y += event.motion.yrel;
+                mouseMoveEvent.delta = IntVector2(event.motion.xrel, event.motion.yrel);
+                SendEvent(mouseMoveEvent);
             }
             break;
 
@@ -96,6 +114,8 @@ void Input::Update()
             {
                 mouseWheel.x += event.wheel.x;
                 mouseWheel.y += event.wheel.y;
+                mouseWheelEvent.delta = IntVector2(event.wheel.x, event.wheel.y);
+                SendEvent(mouseWheelEvent);
             }
             break;
         }
