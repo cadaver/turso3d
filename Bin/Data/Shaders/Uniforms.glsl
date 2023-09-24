@@ -27,7 +27,7 @@ struct Light
 
 layout(std140) uniform LightData1
 {
-    Light lights[255];
+    Light lights[256];
 };
 
 #ifdef SKINNED

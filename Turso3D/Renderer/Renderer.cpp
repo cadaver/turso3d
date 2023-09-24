@@ -182,6 +182,7 @@ Renderer::Renderer() :
     clusterCullData = new ClusterCullData[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
     clusterData = new unsigned char[MAX_LIGHTS_CLUSTER * NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
     lightData = new LightData[MAX_LIGHTS + 1];
+    memset(lightData, 0, (MAX_LIGHTS + 1) * sizeof(LightData));
 
     perViewDataBuffer = new UniformBuffer();
     perViewDataBuffer->Define(USAGE_DYNAMIC, sizeof(PerViewUniforms));
@@ -1221,11 +1222,12 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
         LightDrawable* light = lights[i];
         float cutoff = light->GetLightType() == LIGHT_SPOT ? cosf(light->Fov() * 0.5f * M_DEGTORAD) : 0.0f;
 
-        lightData[i].position = Vector4(light->WorldPosition(), 1.0f);
-        lightData[i].direction = Vector4(-light->WorldDirection(), 0.0f);
-        lightData[i].attenuation = Vector4(1.0f / Max(light->Range(), M_EPSILON), cutoff, 1.0f / (1.0f - cutoff), 1.0f);
-        lightData[i].color = light->EffectiveColor();
-        lightData[i].shadowParameters = Vector4::ONE; // Assume unshadowed
+        // Light indexing starts at 1 as 0 is "no light"
+        lightData[i + 1].position = Vector4(light->WorldPosition(), 1.0f);
+        lightData[i + 1].direction = Vector4(-light->WorldDirection(), 0.0f);
+        lightData[i + 1].attenuation = Vector4(1.0f / Max(light->Range(), M_EPSILON), cutoff, 1.0f / (1.0f - cutoff), 1.0f);
+        lightData[i + 1].color = light->EffectiveColor();
+        lightData[i + 1].shadowParameters = Vector4::ONE; // Assume unshadowed
 
         // Check if not shadowcasting or beyond shadow range
         if (!drawShadows || light->ShadowStrength() >= 1.0f)
@@ -1512,8 +1514,8 @@ void Renderer::ProcessShadowCastersWork(Task*, unsigned)
 
         if (light->ShadowMap())
         {
-            lightData[i].shadowParameters = light->ShadowParameters();
-            lightData[i].shadowMatrix = light->ShadowViews()[0].shadowMatrix;
+            lightData[i + 1].shadowParameters = light->ShadowParameters();
+            lightData[i + 1].shadowMatrix = light->ShadowViews()[0].shadowMatrix;
         }
     }
 }

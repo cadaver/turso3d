@@ -199,7 +199,7 @@ public:
     void PrepareView(Scene* scene, Camera* camera, bool drawShadows, bool useOcclusion);
     /// Render shadowmaps before rendering the view. Last shadow framebuffer will be left bound.
     void RenderShadowMaps();
-    /// Clear with fog color and far depth (optional), then render opaque objects into the currently set framebuffer and viewport.
+    /// Clear with fog color and far depth (optional), then render opaque objects into the currently set framebuffer and viewport. If occlusion is used, occlusion queries will also be rendered.
     void RenderOpaque(bool clear = true);
     /// Render transparent objects into the currently set framebuffer and viewport.
     void RenderAlpha();

@@ -148,22 +148,22 @@ void CalculateLighting(vec4 worldPos, vec3 normal, vec2 screenPos, vec4 matDiffC
 
     while (lightClusterData.x > 0U)
     {
-        CalculateLight((lightClusterData.x & 0xffU) - 1U, worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
+        CalculateLight((lightClusterData.x & 0xffU), worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
         lightClusterData.x >>= 8U;
     }
     while (lightClusterData.y > 0U)
     {
-        CalculateLight((lightClusterData.y & 0xffU) - 1U, worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
+        CalculateLight((lightClusterData.y & 0xffU), worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
         lightClusterData.y >>= 8U;
     }
     while (lightClusterData.z > 0U)
     {
-        CalculateLight((lightClusterData.z & 0xffU) - 1U, worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
+        CalculateLight((lightClusterData.z & 0xffU), worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
         lightClusterData.z >>= 8U;
     }
     while (lightClusterData.w > 0U)
     {
-        CalculateLight((lightClusterData.w & 0xffU) - 1U, worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
+        CalculateLight((lightClusterData.w & 0xffU), worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
         lightClusterData.w >>= 8U;
     }
 }
