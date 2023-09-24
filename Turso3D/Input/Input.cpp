@@ -80,8 +80,8 @@ void Input::Update()
 
         case SDL_KEYUP:
             keyStates[event.key.keysym.sym] = STATE_RELEASED;
-            keyPressEvent.keyCode = event.key.keysym.sym;
-            keyPressEvent.repeat = false;
+            keyReleaseEvent.keyCode = event.key.keysym.sym;
+            keyReleaseEvent.repeat = false;
             SendEvent(keyReleaseEvent);
             break;
 
