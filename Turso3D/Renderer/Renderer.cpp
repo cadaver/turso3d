@@ -989,7 +989,7 @@ void Renderer::RenderOcclusionQueries()
             graphics->DrawIndexed(PT_TRIANGLE_LIST, 0, NUM_BOX_INDICES);
             graphics->EndOcclusionQuery();
 
-            // Store query to octant to make sure we don't re-test it until result arrives
+            // Remember query in octant to not re-test it until result arrives
             octant->OnOcclusionQuery(queryId);
         }
     }

@@ -36,7 +36,7 @@ public:
 class MovementEvent : public Event
 {
 public:
-    /// Delta movement since last frame.
+    /// Delta movement since last event.
     IntVector2 delta;
 };
 
