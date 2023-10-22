@@ -128,6 +128,7 @@ static const unsigned glWrapModes[] =
 
 Texture::Texture() :
     texture(0),
+    target(0),
     type(TEX_2D),
     size(IntVector3::ZERO),
     format(FMT_NONE),
@@ -260,14 +261,16 @@ bool Texture::Define(TextureType type_, const IntVector3& size_, ImageFormat for
         return false;
     }
 
-    ForceBind();
-
     size = size_;
     format = format_;
     numLevels = numLevels_;
     multisample = multisample_;
 
-    GLenum glTarget = glTargets[type];
+    target = glTargets[type];
+    if (target == GL_TEXTURE_2D && multisample > 1)
+        target = GL_TEXTURE_2D_MULTISAMPLE;
+
+    ForceBind();
 
     // If not compressed and no initial data, create the initial level 0 texture with null data
     // Clear previous error first to be able to check whether the data was successfully set
@@ -277,9 +280,9 @@ bool Texture::Define(TextureType type_, const IntVector3& size_, ImageFormat for
         if (multisample == 1)
         {
             if (type == TEX_2D)
-                glTexImage2D(glTarget, 0, glInternalFormats[format], size.x, size.y, 0, glFormats[format], glDataTypes[format], nullptr);
+                glTexImage2D(target, 0, glInternalFormats[format], size.x, size.y, 0, glFormats[format], glDataTypes[format], nullptr);
             else if (type == TEX_3D)
-                glTexImage3D(glTarget, 0, glInternalFormats[format], size.x, size.y, size.z, 0, glFormats[format], glDataTypes[format], nullptr);
+                glTexImage3D(target, 0, glInternalFormats[format], size.x, size.y, size.z, 0, glFormats[format], glDataTypes[format], nullptr);
             else if (type == TEX_CUBE)
             {
                 for (size_t i = 0; i < MAX_CUBE_FACES; ++i)
@@ -289,9 +292,9 @@ bool Texture::Define(TextureType type_, const IntVector3& size_, ImageFormat for
         else
         {
             if (type == TEX_2D)
-                glTexImage2DMultisample(glTarget, multisample, glInternalFormats[format], size.x, size.y, GL_TRUE);
+                glTexImage2DMultisample(target, multisample, glInternalFormats[format], size.x, size.y, GL_TRUE);
             else if (type == TEX_3D)
-                glTexImage3DMultisample(glTarget, multisample, glInternalFormats[format], size.x, size.y, size.z, GL_TRUE);
+                glTexImage3DMultisample(target, multisample, glInternalFormats[format], size.x, size.y, size.z, GL_TRUE);
             else if (type == TEX_CUBE)
             {
                 for (size_t i = 0; i < MAX_CUBE_FACES; ++i)
@@ -326,8 +329,8 @@ bool Texture::Define(TextureType type_, const IntVector3& size_, ImageFormat for
         return false;
     }
 
-    glTexParameteri(glTarget, GL_TEXTURE_BASE_LEVEL, 0);
-    glTexParameteri(glTarget, GL_TEXTURE_MAX_LEVEL, type != TEX_3D ? (unsigned)numLevels - 1 : 0);
+    glTexParameteri(target, GL_TEXTURE_BASE_LEVEL, 0);
+    glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, type != TEX_3D ? (unsigned)numLevels - 1 : 0);
     LOGDEBUGF("Created texture width %d height %d depth %d format %d numLevels %d", size.x, size.y, size.z, (int)format, numLevels);
 
     return true;
@@ -354,23 +357,21 @@ bool Texture::DefineSampler(TextureFilterMode filter_, TextureAddressMode u, Tex
 
     ForceBind();
 
-    GLenum glTarget = glTargets[type];
-
     switch (filter)
     {
     case FILTER_POINT:
     case COMPARE_POINT:
-        glTexParameteri(glTarget, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(glTarget, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         break;
 
     case FILTER_BILINEAR:
     case COMPARE_BILINEAR:
         if (numLevels < 2)
-            glTexParameteri(glTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         else
-            glTexParameteri(glTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-        glTexParameteri(glTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+        glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         break;
 
     case FILTER_ANISOTROPIC:
@@ -378,34 +379,34 @@ bool Texture::DefineSampler(TextureFilterMode filter_, TextureAddressMode u, Tex
     case COMPARE_ANISOTROPIC:
     case COMPARE_TRILINEAR:
         if (numLevels < 2)
-            glTexParameteri(glTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         else
-            glTexParameteri(glTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(glTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         break;
 
     default:
         break;
     }
 
-    glTexParameteri(glTarget, GL_TEXTURE_WRAP_S, glWrapModes[addressModes[0]]);
-    glTexParameteri(glTarget, GL_TEXTURE_WRAP_T, glWrapModes[addressModes[1]]);
-    glTexParameteri(glTarget, GL_TEXTURE_WRAP_R, glWrapModes[addressModes[2]]);
+    glTexParameteri(target, GL_TEXTURE_WRAP_S, glWrapModes[addressModes[0]]);
+    glTexParameteri(target, GL_TEXTURE_WRAP_T, glWrapModes[addressModes[1]]);
+    glTexParameteri(target, GL_TEXTURE_WRAP_R, glWrapModes[addressModes[2]]);
 
-    glTexParameterf(glTarget, GL_TEXTURE_MAX_ANISOTROPY_EXT, filter == FILTER_ANISOTROPIC ? maxAnisotropy : 1.0f);
+    glTexParameterf(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, filter == FILTER_ANISOTROPIC ? maxAnisotropy : 1.0f);
 
-    glTexParameterf(glTarget, GL_TEXTURE_MIN_LOD, minLod);
-    glTexParameterf(glTarget, GL_TEXTURE_MAX_LOD, maxLod);
+    glTexParameterf(target, GL_TEXTURE_MIN_LOD, minLod);
+    glTexParameterf(target, GL_TEXTURE_MAX_LOD, maxLod);
 
-    glTexParameterfv(glTarget, GL_TEXTURE_BORDER_COLOR, borderColor.Data());
+    glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, borderColor.Data());
         
     if (filter >= COMPARE_POINT)
     {
-        glTexParameteri(glTarget, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-        glTexParameteri(glTarget, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+        glTexParameteri(target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+        glTexParameteri(target, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
     }
     else
-        glTexParameteri(glTarget, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+        glTexParameteri(target, GL_TEXTURE_COMPARE_MODE, GL_NONE);
 
     return true;
 }
@@ -432,7 +433,7 @@ bool Texture::SetData(size_t level, const IntBox& box, const ImageLevel& data)
         return false;
     }
 
-    GLenum glTarget = (type == TEX_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + box.near : glTargets[type];
+    GLenum glTarget = (type == TEX_CUBE) ? GL_TEXTURE_CUBE_MAP_POSITIVE_X + box.near : target;
 
     IntBox levelBox(0, 0, 0, Max(size.x >> level, 1), Max(size.y >> level, 1), Max(size.z >> level, 1));
     if (type == TEX_CUBE)
@@ -496,13 +497,11 @@ void Texture::Bind(size_t unit)
         activeTextureUnit = unit;
     }
 
-    GLenum glTarget = glTargets[type];
-
-    if (activeTargets[unit] && activeTargets[unit] != glTarget)
+    if (activeTargets[unit] && activeTargets[unit] != target)
         glBindTexture(activeTargets[unit], 0);
 
-    glBindTexture(glTarget, texture);
-    activeTargets[unit] = glTarget;
+    glBindTexture(target, texture);
+    activeTargets[unit] = target;
     boundTextures[unit] = this;
 }
 
@@ -523,7 +522,7 @@ void Texture::Unbind(size_t unit)
 
 unsigned Texture::GLTarget() const
 {
-    return glTargets[type];
+    return target;
 }
 
 void Texture::ForceBind()
