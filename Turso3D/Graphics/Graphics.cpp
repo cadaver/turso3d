@@ -246,6 +246,7 @@ void Graphics::SetFullScreen(FullScreenMode mode)
         flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
  
     SDL_SetWindowFullscreen(window, flags);
+    SDL_RaiseWindow(window);
 }
 
 void Graphics::SetVSync(bool enable)
