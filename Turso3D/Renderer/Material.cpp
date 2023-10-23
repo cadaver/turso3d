@@ -402,11 +402,11 @@ Material* Material::DefaultMaterial()
         defaultMaterial->DefineUniforms(defaultUniforms);
 
         Pass* pass = defaultMaterial->CreatePass(PASS_SHADOW);
-        pass->SetShader(cache->LoadResource<Shader>("Shaders/Shadow.glsl"), "", "");
+        pass->SetShader(cache->LoadResource<Shader>("Shaders/Shadow.glsl"));
         pass->SetRenderState(BLEND_REPLACE, CMP_LESS_EQUAL, false, true);
 
         pass = defaultMaterial->CreatePass(PASS_OPAQUE);
-        pass->SetShader(cache->LoadResource<Shader>("Shaders/NoTexture.glsl"), "", "");
+        pass->SetShader(cache->LoadResource<Shader>("Shaders/NoTexture.glsl"));
         pass->SetRenderState(BLEND_REPLACE, CMP_LESS_EQUAL, true, true);
     }
 

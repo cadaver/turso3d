@@ -228,6 +228,8 @@ void Graphics::SetScreenMode(const IntVector2& size, FullScreenMode mode)
             flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
         SDL_SetWindowFullscreen(window, flags);
     }
+
+    SDL_RaiseWindow(window);
 }
 
 void Graphics::Resize(const IntVector2& size)
