@@ -18,8 +18,6 @@
 
 #ifdef WIN32
 #include <Windows.h>
-#include <dwmapi.h>
-#include <VersionHelpers.h>
 // Prefer the high-performance GPU on switchable GPU systems
 extern "C" {
     __declspec(dllexport) DWORD NvOptimusEnablement = 1;
@@ -265,46 +263,7 @@ void Graphics::Present()
 {
     ZoneScoped;
 
-#ifdef WIN32
-    // Prevent stutter on windowed mode + vsync on by using DwmFlush() instead of swap interval of 1
-    // Inspired by https://github.com/libsdl-org/SDL/issues/5797
-    bool dwmFlush = false;
-
-    if (vsync && FullScreen() == WINDOWED)
-    {
-        BOOL compositionEnabled = IsWindows8OrGreater();
-        if (!compositionEnabled)
-            DwmIsCompositionEnabled(&compositionEnabled);
-        
-        if (compositionEnabled)
-        {
-            // Compare monitor and DWM refresh rates and only use DwmFlush() if close enough
-            SDL_DisplayMode mode;
-            SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(window), &mode);
-            float displayRefreshRate = (float)mode.refresh_rate;
-
-            DWM_TIMING_INFO info;
-            info.cbSize = sizeof(DWM_TIMING_INFO);
-            DwmGetCompositionTimingInfo(NULL, &info);
-            float dwmRefreshRate = (float)info.rateRefresh.uiNumerator / (float)info.rateRefresh.uiDenominator;
-
-            if (Abs(dwmRefreshRate - displayRefreshRate) <= 2.0f)
-                dwmFlush = true;
-        }
-    }
-
-    if (dwmFlush)
-    {
-        SDL_GL_SetSwapInterval(0);
-        SDL_GL_SwapWindow(window);
-        DwmFlush();
-        SDL_GL_SetSwapInterval(vsync ? 1 : 0);
-    }
-    else
-        SDL_GL_SwapWindow(window);
-#else
     SDL_GL_SwapWindow(window);
-#endif
 
     lastFrameTime = 0.000001f * frameTimer.ElapsedUSec();
     frameTimer.Reset();
