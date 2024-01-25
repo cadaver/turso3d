@@ -41,6 +41,7 @@ void Input::Update()
 
     mouseMove = IntVector2::ZERO;
     mouseWheel = IntVector2::ZERO;
+    textInput.clear();
     shouldExit = false;
 
     unsigned focusFlags = SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS;
@@ -83,6 +84,12 @@ void Input::Update()
             keyReleaseEvent.keyCode = event.key.keysym.sym;
             keyReleaseEvent.repeat = false;
             SendEvent(keyReleaseEvent);
+            break;
+
+        case SDL_TEXTINPUT:
+            textInputEvent.text = std::string(&event.text.text[0]);
+            textInput += textInputEvent.text;
+            SendEvent(textInputEvent);
             break;
 
         case SDL_MOUSEBUTTONDOWN:

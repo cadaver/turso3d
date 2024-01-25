@@ -32,6 +32,14 @@ public:
     bool repeat;
 };
 
+/// Text input event.
+class TextInputEvent : public Event
+{
+public:
+    /// Text in UTF8 format.
+    std::string text;
+};
+
 /// Delta motion event.
 class MovementEvent : public Event
 {
@@ -64,6 +72,8 @@ public:
     bool KeyReleased(unsigned keyCode) const { return KeyState(keyCode) == STATE_RELEASED; }
     /// Return whether key was pressed or held down this frame.
     bool KeyDown(unsigned keyCode) const { ButtonState state = KeyState(keyCode); return state >= STATE_DOWN; }
+    /// Return text input since last frame.
+    const std::string& TextInput() const { return textInput; }
     /// Return whether mouse button was pressed this frame.
     bool MouseButtonPressed(unsigned button) const { return MouseButtonState(button) == STATE_PRESSED; }
     /// Return whether key was released this frame.
@@ -81,6 +91,8 @@ public:
     /// Return the OS-level window.
     SDL_Window* Window() const { return window; }
     
+    /// Text input event.
+    TextInputEvent textInputEvent;
     /// Key press event.
     ButtonEvent keyPressEvent;
     /// Key release event.
@@ -107,6 +119,8 @@ private:
     IntVector2 mouseMove;
     /// Accumulated mouse wheel movement.
     IntVector2 mouseWheel;
+    /// Accumulated text input.
+    std::string textInput;
     /// Key states.
     std::map<unsigned, ButtonState> keyStates;
     /// Mouse button states.
