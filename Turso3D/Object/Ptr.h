@@ -588,7 +588,7 @@ public:
     {
         T* rawPtr = Get();
         assert(rawPtr);
-        return (*rawPtr)[index];
+        return rawPtr[index];
     }
 
     /// Const-index the array.
@@ -596,7 +596,7 @@ public:
     {
         T* rawPtr = Get();
         assert(rawPtr);
-        return (*rawPtr)[index];
+        return rawPtr[index];
     }
     
     /// Test for equality with another weak array pointer.
