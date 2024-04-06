@@ -26,7 +26,8 @@ const char* attribNames[] =
     "texCoord4",
     "texCoord5",
     "blendWeights",
-    "blendIndices"
+    "blendIndices",
+    nullptr
 };
 
 void CommentOutFunction(std::string& code, const std::string& signature)
