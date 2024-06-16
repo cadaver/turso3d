@@ -56,13 +56,13 @@ void WorkQueue::QueueTask(Task* task)
 
     if (threads.size())
     {
+        numQueuedTasks.fetch_add(1);
+        numPendingTasks.fetch_add(1);
+
         {
             std::lock_guard<std::mutex> lock(queueMutex);
             tasks.push(task);
         }
-
-        numQueuedTasks.fetch_add(1);
-        numPendingTasks.fetch_add(1);
 
         signal.notify_one();
     }
@@ -79,6 +79,9 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
     {
         ZoneScoped;
 
+        numQueuedTasks.fetch_add((int)count);
+        numPendingTasks.fetch_add((int)count);
+
         {
             std::lock_guard<std::mutex> lock(queueMutex);
             for (size_t i = 0; i < count; ++i)
@@ -88,9 +91,6 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
                 tasks.push(tasks_[i]);
             }
         }
-
-        numQueuedTasks.fetch_add((int)count);
-        numPendingTasks.fetch_add((int)count);
 
         if (count >= threads.size())
             signal.notify_all();
@@ -221,13 +221,12 @@ void WorkQueue::CompleteTask(Task* task, unsigned threadIndex_)
             {
                 if (threads.size())
                 {
+                    numQueuedTasks.fetch_add(1);
+
                     {
                         std::lock_guard<std::mutex> lock(queueMutex);
                         tasks.push(dependentTask);
                     }
-
-                    // Note: numPendingTasks counter was already incremented when adding the first dependency, do not do again here
-                    numQueuedTasks.fetch_add(1);
 
                     signal.notify_one();
                 }
