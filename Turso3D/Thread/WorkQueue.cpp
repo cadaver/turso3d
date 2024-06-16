@@ -56,13 +56,14 @@ void WorkQueue::QueueTask(Task* task)
 
     if (threads.size())
     {
-        numQueuedTasks.fetch_add(1);
         numPendingTasks.fetch_add(1);
 
         {
             std::lock_guard<std::mutex> lock(queueMutex);
             tasks.push(task);
         }
+
+        numQueuedTasks.fetch_add(1);
 
         signal.notify_one();
     }
@@ -79,7 +80,6 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
     {
         ZoneScoped;
 
-        numQueuedTasks.fetch_add((int)count);
         numPendingTasks.fetch_add((int)count);
 
         {
@@ -91,6 +91,8 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
                 tasks.push(tasks_[i]);
             }
         }
+
+        numQueuedTasks.fetch_add((int)count);
 
         if (count >= threads.size())
             signal.notify_all();
@@ -117,11 +119,11 @@ void WorkQueue::AddDependency(Task* task, Task* dependency)
     assert(task);
     assert(dependency);
 
-    dependency->dependentTasks.push_back(task);
-
     // If this is the first dependency added, increment the global pending task counter so we know to wait for the dependent task in Complete().
     if (task->numDependencies.fetch_add(1) == 0)
         numPendingTasks.fetch_add(1);
+
+    dependency->dependentTasks.push_back(task);
 }
 
 void WorkQueue::Complete()
@@ -131,22 +133,15 @@ void WorkQueue::Complete()
     if (!threads.size())
         return;
 
-    for (;;)
+    // Execute queued tasks in main thread to speed up
+    while (numQueuedTasks.load())
     {
-        if (!numPendingTasks.load())
-            break;
-
-        // Avoid locking the queue mutex if do not have tasks in queue, just wait for the workers to finish
-        if (!numQueuedTasks.load())
-            continue;
-
-        // Otherwise if have still tasks, execute them in the main thread
         Task* task;
 
         {
             std::lock_guard<std::mutex> lock(queueMutex);
             if (!tasks.size())
-                continue;
+                break;
 
             task = tasks.front();
             tasks.pop();
@@ -155,11 +150,16 @@ void WorkQueue::Complete()
         numQueuedTasks.fetch_add(-1);
         CompleteTask(task, 0);
     }
+
+    // Finally wait for all tasks to finish
+    while (numPendingTasks.load())
+    {
+    }
 }
 
 bool WorkQueue::TryComplete()
 {
-    if (!threads.size() || !numPendingTasks.load() || !numQueuedTasks.load())
+    if (!threads.size() || !numQueuedTasks.load())
         return false;
 
     Task* task;
@@ -221,12 +221,12 @@ void WorkQueue::CompleteTask(Task* task, unsigned threadIndex_)
             {
                 if (threads.size())
                 {
-                    numQueuedTasks.fetch_add(1);
-
                     {
                         std::lock_guard<std::mutex> lock(queueMutex);
                         tasks.push(dependentTask);
                     }
+
+                    numQueuedTasks.fetch_add(1);
 
                     signal.notify_one();
                 }
