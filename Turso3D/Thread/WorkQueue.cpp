@@ -27,7 +27,7 @@ WorkQueue::WorkQueue(unsigned numThreads) :
     if (numThreads == 0)
     {
         numThreads = CPUCount();
-        // Avoid completely excessive core count
+        // Avoid excessive core count
         if (numThreads > 16)
             numThreads = 16;
     }
