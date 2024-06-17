@@ -9,6 +9,11 @@ Experimental 3D / game engine technology partially based on the Urho3D codebase.
 - Hardware occlusion queries that work on the octree hierarchy
 - SSAO
 
+## Building
+
+Execute one of the provided CMake scripts to generate build files in .build subdirectory (will be created). Execute with command line option -DTURSO3D_TRACY=1
+to enable Tracy profiling.
+
 ## Test application controls
 
 - WSAD + mouse to move
@@ -22,4 +27,3 @@ Experimental 3D / game engine technology partially based on the Urho3D codebase.
 - 5 toggle shadow debug draw
 - F toggle windowed, fullscreen and borderless fullscreen
 - V toggle vsync
-
