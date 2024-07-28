@@ -110,7 +110,7 @@ void Octant::OnOcclusionQueryResult(bool visible)
     if (visibility == VIS_OUTSIDE_FRUSTUM)
         return;
 
-    OctantVisibility lastVisibility = (OctantVisibility)visibility;
+    OctantVisibility lastVisibility = visibility;
     OctantVisibility newVisibility = visible ? VIS_VISIBLE : VIS_OCCLUDED;
 
     visibility = newVisibility;
