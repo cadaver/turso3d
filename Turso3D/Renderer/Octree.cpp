@@ -111,32 +111,30 @@ void Octant::OnOcclusionQueryResult(bool visible)
         return;
 
     OctantVisibility lastVisibility = visibility;
-    OctantVisibility newVisibility = visible ? VIS_VISIBLE : VIS_OCCLUDED;
 
-    visibility = newVisibility;
-
-    if (lastVisibility <= VIS_OCCLUDED_UNKNOWN && newVisibility == VIS_VISIBLE)
+    if (visible)
     {
-        // If came into view after being occluded, mark children as still occluded but that should be tested in hierarchy
-        if (numChildren)
+        visibility = VIS_VISIBLE;
+
+        // If came into view after being occluded, mark children as still occluded but to be tested in hierarchy
+        if (lastVisibility <= VIS_OCCLUDED_UNKNOWN && numChildren)
             PushVisibilityToChildren(this, VIS_OCCLUDED_UNKNOWN);
-    }
-    else if (newVisibility == VIS_OCCLUDED && lastVisibility != VIS_OCCLUDED && parent && parent->visibility == VIS_VISIBLE)
-    {
-        // If became occluded, mark parent unknown so it will be tested next
-        parent->visibility = VIS_VISIBLE_UNKNOWN;
-    }
-
-    // Whenever is visible, push visibility to parents if they are not visible yet
-    if (newVisibility == VIS_VISIBLE)
-    {
+        
+        // Push visibility to parents if they are not visible yet
         Octant* octant = parent;
-
-        while (octant && octant->visibility != newVisibility)
+        while (octant && octant->visibility != VIS_VISIBLE)
         {
-            octant->visibility = newVisibility;
+            octant->visibility = VIS_VISIBLE;
             octant = octant->parent;
         }
+    }
+    else
+    {
+        visibility = VIS_OCCLUDED;
+
+        // If became occluded, mark parent unknown so it will be tested next
+        if (lastVisibility != VIS_OCCLUDED && parent && parent->visibility == VIS_VISIBLE)
+            parent->visibility = VIS_VISIBLE_UNKNOWN;
     }
 }
 

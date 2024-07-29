@@ -75,7 +75,7 @@ public:
     /// Return child octant index based on position.
     unsigned char ChildIndex(const Vector3& position) const { unsigned char ret = position.x < center.x ? 0 : 1; ret += position.y < center.y ? 0 : 2; ret += position.z < center.z ? 0 : 4; return ret; }
     /// Return last occlusion visibility status.
-    OctantVisibility Visibility() const { return (OctantVisibility)visibility; }
+    OctantVisibility Visibility() const { return visibility; }
     /// Return whether is pending an occlusion query result.
     bool OcclusionQueryPending() const { return occlusionQueryId != 0; }
     /// Set bit flag. Called internally.

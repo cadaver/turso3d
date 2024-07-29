@@ -555,12 +555,16 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
     // Process occlusion now before going further
     if (useOcclusion)
     {
-        // If was previously outside frustum, reset to visible-unknown
-        if (octant->Visibility() == VIS_OUTSIDE_FRUSTUM)
-            octant->SetVisibility(VIS_VISIBLE_UNKNOWN, false);
-
         switch (octant->Visibility())
         {
+            // If was previously outside frustum, reset to visible-unknown
+        case VIS_OUTSIDE_FRUSTUM:
+            octant->SetVisibility(VIS_VISIBLE_UNKNOWN, false);
+            // If octant has unknown visibility, issue query if not pending, but collect child octants and drawables
+        case VIS_VISIBLE_UNKNOWN:
+            AddOcclusionQuery(octant, result, planeMask);
+            break;
+
             // If octant is occluded, issue query if not pending, and do not process further this frame
         case VIS_OCCLUDED:
             AddOcclusionQuery(octant, result, planeMask);
@@ -578,11 +582,6 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
                 }
             }
             return;
-
-            // If octant has unknown visibility, issue query if not pending, but collect child octants and drawables
-        case VIS_VISIBLE_UNKNOWN:
-            AddOcclusionQuery(octant, result, planeMask);
-            break;
 
             // If the octant's parent is already visible too, only test the octant if it is a "leaf octant" with drawables
             // Note: visible octants will also add a time-based staggering to reduce queries
