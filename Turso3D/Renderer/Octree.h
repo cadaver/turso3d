@@ -115,20 +115,6 @@ public:
         }
     }
 
-    /// Push visibility status to child octants.
-    void PushVisibilityToChildren(Octant* octant, OctantVisibility newVisibility)
-    {
-        for (size_t i = 0; i < NUM_OCTANTS; ++i)
-        {
-            if (octant->children[i])
-            {
-                octant->children[i]->visibility = newVisibility;
-                if (octant->children[i]->numChildren)
-                    PushVisibilityToChildren(octant->children[i], newVisibility);
-            }
-        }
-    }
-
     /// Set visibility status manually.
     void SetVisibility(OctantVisibility newVisibility, bool pushToChildren = false)
     {
@@ -156,6 +142,20 @@ public:
         }
         else
             return false;
+    }
+
+    /// Push visibility status to child octants.
+    static void PushVisibilityToChildren(Octant* octant, OctantVisibility newVisibility)
+    {
+        for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        {
+            if (octant->children[i])
+            {
+                octant->children[i]->visibility = newVisibility;
+                if (octant->children[i]->numChildren)
+                    PushVisibilityToChildren(octant->children[i], newVisibility);
+            }
+        }
     }
 
 private:
