@@ -188,7 +188,7 @@ Renderer::Renderer() :
     perViewDataBuffer->Define(USAGE_DYNAMIC, sizeof(PerViewUniforms));
 
     lightDataBuffer = new UniformBuffer();
-    lightDataBuffer->Define(USAGE_DYNAMIC, MAX_LIGHTS * sizeof(LightData));
+    lightDataBuffer->Define(USAGE_DYNAMIC, (MAX_LIGHTS + 1) * sizeof(LightData));
 
     octantResults = new ThreadOctantResult[NUM_OCTANT_TASKS];
     batchResults = new ThreadBatchResult[workQueue->NumThreads()];
