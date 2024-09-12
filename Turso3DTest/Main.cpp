@@ -26,7 +26,7 @@
 #include "Time/Profiler.h"
 #include "Thread/ThreadUtils.h"
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <tracy/Tracy.hpp>
 
 std::vector<StaticModel*> rotatingObjects;
@@ -342,10 +342,10 @@ int ApplicationMain(const std::vector<std::string>& arguments)
         if (input->KeyPressed(SDLK_SPACE))
             animate = !animate;
 
-        if (input->KeyPressed(SDLK_f))
+        if (input->KeyPressed(SDLK_F))
             graphics->SetFullScreen((FullScreenMode)((graphics->FullScreen() + 1) % MAX_FULLSCREEN_MODES));
 
-        if (input->KeyPressed(SDLK_v))
+        if (input->KeyPressed(SDLK_V))
             graphics->SetVSync(!graphics->VSync());
 
         // Camera movement
@@ -357,13 +357,13 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
         float moveSpeed = (input->KeyDown(SDLK_LSHIFT) || input->KeyDown(SDLK_RSHIFT)) ? 50.0f : 5.0f;
 
-        if (input->KeyDown(SDLK_w))
+        if (input->KeyDown(SDLK_W))
             camera->Translate(Vector3::FORWARD * dt * moveSpeed);
-        if (input->KeyDown(SDLK_s))
+        if (input->KeyDown(SDLK_S))
             camera->Translate(Vector3::BACK * dt * moveSpeed);
-        if (input->KeyDown(SDLK_a))
+        if (input->KeyDown(SDLK_A))
             camera->Translate(Vector3::LEFT * dt * moveSpeed);
-        if (input->KeyDown(SDLK_d))
+        if (input->KeyDown(SDLK_D))
             camera->Translate(Vector3::RIGHT * dt * moveSpeed);
 
         // Scene animation

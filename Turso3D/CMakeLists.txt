@@ -37,4 +37,4 @@ add_library (${TARGET_NAME} ${SOURCE_FILES})
 
 target_include_directories (${TARGET_NAME} PUBLIC .)
 
-target_link_libraries (${TARGET_NAME} PUBLIC SDL2-static Tracy GLEW STB)
+target_link_libraries (${TARGET_NAME} PUBLIC SDL3-static Tracy GLEW STB)

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -18,104 +18,83 @@
      misrepresented as being the original software.
   3. This notice may not be removed or altered from any source distribution.
 */
-#include "../../SDL_internal.h"
+#include "SDL_internal.h"
 
-/* An implementation of mutexes using the Symbian API. */
+// An implementation of mutexes using the Symbian API.
 
 #include <e32std.h>
 
-#include "SDL_thread.h"
 #include "SDL_systhread_c.h"
 
-struct SDL_mutex
+struct SDL_Mutex
 {
     TInt handle;
 };
 
-extern TInt CreateUnique(TInt (*aFunc)(const TDesC& aName, TAny*, TAny*), TAny*, TAny*);
+extern TInt CreateUnique(TInt (*aFunc)(const TDesC &aName, TAny *, TAny *), TAny *, TAny *);
 
-static TInt NewMutex(const TDesC& aName, TAny* aPtr1, TAny*)
+static TInt NewMutex(const TDesC &aName, TAny *aPtr1, TAny *)
 {
-    return ((RMutex*)aPtr1)->CreateGlobal(aName);
+    return ((RMutex *)aPtr1)->CreateGlobal(aName);
 }
 
-/* Create a mutex */
-SDL_mutex *
-SDL_CreateMutex(void)
+// Create a mutex
+SDL_Mutex *SDL_CreateMutex(void)
 {
     RMutex rmutex;
 
     TInt status = CreateUnique(NewMutex, &rmutex, NULL);
-    if(status != KErrNone)
-    {
+    if (status != KErrNone) {
         SDL_SetError("Couldn't create mutex.");
+        return NULL;
     }
-    SDL_mutex* mutex = new /*(ELeave)*/ SDL_mutex;
+    SDL_Mutex *mutex = new /*(ELeave)*/ SDL_Mutex;
     mutex->handle = rmutex.Handle();
-    return(mutex);
+    return mutex;
 }
 
-/* Free the mutex */
-void
-SDL_DestroyMutex(SDL_mutex * mutex)
+// Free the mutex
+void SDL_DestroyMutex(SDL_Mutex *mutex)
 {
-    if (mutex)
-    {
+    if (mutex) {
         RMutex rmutex;
         rmutex.SetHandle(mutex->handle);
         rmutex.Signal();
         rmutex.Close();
-        delete(mutex);
+        delete (mutex);
         mutex = NULL;
     }
 }
 
-/* Try to lock the mutex */
-#if 0
-int
-SDL_TryLockMutex(SDL_mutex * mutex)
+// Lock the mutex
+void SDL_LockMutex(SDL_Mutex *mutex) SDL_NO_THREAD_SAFETY_ANALYSIS // clang doesn't know about NULL mutexes
 {
-    if (mutex == NULL)
-    {
-        SDL_SetError("Passed a NULL mutex.");
-        return -1;
+    if (mutex) {
+        RMutex rmutex;
+        rmutex.SetHandle(mutex->handle);
+        rmutex.Wait();
     }
+}
 
-    // Not yet implemented.
-    return 0;
+// Try to lock the mutex
+#if 0
+SDL_bool SDL_TryLockMutex(SDL_Mutex *mutex)
+{
+    if (mutex) {
+        // Not yet implemented.
+        return true;
+    }
+    return true;
 }
 #endif
 
-/* Lock the mutex */
-int
-SDL_LockMutex(SDL_mutex * mutex)
+// Unlock the mutex
+void SDL_UnlockMutex(SDL_Mutex *mutex) SDL_NO_THREAD_SAFETY_ANALYSIS // clang doesn't know about NULL mutexes
 {
-    if (mutex == NULL)
-    {
-        return SDL_SetError("Passed a NULL mutex.");
+    if (mutex) {
+        RMutex rmutex;
+        rmutex.SetHandle(mutex->handle);
+        rmutex.Signal();
     }
-
-    RMutex rmutex;
-    rmutex.SetHandle(mutex->handle);
-    rmutex.Wait();
-
-    return(0);
 }
 
-/* Unlock the mutex */
-int
-SDL_UnlockMutex(SDL_mutex * mutex)
-{
-    if ( mutex == NULL )
-    {
-        return SDL_SetError("Passed a NULL mutex.");
-    }
-
-    RMutex rmutex;
-    rmutex.SetHandle(mutex->handle);
-    rmutex.Signal();
-
-    return(0);
-}
-
-/* vi: set ts=4 sw=4 expandtab: */

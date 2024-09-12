@@ -12,7 +12,7 @@ endif ()
 
 add_executable (${TARGET_NAME} ${SOURCE_FILES})
 
-target_link_libraries (${TARGET_NAME} SDL2-static Turso3D GLEW Tracy)
+target_link_libraries (${TARGET_NAME} SDL3-static Turso3D GLEW Tracy)
 
 if (WIN32)
     target_link_libraries (${TARGET_NAME} winmm imm32 ole32 oleaut32 setupapi version uuid opengl32)

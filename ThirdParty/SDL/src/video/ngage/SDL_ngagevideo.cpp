@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -23,15 +23,14 @@
 #ifdef NULL
 #undef NULL
 #endif
-#include "../../SDL_internal.h"
+#include "SDL_internal.h"
 
-#if SDL_VIDEO_DRIVER_NGAGE
+#ifdef SDL_VIDEO_DRIVER_NGAGE
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "SDL_video.h"
 #include "../SDL_sysvideo.h"
 #include "../SDL_pixels_c.h"
 #include "../../events/SDL_events_c.h"
@@ -47,41 +46,34 @@ extern "C" {
 
 #define NGAGEVID_DRIVER_NAME "ngage"
 
-/* Initialization/Query functions */
-static int  NGAGE_VideoInit(_THIS);
-static int  NGAGE_SetDisplayMode(_THIS, SDL_VideoDisplay * display, SDL_DisplayMode * mode);
-static void NGAGE_VideoQuit(_THIS);
+// Initialization/Query functions
+static bool NGAGE_VideoInit(SDL_VideoDevice *_this);
+static void NGAGE_VideoQuit(SDL_VideoDevice *_this);
 
-/* NGAGE driver bootstrap functions */
+// NGAGE driver bootstrap functions
 
-static void
-NGAGE_DeleteDevice(SDL_VideoDevice * device)
+static void NGAGE_DeleteDevice(SDL_VideoDevice *device)
 {
-    SDL_VideoData *phdata = (SDL_VideoData*)device->driverdata;
+    SDL_VideoData *phdata = device->internal;
 
-    if (phdata)
-    {
-        /* Free Epoc resources */
+    if (phdata) {
+        // Free Epoc resources
 
-        /* Disable events for me */
-        if (phdata->NGAGE_WsEventStatus != KRequestPending)
-        {
+        // Disable events for me
+        if (phdata->NGAGE_WsEventStatus != KRequestPending) {
             phdata->NGAGE_WsSession.EventReadyCancel();
         }
-        if (phdata->NGAGE_RedrawEventStatus != KRequestPending)
-        {
+        if (phdata->NGAGE_RedrawEventStatus != KRequestPending) {
             phdata->NGAGE_WsSession.RedrawReadyCancel();
         }
 
-        free(phdata->NGAGE_DrawDevice);
+        free(phdata->NGAGE_DrawDevice); // This should NOT be SDL_free()
 
-        if (phdata->NGAGE_WsWindow.WsHandle())
-        {
+        if (phdata->NGAGE_WsWindow.WsHandle()) {
             phdata->NGAGE_WsWindow.Close();
         }
 
-        if (phdata->NGAGE_WsWindowGroup.WsHandle())
-        {
+        if (phdata->NGAGE_WsWindowGroup.WsHandle()) {
             phdata->NGAGE_WsWindowGroup.Close();
         }
 
@@ -91,8 +83,7 @@ NGAGE_DeleteDevice(SDL_VideoDevice * device)
         delete phdata->NGAGE_WsScreen;
         phdata->NGAGE_WsScreen = NULL;
 
-        if (phdata->NGAGE_WsSession.WsHandle())
-        {
+        if (phdata->NGAGE_WsSession.WsHandle()) {
             phdata->NGAGE_WsSession.Close();
         }
 
@@ -100,93 +91,74 @@ NGAGE_DeleteDevice(SDL_VideoDevice * device)
         phdata = NULL;
     }
 
-    if (device)
-    {
+    if (device) {
         SDL_free(device);
         device = NULL;
     }
 }
 
-static SDL_VideoDevice *
-NGAGE_CreateDevice(void)
+static SDL_VideoDevice *NGAGE_CreateDevice(void)
 {
     SDL_VideoDevice *device;
-    SDL_VideoData   *phdata;
+    SDL_VideoData *phdata;
 
-    /* Initialize all variables that we clean on shutdown */
-    device = (SDL_VideoDevice *) SDL_calloc(1, sizeof(SDL_VideoDevice));
+    // Initialize all variables that we clean on shutdown
+    device = (SDL_VideoDevice *)SDL_calloc(1, sizeof(SDL_VideoDevice));
     if (!device) {
-        SDL_OutOfMemory();
-        return (0);
+        return NULL;
     }
 
-    /* Initialize internal N-Gage specific data */
-    phdata = (SDL_VideoData *) SDL_calloc(1, sizeof(SDL_VideoData));
-    if (! phdata)
-    {
-        SDL_OutOfMemory();
+    // Initialize internal N-Gage specific data
+    phdata = (SDL_VideoData *)SDL_calloc(1, sizeof(SDL_VideoData));
+    if (!phdata) {
         SDL_free(device);
-        return (0);
+        return NULL;
     }
 
-    /* General video */
-    device->VideoInit                = NGAGE_VideoInit;
-    device->VideoQuit                = NGAGE_VideoQuit;
-    device->SetDisplayMode           = NGAGE_SetDisplayMode;
-    device->PumpEvents               = NGAGE_PumpEvents;
-    device->CreateWindowFramebuffer  = SDL_NGAGE_CreateWindowFramebuffer;
-    device->UpdateWindowFramebuffer  = SDL_NGAGE_UpdateWindowFramebuffer;
+    // General video
+    device->VideoInit = NGAGE_VideoInit;
+    device->VideoQuit = NGAGE_VideoQuit;
+    device->PumpEvents = NGAGE_PumpEvents;
+    device->CreateWindowFramebuffer = SDL_NGAGE_CreateWindowFramebuffer;
+    device->UpdateWindowFramebuffer = SDL_NGAGE_UpdateWindowFramebuffer;
     device->DestroyWindowFramebuffer = SDL_NGAGE_DestroyWindowFramebuffer;
-    device->free                     = NGAGE_DeleteDevice;
+    device->free = NGAGE_DeleteDevice;
 
-    /* "Window" */
+    // "Window"
     device->CreateSDLWindow = NGAGE_CreateWindow;
-    device->DestroyWindow   = NGAGE_DestroyWindow;
+    device->DestroyWindow = NGAGE_DestroyWindow;
 
-    /* N-Gage specific data */
-    device->driverdata = phdata;
+    // N-Gage specific data
+    device->internal = phdata;
 
     return device;
 }
 
 VideoBootStrap NGAGE_bootstrap = {
     NGAGEVID_DRIVER_NAME, "SDL ngage video driver",
-    NGAGE_CreateDevice
+    NGAGE_CreateDevice,
+    NULL // no ShowMessageBox implementation
 };
 
-int
-NGAGE_VideoInit(_THIS)
+static bool NGAGE_VideoInit(SDL_VideoDevice *_this)
 {
     SDL_DisplayMode mode;
 
-    /* Use 12-bpp desktop mode */
-    mode.format       = SDL_PIXELFORMAT_RGB444;
-    mode.w            = 176;
-    mode.h            = 208;
-    mode.refresh_rate = 0;
-    mode.driverdata   = NULL;
-    if (SDL_AddBasicVideoDisplay(&mode) < 0) {
-        return -1;
+    // Use 12-bpp desktop mode
+    SDL_zero(mode);
+    mode.format = SDL_PIXELFORMAT_XRGB4444;
+    mode.w = 176;
+    mode.h = 208;
+    if (SDL_AddBasicVideoDisplay(&mode) == 0) {
+        return false;
     }
 
-    SDL_zero(mode);
-    SDL_AddDisplayMode(&_this->displays[0], &mode);
-
-    /* We're done! */
-    return 0;
+    // We're done!
+    return true;
 }
 
-static int
-NGAGE_SetDisplayMode(_THIS, SDL_VideoDisplay * display, SDL_DisplayMode * mode)
-{
-    return 0;
-}
-
-void
-NGAGE_VideoQuit(_THIS)
+static void NGAGE_VideoQuit(SDL_VideoDevice *_this)
 {
 }
 
-#endif /* SDL_VIDEO_DRIVER_NGAGE */
-
-/* vi: set ts=4 sw=4 expandtab: */
+#endif // SDL_VIDEO_DRIVER_NGAGE

@@ -17,19 +17,18 @@ _Editor's note: I've been able to successfully build SDL using Visual Studio 201
 2. Your IDE will likely prompt you to upgrade this solution file to whatever later version of the IDE you're using. In the `Retarget Projects` dialog,
 all of the affected project files should be checked allowing you to use the latest `Windows SDK Version` you have installed, along with
 the `Platform Toolset`.
-   
+
 If you choose *NOT* to upgrade to use the latest `Windows SDK Version` or `Platform Toolset`, then you'll need the `Visual Studio 2010 Platform Toolset`.
 
-3. Build the `.dll` and `.lib` files by right clicking on each project in turn (Projects are listed in the _Workspace_ 
+3. Build the `.dll` and `.lib` files by right clicking on each project in turn (Projects are listed in the _Workspace_
 panel in the _FileView_ tab), and selecting `Build`.
 
 You may get a few warnings, but you should not get any errors.
 
 Later, we will refer to the following `.lib` and `.dll` files that have just been generated:
 
--   `./VisualC/Win32/Debug/SDL2.dll` or `./VisualC/Win32/Release/SDL2.dll`
--   `./VisualC/Win32/Debug/SDL2.lib` or `./VisualC/Win32/Release/SDL2.lib`
--   `./VisualC/Win32/Debug/SDL2main.lib` or `./VisualC/Win32/Release/SDL2main.lib`
+-   `./VisualC/Win32/Debug/SDL3.dll` or `./VisualC/Win32/Release/SDL3.dll`
+-   `./VisualC/Win32/Debug/SDL3.lib` or `./VisualC/Win32/Release/SDL3.lib`
 
 _Note for the `x64` versions, just replace `Win32` in the path with `x64`_
 
@@ -59,12 +58,11 @@ Now we're going to use the files that we had created earlier in the *Build SDL* 
 
 Copy the following file into your Project directory:
 
--   `SDL2.dll`
+-   `SDL3.dll`
 
-Add the following files to your project (It is not necessary to copy them to your project directory):
+Add the following file to your project (It is not necessary to copy it to your project directory):
 
--   `SDL2.lib`
--   `SDL2main.lib`
+-   `SDL3.lib`
 
 To add them to your project, right click on your project, and select
 `Add files to project`.
@@ -73,12 +71,13 @@ To add them to your project, right click on your project, and select
 and type the names of the libraries to link with in the "Additional Options:" box. Note: This must be done for each build configuration
 (e.g. Release,Debug).**
 
-### Hello SDL2
+### Hello SDL
 
 Here's a sample SDL snippet to verify everything is setup in your IDE:
 
 ```
-    #include "SDL.h"
+    #include <SDL3/SDL.h>
+    #include <SDL3/SDL_main.h> // only include this one in the source file with main()!
 
     int main( int argc, char* argv[] )
     {
@@ -88,19 +87,19 @@ Here's a sample SDL snippet to verify everything is setup in your IDE:
         SDL_Renderer* renderer = NULL;
 
         SDL_Init(SDL_INIT_VIDEO);
-        window = SDL_CreateWindow("SDL2 Test", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
-        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
- 
+        window = SDL_CreateWindow("Hello SDL", WIDTH, HEIGHT, 0);
+        renderer = SDL_CreateRenderer(window, NULL);
+
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 0;
     }
- ```               
+ ```
 
 ### That's it!
 
-I hope that this document has helped you get through the most difficult part of using the SDL: installing it. 
+I hope that this document has helped you get through the most difficult part of using the SDL: installing it.
 Suggestions for improvements should be posted to the [Github Issues](https://github.com/libsdl-org/SDL/issues).
 
 ### Credits

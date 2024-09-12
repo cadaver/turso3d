@@ -6,29 +6,26 @@ http://trederia.blogspot.de/2017/03/building-sdl2-for-android-with-visual.html
 
 The rest of this README covers the Android gradle style build process.
 
-If you are using the older ant build process, it is no longer officially
-supported, but you can use the "android-project-ant" directory as a template.
-
 
 Requirements
 ================================================================================
 
-Android SDK (version 31 or later)
+Android SDK (version 34 or later)
 https://developer.android.com/sdk/index.html
 
 Android NDK r15c or later
 https://developer.android.com/tools/sdk/ndk/index.html
 
-Minimum API level supported by SDL: 16 (Android 4.1)
+Minimum API level supported by SDL: 21 (Android 5.0)
 
 
 How the port works
 ================================================================================
 
 - Android applications are Java-based, optionally with parts written in C
-- As SDL apps are C-based, we use a small Java shim that uses JNI to talk to 
+- As SDL apps are C-based, we use a small Java shim that uses JNI to talk to
   the SDL library
-- This means that your application C code must be placed inside an Android 
+- This means that your application C code must be placed inside an Android
   Java project, along with some C support code that communicates with Java
 - This eventually produces a standard Android .apk package
 
@@ -43,39 +40,48 @@ src/core/android/SDL_android.c
 Building an app
 ================================================================================
 
-For simple projects you can use the script located at build-scripts/androidbuild.sh
+For simple projects you can use the script located at build-scripts/create-android-project.py
 
 There's two ways of using it:
 
-    androidbuild.sh com.yourcompany.yourapp < sources.list
-    androidbuild.sh com.yourcompany.yourapp source1.c source2.c ...sourceN.c
+    ./create-android-project.py com.yourcompany.yourapp < sources.list
+    ./create-android-project.py com.yourcompany.yourapp source1.c source2.c ...sourceN.c
 
 sources.list should be a text file with a source file name in each line
 Filenames should be specified relative to the current directory, for example if
 you are in the build-scripts directory and want to create the testgles.c test, you'll
 run:
 
-    ./androidbuild.sh org.libsdl.testgles ../test/testgles.c
+    ./create-android-project.py org.libsdl.testgles ../test/testgles.c
 
 One limitation of this script is that all sources provided will be aggregated into
 a single directory, thus all your source files should have a unique name.
 
-Once the project is complete the script will tell you where the debug APK is located.
+Once the project is complete the script will tell you how to build the project.
 If you want to create a signed release APK, you can use the project created by this
 utility to generate it.
 
-Finally, a word of caution: re running androidbuild.sh wipes any changes you may have
+Running the script with `--help` will list all available options, and their purposes.
+
+Finally, a word of caution: re running create-android-project.py wipes any changes you may have
 done in the build directory for the app!
 
 
 For more complex projects, follow these instructions:
-    
-1. Copy the android-project directory wherever you want to keep your projects
-   and rename it to the name of your project.
-2. Move or symlink this SDL directory into the "<project>/app/jni" directory
-3. Edit "<project>/app/jni/src/Android.mk" to include your source files
 
-4a. If you want to use Android Studio, simply open your <project> directory and start building.
+1. Get the source code for SDL and copy the 'android-project' directory located at SDL/android-project to a suitable location. Also make sure to rename it to your project name (In these examples: YOURPROJECT).
+
+   (The 'android-project' directory can basically be seen as a sort of starting point for the android-port of your project. It contains the glue code between the Android Java 'frontend' and the SDL code 'backend'. It also contains some standard behaviour, like how events should be handled, which you will be able to change.)
+
+2. Move or [symlink](https://en.wikipedia.org/wiki/Symbolic_link) the SDL directory into the "YOURPROJECT/app/jni" directory
+
+(This is needed as the source of SDL has to be compiled by the Android compiler)
+
+3. Edit "YOURPROJECT/app/jni/src/Android.mk" to include your source files.
+
+(They should be separated by spaces after the "LOCAL_SRC_FILES := " declaration)
+
+4a. If you want to use Android Studio, simply open your 'YOURPROJECT' directory and start building.
 
 4b. If you want to build manually, run './gradlew installDebug' in the project directory. This compiles the .java, creates an .apk with the native code embedded, and installs it on any connected Android device
 
@@ -83,11 +89,11 @@ For more complex projects, follow these instructions:
 If you already have a project that uses CMake, the instructions change somewhat:
 
 1. Do points 1 and 2 from the instruction above.
-2. Edit "<project>/app/build.gradle" to comment out or remove sections containing ndk-build
+2. Edit "YOURPROJECT/app/build.gradle" to comment out or remove sections containing ndk-build
    and uncomment the cmake sections. Add arguments to the CMake invocation as needed.
-3. Edit "<project>/app/jni/CMakeLists.txt" to include your project (it defaults to
-   adding the "src" subdirectory). Note that you'll have SDL2, SDL2main and SDL2-static
-   as targets in your project, so you should have "target_link_libraries(yourgame SDL2 SDL2main)"
+3. Edit "YOURPROJECT/app/jni/CMakeLists.txt" to include your project (it defaults to
+   adding the "src" subdirectory). Note that you'll have SDL3 and SDL3-static
+   as targets in your project, so you should have "target_link_libraries(yourgame SDL3)"
    in your CMakeLists.txt file. Also be aware that you should use add_library() instead of
    add_executable() for the target containing your "main" function.
 
@@ -117,6 +123,48 @@ Here's an explanation of the files in the Android project, so you can customize 
         src/main/java/org/libsdl/app/SDLActivity.java - the Java class handling the initialization and binding to SDL. Be very careful changing this, as the SDL library relies on this implementation. You should instead subclass this for your application.
 
 
+Using the SDL3 Android Archive (.aar)
+================================================================================
+
+The `create-android-project.py` script can
+./create-android-project.py com.yourcompany.yourapp < sources.list
+
+The Android archive allows use of SDL3 in your Android project, without needing to copy any SDL c or java source.
+For integration with CMake/ndk-build, it uses [prefab](https://google.github.io/prefab/).
+
+Copy the archive to a `app/libs` directory of your project and add the following to `app/gradle.build`:
+```
+android {
+    /* ... */
+    buildFeatures {
+        prefab true
+    }
+}
+dependencies {
+    implementation files('libs/@PROJECT_NAME@-@PROJECT_VERSION@.aar')
+    /* ... */
+}
+```
+
+If you're using CMake, add the following to your CMakeLists.txt:
+```
+find_package(@PROJECT_NAME@ REQUIRED CONFIG)
+target_link_libraries(yourgame PRIVATE @PROJECT_NAME@::@PROJECT_NAME@)
+```
+
+If you're using ndk-build, add the following somewhere after `LOCAL_MODULE := yourgame` to your `Android.mk` or `Application.mk`:
+```
+# https://google.github.io/prefab/build-systems.html
+
+# Add the prefab modules to the import path.
+$(call import-add-path,/out)
+
+# Import @PROJECT_NAME@ so we can depend on it.
+$(call import-module,prefab/@PROJECT_NAME@)
+```
+
+If you want to avoid adding the complete SDL source base as a subproject, or adding the Java sources of the bindings to your Android project
+
 Customizing your application name
 ================================================================================
 
@@ -132,15 +180,15 @@ Here's an example of a minimal class file:
 
     --- MyGame.java --------------------------
     package com.gamemaker.game;
-    
-    import org.libsdl.app.SDLActivity; 
-    
+
+    import org.libsdl.app.SDLActivity;
+
     /**
-     * A sample wrapper class that just calls SDLActivity 
-     */ 
-    
+     * A sample wrapper class that just calls SDLActivity
+     */
+
     public class MyGame extends SDLActivity { }
-    
+
     ------------------------------------------
 
 Then replace "SDLActivity" in AndroidManifest.xml with the name of your
@@ -160,13 +208,14 @@ Loading assets
 
 Any files you put in the "app/src/main/assets" directory of your project
 directory will get bundled into the application package and you can load
-them using the standard functions in SDL_rwops.h.
+them using the standard functions in SDL_iostream.h.
 
 There are also a few Android specific functions that allow you to get other
 useful paths for saving and loading data:
-* SDL_AndroidGetInternalStoragePath()
-* SDL_AndroidGetExternalStorageState()
-* SDL_AndroidGetExternalStoragePath()
+* SDL_GetAndroidInternalStoragePath()
+* SDL_GetAndroidExternalStorageState()
+* SDL_GetAndroidExternalStoragePath()
+* SDL_GetAndroidCachePath()
 
 See SDL_system.h for more details on these functions.
 
@@ -179,12 +228,81 @@ may want to keep this fact in mind when building your APK, specially when large
 files are involved.
 For more information on which extensions get compressed by default and how to
 disable this behaviour, see for example:
-    
+
 http://ponystyle.com/blog/2010/03/26/dealing-with-asset-compression-in-android-apps/
 
 
-Pause / Resume behaviour
+Activity lifecycle
 ================================================================================
+
+On Android the application goes through a fixed life cycle and you will get
+notifications of state changes via application events. When these events
+are delivered you must handle them in an event callback because the OS may
+not give you any processing time after the events are delivered.
+
+e.g.
+
+    int HandleAppEvents(void *userdata, SDL_Event *event)
+    {
+        switch (event->type)
+        {
+        case SDL_EVENT_TERMINATING:
+            /* Terminate the app.
+               Shut everything down before returning from this function.
+            */
+            return 0;
+        case SDL_EVENT_LOW_MEMORY:
+            /* You will get this when your app is paused and iOS wants more memory.
+               Release as much memory as possible.
+            */
+            return 0;
+        case SDL_EVENT_WILL_ENTER_BACKGROUND:
+            /* Prepare your app to go into the background.  Stop loops, etc.
+               This gets called when the user hits the home button, or gets a call.
+
+               You should not make any OpenGL graphics calls or use the rendering API,
+               in addition, you should set the render target to NULL, if you're using
+               it, e.g. call SDL_SetRenderTarget(renderer, NULL).
+            */
+            return 0;
+        case SDL_EVENT_DID_ENTER_BACKGROUND:
+            /* Your app is NOT active at this point. */
+            return 0;
+        case SDL_EVENT_WILL_ENTER_FOREGROUND:
+            /* This call happens when your app is coming back to the foreground.
+               Restore all your state here.
+            */
+            return 0;
+        case SDL_EVENT_DID_ENTER_FOREGROUND:
+            /* Restart your loops here.
+               Your app is interactive and getting CPU again.
+
+               You have access to the OpenGL context or rendering API at this point.
+               However, there's a chance (on older hardware, or on systems under heavy load),
+               where the graphics context can not be restored. You should listen for the
+               event SDL_EVENT_RENDER_DEVICE_RESET and recreate your OpenGL context and
+               restore your textures when you get it, or quit the app.
+            */
+            return 0;
+        default:
+            /* No special processing, add it to the event queue */
+            return 1;
+        }
+    }
+
+    int main(int argc, char *argv[])
+    {
+        SDL_SetEventFilter(HandleAppEvents, NULL);
+
+        ... run your main loop
+
+        return 0;
+    }
+
+
+Note that if you are using main callbacks instead of a standard C main() function,
+your SDL_AppEvent() callback will run as these events arrive and you do not need to
+use SDL_SetEventFilter.
 
 If SDL_HINT_ANDROID_BLOCK_ON_PAUSE hint is set (the default),
 the event loop will block itself when the app is paused (ie, when the user
@@ -192,26 +310,9 @@ returns to the main Android dashboard). Blocking is better in terms of battery
 use, and it allows your app to spring back to life instantaneously after resume
 (versus polling for a resume message).
 
-Upon resume, SDL will attempt to restore the GL context automatically.
-In modern devices (Android 3.0 and up) this will most likely succeed and your
-app can continue to operate as it was.
-
-However, there's a chance (on older hardware, or on systems under heavy load),
-where the GL context can not be restored. In that case you have to listen for
-a specific message (SDL_RENDER_DEVICE_RESET) and restore your textures
-manually or quit the app.
-
-You should not use the SDL renderer API while the app going in background:
-- SDL_APP_WILLENTERBACKGROUND:
-    after you read this message, GL context gets backed-up and you should not
-    use the SDL renderer API.
-
-    When this event is received, you have to set the render target to NULL, if you're using it.
-    (eg call SDL_SetRenderTarget(renderer, NULL))
-
-- SDL_APP_DIDENTERFOREGROUND:
-   GL context is restored, and the SDL renderer API is available (unless you
-   receive SDL_RENDER_DEVICE_RESET).
+You can control activity re-creation (eg. onCreate()) behaviour. This allows you
+to choose whether to keep or re-initialize java and native static datas, see
+SDL_HINT_ANDROID_ALLOW_RECREATE_ACTIVITY in SDL_hints.h.
 
 Mouse / Touch events
 ================================================================================
@@ -350,7 +451,7 @@ I get output from addr2line showing that it's in the quit function, in testsprit
 You can add logging to your code to help show what's happening:
 
     #include <android/log.h>
-    
+
     __android_log_print(ANDROID_LOG_INFO, "foo", "Something happened! x = %d", x);
 
 If you need to build without optimization turned on, you can create a file called
@@ -365,11 +466,11 @@ Memory debugging
 The best (and slowest) way to debug memory issues on Android is valgrind.
 Valgrind has support for Android out of the box, just grab code using:
 
-    svn co svn://svn.valgrind.org/valgrind/trunk valgrind
+    git clone https://sourceware.org/git/valgrind.git
 
-... and follow the instructions in the file README.android to build it.
+... and follow the instructions in the file `README.android` to build it.
 
-One thing I needed to do on Mac OS X was change the path to the toolchain,
+One thing I needed to do on macOS was change the path to the toolchain,
 and add ranlib to the environment variables:
 export RANLIB=$NDKROOT/toolchains/arm-linux-androideabi-4.4.3/prebuilt/darwin-x86/bin/arm-linux-androideabi-ranlib
 
@@ -414,22 +515,22 @@ Graphics debugging
 ================================================================================
 
 If you are developing on a compatible Tegra-based tablet, NVidia provides
-Tegra Graphics Debugger at their website. Because SDL2 dynamically loads EGL
+Tegra Graphics Debugger at their website. Because SDL3 dynamically loads EGL
 and GLES libraries, you must follow their instructions for installing the
 interposer library on a rooted device. The non-rooted instructions are not
-compatible with applications that use SDL2 for video.
+compatible with applications that use SDL3 for video.
 
 The Tegra Graphics Debugger is available from NVidia here:
 https://developer.nvidia.com/tegra-graphics-debugger
 
 
-Why is API level 16 the minimum required?
+Why is API level 19 the minimum required?
 ================================================================================
 
-The latest NDK toolchain doesn't support targeting earlier than API level 16.
-As of this writing, according to https://developer.android.com/about/dashboards/index.html
-about 99% of the Android devices accessing Google Play support API level 16 or
-higher (January 2018).
+The latest NDK toolchain doesn't support targeting earlier than API level 19.
+As of this writing, according to https://www.composables.com/tools/distribution-chart
+about 99.7% of the Android devices accessing Google Play support API level 19 or
+higher (August 2023).
 
 
 A note regarding the use of the "dirty rectangles" rendering technique
@@ -440,7 +541,7 @@ where you only update a portion of the screen on each frame, you may notice a
 variety of visual glitches on Android, that are not present on other platforms.
 This is caused by SDL's use of EGL as the support system to handle OpenGL ES/ES2
 contexts, in particular the use of the eglSwapBuffers function. As stated in the
-documentation for the function "The contents of ancillary buffers are always 
+documentation for the function "The contents of ancillary buffers are always
 undefined after calling eglSwapBuffers".
 Setting the EGL_SWAP_BEHAVIOR attribute of the surface to EGL_BUFFER_PRESERVED
 is not possible for SDL as it requires EGL 1.4, available only on the API level
@@ -459,12 +560,12 @@ Two legitimate ways:
 Activity by calling Activity.finish().
 
 - Android OS can decide to terminate your application by calling onDestroy()
-(see Activity life cycle). Your application will receive a SDL_QUIT event you 
+(see Activity life cycle). Your application will receive an SDL_EVENT_QUIT you
 can handle to save things and quit.
 
 Don't call exit() as it stops the activity badly.
 
-NB: "Back button" can be handled as a SDL_KEYDOWN/UP events, with Keycode
+NB: "Back button" can be handled as a SDL_EVENT_KEY_DOWN/UP events, with Keycode
 SDLK_AC_BACK, for any purpose.
 
 Known issues
@@ -473,3 +574,79 @@ Known issues
 - The number of buttons reported for each joystick is hardcoded to be 36, which
 is the current maximum number of buttons Android can report.
 
+Building the SDL tests
+================================================================================
+
+SDL's CMake build system can create APK's for the tests.
+It can build all tests with a single command without a dependency on gradle or Android Studio.
+The APK's are signed with a debug certificate.
+The only caveat is that the APK's support a single architecture.
+
+### Requirements
+- SDL source tree
+- CMake
+- ninja or make
+- Android Platform SDK
+- Android NDK
+- Android Build tools
+- Java JDK (version should be compatible with Android)
+- keytool (usually provided with the Java JDK), used for generating a debug certificate
+- zip
+
+### CMake configuration
+
+When configuring the CMake project, you need to use the Android NDK CMake toolchain, and pass the Android home path through `SDL_ANDROID_HOME`.
+```
+cmake .. -DCMAKE_TOOLCHAIN_FILE=<path/to/android.toolchain.cmake> -DANDROID_ABI=<android-abi> -DSDL_ANDROID_HOME=<path-to-android-sdk-home> -DANDROID_PLATFORM=23 -DSDL_TESTS=ON
+```
+
+Remarks:
+- `android.toolchain.cmake` can usually be found at `$ANDROID_HOME/ndk/x.y.z/build/cmake/android.toolchain.cmake`
+- `ANDROID_ABI` should be one of `arm64-v8a`, `armeabi-v7a`, `x86` or `x86_64`.
+- When CMake is unable to find required paths, use `cmake-gui` to override required `SDL_ANDROID_` CMake cache variables.
+
+### Building the APK's
+
+For the `testsprite` executable, the `testsprite-apk` target will build the associated APK:
+```
+cmake --build . --target testsprite-apk
+```
+
+APK's of all tests can be built with the `sdl-test-apks` target:
+```
+cmake --build . --target sdl-test-apks
+```
+
+### Installation/removal of the tests
+
+`testsprite.apk` APK can be installed on your Android machine using the `install-testsprite` target:
+```
+cmake --build . --target install-testsprite
+```
+
+APK's of all tests can be installed with the `install-sdl-test-apks` target:
+```
+cmake --build . --target install-sdl-test-apks
+```
+
+All SDL tests can be uninstalled with the `uninstall-sdl-test-apks` target:
+```
+cmake --build . --target uninstall-sdl-test-apks
+```
+
+### Starting the tests
+
+After installation, the tests can be started using the Android Launcher GUI.
+Alternatively, they can also be started using CMake targets.
+
+This command will start the testsprite executable:
+```
+cmake --build . --target start-testsprite
+```
+
+There is also a convenience target which will build, install and start a test:
+```
+cmake --build . --target build-install-start-testsprite
+```
+
+Not all tests provide a GUI. For those, you can use `adb logcat` to read the output of stdout.

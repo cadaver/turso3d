@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -22,10 +22,10 @@
 #ifndef SDL_steamcontroller_h_
 #define SDL_steamcontroller_h_
 
-#include "../../SDL_internal.h"
+#include "SDL_internal.h"
 
-typedef SDL_bool (*SteamControllerConnectedCallback_t)(const char *name, SDL_JoystickGUID guid, int *device_instance);
-typedef void (*SteamControllerDisconnectedCallback_t)(int device_instance);
+typedef bool (*SteamControllerConnectedCallback_t)(const char *name, SDL_GUID guid, SDL_JoystickID *device_instance);
+typedef void (*SteamControllerDisconnectedCallback_t)(SDL_JoystickID device_instance);
 
 void SDL_InitSteamControllers(SteamControllerConnectedCallback_t connectedCallback,
                               SteamControllerDisconnectedCallback_t disconnectedCallback);
@@ -34,6 +34,4 @@ void SDL_UpdateSteamControllers(void);
 void SDL_UpdateSteamController(SDL_Joystick *joystick);
 void SDL_QuitSteamControllers(void);
 
-#endif /* SDL_steamcontroller_h_ */
-
-/* vi: set ts=4 sw=4 expandtab: */
+#endif // SDL_steamcontroller_h_

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -18,37 +18,30 @@
      misrepresented as being the original software.
   3. This notice may not be removed or altered from any source distribution.
 */
-#include "./SDL_internal.h"
+#include "SDL_internal.h"
 
-#if defined(__WIN32__) || defined(__WINRT__) || defined(__GDK__)
+#if defined(SDL_PLATFORM_WINDOWS)
 #include "core/windows/SDL_windows.h"
 #endif
 
-/* Simple log messages in SDL */
+// Simple log messages in SDL
 
-#include "SDL_error.h"
-#include "SDL_log.h"
-#include "SDL_mutex.h"
 #include "SDL_log_c.h"
 
-#if HAVE_STDIO_H
+#ifdef HAVE_STDIO_H
 #include <stdio.h>
 #endif
 
-#if defined(__ANDROID__)
+#ifdef SDL_PLATFORM_ANDROID
 #include <android/log.h>
 #endif
 
 #include "stdlib/SDL_vacopy.h"
 
-
-/* The size of the stack buffer to use for rendering log messages. */
+// The size of the stack buffer to use for rendering log messages.
 #define SDL_MAX_LOG_MESSAGE_STACK 256
 
-#define DEFAULT_PRIORITY                SDL_LOG_PRIORITY_CRITICAL
-#define DEFAULT_ASSERT_PRIORITY         SDL_LOG_PRIORITY_WARN
-#define DEFAULT_APPLICATION_PRIORITY    SDL_LOG_PRIORITY_INFO
-#define DEFAULT_TEST_PRIORITY           SDL_LOG_PRIORITY_VERBOSE
+#define DEFAULT_CATEGORY -1
 
 typedef struct SDL_LogLevel
 {
@@ -57,19 +50,26 @@ typedef struct SDL_LogLevel
     struct SDL_LogLevel *next;
 } SDL_LogLevel;
 
-/* The default log output function */
+
+// The default log output function
 static void SDLCALL SDL_LogOutput(void *userdata, int category, SDL_LogPriority priority, const char *message);
 
+static void SDL_ResetLogPrefixes(void);
+
 static SDL_LogLevel *SDL_loglevels;
-static SDL_LogPriority SDL_default_priority = DEFAULT_PRIORITY;
-static SDL_LogPriority SDL_assert_priority = DEFAULT_ASSERT_PRIORITY;
-static SDL_LogPriority SDL_application_priority = DEFAULT_APPLICATION_PRIORITY;
-static SDL_LogPriority SDL_test_priority = DEFAULT_TEST_PRIORITY;
+static bool SDL_forced_priority = false;
+static SDL_LogPriority SDL_forced_priority_level;
 static SDL_LogOutputFunction SDL_log_function = SDL_LogOutput;
 static void *SDL_log_userdata = NULL;
-static SDL_mutex *log_function_mutex = NULL;
+static SDL_Mutex *log_function_mutex = NULL;
 
-static const char *SDL_priority_prefixes[SDL_NUM_LOG_PRIORITIES] = {
+#ifdef HAVE_GCC_DIAGNOSTIC_PRAGMA
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
+
+// If this list changes, update the documentation for SDL_HINT_LOGGING
+static const char * const SDL_priority_names[] = {
     NULL,
     "VERBOSE",
     "DEBUG",
@@ -78,9 +78,12 @@ static const char *SDL_priority_prefixes[SDL_NUM_LOG_PRIORITIES] = {
     "ERROR",
     "CRITICAL"
 };
+SDL_COMPILE_TIME_ASSERT(priority_names, SDL_arraysize(SDL_priority_names) == SDL_LOG_PRIORITY_COUNT);
 
-#ifdef __ANDROID__
-static const char *SDL_category_prefixes[] = {
+static const char *SDL_priority_prefixes[SDL_LOG_PRIORITY_COUNT];
+
+// If this list changes, update the documentation for SDL_HINT_LOGGING
+static const char * const SDL_category_names[] = {
     "APP",
     "ERROR",
     "ASSERT",
@@ -89,12 +92,17 @@ static const char *SDL_category_prefixes[] = {
     "VIDEO",
     "RENDER",
     "INPUT",
-    "TEST"
+    "TEST",
+    "GPU"
 };
+SDL_COMPILE_TIME_ASSERT(category_names, SDL_arraysize(SDL_category_names) == SDL_LOG_CATEGORY_RESERVED2);
 
-SDL_COMPILE_TIME_ASSERT(category_prefixes_enum, SDL_TABLESIZE(SDL_category_prefixes) == SDL_LOG_CATEGORY_RESERVED1);
+#ifdef HAVE_GCC_DIAGNOSTIC_PRAGMA
+#pragma GCC diagnostic pop
+#endif
 
-static int SDL_android_priority[SDL_NUM_LOG_PRIORITIES] = {
+#ifdef SDL_PLATFORM_ANDROID
+static int SDL_android_priority[SDL_LOG_PRIORITY_COUNT] = {
     ANDROID_LOG_UNKNOWN,
     ANDROID_LOG_VERBOSE,
     ANDROID_LOG_DEBUG,
@@ -103,42 +111,40 @@ static int SDL_android_priority[SDL_NUM_LOG_PRIORITIES] = {
     ANDROID_LOG_ERROR,
     ANDROID_LOG_FATAL
 };
-#endif /* __ANDROID__ */
+#endif // SDL_PLATFORM_ANDROID
 
-void
-SDL_LogInit(void)
+void SDL_InitLog(void)
 {
     if (!log_function_mutex) {
-        /* if this fails we'll try to continue without it. */
+        // if this fails we'll try to continue without it.
         log_function_mutex = SDL_CreateMutex();
     }
 }
 
-void
-SDL_LogQuit(void)
+void SDL_QuitLog(void)
 {
-    SDL_LogResetPriorities();
+    SDL_ResetLogPriorities();
+    SDL_ResetLogPrefixes();
+
     if (log_function_mutex) {
         SDL_DestroyMutex(log_function_mutex);
         log_function_mutex = NULL;
     }
 }
 
-void
-SDL_LogSetAllPriority(SDL_LogPriority priority)
+void SDL_SetLogPriorities(SDL_LogPriority priority)
 {
     SDL_LogLevel *entry;
 
     for (entry = SDL_loglevels; entry; entry = entry->next) {
         entry->priority = priority;
     }
-    SDL_default_priority = priority;
-    SDL_assert_priority = priority;
-    SDL_application_priority = priority;
+
+    SDL_forced_priority = true;
+    SDL_forced_priority_level = priority;
 }
 
-void
-SDL_LogSetPriority(int category, SDL_LogPriority priority)
+void SDL_SetLogPriority(int category, SDL_LogPriority priority)
 {
     SDL_LogLevel *entry;
 
@@ -149,7 +155,7 @@ SDL_LogSetPriority(int category, SDL_LogPriority priority)
         }
     }
 
-    /* Create a new entry */
+    // Create a new entry
     entry = (SDL_LogLevel *)SDL_malloc(sizeof(*entry));
     if (entry) {
         entry->category = category;
@@ -159,8 +165,123 @@ SDL_LogSetPriority(int category, SDL_LogPriority priority)
     }
 }
 
-SDL_LogPriority
-SDL_LogGetPriority(int category)
+static bool SDL_ParseLogCategory(const char *string, size_t length, int *category)
+{
+    int i;
+
+    if (SDL_isdigit(*string)) {
+        *category = SDL_atoi(string);
+        return true;
+    }
+
+    if (*string == '*') {
+        *category = DEFAULT_CATEGORY;
+        return true;
+    }
+
+    for (i = 0; i < SDL_arraysize(SDL_category_names); ++i) {
+        if (SDL_strncasecmp(string, SDL_category_names[i], length) == 0) {
+            *category = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool SDL_ParseLogPriority(const char *string, size_t length, SDL_LogPriority *priority)
+{
+    int i;
+
+    if (SDL_isdigit(*string)) {
+        i = SDL_atoi(string);
+        if (i == 0) {
+            // 0 has a special meaning of "disable this category"
+            *priority = SDL_LOG_PRIORITY_COUNT;
+            return true;
+        }
+        if (i >= SDL_LOG_PRIORITY_VERBOSE && i < SDL_LOG_PRIORITY_COUNT) {
+            *priority = (SDL_LogPriority)i;
+            return true;
+        }
+        return false;
+    }
+
+    if (SDL_strncasecmp(string, "quiet", length) == 0) {
+        *priority = SDL_LOG_PRIORITY_COUNT;
+        return true;
+    }
+
+    for (i = SDL_LOG_PRIORITY_VERBOSE; i < SDL_LOG_PRIORITY_COUNT; ++i) {
+        if (SDL_strncasecmp(string, SDL_priority_names[i], length) == 0) {
+            *priority = (SDL_LogPriority)i;
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool SDL_ParseLogCategoryPriority(const char *hint, int category, SDL_LogPriority *priority)
+{
+    const char *name, *next;
+    int current_category;
+
+    if (category == DEFAULT_CATEGORY && SDL_strchr(hint, '=') == NULL) {
+        return SDL_ParseLogPriority(hint, SDL_strlen(hint), priority);
+    }
+
+    for (name = hint; name; name = next) {
+        const char *sep = SDL_strchr(name, '=');
+        if (!sep) {
+            break;
+        }
+        next = SDL_strchr(sep, ',');
+        if (next) {
+            ++next;
+        }
+
+        if (SDL_ParseLogCategory(name, (sep - name), &current_category)) {
+            if (current_category == category) {
+                const char *value = sep + 1;
+                size_t len;
+                if (next) {
+                    len = (next - value - 1);
+                } else {
+                    len = SDL_strlen(value);
+                }
+                return SDL_ParseLogPriority(value, len, priority);
+            }
+        }
+    }
+    return false;
+}
+
+static SDL_LogPriority SDL_GetDefaultLogPriority(int category)
+{
+    const char *hint = SDL_GetHint(SDL_HINT_LOGGING);
+    if (hint) {
+        SDL_LogPriority priority;
+
+        if (SDL_ParseLogCategoryPriority(hint, category, &priority)) {
+            return priority;
+        }
+        if (SDL_ParseLogCategoryPriority(hint, DEFAULT_CATEGORY, &priority)) {
+            return priority;
+        }
+    }
+
+    switch (category) {
+    case SDL_LOG_CATEGORY_APPLICATION:
+        return SDL_LOG_PRIORITY_INFO;
+    case SDL_LOG_CATEGORY_ASSERT:
+        return SDL_LOG_PRIORITY_WARN;
+    case SDL_LOG_CATEGORY_TEST:
+        return SDL_LOG_PRIORITY_VERBOSE;
+    default:
+        return SDL_LOG_PRIORITY_ERROR;
+    }
+}
+
+SDL_LogPriority SDL_GetLogPriority(int category)
 {
     SDL_LogLevel *entry;
 
@@ -170,19 +291,14 @@ SDL_LogGetPriority(int category)
         }
     }
 
-    if (category == SDL_LOG_CATEGORY_TEST) {
-        return SDL_test_priority;
-    } else if (category == SDL_LOG_CATEGORY_APPLICATION) {
-        return SDL_application_priority;
-    } else if (category == SDL_LOG_CATEGORY_ASSERT) {
-        return SDL_assert_priority;
-    } else {
-        return SDL_default_priority;
+    if (SDL_forced_priority) {
+        return SDL_forced_priority_level;
     }
+
+    return SDL_GetDefaultLogPriority(category);
 }
 
-void
-SDL_LogResetPriorities(void)
+void SDL_ResetLogPriorities(void)
 {
     SDL_LogLevel *entry;
 
@@ -191,15 +307,57 @@ SDL_LogResetPriorities(void)
         SDL_loglevels = entry->next;
         SDL_free(entry);
     }
-
-    SDL_default_priority = DEFAULT_PRIORITY;
-    SDL_assert_priority = DEFAULT_ASSERT_PRIORITY;
-    SDL_application_priority = DEFAULT_APPLICATION_PRIORITY;
-    SDL_test_priority = DEFAULT_TEST_PRIORITY;
+    SDL_forced_priority = false;
 }
 
-void
-SDL_Log(SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+static void SDL_ResetLogPrefixes(void)
+{
+    for (int i = 0; i < SDL_arraysize(SDL_priority_prefixes); ++i) {
+        SDL_priority_prefixes[i] = NULL;
+    }
+}
+
+static const char *SDL_GetLogPriorityPrefix(SDL_LogPriority priority)
+{
+    if (priority < SDL_LOG_PRIORITY_VERBOSE || priority >= SDL_LOG_PRIORITY_COUNT) {
+        return "";
+    }
+
+    if (SDL_priority_prefixes[priority]) {
+        return SDL_priority_prefixes[priority];
+    }
+
+    switch (priority) {
+    case SDL_LOG_PRIORITY_WARN:
+        return "WARNING: ";
+    case SDL_LOG_PRIORITY_ERROR:
+        return "ERROR: ";
+    case SDL_LOG_PRIORITY_CRITICAL:
+        return "ERROR: ";
+    default:
+        return "";
+    }
+}
+
+SDL_bool SDL_SetLogPriorityPrefix(SDL_LogPriority priority, const char *prefix)
+{
+    if (priority < SDL_LOG_PRIORITY_VERBOSE || priority >= SDL_LOG_PRIORITY_COUNT) {
+        return SDL_InvalidParamError("priority");
+    }
+
+    if (!prefix) {
+        prefix = "";
+    } else {
+        prefix = SDL_GetPersistentString(prefix);
+        if (!prefix) {
+            return false;
+        }
+    }
+    SDL_priority_prefixes[priority] = prefix;
+    return true;
+}
+
+void SDL_Log(SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 {
     va_list ap;
 
@@ -208,8 +366,7 @@ SDL_Log(SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
     va_end(ap);
 }
 
-void
-SDL_LogVerbose(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+void SDL_LogVerbose(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 {
     va_list ap;
 
@@ -218,8 +375,7 @@ SDL_LogVerbose(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
     va_end(ap);
 }
 
-void
-SDL_LogDebug(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+void SDL_LogDebug(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 {
     va_list ap;
 
@@ -228,8 +384,7 @@ SDL_LogDebug(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
     va_end(ap);
 }
 
-void
-SDL_LogInfo(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+void SDL_LogInfo(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 {
     va_list ap;
 
@@ -238,8 +393,7 @@ SDL_LogInfo(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
     va_end(ap);
 }
 
-void
-SDL_LogWarn(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+void SDL_LogWarn(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 {
     va_list ap;
 
@@ -248,8 +402,7 @@ SDL_LogWarn(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
     va_end(ap);
 }
 
-void
-SDL_LogError(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+void SDL_LogError(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 {
     va_list ap;
 
@@ -258,8 +411,7 @@ SDL_LogError(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
     va_end(ap);
 }
 
-void
-SDL_LogCritical(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+void SDL_LogCritical(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 {
     va_list ap;
 
@@ -268,8 +420,7 @@ SDL_LogCritical(int category, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
     va_end(ap);
 }
 
-void
-SDL_LogMessage(int category, SDL_LogPriority priority, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+void SDL_LogMessage(int category, SDL_LogPriority priority, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 {
     va_list ap;
 
@@ -278,22 +429,20 @@ SDL_LogMessage(int category, SDL_LogPriority priority, SDL_PRINTF_FORMAT_STRING 
     va_end(ap);
 }
 
-#ifdef __ANDROID__
-static const char *
-GetCategoryPrefix(int category)
+#ifdef SDL_PLATFORM_ANDROID
+static const char *GetCategoryPrefix(int category)
 {
-    if (category < SDL_LOG_CATEGORY_RESERVED1) {
-        return SDL_category_prefixes[category];
+    if (category < SDL_LOG_CATEGORY_RESERVED2) {
+        return SDL_category_names[category];
     }
     if (category < SDL_LOG_CATEGORY_CUSTOM) {
         return "RESERVED";
     }
     return "CUSTOM";
 }
-#endif /* __ANDROID__ */
+#endif // SDL_PLATFORM_ANDROID
 
-void
-SDL_LogMessageV(int category, SDL_LogPriority priority, const char *fmt, va_list ap)
+void SDL_LogMessageV(int category, SDL_LogPriority priority, SDL_PRINTF_FORMAT_STRING const char *fmt, va_list ap)
 {
     char *message = NULL;
     char stack_buf[SDL_MAX_LOG_MESSAGE_STACK];
@@ -301,40 +450,42 @@ SDL_LogMessageV(int category, SDL_LogPriority priority, const char *fmt, va_list
     int len;
     va_list aq;
 
-    /* Nothing to do if we don't have an output function */
+    // Nothing to do if we don't have an output function
     if (!SDL_log_function) {
         return;
     }
 
-    /* Make sure we don't exceed array bounds */
-    if ((int)priority < 0 || priority >= SDL_NUM_LOG_PRIORITIES) {
+    // Make sure we don't exceed array bounds
+    if ((int)priority < 0 || priority >= SDL_LOG_PRIORITY_COUNT) {
         return;
     }
 
-    /* See if we want to do anything with this message */
-    if (priority < SDL_LogGetPriority(category)) {
+    // See if we want to do anything with this message
+    if (priority < SDL_GetLogPriority(category)) {
         return;
     }
 
     if (!log_function_mutex) {
-        /* this mutex creation can race if you log from two threads at startup. You should have called SDL_Init first! */
+        // this mutex creation can race if you log from two threads at startup. You should have called SDL_Init first!
         log_function_mutex = SDL_CreateMutex();
     }
 
-    /* Render into stack buffer */
+    // Render into stack buffer
     va_copy(aq, ap);
     len = SDL_vsnprintf(stack_buf, sizeof(stack_buf), fmt, aq);
     va_end(aq);
 
-    if (len < 0)
+    if (len < 0) {
         return;
+    }
 
-    /* If message truncated, allocate and re-render */
-    if (len >= sizeof(stack_buf) && SDL_size_add_overflow(len, 1, &len_plus_term) == 0) {
-        /* Allocate exactly what we need, including the zero-terminator */
+    // If message truncated, allocate and re-render
+    if (len >= sizeof(stack_buf) && SDL_size_add_check_overflow(len, 1, &len_plus_term)) {
+        // Allocate exactly what we need, including the zero-terminator
         message = (char *)SDL_malloc(len_plus_term);
-        if (!message)
+        if (!message) {
             return;
+        }
         va_copy(aq, ap);
         len = SDL_vsnprintf(message, len_plus_term, fmt, aq);
         va_end(aq);
@@ -342,168 +493,167 @@ SDL_LogMessageV(int category, SDL_LogPriority priority, const char *fmt, va_list
         message = stack_buf;
     }
 
-    /* Chop off final endline. */
-    if ((len > 0) && (message[len-1] == '\n')) {
+    // Chop off final endline.
+    if ((len > 0) && (message[len - 1] == '\n')) {
         message[--len] = '\0';
-        if ((len > 0) && (message[len-1] == '\r')) {  /* catch "\r\n", too. */
+        if ((len > 0) && (message[len - 1] == '\r')) { // catch "\r\n", too.
             message[--len] = '\0';
         }
     }
 
-    if (log_function_mutex) {
-        SDL_LockMutex(log_function_mutex);
-    }
-
+    SDL_LockMutex(log_function_mutex);
     SDL_log_function(SDL_log_userdata, category, priority, message);
+    SDL_UnlockMutex(log_function_mutex);
 
-    if (log_function_mutex) {
-        SDL_UnlockMutex(log_function_mutex);
-    }
-
-    /* Free only if dynamically allocated */
+    // Free only if dynamically allocated
     if (message != stack_buf) {
         SDL_free(message);
     }
 }
 
-#if defined(__WIN32__) && !defined(HAVE_STDIO_H) && !defined(__WINRT__) && !defined(__GDK__)
-/* Flag tracking the attachment of the console: 0=unattached, 1=attached to a console, 2=attached to a file, -1=error */
-static int consoleAttached = 0;
+#if defined(SDL_PLATFORM_WIN32) && !defined(SDL_PLATFORM_GDK)
+enum {
+    CONSOLE_UNATTACHED = 0,
+    CONSOLE_ATTACHED_CONSOLE = 1,
+    CONSOLE_ATTACHED_FILE = 2,
+    CONSOLE_ATTACHED_ERROR = -1,
+} consoleAttached = CONSOLE_UNATTACHED;
 
-/* Handle to stderr output of console. */
+// Handle to stderr output of console.
 static HANDLE stderrHandle = NULL;
 #endif
 
-static void SDLCALL
-SDL_LogOutput(void *userdata, int category, SDL_LogPriority priority,
-              const char *message)
+static void SDLCALL SDL_LogOutput(void *userdata, int category, SDL_LogPriority priority,
+                                  const char *message)
 {
-#if defined(__WIN32__) || defined(__WINRT__) || defined(__GDK__)
-    /* Way too many allocations here, urgh */
-    /* Note: One can't call SDL_SetError here, since that function itself logs. */
+#if defined(SDL_PLATFORM_WINDOWS)
+    // Way too many allocations here, urgh
+    // Note: One can't call SDL_SetError here, since that function itself logs.
     {
         char *output;
         size_t length;
         LPTSTR tstr;
-        SDL_bool isstack;
+        bool isstack;
 
-#if !defined(HAVE_STDIO_H) && !defined(__WINRT__) && !defined(__GDK__)
+#if !defined(SDL_PLATFORM_GDK)
         BOOL attachResult;
         DWORD attachError;
-        DWORD charsWritten;
         DWORD consoleMode;
+        DWORD charsWritten;
 
-        /* Maybe attach console and get stderr handle */
-        if (consoleAttached == 0) {
+        // Maybe attach console and get stderr handle
+        if (consoleAttached == CONSOLE_UNATTACHED) {
             attachResult = AttachConsole(ATTACH_PARENT_PROCESS);
             if (!attachResult) {
-                    attachError = GetLastError();
-                    if (attachError == ERROR_INVALID_HANDLE) {
-                        /* This is expected when running from Visual Studio */
-                        /*OutputDebugString(TEXT("Parent process has no console\r\n"));*/
-                        consoleAttached = -1;
-                    } else if (attachError == ERROR_GEN_FAILURE) {
-                         OutputDebugString(TEXT("Could not attach to console of parent process\r\n"));
-                         consoleAttached = -1;
-                    } else if (attachError == ERROR_ACCESS_DENIED) {  
-                         /* Already attached */
-                        consoleAttached = 1;
-                    } else {
-                        OutputDebugString(TEXT("Error attaching console\r\n"));
-                        consoleAttached = -1;
-                    }
+                attachError = GetLastError();
+                if (attachError == ERROR_INVALID_HANDLE) {
+                    // This is expected when running from Visual Studio
+                    // OutputDebugString(TEXT("Parent process has no console\r\n"));
+                    consoleAttached = CONSOLE_ATTACHED_ERROR;
+                } else if (attachError == ERROR_GEN_FAILURE) {
+                    OutputDebugString(TEXT("Could not attach to console of parent process\r\n"));
+                    consoleAttached = CONSOLE_ATTACHED_ERROR;
+                } else if (attachError == ERROR_ACCESS_DENIED) {
+                    // Already attached
+                    consoleAttached = CONSOLE_ATTACHED_CONSOLE;
                 } else {
-                    /* Newly attached */
-                    consoleAttached = 1;
+                    OutputDebugString(TEXT("Error attaching console\r\n"));
+                    consoleAttached = CONSOLE_ATTACHED_ERROR;
                 }
+            } else {
+                // Newly attached
+                consoleAttached = CONSOLE_ATTACHED_CONSOLE;
+            }
 
-                if (consoleAttached == 1) {
-                        stderrHandle = GetStdHandle(STD_ERROR_HANDLE);
+            if (consoleAttached == CONSOLE_ATTACHED_CONSOLE) {
+                stderrHandle = GetStdHandle(STD_ERROR_HANDLE);
 
-                        if (GetConsoleMode(stderrHandle, &consoleMode) == 0) {
-                            /* WriteConsole fails if the output is redirected to a file. Must use WriteFile instead. */
-                            consoleAttached = 2;
-                        }
+                if (GetConsoleMode(stderrHandle, &consoleMode) == 0) {
+                    // WriteConsole fails if the output is redirected to a file. Must use WriteFile instead.
+                    consoleAttached = CONSOLE_ATTACHED_FILE;
                 }
+            }
         }
-#endif /* !defined(HAVE_STDIO_H) && !defined(__WINRT__) && !defined(__GDK__) */
-
-        length = SDL_strlen(SDL_priority_prefixes[priority]) + 2 + SDL_strlen(message) + 1 + 1 + 1;
+#endif // !defined(SDL_PLATFORM_GDK)
+        length = SDL_strlen(SDL_GetLogPriorityPrefix(priority)) + SDL_strlen(message) + 1 + 1 + 1;
         output = SDL_small_alloc(char, length, &isstack);
-        SDL_snprintf(output, length, "%s: %s\r\n", SDL_priority_prefixes[priority], message);
+        (void)SDL_snprintf(output, length, "%s%s\r\n", SDL_GetLogPriorityPrefix(priority), message);
         tstr = WIN_UTF8ToString(output);
-        
-        /* Output to debugger */
-        OutputDebugString(tstr);
-       
-#if !defined(HAVE_STDIO_H) && !defined(__WINRT__) && !defined(__GDK__)
-        /* Screen output to stderr, if console was attached. */
-        if (consoleAttached == 1) {
-                if (!WriteConsole(stderrHandle, tstr, (DWORD) SDL_tcslen(tstr), &charsWritten, NULL)) {
-                    OutputDebugString(TEXT("Error calling WriteConsole\r\n"));
-                    if (GetLastError() == ERROR_NOT_ENOUGH_MEMORY) {
-                        OutputDebugString(TEXT("Insufficient heap memory to write message\r\n"));
-                    }
-                }
 
-        } else if (consoleAttached == 2) {
-            if (!WriteFile(stderrHandle, output, (DWORD) SDL_strlen(output), &charsWritten, NULL)) {
+        // Output to debugger
+        OutputDebugString(tstr);
+
+#if !defined(SDL_PLATFORM_GDK)
+        // Screen output to stderr, if console was attached.
+        if (consoleAttached == CONSOLE_ATTACHED_CONSOLE) {
+            if (!WriteConsole(stderrHandle, tstr, (DWORD)SDL_tcslen(tstr), &charsWritten, NULL)) {
+                OutputDebugString(TEXT("Error calling WriteConsole\r\n"));
+                if (GetLastError() == ERROR_NOT_ENOUGH_MEMORY) {
+                    OutputDebugString(TEXT("Insufficient heap memory to write message\r\n"));
+                }
+            }
+
+        } else if (consoleAttached == CONSOLE_ATTACHED_FILE) {
+            if (!WriteFile(stderrHandle, output, (DWORD)SDL_strlen(output), &charsWritten, NULL)) {
                 OutputDebugString(TEXT("Error calling WriteFile\r\n"));
             }
         }
-#endif /* !defined(HAVE_STDIO_H) && !defined(__WINRT__) && !defined(__GDK__) */
+#endif // !defined(SDL_PLATFORM_GDK)
 
         SDL_free(tstr);
         SDL_small_free(output, isstack);
     }
-#elif defined(__ANDROID__)
+#elif defined(SDL_PLATFORM_ANDROID)
     {
         char tag[32];
 
         SDL_snprintf(tag, SDL_arraysize(tag), "SDL/%s", GetCategoryPrefix(category));
         __android_log_write(SDL_android_priority[priority], tag, message);
     }
-#elif defined(__APPLE__) && (defined(SDL_VIDEO_DRIVER_COCOA) || defined(SDL_VIDEO_DRIVER_UIKIT))
+#elif defined(SDL_PLATFORM_APPLE) && (defined(SDL_VIDEO_DRIVER_COCOA) || defined(SDL_VIDEO_DRIVER_UIKIT))
     /* Technically we don't need Cocoa/UIKit, but that's where this function is defined for now.
-    */
+     */
     extern void SDL_NSLog(const char *prefix, const char *text);
     {
-        SDL_NSLog(SDL_priority_prefixes[priority], message);
+        SDL_NSLog(SDL_GetLogPriorityPrefix(priority), message);
         return;
     }
-#elif defined(__PSP__) || defined(__PS2__)
+#elif defined(SDL_PLATFORM_PSP) || defined(SDL_PLATFORM_PS2)
     {
-        FILE*        pFile;
-        pFile = fopen ("SDL_Log.txt", "a");
-        fprintf(pFile, "%s: %s\n", SDL_priority_prefixes[priority], message);
-        fclose (pFile);
+        FILE *pFile;
+        pFile = fopen("SDL_Log.txt", "a");
+        if (pFile) {
+            (void)fprintf(pFile, "%s%s\n", SDL_GetLogPriorityPrefix(priority), message);
+            (void)fclose(pFile);
+        }
     }
-#elif defined(__VITA__)
+#elif defined(SDL_PLATFORM_VITA)
     {
-        FILE*        pFile;
-        pFile = fopen ("ux0:/data/SDL_Log.txt", "a");
-        fprintf(pFile, "%s: %s\n", SDL_priority_prefixes[priority], message);
-        fclose (pFile);
+        FILE *pFile;
+        pFile = fopen("ux0:/data/SDL_Log.txt", "a");
+        if (pFile) {
+            (void)fprintf(pFile, "%s%s\n", SDL_GetLogPriorityPrefix(priority), message);
+            (void)fclose(pFile);
+        }
     }
-#elif defined(__3DS__)
+#elif defined(SDL_PLATFORM_3DS)
     {
         FILE *pFile;
         pFile = fopen("sdmc:/3ds/SDL_Log.txt", "a");
-        fprintf(pFile, "%s: %s\n", SDL_priority_prefixes[priority], message);
-        fclose(pFile);
+        if (pFile) {
+            (void)fprintf(pFile, "%s%s\n", SDL_GetLogPriorityPrefix(priority), message);
+            (void)fclose(pFile);
+        }
     }
 #endif
-#if HAVE_STDIO_H && \
-    !(defined(__APPLE__) && (defined(SDL_VIDEO_DRIVER_COCOA) || defined(SDL_VIDEO_DRIVER_UIKIT)))
-    fprintf(stderr, "%s: %s\n", SDL_priority_prefixes[priority], message);
-#if __NACL__
-    fflush(stderr);
-#endif
+#if defined(HAVE_STDIO_H) && \
+    !(defined(SDL_PLATFORM_APPLE) && (defined(SDL_VIDEO_DRIVER_COCOA) || defined(SDL_VIDEO_DRIVER_UIKIT))) && \
+    !(defined(SDL_PLATFORM_WIN32))
+    (void)fprintf(stderr, "%s%s\n", SDL_GetLogPriorityPrefix(priority), message);
 #endif
 }
 
-void
-SDL_LogGetOutputFunction(SDL_LogOutputFunction *callback, void **userdata)
+void SDL_GetLogOutputFunction(SDL_LogOutputFunction *callback, void **userdata)
 {
     if (callback) {
         *callback = SDL_log_function;
@@ -513,11 +663,8 @@ SDL_LogGetOutputFunction(SDL_LogOutputFunction *callback, void **userdata)
     }
 }
 
-void
-SDL_LogSetOutputFunction(SDL_LogOutputFunction callback, void *userdata)
+void SDL_SetLogOutputFunction(SDL_LogOutputFunction callback, void *userdata)
 {
     SDL_log_function = callback;
     SDL_log_userdata = userdata;
 }
-
-/* vi: set ts=4 sw=4 expandtab: */

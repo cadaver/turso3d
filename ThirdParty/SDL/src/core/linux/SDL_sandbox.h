@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
   Copyright (C) 2022 Collabora Ltd.
 
   This software is provided 'as-is', without any express or implied
@@ -31,9 +31,7 @@ typedef enum
     SDL_SANDBOX_SNAP,
 } SDL_Sandbox;
 
-/* Return the sandbox type currently in use, if any */
+// Return the sandbox type currently in use, if any
 SDL_Sandbox SDL_DetectSandbox(void);
 
-#endif /* SDL_SANDBOX_H */
-
-/* vi: set ts=4 sw=4 expandtab: */
+#endif // SDL_SANDBOX_H

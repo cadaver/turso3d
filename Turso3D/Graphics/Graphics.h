@@ -17,6 +17,7 @@ class Texture;
 class UniformBuffer;
 class VertexBuffer;
 struct SDL_Window;
+typedef struct SDL_GLContextState* SDL_GLContext;
 
 /// Fullscreen modes.
 enum FullScreenMode
@@ -162,7 +163,7 @@ private:
     /// OS-level rendering window.
     SDL_Window* window;
     /// OpenGL context.
-    void* context;
+    SDL_GLContext context;
     /// Quad vertex buffer.
     AutoPtr<VertexBuffer> quadVertexBuffer;
     /// Last blend mode.

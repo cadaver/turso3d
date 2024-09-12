@@ -2,7 +2,7 @@
 
 #include "Input.h"
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <tracy/Tracy.hpp>
 
 Input::Input(SDL_Window* window_) :
@@ -17,7 +17,7 @@ Input::Input(SDL_Window* window_) :
 
 Input::~Input()
 {
-    SDL_SetRelativeMouseMode(SDL_FALSE);
+    SDL_SetWindowRelativeMouseMode(window, SDL_FALSE);
 }
 
 void Input::Update()
@@ -48,14 +48,14 @@ void Input::Update()
     if (focusFlags && !focus)
     {
         focus = true;
-        SDL_SetRelativeMouseMode(SDL_TRUE);
+        SDL_SetWindowRelativeMouseMode(window, SDL_TRUE);
         SendEvent(focusGainedEvent);
     }
     if (!focusFlags && focus)
     {
         focus = false;
         keyStates.clear();
-        SDL_SetRelativeMouseMode(SDL_FALSE);
+        SDL_SetWindowRelativeMouseMode(window, SDL_FALSE);
         SendEvent(focusLostEvent);
     }
 
@@ -66,47 +66,47 @@ void Input::Update()
     {
         switch (event.type)
         {
-        case SDL_QUIT:
+        case SDL_EVENT_QUIT:
             shouldExit = true;
             SendEvent(exitRequestEvent);
             break;
 
-        case SDL_KEYDOWN:
+        case SDL_EVENT_KEY_DOWN:
             if (event.key.repeat == 0)
-                keyStates[event.key.keysym.sym] = STATE_PRESSED;
-            keyPressEvent.keyCode = event.key.keysym.sym;
+                keyStates[event.key.key] = STATE_PRESSED;
+            keyPressEvent.keyCode = event.key.key;
             keyPressEvent.repeat = event.key.repeat > 0;
             SendEvent(keyPressEvent);
             break;
 
-        case SDL_KEYUP:
-            keyStates[event.key.keysym.sym] = STATE_RELEASED;
-            keyReleaseEvent.keyCode = event.key.keysym.sym;
+        case SDL_EVENT_KEY_UP:
+            keyStates[event.key.key] = STATE_RELEASED;
+            keyReleaseEvent.keyCode = event.key.key;
             keyReleaseEvent.repeat = false;
             SendEvent(keyReleaseEvent);
             break;
 
-        case SDL_TEXTINPUT:
+        case SDL_EVENT_TEXT_INPUT:
             textInputEvent.text = std::string(&event.text.text[0]);
             textInput += textInputEvent.text;
             SendEvent(textInputEvent);
             break;
 
-        case SDL_MOUSEBUTTONDOWN:
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
             mouseButtonStates[event.button.button] = STATE_PRESSED;
             mousePressEvent.button = event.button.button;
             mousePressEvent.repeat = false;
             SendEvent(mousePressEvent);
             break;
 
-        case SDL_MOUSEBUTTONUP:
+        case SDL_EVENT_MOUSE_BUTTON_UP:
             mouseButtonStates[event.button.button] = STATE_RELEASED;
             mouseReleaseEvent.button = event.button.button;
             mouseReleaseEvent.repeat = false;
             SendEvent(mouseReleaseEvent);
             break;
 
-        case SDL_MOUSEMOTION:
+        case SDL_EVENT_MOUSE_MOTION:
             if (focus)
             {
                 mouseMove.x += event.motion.xrel;
@@ -116,7 +116,7 @@ void Input::Update()
             }
             break;
 
-        case SDL_MOUSEWHEEL:
+        case SDL_EVENT_MOUSE_WHEEL:
             if (focus)
             {
                 mouseWheel.x += event.wheel.x;
