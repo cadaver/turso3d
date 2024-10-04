@@ -1390,7 +1390,9 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
     const Matrix3x4& viewMatrix = camera->ViewMatrix();
     Vector3 viewZ = Vector3(viewMatrix.m20, viewMatrix.m21, viewMatrix.m22);
     Vector3 absViewZ = viewZ.Abs();
-    float invLastZRange = 1.0f / (lastMaxZ - lastMinZ);
+    // Use last scene depth range for coarse depth slicing this frame
+    // Note: this is not the same as depth slicing of the light clusters, but it doesn't have to be
+    float invLastZRange = 1.0f / (lastMaxZ - lastMinZ) * NUM_OPAQUE_Z_SPLITS;
 
     // Scan octants for geometries
     for (auto it = octants.begin(); it != octants.end(); ++it)
@@ -1418,12 +1420,12 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
 
                     float viewCenterZ = viewZ.DotProduct(center) + viewMatrix.m23;
                     float viewEdgeZ = absViewZ.DotProduct(edge);
-                    result.minZ = Min(result.minZ, viewCenterZ - viewEdgeZ);
-                    result.maxZ = Max(result.maxZ, viewCenterZ + viewEdgeZ);
-                    // Use last scene max Z value for coarse depth slicing this frame
-                    // Note: this is not the same as depth slicing of the light clusters, but it doesn't have to be
-                    float relativeZ = (viewCenterZ - lastMinZ) * invLastZRange;
-                    int zIndex = Clamp((int)(relativeZ * NUM_OPAQUE_Z_SPLITS), 0, NUM_OPAQUE_Z_SPLITS - 1);
+                    float viewMinZ = viewCenterZ - viewEdgeZ;
+                    float viewMaxZ = viewCenterZ + viewEdgeZ;
+                    result.minZ = Min(result.minZ, viewMinZ);
+                    result.maxZ = Max(result.maxZ, viewMaxZ);
+
+                    int zIndex = Clamp((int)((viewMinZ - lastMinZ) * invLastZRange), 0, NUM_OPAQUE_Z_SPLITS - 1);
  
                     Batch newBatch;
 
@@ -1451,11 +1453,11 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
                         {
                             // If not opaque, try transparent
                             newBatch.pass = material->GetPass(PASS_ALPHA);
-                            if (!newBatch.pass)
-                                continue;
-
-                            newBatch.distance = drawable->Distance();
-                            result.alphaBatches.push_back(newBatch);
+                            if (newBatch.pass)
+                            {
+                                newBatch.distance = drawable->Distance();
+                                result.alphaBatches.push_back(newBatch);
+                            }
                         }
                     }
                 }
