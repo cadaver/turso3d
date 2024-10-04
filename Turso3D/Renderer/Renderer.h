@@ -31,6 +31,7 @@ struct CollectOctantsTask;
 struct CollectBatchesTask;
 struct CollectShadowBatchesTask;
 struct CollectShadowCastersTask;
+struct SortOpaqueBatchesTask;
 struct CullLightsTask;
 struct ShadowView;
 struct ThreadOctantResult;
@@ -85,7 +86,7 @@ struct ThreadBatchResult
     /// Combined bounding box of the visible geometries.
     BoundingBox geometryBounds;
     /// Initial opaque batches.
-    std::vector<Batch> opaqueBatches;
+    std::vector<Batch> opaqueBatches[NUM_CLUSTER_Z];
     /// Initial alpha batches.
     std::vector<Batch> alphaBatches;
 };
@@ -250,6 +251,8 @@ private:
     void ProcessShadowCastersWork(Task* task, unsigned threadIndex);
     /// Work function to collect shadowcaster batches per shadow view.
     void CollectShadowBatchesWork(Task* task, unsigned threadIndex);
+    /// Work function to merge and sort opaque main batches of a Z slice.
+    void SortOpaqueBatchesWork(Task* task, unsigned threadIndex);
     /// Work function to cull lights against a Z-slice of the frustum grid.
     void CullLightsToFrustumWork(Task* task, unsigned threadIndex);
 
@@ -299,6 +302,10 @@ private:
     float minZ;
     /// Maximum Z value for all geometries in frustum.
     float maxZ;
+    /// Last frame's minimum Z value for coarse Z-slicing.
+    float lastMinZ;
+    /// Last frame's maximum Z value for coarse Z-slicing.
+    float lastMaxZ;
     /// Combined bounding box of the visible geometries.
     BoundingBox geometryBounds;
     /// Brightest directional light in frustum.
@@ -307,12 +314,14 @@ private:
     std::vector<LightDrawable*> lights;
     /// Shadow maps.
     AutoArrayPtr<ShadowMap> shadowMaps;
-    /// Opaque batches.
-    BatchQueue opaqueBatches;
+    /// Opaque batches per Z-slice for coarse front-to-back sorting.
+    BatchQueue opaqueBatches[NUM_CLUSTER_Z];
+    /// Instance transforms for opaque batches per Z slice.
+    std::vector<Matrix3x4> opaqueInstanceTransforms[NUM_CLUSTER_Z];
     /// Transparent batches.
     BatchQueue alphaBatches;
-    /// Instance transforms for opaque and alpha batches.
-    std::vector<Matrix3x4> instanceTransforms;
+    /// Instance transforms for alpha batches.
+    std::vector<Matrix3x4> alphaInstanceTransforms;
     /// Last camera used for rendering.
     Camera* lastCamera;
     /// Last material pass used for rendering.
@@ -347,6 +356,8 @@ private:
     AutoPtr<Task> processShadowCastersTask;
     /// Tasks for shadow batch processing.
     std::vector<AutoPtr<CollectShadowBatchesTask> > collectShadowBatchesTasks;
+    /// Tasks for opaque batch merging and sorting.
+    AutoPtr<SortOpaqueBatchesTask> sortOpaqueBatchesTasks[NUM_CLUSTER_Z];
     /// Tasks for light grid culling.
     AutoPtr<CullLightsTask> cullLightsTasks[NUM_CLUSTER_Z];
     /// Face selection UV indirection texture 1.

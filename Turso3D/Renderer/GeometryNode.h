@@ -24,9 +24,6 @@ struct Geometry : public RefCounted
     /// Return ray hit distance if has CPU-side data, or infinity if no hit or no data.
     float HitDistance(const Ray& ray, Vector3* outNormal = nullptr) const;
 
-    /// Last sort key for combined distance and state sorting. Used by Renderer.
-    std::pair<unsigned short, unsigned short> lastSortKey;
-
     /// %Geometry vertex buffer.
     SharedPtr<VertexBuffer> vertexBuffer;
     /// %Geometry index buffer.

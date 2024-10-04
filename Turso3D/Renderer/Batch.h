@@ -16,7 +16,6 @@ struct Geometry;
 enum BatchSortMode
 {
     SORT_STATE = 0,
-    SORT_STATE_AND_DISTANCE,
     SORT_DISTANCE
 };
 

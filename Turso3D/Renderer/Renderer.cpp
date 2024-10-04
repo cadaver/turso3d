@@ -95,6 +95,19 @@ struct CollectShadowBatchesTask : public MemberFunctionTask<Renderer>
     size_t viewIdx;
 };
 
+/// %Task for merging and sorting opaque batches of a Z-slice.
+struct SortOpaqueBatchesTask : public MemberFunctionTask<Renderer>
+{
+    /// Construct.
+    SortOpaqueBatchesTask(Renderer* object_, MemberWorkFunctionPtr function_) :
+        MemberFunctionTask<Renderer>(object_, function_)
+    {
+    }
+
+    /// Z-slice.
+    size_t z;
+};
+
 /// %Task for culling lights to a specific Z-slice of the frustum grid.
 struct CullLightsTask : public MemberFunctionTask<Renderer>
 {
@@ -123,7 +136,8 @@ void ThreadBatchResult::Clear()
     minZ = M_MAX_FLOAT;
     maxZ = 0.0f;
     geometryBounds.Undefine();
-    opaqueBatches.clear();
+    for (size_t i = 0; i < NUM_CLUSTER_Z; ++i)
+        opaqueBatches[i].clear();
     alphaBatches.clear();
 }
 
@@ -158,7 +172,11 @@ Renderer::Renderer() :
     frameNumber(0),
     clusterFrustumsDirty(true),
     depthBiasMul(1.0f),
-    slopeScaleBiasMul(1.0f)
+    slopeScaleBiasMul(1.0f),
+    minZ(0.0f),
+    maxZ(0.0f),
+    lastMinZ(0.0f),
+    lastMaxZ(0.0f)
 {
     assert(graphics && graphics->IsInitialized());
     assert(workQueue);
@@ -201,6 +219,9 @@ Renderer::Renderer() :
 
     for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
     {
+        sortOpaqueBatchesTasks[z] = new SortOpaqueBatchesTask(this, &Renderer::SortOpaqueBatchesWork);
+        sortOpaqueBatchesTasks[z]->z = z;
+
         cullLightsTasks[z] = new CullLightsTask(this, &Renderer::CullLightsToFrustumWork);
         cullLightsTasks[z]->z = z;
     }
@@ -281,11 +302,17 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     dirLight = nullptr;
     lastCamera = nullptr;
     rootLevelOctants.clear();
-    opaqueBatches.Clear();
+    for (size_t i = 0; i < NUM_CLUSTER_Z; ++i)
+    {
+        opaqueBatches[i].Clear();
+        opaqueInstanceTransforms[i].clear();
+    }
     alphaBatches.Clear();
+    alphaInstanceTransforms.clear();
     lights.clear();
-    instanceTransforms.clear();
     
+    lastMinZ = minZ < M_MAX_FLOAT ? minZ : 0.0f;
+    lastMaxZ = maxZ > 0.0f ? maxZ : camera->FarClip();
     minZ = M_MAX_FLOAT;
     maxZ = 0.0f;
     geometryBounds.Undefine();
@@ -359,7 +386,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
 
     SortMainBatches();
 
-    // Finish remaining view preparation tasks (shadowcaster batches, light culling to frustum grid)
+    // Finish remaining view preparation tasks
     workQueue->Complete();
 
     // No more threaded reinsertion will take place
@@ -456,8 +483,7 @@ void Renderer::RenderOpaque(bool clear)
 {
     ZoneScoped;
 
-    // Update main batches' instance transforms & light data
-    UpdateInstanceTransforms(instanceTransforms);
+    // Update light data before rendering
     UpdateLightData();
 
     if (shadowMaps)
@@ -474,7 +500,15 @@ void Renderer::RenderOpaque(bool clear)
     if (clear)
         graphics->Clear(true, true, IntRect::ZERO, lightEnvironment ? lightEnvironment->FogColor() : DEFAULT_FOG_COLOR);
 
-    RenderBatches(camera, opaqueBatches);
+    // Render opaque batches in front to back order (coarse slicing)
+    for (size_t i = 0; i < NUM_CLUSTER_Z; ++i)
+    {
+        if (opaqueBatches[i].HasBatches())
+        {
+            UpdateInstanceTransforms(opaqueInstanceTransforms[i]);
+            RenderBatches(camera, opaqueBatches[i]);
+        }
+    }
 
     // Render occlusion now after opaques
     if (useOcclusion)
@@ -496,6 +530,7 @@ void Renderer::RenderAlpha()
     clusterTexture->Bind(TU_LIGHTCLUSTERDATA);
     lightDataBuffer->Bind(UB_LIGHTDATA);
 
+    UpdateInstanceTransforms(alphaInstanceTransforms);
     RenderBatches(camera, alphaBatches);
 }
 
@@ -713,18 +748,19 @@ void Renderer::SortMainBatches()
     // Signal that shadowcaster processing is OK to happen
     workQueue->QueueTask(batchesReadyTask);
 
-    // Join per-thread collected batches and sort
+    // Join and sort opaque batches in own task per Z-slice
+    for (size_t i = 0; i < NUM_CLUSTER_Z; ++i)
+        workQueue->QueueTask(sortOpaqueBatchesTasks[i]);
+
+    // Join per-thread alpha batches
     for (size_t i = 0; i < workQueue->NumThreads(); ++i)
     {
-        ThreadBatchResult& res = batchResults[i];
-        if (res.opaqueBatches.size())
-            opaqueBatches.batches.insert(opaqueBatches.batches.end(), res.opaqueBatches.begin(), res.opaqueBatches.end());
+        const ThreadBatchResult& res = batchResults[i];
         if (res.alphaBatches.size())
             alphaBatches.batches.insert(alphaBatches.batches.end(), res.alphaBatches.begin(), res.alphaBatches.end());
     }
 
-    opaqueBatches.Sort(instanceTransforms, SORT_STATE_AND_DISTANCE, hasInstancing);
-    alphaBatches.Sort(instanceTransforms, SORT_DISTANCE, hasInstancing);
+    alphaBatches.Sort(alphaInstanceTransforms, SORT_DISTANCE, hasInstancing);
 }
 
 void Renderer::SortShadowBatches(ShadowMap& shadowMap)
@@ -1316,16 +1352,11 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
 
     CollectBatchesTask* task = static_cast<CollectBatchesTask*>(task_);
     ThreadBatchResult& result = batchResults[threadIndex];
-    bool threaded = workQueue->NumThreads() > 1;
-
     std::vector<std::pair<Octant*, unsigned char> >& octants = task->octants;
-    std::vector<Batch>& opaqueQueue = threaded ? result.opaqueBatches : opaqueBatches.batches;
-    std::vector<Batch>& alphaQueue = threaded ? result.alphaBatches : alphaBatches.batches;
-
     const Matrix3x4& viewMatrix = camera->ViewMatrix();
     Vector3 viewZ = Vector3(viewMatrix.m20, viewMatrix.m21, viewMatrix.m22);
     Vector3 absViewZ = viewZ.Abs();
-    float farClipMul = 32767.0f / camera->FarClip();
+    float invLastZRange = 1.0f / (lastMaxZ - lastMinZ);
 
     // Scan octants for geometries
     for (auto it = octants.begin(); it != octants.end(); ++it)
@@ -1355,10 +1386,13 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
                     float viewEdgeZ = absViewZ.DotProduct(edge);
                     result.minZ = Min(result.minZ, viewCenterZ - viewEdgeZ);
                     result.maxZ = Max(result.maxZ, viewCenterZ + viewEdgeZ);
+                    // Use last scene max Z value for coarse depth slicing this frame
+                    // Note: this is not the same as depth slicing of the light clusters, but it doesn't have to be
+                    float relativeZ = (viewCenterZ - lastMinZ) * invLastZRange;
+                    int zIndex = Clamp((int)(relativeZ * NUM_CLUSTER_Z), 0, NUM_CLUSTER_Z - 1);
  
                     Batch newBatch;
 
-                    unsigned short distance = (unsigned short)(drawable->Distance() * farClipMul);
                     const SourceBatches& batches = static_cast<GeometryDrawable*>(drawable)->Batches();
                     size_t numGeometries = batches.NumGeometries();
         
@@ -1378,21 +1412,7 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
                             newBatch.drawable = static_cast<GeometryDrawable*>(drawable);
 
                         if (newBatch.pass)
-                        {
-                            // Perform distance sort in addition to state sort
-                            if (newBatch.pass->lastSortKey.first != frameNumber || newBatch.pass->lastSortKey.second > distance)
-                            {
-                                newBatch.pass->lastSortKey.first = frameNumber;
-                                newBatch.pass->lastSortKey.second = distance;
-                            }
-                            if (newBatch.geometry->lastSortKey.first != frameNumber || newBatch.geometry->lastSortKey.second > distance + (unsigned short)j)
-                            {
-                                newBatch.geometry->lastSortKey.first = frameNumber;
-                                newBatch.geometry->lastSortKey.second = distance + (unsigned short)j;
-                            }
-
-                            opaqueQueue.push_back(newBatch);
-                        }
+                            result.opaqueBatches[zIndex].push_back(newBatch);
                         else
                         {
                             // If not opaque, try transparent
@@ -1401,7 +1421,7 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
                                 continue;
 
                             newBatch.distance = drawable->Distance();
-                            alphaQueue.push_back(newBatch);
+                            result.alphaBatches.push_back(newBatch);
                         }
                     }
                 }
@@ -1732,6 +1752,22 @@ void Renderer::CollectShadowBatchesWork(Task* task_, unsigned)
     // Sort shadow batches if was the last
     if (numPendingShadowViews[task->shadowMapIdx].fetch_add(-1) == 1)
         SortShadowBatches(shadowMap);
+}
+
+void Renderer::SortOpaqueBatchesWork(Task* task, unsigned)
+{
+    ZoneScoped;
+
+    size_t z = static_cast<SortOpaqueBatchesTask*>(task)->z;
+
+    for (size_t i = 0; i < workQueue->NumThreads(); ++i)
+    {
+        const ThreadBatchResult& res = batchResults[i];
+        if (res.opaqueBatches[z].size())
+            opaqueBatches[z].batches.insert(opaqueBatches[z].batches.end(), res.opaqueBatches[z].begin(), res.opaqueBatches[z].end());
+    }
+
+    opaqueBatches[z].Sort(opaqueInstanceTransforms[z], SORT_STATE, hasInstancing);
 }
 
 void Renderer::CullLightsToFrustumWork(Task* task, unsigned)

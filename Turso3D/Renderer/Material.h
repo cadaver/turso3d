@@ -71,9 +71,6 @@ public:
     /// Return depth write flag.
     bool GetDepthWrite() const { return depthWrite; }
 
-    /// Last sort key for combined distance and state sorting. Used by Renderer.
-    std::pair<unsigned short, unsigned short> lastSortKey;
-
 private:
     /// Parent material.
     Material* parent;

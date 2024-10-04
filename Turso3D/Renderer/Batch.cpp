@@ -39,17 +39,6 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode 
         std::sort(batches.begin(), batches.end(), CompareBatchKeys);
         break;
 
-    case SORT_STATE_AND_DISTANCE:
-        for (auto it = batches.begin(); it < batches.end(); ++it)
-        {
-            unsigned short materialId = it->pass->lastSortKey.second;
-            unsigned short geomId = it->geometry->lastSortKey.second;
-            
-            it->sortKey = (((unsigned)materialId) << 16) | geomId;
-        }
-        std::sort(batches.begin(), batches.end(), CompareBatchKeys);
-        break;
-
     case SORT_DISTANCE:
         std::sort(batches.begin(), batches.end(), CompareBatchDistance);
         break;
