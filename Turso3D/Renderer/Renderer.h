@@ -43,6 +43,7 @@ static const size_t MAX_LIGHTS = 255;
 static const size_t MAX_LIGHTS_CLUSTER = 16;
 static const size_t NUM_OCTANT_TASKS = 9;
 static const size_t NUM_SHADOW_MAPS = 2; // One for directional lights and another for the rest
+static const size_t NUM_OPAQUE_Z_SPLITS = 8;
 
 // Texture units with built-in meanings.
 static const size_t TU_DIRLIGHTSHADOW = 8;
@@ -86,7 +87,7 @@ struct ThreadBatchResult
     /// Combined bounding box of the visible geometries.
     BoundingBox geometryBounds;
     /// Initial opaque batches.
-    std::vector<Batch> opaqueBatches[NUM_CLUSTER_Z];
+    std::vector<Batch> opaqueBatches[NUM_OPAQUE_Z_SPLITS];
     /// Initial alpha batches.
     std::vector<Batch> alphaBatches;
 };
@@ -223,10 +224,12 @@ private:
     void SortShadowBatches(ShadowMap& shadowMap);
     /// Upload instance transforms before rendering.
     void UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms);
+    /// Upload instance transforms before rendering from several partial vectors.
+    void UpdateInstanceTransforms(size_t numVectors, const std::vector<Matrix3x4>* transforms);
     /// Upload light uniform buffer and cluster texture data.
     void UpdateLightData();
     /// Render a batch queue.
-    void RenderBatches(Camera* camera, const BatchQueue& queue);
+    void RenderBatches(Camera* camera, const BatchQueue& queue, unsigned baseInstanceIndex = 0);
     /// Check occlusion query results and propagate visibility hierarchically.
     void CheckOcclusionQueries();
     /// Render occlusion queries for octants.
@@ -315,9 +318,9 @@ private:
     /// Shadow maps.
     AutoArrayPtr<ShadowMap> shadowMaps;
     /// Opaque batches per Z-slice for coarse front-to-back sorting.
-    BatchQueue opaqueBatches[NUM_CLUSTER_Z];
+    BatchQueue opaqueBatches[NUM_OPAQUE_Z_SPLITS];
     /// Instance transforms for opaque batches per Z slice.
-    std::vector<Matrix3x4> opaqueInstanceTransforms[NUM_CLUSTER_Z];
+    std::vector<Matrix3x4> opaqueInstanceTransforms[NUM_OPAQUE_Z_SPLITS];
     /// Transparent batches.
     BatchQueue alphaBatches;
     /// Instance transforms for alpha batches.
@@ -357,7 +360,7 @@ private:
     /// Tasks for shadow batch processing.
     std::vector<AutoPtr<CollectShadowBatchesTask> > collectShadowBatchesTasks;
     /// Tasks for opaque batch merging and sorting.
-    AutoPtr<SortOpaqueBatchesTask> sortOpaqueBatchesTasks[NUM_CLUSTER_Z];
+    AutoPtr<SortOpaqueBatchesTask> sortOpaqueBatchesTasks[NUM_OPAQUE_Z_SPLITS];
     /// Tasks for light grid culling.
     AutoPtr<CullLightsTask> cullLightsTasks[NUM_CLUSTER_Z];
     /// Face selection UV indirection texture 1.

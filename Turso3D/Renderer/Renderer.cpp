@@ -136,7 +136,7 @@ void ThreadBatchResult::Clear()
     minZ = M_MAX_FLOAT;
     maxZ = 0.0f;
     geometryBounds.Undefine();
-    for (size_t i = 0; i < NUM_CLUSTER_Z; ++i)
+    for (size_t i = 0; i < NUM_OPAQUE_Z_SPLITS; ++i)
         opaqueBatches[i].clear();
     alphaBatches.clear();
 }
@@ -217,11 +217,14 @@ Renderer::Renderer() :
         collectOctantsTasks[i]->resultIdx = i;
     }
 
-    for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
+    for (size_t z = 0; z < NUM_OPAQUE_Z_SPLITS; ++z)
     {
         sortOpaqueBatchesTasks[z] = new SortOpaqueBatchesTask(this, &Renderer::SortOpaqueBatchesWork);
         sortOpaqueBatchesTasks[z]->z = z;
+    }
 
+    for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
+    {
         cullLightsTasks[z] = new CullLightsTask(this, &Renderer::CullLightsToFrustumWork);
         cullLightsTasks[z]->z = z;
     }
@@ -302,7 +305,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     dirLight = nullptr;
     lastCamera = nullptr;
     rootLevelOctants.clear();
-    for (size_t i = 0; i < NUM_CLUSTER_Z; ++i)
+    for (size_t i = 0; i < NUM_OPAQUE_Z_SPLITS; ++i)
     {
         opaqueBatches[i].Clear();
         opaqueInstanceTransforms[i].clear();
@@ -501,12 +504,14 @@ void Renderer::RenderOpaque(bool clear)
         graphics->Clear(true, true, IntRect::ZERO, lightEnvironment ? lightEnvironment->FogColor() : DEFAULT_FOG_COLOR);
 
     // Render opaque batches in front to back order (coarse slicing)
-    for (size_t i = 0; i < NUM_CLUSTER_Z; ++i)
+    UpdateInstanceTransforms(NUM_OPAQUE_Z_SPLITS, &opaqueInstanceTransforms[0]);
+    unsigned baseInstanceIndex = 0;
+    for (size_t i = 0; i < NUM_OPAQUE_Z_SPLITS; ++i)
     {
         if (opaqueBatches[i].HasBatches())
         {
-            UpdateInstanceTransforms(opaqueInstanceTransforms[i]);
-            RenderBatches(camera, opaqueBatches[i]);
+            RenderBatches(camera, opaqueBatches[i], baseInstanceIndex);
+            baseInstanceIndex += (unsigned)opaqueInstanceTransforms[i].size();
         }
     }
 
@@ -749,7 +754,7 @@ void Renderer::SortMainBatches()
     workQueue->QueueTask(batchesReadyTask);
 
     // Join and sort opaque batches in own task per Z-slice
-    for (size_t i = 0; i < NUM_CLUSTER_Z; ++i)
+    for (size_t i = 0; i < NUM_OPAQUE_Z_SPLITS; ++i)
         workQueue->QueueTask(sortOpaqueBatchesTasks[i]);
 
     // Join per-thread alpha batches
@@ -800,6 +805,35 @@ void Renderer::UpdateInstanceTransforms(const std::vector<Matrix3x4>& transforms
     }
 }
 
+void Renderer::UpdateInstanceTransforms(size_t numVectors, const std::vector<Matrix3x4>* transforms)
+{
+    ZoneScoped;
+
+    if (hasInstancing)
+    {
+        size_t totalTransformSize = 0;
+        for (size_t i = 0; i < numVectors; ++i)
+            totalTransformSize += transforms[i].size();
+
+        if (totalTransformSize)
+        { 
+            if (instanceVertexBuffer->NumVertices() < totalTransformSize)
+                instanceVertexBuffer->Define(USAGE_DYNAMIC, totalTransformSize, instanceVertexElements);
+
+            size_t baseIndex = 0;
+            for (size_t i = 0; i < numVectors; ++i)
+            {
+                if (transforms[i].size())
+                {
+                    instanceVertexBuffer->SetData(baseIndex, transforms[i].size(), &transforms[i][0]);
+                    baseIndex += transforms[i].size();
+                }
+            }
+        }
+    }
+}
+
+
 void Renderer::UpdateLightData()
 {
     ZoneScoped;
@@ -809,7 +843,7 @@ void Renderer::UpdateLightData()
     lightDataBuffer->SetData(0, (lights.size() + 1) * sizeof(LightData), lightData);
 }
 
-void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
+void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue, unsigned baseInstanceIndex)
 {
     ZoneScoped;
 
@@ -934,9 +968,9 @@ void Renderer::RenderBatches(Camera* camera_, const BatchQueue& queue)
         if (geometryBits == GEOM_INSTANCED)
         {
             if (ib)
-                graphics->DrawIndexedInstanced(PT_TRIANGLE_LIST, geometry->drawStart, geometry->drawCount, instanceVertexBuffer, batch.instanceStart, batch.instanceCount);
+                graphics->DrawIndexedInstanced(PT_TRIANGLE_LIST, geometry->drawStart, geometry->drawCount, instanceVertexBuffer, batch.instanceStart + baseInstanceIndex, batch.instanceCount);
             else
-                graphics->DrawInstanced(PT_TRIANGLE_LIST, geometry->drawStart, geometry->drawCount, instanceVertexBuffer, batch.instanceStart, batch.instanceCount);
+                graphics->DrawInstanced(PT_TRIANGLE_LIST, geometry->drawStart, geometry->drawCount, instanceVertexBuffer, batch.instanceStart + baseInstanceIndex, batch.instanceCount);
 
             it += batch.instanceCount - 1;
         }
@@ -1389,7 +1423,7 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
                     // Use last scene max Z value for coarse depth slicing this frame
                     // Note: this is not the same as depth slicing of the light clusters, but it doesn't have to be
                     float relativeZ = (viewCenterZ - lastMinZ) * invLastZRange;
-                    int zIndex = Clamp((int)(relativeZ * NUM_CLUSTER_Z), 0, NUM_CLUSTER_Z - 1);
+                    int zIndex = Clamp((int)(relativeZ * NUM_OPAQUE_Z_SPLITS), 0, NUM_OPAQUE_Z_SPLITS - 1);
  
                     Batch newBatch;
 
