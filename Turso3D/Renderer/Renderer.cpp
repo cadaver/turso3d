@@ -382,14 +382,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     }
 
     workQueue->QueueTasks(rootLevelOctants.size(), reinterpret_cast<Task**>(&collectOctantsTasks[0]));
-
-    // Execute tasks until can sort the main batches. Perform that in the main thread to potentially run faster
-    while (numPendingBatchTasks.load() > 0)
-        workQueue->TryComplete();
-
-    SortMainBatches();
-
-    // Finish remaining view preparation tasks
     workQueue->Complete();
 
     // No more threaded reinsertion will take place
@@ -757,7 +749,7 @@ void Renderer::SortMainBatches()
     for (size_t i = 0; i < NUM_OPAQUE_Z_SPLITS; ++i)
         workQueue->QueueTask(sortOpaqueBatchesTasks[i]);
 
-    // Join per-thread alpha batches
+    // Join per-thread alpha batches and sort
     for (size_t i = 0; i < workQueue->NumThreads(); ++i)
     {
         const ThreadBatchResult& res = batchResults[i];
@@ -1228,7 +1220,8 @@ void Renderer::CollectOctantsWork(Task* task_, unsigned)
         workQueue->QueueTask(batchTask);
     }
 
-    numPendingBatchTasks.fetch_add(-1);
+    if (numPendingBatchTasks.fetch_add(-1) == 1)
+        SortMainBatches();
 }
 
 void Renderer::ProcessLightsWork(Task*, unsigned)
@@ -1413,17 +1406,17 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
                 // as octants are already tested with combined actual drawable bounds
                 if ((!planeMask || frustum.IsInsideMaskedFast(geometryBox, planeMask)) && drawable->OnPrepareRender(frameNumber, camera))
                 {
-                    result.geometryBounds.Merge(geometryBox);
-
+                    // Determine visible geometries' min & max depth value and combined bounding box
                     Vector3 center = geometryBox.Center();
                     Vector3 edge = geometryBox.Size() * 0.5f;
-
                     float viewCenterZ = viewZ.DotProduct(center) + viewMatrix.m23;
                     float viewEdgeZ = absViewZ.DotProduct(edge);
                     float viewMinZ = viewCenterZ - viewEdgeZ;
                     float viewMaxZ = viewCenterZ + viewEdgeZ;
+
                     result.minZ = Min(result.minZ, viewMinZ);
                     result.maxZ = Max(result.maxZ, viewMaxZ);
+                    result.geometryBounds.Merge(geometryBox);
 
                     Batch newBatch;
 
@@ -1469,7 +1462,8 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
         }
     }
 
-    numPendingBatchTasks.fetch_add(-1);
+    if (numPendingBatchTasks.fetch_add(-1) == 1)
+        SortMainBatches();
 }
 
 void Renderer::CollectShadowCastersWork(Task* task, unsigned)
