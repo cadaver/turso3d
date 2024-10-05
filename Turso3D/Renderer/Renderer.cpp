@@ -638,7 +638,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         if (drawable->TestFlag(DF_LIGHT))
         {
             const BoundingBox& lightBox = drawable->WorldBoundingBox();
-            if ((drawable->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(lightBox, planeMask)) && drawable->OnPrepareRender(frameNumber, camera))
+            if ((drawable->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(lightBox, planeMask)))
                 result.lights.push_back(static_cast<LightDrawable*>(drawable));
         }
         // Lights are sorted first in octants, so break when first geometry encountered. Store the octant for batch collecting
@@ -733,11 +733,11 @@ void Renderer::SortMainBatches()
     // Shadowcaster processing needs accurate scene min / max Z results, combine them from per-thread data
     for (size_t i = 0; i < workQueue->NumThreads(); ++i)
     {
-        ThreadBatchResult& res = batchResults[i];
-        minZ = Min(minZ, res.minZ);
-        maxZ = Max(maxZ, res.maxZ);
-        if (res.geometryBounds.IsDefined())
-            geometryBounds.Merge(res.geometryBounds);
+        const ThreadBatchResult& result = batchResults[i];
+        minZ = Min(minZ, result.minZ);
+        maxZ = Max(maxZ, result.maxZ);
+        if (result.geometryBounds.IsDefined())
+            geometryBounds.Merge(result.geometryBounds);
     }
 
     minZ = Max(minZ, camera->NearClip());
@@ -751,9 +751,9 @@ void Renderer::SortMainBatches()
     // Join per-thread alpha batches and sort
     for (size_t i = 0; i < workQueue->NumThreads(); ++i)
     {
-        const ThreadBatchResult& res = batchResults[i];
-        if (res.alphaBatches.size())
-            alphaBatches.batches.insert(alphaBatches.batches.end(), res.alphaBatches.begin(), res.alphaBatches.end());
+        const ThreadBatchResult& result = batchResults[i];
+        if (result.alphaBatches.size())
+            alphaBatches.batches.insert(alphaBatches.batches.end(), result.alphaBatches.begin(), result.alphaBatches.end());
     }
 
     alphaBatches.Sort(alphaInstanceTransforms, SORT_DISTANCE, hasInstancing);
@@ -1227,22 +1227,26 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
 {
     ZoneScoped;
 
-    // Merge the light collection results
+    // Merge the light collection per-thread results; check that each light is valid. Also find the directional light
     for (size_t i = 0; i < rootLevelOctants.size(); ++i)
-        lights.insert(lights.end(), octantResults[i].lights.begin(), octantResults[i].lights.end());
-
-    // Find the directional light if any
-    for (auto it = lights.begin(); it != lights.end(); )
     {
-        LightDrawable* light = *it;
-        if (light->GetLightType() == LIGHT_DIRECTIONAL)
+        const ThreadOctantResult& result = octantResults[i];
+
+        for (auto it = result.lights.begin(); it != result.lights.end(); ++it)
         {
-            if (!dirLight || light->GetColor().Average() > dirLight->GetColor().Average())
-                dirLight = light;
-            it = lights.erase(it);
+            LightDrawable* light = *it;
+            if (light->OnPrepareRender(frameNumber, camera))
+            {
+                if (light->GetLightType() == LIGHT_DIRECTIONAL)
+                {
+                    if (!dirLight || light->GetColor().Average() > dirLight->GetColor().Average())
+                        dirLight = light;
+                }
+                else
+
+                    lights.push_back(light);
+            }
         }
-        else
-            ++it;
     }
 
     // Sort localized lights by increasing distance
@@ -1790,9 +1794,9 @@ void Renderer::SortOpaqueBatchesWork(Task* task, unsigned)
 
     for (size_t i = 0; i < workQueue->NumThreads(); ++i)
     {
-        const ThreadBatchResult& res = batchResults[i];
-        if (res.opaqueBatches[z].size())
-            opaqueBatches[z].batches.insert(opaqueBatches[z].batches.end(), res.opaqueBatches[z].begin(), res.opaqueBatches[z].end());
+        const ThreadBatchResult& result = batchResults[i];
+        if (result.opaqueBatches[z].size())
+            opaqueBatches[z].batches.insert(opaqueBatches[z].batches.end(), result.opaqueBatches[z].begin(), result.opaqueBatches[z].end());
     }
 
     opaqueBatches[z].Sort(opaqueInstanceTransforms[z], SORT_STATE, hasInstancing);
