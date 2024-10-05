@@ -30,7 +30,7 @@
 #include <cstring>
 #include <tracy/Tracy.hpp>
 
-static const size_t DRAWABLES_PER_BATCH_TASK = 128;
+static const size_t DRAWABLES_PER_BATCH_TASK = 256;
 static const size_t NUM_BOX_INDICES = 36;
 static const float OCCLUSION_MARGIN = 0.1f;
 
@@ -369,7 +369,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     numPendingShadowViews[1].store(0);
 
     // Ensure shadowcaster processing doesn't happen before lights have been found and processed, and geometry bounds are known
-    // Note: this task is also needed without shadows, as it initiates light grid culling
     workQueue->AddDependency(processShadowCastersTask, processLightsTask);
     workQueue->AddDependency(processShadowCastersTask, batchesReadyTask);
 
@@ -647,25 +646,26 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         {
             result.octants.push_back(std::make_pair(octant, planeMask));
             result.drawableAcc += drawables.end() - it;
+
+            // Setup and queue batches collection task if over the drawable limit now
+            if (result.drawableAcc >= DRAWABLES_PER_BATCH_TASK)
+            {
+                if (result.collectBatchesTasks.size() <= result.batchTaskIdx)
+                    result.collectBatchesTasks.push_back(new CollectBatchesTask(this, &Renderer::CollectBatchesWork));
+
+                CollectBatchesTask* batchTask = result.collectBatchesTasks[result.batchTaskIdx];
+                batchTask->octants.clear();
+                batchTask->octants.insert(batchTask->octants.end(), result.octants.begin() + result.taskOctantIdx, result.octants.end());
+                numPendingBatchTasks.fetch_add(1);
+                workQueue->QueueTask(batchTask);
+
+                result.drawableAcc = 0;
+                result.taskOctantIdx = result.octants.size();
+                ++result.batchTaskIdx;
+            }
+
             break;
         }
-    }
-
-    // Setup and queue batches collection task if over the drawable limit now
-    if (result.drawableAcc >= DRAWABLES_PER_BATCH_TASK)
-    {
-        if (result.collectBatchesTasks.size() <= result.batchTaskIdx)
-            result.collectBatchesTasks.push_back(new CollectBatchesTask(this, &Renderer::CollectBatchesWork));
-
-        CollectBatchesTask* batchTask = result.collectBatchesTasks[result.batchTaskIdx];
-        batchTask->octants.clear();
-        batchTask->octants.insert(batchTask->octants.end(), result.octants.begin() + result.taskOctantIdx, result.octants.end());
-        numPendingBatchTasks.fetch_add(1);
-        workQueue->QueueTask(batchTask);
-
-        result.drawableAcc = 0;
-        result.taskOctantIdx = result.octants.size();
-        ++result.batchTaskIdx;
     }
 
     // Root octant is handled separately. Otherwise recurse into child octants
@@ -746,8 +746,7 @@ void Renderer::SortMainBatches()
     workQueue->QueueTask(batchesReadyTask);
 
     // Join and sort opaque batches in own task per Z-slice
-    for (size_t i = 0; i < NUM_OPAQUE_Z_SPLITS; ++i)
-        workQueue->QueueTask(sortOpaqueBatchesTasks[i]);
+    workQueue->QueueTasks(NUM_OPAQUE_Z_SPLITS, reinterpret_cast<Task**>(&sortOpaqueBatchesTasks[0]));
 
     // Join per-thread alpha batches and sort
     for (size_t i = 0; i < workQueue->NumThreads(); ++i)
@@ -1253,6 +1252,11 @@ void Renderer::ProcessLightsWork(Task*, unsigned)
     if (lights.size() > MAX_LIGHTS)
         lights.resize(MAX_LIGHTS);
 
+    // Clear per-cluster light data from previous frame, update cluster frustums and bounding boxes if camera changed, then queue light culling tasks
+    DefineClusterFrustums();
+    memset(clusterData, 0, MAX_LIGHTS_CLUSTER * NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z);
+    workQueue->QueueTasks(NUM_CLUSTER_Z, reinterpret_cast<Task**>(&cullLightsTasks[0]));
+
     // Pre-step for shadow map caching: reallocate all lights' shadow map rectangles which are non-zero at this point.
     // If shadow maps were dirtied (size or bias change) reset all allocations instead
     for (auto it = lights.begin(); it != lights.end(); ++it)
@@ -1545,18 +1549,6 @@ void Renderer::ProcessShadowCastersWork(Task*, unsigned)
 
         if (shadowTaskIdx > 0)
             workQueue->QueueTasks(shadowTaskIdx, reinterpret_cast<Task**>(&collectShadowBatchesTasks[0]));
-    }
-
-    // Clear per-cluster light data from previous frame, update cluster frustums and bounding boxes if camera changed, then queue light culling tasks for the needed scene range
-    DefineClusterFrustums();
-    memset(clusterData, 0, MAX_LIGHTS_CLUSTER * NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z);
-    for (size_t z = 0; z < NUM_CLUSTER_Z; ++z)
-    {
-        size_t idx = z * NUM_CLUSTER_X * NUM_CLUSTER_Y;
-        const Frustum& clusterFrustum = clusterCullData[idx].frustum;
-        if (minZ > clusterFrustum.vertices[4].z || maxZ < clusterFrustum.vertices[0].z)
-            continue;
-        workQueue->QueueTask(cullLightsTasks[z]);
     }
 
     // Finally copy correct shadow matrices for the localized light data
