@@ -1425,8 +1425,6 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
                     result.minZ = Min(result.minZ, viewMinZ);
                     result.maxZ = Max(result.maxZ, viewMaxZ);
 
-                    int zIndex = Clamp((int)((viewMinZ - lastMinZ) * invLastZRange), 0, NUM_OPAQUE_Z_SPLITS - 1);
- 
                     Batch newBatch;
 
                     const SourceBatches& batches = static_cast<GeometryDrawable*>(drawable)->Batches();
@@ -1440,15 +1438,21 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
                         newBatch.pass = material->GetPass(PASS_OPAQUE);
                         newBatch.geometry = batches.GetGeometry(j);
                         newBatch.programBits = (unsigned char)(drawable->Flags() & DF_GEOMETRY_TYPE_BITS);
-                        newBatch.geomIndex = (unsigned char)j;
 
                         if (!newBatch.programBits)
                             newBatch.worldTransform = &drawable->WorldTransform();
                         else
+                        {
+                            newBatch.geomIndex = (unsigned char)j;
                             newBatch.drawable = static_cast<GeometryDrawable*>(drawable);
+                        }
 
                         if (newBatch.pass)
+                        {
+                            // Put opaque batch into its coarse depth slice
+                            int zIndex = Clamp((int)((viewMinZ - lastMinZ) * invLastZRange), 0, NUM_OPAQUE_Z_SPLITS - 1);
                             result.opaqueBatches[zIndex].push_back(newBatch);
+                        }
                         else
                         {
                             // If not opaque, try transparent
@@ -1720,12 +1724,14 @@ void Renderer::CollectShadowBatchesWork(Task* task_, unsigned)
 
                     newBatch.geometry = batches.GetGeometry(j);
                     newBatch.programBits = (unsigned char)(drawable->Flags() & DF_GEOMETRY_TYPE_BITS);
-                    newBatch.geomIndex = (unsigned char)j;
 
                     if (!newBatch.programBits)
                         newBatch.worldTransform = &drawable->WorldTransform();
                     else
+                    {
+                        newBatch.geomIndex = (unsigned char)j;
                         newBatch.drawable = static_cast<GeometryDrawable*>(drawable);
+                    }
 
                     dest.batches.push_back(newBatch);
                 }
