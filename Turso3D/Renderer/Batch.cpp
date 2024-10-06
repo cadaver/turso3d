@@ -29,13 +29,6 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode 
     switch (sortMode)
     {
     case SORT_STATE:
-        for (auto it = batches.begin(); it < batches.end(); ++it)
-        {
-            unsigned short materialId = (unsigned short)((size_t)it->pass / sizeof(Pass));
-            unsigned short geomId = (unsigned short)((size_t)it->geometry / sizeof(Geometry));
-
-            it->sortKey = (((unsigned)materialId) << 16) | geomId;
-        }
         std::sort(batches.begin(), batches.end(), CompareBatchKeys);
         break;
 

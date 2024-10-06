@@ -50,6 +50,14 @@ struct Batch
         /// Instance count if instanced.
         unsigned instanceCount;
     };
+
+    // Calculate the state sorting key.
+    void SetStateSortKey()
+    {
+        unsigned short materialId = (unsigned short)((size_t)pass);
+        unsigned short geomId = (unsigned short)((size_t)geometry);
+        sortKey = (((unsigned)materialId) << 16) | geomId;
+    }
 };
 
 /// Collection of draw calls with sorting and instancing functionality.

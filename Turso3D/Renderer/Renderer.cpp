@@ -1450,6 +1450,8 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
 
                         if (newBatch.pass)
                         {
+                            newBatch.SetStateSortKey();
+
                             // Put opaque batch into its coarse depth slice
                             int zIndex = Clamp((int)((viewMinZ - lastMinZ) * invLastZRange), 0, NUM_OPAQUE_Z_SPLITS - 1);
                             result.opaqueBatches[zIndex].push_back(newBatch);
@@ -1722,6 +1724,8 @@ void Renderer::CollectShadowBatchesWork(Task* task_, unsigned)
                         newBatch.geomIndex = (unsigned char)j;
                         newBatch.drawable = static_cast<GeometryDrawable*>(drawable);
                     }
+
+                    newBatch.SetStateSortKey();
 
                     dest.batches.push_back(newBatch);
                 }
