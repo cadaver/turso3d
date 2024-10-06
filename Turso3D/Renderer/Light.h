@@ -97,7 +97,7 @@ public:
     Color EffectiveColor() const;
     /// Return range.
     float Range() const { return range; }
-    /// Return spotlight field of view.
+    /// Return spotlight field of view in degrees.
     float Fov() const { return fov; }
     /// Return fade start as a function of max draw distance.
     float FadeStart() const { return fadeStart; }
@@ -156,7 +156,7 @@ private:
     Color color;
     /// Range.
     float range;
-    /// Spotlight field of view.
+    /// Spotlight field of view in degrees.
     float fov;
     /// Fade start as a function of max distance.
     float fadeStart;
@@ -208,7 +208,7 @@ public:
     void SetColor(const Color& color);
     /// Set range.
     void SetRange(float range);
-    /// Set spotlight field of view.
+    /// Set spotlight field of view in degrees.
     void SetFov(float fov);
     /// Set fade start distance, where 1 represents max draw distance. Only has effect when max draw distance has been defined.
     void SetFadeStart(float start);
@@ -237,7 +237,7 @@ public:
     const Color& GetColor() const { return static_cast<LightDrawable*>(drawable)->color; }
     /// Return range.
     float Range() const { return static_cast<LightDrawable*>(drawable)->range; }
-    /// Return spotlight field of view.
+    /// Return spotlight field of view in degrees.
     float Fov() const { return static_cast<LightDrawable*>(drawable)->fov; }
     /// Return fade start as a function of max draw distance.
     float FadeStart() const { return static_cast<LightDrawable*>(drawable)->fadeStart; }

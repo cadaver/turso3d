@@ -161,7 +161,6 @@ void CreateScene(Scene* scene, Camera* camera, int preset)
             for (int x = -125; x <= 125; ++x)
             {
                 StaticModel* object = scene->CreateChild<StaticModel>();
-                //object->SetStatic(true);
                 object->SetPosition(Vector3(x * 0.3f, 0.0f, y * 0.3f));
                 object->SetScale(0.25f);
                 object->SetModel(cache->LoadResource<Model>("Box.mdl"));
@@ -195,7 +194,6 @@ void CreateScene(Scene* scene, Camera* camera, int preset)
         for (int i = 0; i < 500; ++i)
         {
             AnimatedModel* object = scene->CreateChild<AnimatedModel>();
-            object->SetStatic(true);
             object->SetPosition(Vector3(Random() * 90.0f - 45.0f, 0.0f, Random() * 90.0f - 45.0f));
             object->SetRotation(Quaternion(Random(360.0f), Vector3::UP));
             object->SetModel(cache->LoadResource<Model>("Jack.mdl"));

@@ -24,7 +24,7 @@ WorkQueue::WorkQueue(unsigned numThreads) :
     numQueuedTasks.store(0);
     numPendingTasks.store(0);
 
-    if (numThreads == 0)
+    if (!numThreads)
     {
         numThreads = CPUCount();
         // Avoid excessive core count
