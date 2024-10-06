@@ -21,7 +21,6 @@ WorkQueue::WorkQueue(unsigned numThreads) :
 {
     RegisterSubsystem(this);
 
-    numQueuedTasks.store(0);
     numPendingTasks.store(0);
 
     if (!numThreads)
@@ -63,8 +62,6 @@ void WorkQueue::QueueTask(Task* task)
             tasks.push(task);
         }
 
-        numQueuedTasks.fetch_add(1);
-
         signal.notify_one();
     }
     else
@@ -91,8 +88,6 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
                 tasks.push(tasks_[i]);
             }
         }
-
-        numQueuedTasks.fetch_add((int)count);
 
         if (count >= threads.size())
             signal.notify_all();
@@ -134,7 +129,8 @@ void WorkQueue::Complete()
         return;
 
     // Execute queued tasks in main thread to speed up
-    while (numQueuedTasks.load())
+    // Hack: potentially thread-unsafe early out test, but it is just checking a member variable, while actual access happens inside lock guard
+    while (tasks.size())
     {
         Task* task;
 
@@ -147,7 +143,6 @@ void WorkQueue::Complete()
             tasks.pop();
         }
 
-        numQueuedTasks.fetch_add(-1);
         CompleteTask(task, 0);
     }
 
@@ -159,7 +154,8 @@ void WorkQueue::Complete()
 
 bool WorkQueue::TryComplete()
 {
-    if (!threads.size() || !numQueuedTasks.load())
+    // Hack: potentially thread-unsafe early out test, but it is just checking a member variable, while actual access happens inside lock guard
+    if (!threads.size() || !tasks.size())
         return false;
 
     Task* task;
@@ -173,7 +169,6 @@ bool WorkQueue::TryComplete()
         tasks.pop();
     }
 
-    numQueuedTasks.fetch_add(-1);
     CompleteTask(task, 0);
 
     return true;
@@ -201,7 +196,6 @@ void WorkQueue::WorkerLoop(unsigned threadIndex_)
             tasks.pop();
         }
 
-        numQueuedTasks.fetch_add(-1);
         CompleteTask(task, threadIndex_);
     }
 }
@@ -225,8 +219,6 @@ void WorkQueue::CompleteTask(Task* task, unsigned threadIndex_)
                         std::lock_guard<std::mutex> lock(queueMutex);
                         tasks.push(dependentTask);
                     }
-
-                    numQueuedTasks.fetch_add(1);
 
                     signal.notify_one();
                 }
