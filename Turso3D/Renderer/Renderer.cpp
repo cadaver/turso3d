@@ -365,8 +365,8 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
 
     // Keep track of both batch + octant task progress before main batches can be sorted (batch tasks will add to the counter when queued)
     numPendingBatchTasks.store((int)rootLevelOctants.size());
-    numPendingShadowViews[0].store(0);
-    numPendingShadowViews[1].store(0);
+    numPendingShadowViewTasks[0].store(0);
+    numPendingShadowViewTasks[1].store(0);
 
     // Ensure shadowcaster processing doesn't happen before lights have been found and processed, and geometry bounds are known
     workQueue->AddDependency(processShadowCastersTask, processLightsTask);
@@ -380,6 +380,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
         workQueue->AddDependency(processLightsTask, collectOctantsTasks[i]);
     }
 
+    // Start threaded work and wait for it to finish
     workQueue->QueueTasks(rootLevelOctants.size(), reinterpret_cast<Task**>(&collectOctantsTasks[0]));
     workQueue->Complete();
 
@@ -1548,7 +1549,7 @@ void Renderer::ProcessShadowCastersWork(Task*, unsigned)
                     collectShadowBatchesTasks.push_back(new CollectShadowBatchesTask(this, &Renderer::CollectShadowBatchesWork));
                 collectShadowBatchesTasks[shadowTaskIdx]->shadowMapIdx = i;
                 collectShadowBatchesTasks[shadowTaskIdx]->viewIdx = j;
-                numPendingShadowViews[i].fetch_add(1);
+                numPendingShadowViewTasks[i].fetch_add(1);
                 ++shadowTaskIdx;
             }
         }
@@ -1785,8 +1786,8 @@ void Renderer::CollectShadowBatchesWork(Task* task_, unsigned)
             break;
     }
 
-    // Sort shadow batches if was the last
-    if (numPendingShadowViews[task->shadowMapIdx].fetch_add(-1) == 1)
+    // Sort shadow batches if was the last task
+    if (numPendingShadowViewTasks[task->shadowMapIdx].fetch_add(-1) == 1)
         SortShadowBatches(shadowMap);
 }
 

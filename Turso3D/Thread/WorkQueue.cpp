@@ -143,7 +143,7 @@ void WorkQueue::Complete()
             tasks.pop();
         }
 
-        CompleteTask(task, 0);
+        CompleteTask(task, threadIndex);
     }
 
     // Finally wait for all tasks to finish
@@ -169,14 +169,14 @@ bool WorkQueue::TryComplete()
         tasks.pop();
     }
 
-    CompleteTask(task, 0);
+    CompleteTask(task, threadIndex);
 
     return true;
 }
 
 void WorkQueue::WorkerLoop(unsigned threadIndex_)
 {
-    WorkQueue::threadIndex = threadIndex_;
+    threadIndex = threadIndex_;
 
     for (;;)
     {

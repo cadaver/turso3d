@@ -295,8 +295,8 @@ private:
     std::vector<Octant*> rootLevelOctants;
     /// Counter for batch collection tasks remaining. When zero, main batch sorting can begin while other tasks go on.
     std::atomic<int> numPendingBatchTasks;
-    /// Counters for shadow views remaining per shadowmap. When zero, the shadow batches can be sorted.
-    std::atomic<int> numPendingShadowViews[2];
+    /// Counters for shadow view tasks remaining per shadowmap. When zero, the shadow batches can be sorted.
+    std::atomic<int> numPendingShadowViewTasks[2];
     /// Per-octree branch octant collection results.
     AutoArrayPtr<ThreadOctantResult> octantResults;
     /// Per-worker thread batch collection results.
