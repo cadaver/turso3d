@@ -137,15 +137,16 @@ Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize, FullSc
         return;
     }
 
-    if (mode == BORDERLESS_FULLSCREEN)
+    if (mode == FULLSCREEN)
     {
-        if (!SDL_SetWindowFullscreenMode(window, desktopMode))
-        {
-            LOGERROR("Could not set exclusive fullscreen");
-            return;
-        }
-    }
+        SDL_DisplayMode fullscreenMode;
 
+        SDL_GetClosestFullscreenDisplayMode(SDL_GetPrimaryDisplay(), windowSize.x, windowSize.y, 0.0f, SDL_GetWindowFlags(window) & SDL_WINDOW_HIGH_PIXEL_DENSITY ? SDL_TRUE : SDL_FALSE, &fullscreenMode);
+        SDL_SetWindowFullscreenMode(window, &fullscreenMode);
+    }
+    else if (mode == BORDERLESS_FULLSCREEN)
+        SDL_SetWindowFullscreenMode(window, desktopMode);
+    
     context = SDL_GL_CreateContext(window);
     if (!context)
     {
