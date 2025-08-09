@@ -116,7 +116,7 @@ Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize, FullSc
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
 
     // On Windows and Intel, this will be converted (SDL2 hack) to SDL_GL_CONTEXT_PROFILE_COMPATIBILITY to avoid bugs like vsync failing to toggle multiple times
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
     const SDL_DisplayMode* desktopMode = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay());
 
