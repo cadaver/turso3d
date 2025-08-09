@@ -116,7 +116,7 @@ Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize, FullSc
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
 
     // On Windows and Intel, this will be converted (SDL2 hack) to SDL_GL_CONTEXT_PROFILE_COMPATIBILITY to avoid bugs like vsync failing to toggle multiple times
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
 
     const SDL_DisplayMode* desktopMode = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay());
 
@@ -145,7 +145,7 @@ Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize, FullSc
         SDL_SetWindowFullscreenMode(window, &fullscreenMode);
     }
     else if (mode == BORDERLESS_FULLSCREEN)
-        SDL_SetWindowFullscreenMode(window, desktopMode);
+        SDL_SetWindowFullscreenMode(window, NULL);
     
     context = SDL_GL_CreateContext(window);
     if (!context)
@@ -220,6 +220,11 @@ void Graphics::SetScreenMode(const IntVector2& size, FullScreenMode mode)
     if (size == Size() && mode == lastMode)
         return;
 
+    // Hack for some GPU's getting locked to a limited frame rate for the duration of the program if fullscreen is toggled with vsync on; disable vsync first
+    bool lastVSync = VSync();
+    if (lastVSync)
+        SetVSync(false);
+
     // Cancel full screen mode first
     if (lastMode != WINDOWED)
         SDL_SetWindowFullscreen(window, SDL_FALSE);
@@ -242,6 +247,13 @@ void Graphics::SetScreenMode(const IntVector2& size, FullScreenMode mode)
     }
 
     SDL_RaiseWindow(window);
+
+    // Hack for some GPU's getting locked to a limited frame rate for the duration of the program if fullscreen is toggled with vsync on; restore vsync state after presenting once with vsync off
+    if (lastVSync)
+    {
+        Present();
+        SetVSync(true);
+    }
 }
 
 void Graphics::Resize(const IntVector2& size)
@@ -255,6 +267,11 @@ void Graphics::SetFullScreen(FullScreenMode mode)
     FullScreenMode lastMode = FullScreen();
     if (mode == lastMode)
         return;
+
+    // Hack for some GPU's getting locked to a limited frame rate for the duration of the program if fullscreen is toggled with vsync on; disable vsync first
+    bool lastVSync = VSync();
+    if (lastVSync)
+        SetVSync(false);
 
     // Cancel full screen mode first
     if (lastMode != WINDOWED)
@@ -277,6 +294,13 @@ void Graphics::SetFullScreen(FullScreenMode mode)
     }
 
     SDL_RaiseWindow(window);
+
+    // Hack for some GPU's getting locked to a limited frame rate for the duration of the program if fullscreen is toggled with vsync on; restore vsync state after presenting once with vsync off
+    if (lastVSync)
+    {
+        Present();
+        SetVSync(true);
+    }
 }
 
 void Graphics::SetVSync(bool enable)

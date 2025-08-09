@@ -19,7 +19,7 @@ public:
     /// Construct as undefined (negative radius.)
     Sphere() :
         center(Vector3::ZERO),
-        radius(-M_INFINITY)
+        radius(-M_MAX_FLOAT)
     {
     }
     
@@ -122,7 +122,7 @@ public:
     /// Set as undefined to allow the next merge to set initial size.
     void Undefine()
     {
-        radius = -M_INFINITY;
+        radius = -M_MAX_FLOAT;
     }
     
     /// Merge an array of vertices.

@@ -25,8 +25,8 @@ public:
     
     /// Construct as undefined (negative size.)
     BoundingBox() :
-        min(Vector3(M_INFINITY, M_INFINITY, M_INFINITY)),
-        max(Vector3(-M_INFINITY, -M_INFINITY, -M_INFINITY))
+        min(Vector3(M_MAX_FLOAT, M_MAX_FLOAT, M_MAX_FLOAT)),
+        max(Vector3(-M_MAX_FLOAT, -M_MAX_FLOAT, -M_MAX_FLOAT))
     {
     }
     
@@ -200,7 +200,7 @@ public:
     /// Set as undefined (negative size) to allow the next merge to set initial size.
     void Undefine()
     {
-        min = Vector3(M_INFINITY, M_INFINITY, M_INFINITY);
+        min = Vector3(M_MAX_FLOAT, M_MAX_FLOAT, M_MAX_FLOAT);
         max = -min;
     }
     

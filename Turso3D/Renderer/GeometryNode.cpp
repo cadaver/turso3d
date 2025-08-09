@@ -81,7 +81,7 @@ Geometry::~Geometry()
 float Geometry::HitDistance(const Ray& ray, Vector3* outNormal) const
 {
     if (!cpuPositionData)
-        return M_INFINITY;
+        return M_MAX_FLOAT;
     
     if (cpuIndexData)
         return ray.HitDistance(cpuPositionData, sizeof(Vector3), cpuIndexData, cpuIndexSize, cpuDrawStart, drawCount, outNormal);

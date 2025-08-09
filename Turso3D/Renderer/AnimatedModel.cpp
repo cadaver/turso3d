@@ -156,7 +156,7 @@ void AnimatedModelDrawable::OnRaycast(std::vector<RaycastResult>& dest, const Ra
     if (ray.HitDistance(WorldBoundingBox()) < maxDistance_ && model)
     {
         RaycastResult res;
-        res.distance = M_INFINITY;
+        res.distance = M_MAX_FLOAT;
 
         // Perform raycast against each bone in its local space
         const std::vector<ModelBone>& modelBones = model->Bones();
@@ -170,7 +170,7 @@ void AnimatedModelDrawable::OnRaycast(std::vector<RaycastResult>& dest, const Ra
             Ray localRay = ray.Transformed(transform.Inverse());
             float localDistance = localRay.HitDistance(modelBones[i].boundingBox);
 
-            if (localDistance < M_INFINITY)
+            if (localDistance < M_MAX_FLOAT)
             {
                 // If has a hit, transform it back to world space
                 Vector3 hitPosition = transform * (localRay.origin + localDistance * localRay.direction);

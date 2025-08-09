@@ -181,7 +181,7 @@ void Polyhedron::Clip(const Plane& plane, std::vector<Vector3>& clippedVertices,
         {
             // Then add the vertex which is closest to the last added
             const Vector3& lastAdded = outFace.back();
-            float bestDistance = M_INFINITY;
+            float bestDistance = M_MAX_FLOAT;
             size_t bestIndex = 0;
             
             for (size_t i = 0; i < clippedVertices.size(); ++i)

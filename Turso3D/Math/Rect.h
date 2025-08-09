@@ -15,8 +15,8 @@ public:
     
     /// Construct as undefined (negative size.)
     Rect() :
-        min(Vector2(M_INFINITY, M_INFINITY)),
-        max(Vector2(-M_INFINITY, -M_INFINITY))
+        min(Vector2(M_MAX_FLOAT, M_MAX_FLOAT)),
+        max(Vector2(-M_MAX_FLOAT, -M_MAX_FLOAT))
     {
     }
     
@@ -143,7 +143,7 @@ public:
     /// Set as undefined to allow the next merge to set initial size.
     void Undefine()
     {
-        min = Vector2(M_INFINITY, M_INFINITY);
+        min = Vector2(M_MAX_FLOAT, M_MAX_FLOAT);
         max = -min;
     }
     

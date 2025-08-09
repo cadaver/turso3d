@@ -75,7 +75,7 @@ void Input::Update()
             if (event.key.repeat == 0)
                 keyStates[event.key.key] = STATE_PRESSED;
             keyPressEvent.keyCode = event.key.key;
-            keyPressEvent.repeat = event.key.repeat > 0;
+            keyPressEvent.repeat = event.key.repeat;
             SendEvent(keyPressEvent);
             break;
 
@@ -109,9 +109,9 @@ void Input::Update()
         case SDL_EVENT_MOUSE_MOTION:
             if (focus)
             {
-                mouseMove.x += event.motion.xrel;
-                mouseMove.y += event.motion.yrel;
-                mouseMoveEvent.delta = IntVector2(event.motion.xrel, event.motion.yrel);
+                mouseMove.x += (int)event.motion.xrel;
+                mouseMove.y += (int)event.motion.yrel;
+                mouseMoveEvent.delta = IntVector2((int)event.motion.xrel, (int)event.motion.yrel);
                 SendEvent(mouseMoveEvent);
             }
             break;
@@ -119,9 +119,9 @@ void Input::Update()
         case SDL_EVENT_MOUSE_WHEEL:
             if (focus)
             {
-                mouseWheel.x += event.wheel.x;
-                mouseWheel.y += event.wheel.y;
-                mouseWheelEvent.delta = IntVector2(event.wheel.x, event.wheel.y);
+                mouseWheel.x += (int)event.wheel.x;
+                mouseWheel.y += (int)event.wheel.y;
+                mouseWheelEvent.delta = IntVector2((int)event.wheel.x, (int)event.wheel.y);
                 SendEvent(mouseWheelEvent);
             }
             break;

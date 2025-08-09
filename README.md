@@ -2,7 +2,7 @@
 
 Experimental 3D / game engine technology partially based on the Urho3D codebase. Expected to remain in an immature or "toy" state for the time being.
 
-- OpenGL 3.2 / SDL2
+- OpenGL 3.2 / SDL3
 - Forward+ rendering, currently up to 255 lights in view
 - Threaded work queue to speed up animation and view preparation
 - Caching of static shadow maps

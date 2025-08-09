@@ -313,7 +313,7 @@ RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, fl
 
     // Then perform actual per-node ray tests and early-out when possible
     finalRayResult.clear();
-    float closestHit = M_INFINITY;
+    float closestHit = M_MAX_FLOAT;
     for (auto it = initialRayResult.begin(); it != initialRayResult.end(); ++it)
     {
         if (it->second < Min(closestHit, maxDistance))
@@ -336,7 +336,7 @@ RaycastResult Octree::RaycastSingle(const Ray& ray, unsigned short nodeFlags, fl
     {
         RaycastResult emptyRes;
         emptyRes.position = emptyRes.normal = Vector3::ZERO;
-        emptyRes.distance = M_INFINITY;
+        emptyRes.distance = M_MAX_FLOAT;
         emptyRes.drawable = nullptr;
         emptyRes.subObject = 0;
         return emptyRes;

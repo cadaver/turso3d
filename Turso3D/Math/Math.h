@@ -16,7 +16,6 @@ static const unsigned M_MAX_UNSIGNED = 0xffffffff;
 
 static const float M_EPSILON = 0.000001f;
 static const float M_MAX_FLOAT = 3.402823466e+38f;
-static const float M_INFINITY = (float)HUGE_VAL;
 static const float M_DEGTORAD = (float)M_PI / 180.0f;
 static const float M_DEGTORAD_2 = (float)M_PI / 360.0f; // M_DEGTORAD / 2.f
 static const float M_RADTODEG = 1.0f / M_DEGTORAD;
