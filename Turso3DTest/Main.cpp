@@ -241,19 +241,20 @@ int ApplicationMain(const std::vector<std::string>& arguments)
 
     renderer->SetupShadowMaps(1024, 2048, FMT_D16);
     
-    // Rendertarget textures
+    // Rendering result framebuffers and textures
     AutoPtr<FrameBuffer> viewFbo = new FrameBuffer();
     AutoPtr<FrameBuffer> viewMRTFbo = new FrameBuffer();
-    AutoPtr<FrameBuffer> ssaoFbo = new FrameBuffer();
-    AutoPtr<FrameBuffer> msaaResolveSrcFbo = new FrameBuffer();
-    AutoPtr<FrameBuffer> msaaResolveDestFbo = new FrameBuffer();
     AutoPtr<Texture> colorBuffer = new Texture();
     AutoPtr<Texture> normalBuffer = new Texture();
     AutoPtr<Texture> depthStencilBuffer = new Texture();
+
+    // Extra buffers needed for SSAO and multisampling resolve when using SSAO with multisampling
+    AutoPtr<FrameBuffer> ssaoFbo = new FrameBuffer();
+    AutoPtr<FrameBuffer> msaaResolveSrcFbo = new FrameBuffer();
+    AutoPtr<FrameBuffer> msaaResolveDestFbo = new FrameBuffer();
     AutoPtr<Texture> normalResolveBuffer = new Texture();
     AutoPtr<Texture> depthResolveBuffer = new Texture();
     AutoPtr<Texture> ssaoTexture = new Texture();
-    AutoPtr<Texture> occlusionDebugTexture = new Texture();
 
     // Random noise texture for SSAO
     unsigned char noiseData[4 * 4 * 4];
