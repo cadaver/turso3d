@@ -50,21 +50,22 @@ VertexBuffer::VertexBuffer() :
     attributes(0),
     usage(USAGE_DEFAULT)
 {
-    assert(Object::Subsystem<Graphics>()->IsInitialized());
 }
 
 VertexBuffer::~VertexBuffer()
 {
     // Context may be gone at destruction time. In this case just no-op the cleanup
     if (Object::Subsystem<Graphics>())
-        Release();
+        Destroy();
 }
 
 bool VertexBuffer::Define(ResourceUsage usage_, size_t numVertices_, const std::vector<VertexElement>& elements_, const void* data)
 {
     ZoneScoped;
 
-    Release();
+    assert(Object::Subsystem<Graphics>()->IsInitialized());
+
+    Destroy();
 
     if (!numVertices_ || !elements_.size())
     {
@@ -186,6 +187,23 @@ void VertexBuffer::Bind(unsigned attributeMask)
     boundVertexAttribSource = this;
 }
 
+void VertexBuffer::Destroy()
+{
+    if (buffer)
+    {
+        glDeleteBuffers(1, &buffer);
+        buffer = 0;
+        vertexSize = 0;
+        numVertices = 0;
+        attributes = 0;
+
+        if (boundVertexBuffer == this)
+            boundVertexBuffer = nullptr;
+        if (boundVertexAttribSource == this)
+            boundVertexAttribSource = nullptr;
+    }
+}
+
 unsigned VertexBuffer::CalculateAttributeMask(const std::vector<VertexElement>& elements)
 {
     unsigned attributes = 0;
@@ -223,18 +241,4 @@ bool VertexBuffer::Create(const void* data)
         boundVertexAttribSource = nullptr;
 
     return true;
-}
-
-void VertexBuffer::Release()
-{
-    if (buffer)
-    {
-        glDeleteBuffers(1, &buffer);
-        buffer = 0;
-
-        if (boundVertexBuffer == this)
-            boundVertexBuffer = nullptr;
-        if (boundVertexAttribSource == this)
-            boundVertexAttribSource = nullptr;
-    }
 }

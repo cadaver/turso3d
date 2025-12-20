@@ -17,12 +17,14 @@ public:
     /// Destruct.
     ~VertexBuffer();
 
-    /// Define buffer. Return true on success.
+    /// Define GPU vertex buffer. Return true on success.
     bool Define(ResourceUsage usage, size_t numVertices, const std::vector<VertexElement>& elements, const void* data = nullptr);
     /// Redefine buffer data either completely or partially. Return true on success.
     bool SetData(size_t firstVertex, size_t numVertices, const void* data, bool discard = false);
     /// Bind to use with the specified vertex attributes. No-op if already bound. Used also when defining or setting data.
     void Bind(unsigned attributeMask);
+    /// Destroy the GPU vertex buffer.
+    void Destroy();
 
     /// Return number of vertices.
     size_t NumVertices() const { return numVertices; }
@@ -50,8 +52,6 @@ public:
 private:
     /// Create the GPU-side vertex buffer. Return true on success.
     bool Create(const void* data);
-    /// Release the vertex buffer and CPU shadow data.
-    void Release();
 
     /// OpenGL object identifier.
     unsigned buffer;

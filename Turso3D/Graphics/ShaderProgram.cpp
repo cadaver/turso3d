@@ -80,7 +80,7 @@ ShaderProgram::~ShaderProgram()
 {
     // Context may be gone at destruction time. In this case just no-op the cleanup
     if (Object::Subsystem<Graphics>())
-        Release();
+        Destroy();
 }
 
 int ShaderProgram::Uniform(const std::string& name) const
@@ -307,7 +307,7 @@ void ShaderProgram::Create(const std::string& sourceCode, const std::vector<std:
     LOGDEBUGF("Linked shader program %s", shaderName.c_str());
 }
 
-void ShaderProgram::Release()
+void ShaderProgram::Destroy()
 {
     if (program)
     {

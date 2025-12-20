@@ -135,7 +135,7 @@ void ThreadBatchResult::Clear()
 {
     minZ = M_MAX_FLOAT;
     maxZ = 0.0f;
-    geometryBounds.Undefine();
+    geometryBounds.Destroy();
     for (size_t i = 0; i < NUM_OPAQUE_Z_SPLITS; ++i)
         opaqueBatches[i].clear();
     alphaBatches.clear();
@@ -318,7 +318,7 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     lastMaxZ = maxZ > 0.0f ? maxZ : camera->FarClip();
     minZ = M_MAX_FLOAT;
     maxZ = 0.0f;
-    geometryBounds.Undefine();
+    geometryBounds.Destroy();
 
     // Stagger for occlusion queries based on last frametime
     lastFrameTime = graphics->LastFrameTime();

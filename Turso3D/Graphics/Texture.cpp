@@ -141,7 +141,7 @@ Texture::~Texture()
 {
     // Context may be gone at destruction time. In this case just no-op the cleanup
     if (Object::Subsystem<Graphics>())
-        Release();
+        Destroy();
 }
 
 void Texture::RegisterObject()
@@ -219,7 +219,7 @@ bool Texture::Define(TextureType type_, const IntVector3& size_, ImageFormat for
 {
     ZoneScoped;
 
-    Release();
+    Destroy();
 
     if (format_ > FMT_DXT5)
     {
@@ -320,11 +320,7 @@ bool Texture::Define(TextureType type_, const IntVector3& size_, ImageFormat for
     // If we have an error now, the texture was not created correctly
     if (glGetError() != GL_NO_ERROR)
     {
-        Release();
-        size = IntVector3::ZERO;
-        format = FMT_NONE;
-        numLevels = 0;
-
+        Destroy();
         LOGERROR("Failed to create texture");
         return false;
     }
@@ -505,6 +501,24 @@ void Texture::Bind(size_t unit)
     boundTextures[unit] = this;
 }
 
+void Texture::Destroy()
+{
+    if (texture)
+    {
+        glDeleteTextures(1, &texture);
+        texture = 0;
+        size = IntVector3::ZERO;
+        format = FMT_NONE;
+        numLevels = 0;
+
+        for (size_t i = 0; i < MAX_TEXTURE_UNITS; ++i)
+        {
+            if (boundTextures[i] == this)
+                boundTextures[i] = nullptr;
+        }
+    }
+}
+
 void Texture::Unbind(size_t unit)
 {
     if (boundTextures[unit])
@@ -529,19 +543,4 @@ void Texture::ForceBind()
 {
     boundTextures[0] = nullptr;
     Bind(0);
-}
-
-void Texture::Release()
-{
-    if (texture)
-    {
-        glDeleteTextures(1, &texture);
-        texture = 0;
-
-        for (size_t i = 0; i < MAX_TEXTURE_UNITS; ++i)
-        {
-            if (boundTextures[i] == this)
-                boundTextures[i] = nullptr;
-        }
-    }
 }

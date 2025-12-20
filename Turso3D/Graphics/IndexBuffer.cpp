@@ -17,21 +17,22 @@ IndexBuffer::IndexBuffer() :
     indexSize(0),
     usage(USAGE_DEFAULT)
 {
-    assert(Object::Subsystem<Graphics>()->IsInitialized());
 }
 
 IndexBuffer::~IndexBuffer()
 {
     // Context may be gone at destruction time. In this case just no-op the cleanup
     if (Object::Subsystem<Graphics>())
-        Release();
+        Destroy();
 }
 
 bool IndexBuffer::Define(ResourceUsage usage_, size_t numIndices_, size_t indexSize_, const void* data)
 {
     ZoneScoped;
 
-    Release();
+    assert(Object::Subsystem<Graphics>()->IsInitialized());
+
+    Destroy();
 
     if (!numIndices_)
     {
@@ -92,6 +93,23 @@ void IndexBuffer::Bind()
     boundIndexSize = indexSize;
 }
 
+void IndexBuffer::Destroy()
+{
+    if (buffer)
+    {
+        glDeleteBuffers(1, &buffer);
+        buffer = 0;
+        numIndices = 0;
+        indexSize = 0;
+
+        if (boundIndexBuffer == this)
+        {
+            boundIndexBuffer = nullptr;
+            boundIndexSize = 0;
+        }
+    }
+}
+
 size_t IndexBuffer::BoundIndexSize()
 {
     return boundIndexSize;
@@ -113,19 +131,4 @@ bool IndexBuffer::Create(const void* data)
     LOGDEBUGF("Created index buffer numIndices %u indexSize %u", (unsigned)numIndices, (unsigned)indexSize);
 
     return true;
-}
-
-void IndexBuffer::Release()
-{
-    if (buffer)
-    {
-        glDeleteBuffers(1, &buffer);
-        buffer = 0;
-
-        if (boundIndexBuffer == this)
-        {
-            boundIndexBuffer = nullptr;
-            boundIndexSize = 0;
-        }
-    }
 }

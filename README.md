@@ -28,5 +28,3 @@ to enable Tracy profiling.
 - F toggle windowed, fullscreen and borderless fullscreen
 - M toggle between 4x MSAA and no MSAA
 - V toggle vsync
-
-Note that currently, combining SSAO and MSAA will produce artifacts due to lack of filtering in the texelFetch GLSL function used with multisampled depth & normal buffer.

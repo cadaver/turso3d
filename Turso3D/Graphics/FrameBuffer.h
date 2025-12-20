@@ -21,16 +21,18 @@ public:
     /// Destruct.
     ~FrameBuffer();
 
-    /// Define renderbuffers to render to. Leave buffer(s) null for color-only or depth-only rendering.
-    void Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBuffer);
-    /// Define textures to render to. Leave texture(s) null for color-only or depth-only rendering.
-    void Define(Texture* colorTexture, Texture* depthStencilTexture);
-    /// Define cube map face to render to.
-    void Define(Texture* colorTexture, size_t cubeMapFace, Texture* depthStencilTexture);
-    /// Define MRT textures to render to.
-    void Define(const std::vector<Texture*>& colorTextures, Texture* depthStencilTexture);
+    /// Create GPU framebuffer and define renderbuffers to render to. Leave buffer(s) null for color-only or depth-only rendering. Return true on success.
+    bool Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBuffer);
+    /// Create GPU framebuffer and define textures to render to. Leave texture(s) null for color-only or depth-only rendering. Return true on success.
+    bool Define(Texture* colorTexture, Texture* depthStencilTexture);
+    /// Create GPU framebuffer and define cube map face to render to. Return true on success.
+    bool Define(Texture* colorTexture, size_t cubeMapFace, Texture* depthStencilTexture);
+    /// Create GPU framebuffer and define MRT textures to render to. Return true on success.
+    bool Define(const std::vector<Texture*>& colorTextures, Texture* depthStencilTexture);
     /// Bind as draw framebuffer. No-op if already bound. Used also when defining.
     void Bind();
+    /// Destroy the GPU framebuffer.
+    void Destroy();
 
     /// Return the OpenGL object identifier.
     unsigned GLBuffer() const { return buffer; }
@@ -41,8 +43,8 @@ public:
     static void Unbind();
 
 private:
-    /// Release the framebuffer object.
-    void Release();
+    /// Create the GPU framebuffer object if does not yet exist, and bind for defining. Return true on success.
+    bool Create();
 
     /// OpenGL buffer object identifier.
     unsigned buffer;

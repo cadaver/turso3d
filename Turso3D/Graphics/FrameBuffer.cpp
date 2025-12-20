@@ -12,25 +12,24 @@
 static FrameBuffer* boundDrawBuffer = nullptr;
 static FrameBuffer* boundReadBuffer = nullptr;
 
-FrameBuffer::FrameBuffer()
+FrameBuffer::FrameBuffer() :
+    buffer(0)
 {
-    assert(Object::Subsystem<Graphics>()->IsInitialized());
-
-    glGenFramebuffers(1, &buffer);
 }
 
 FrameBuffer::~FrameBuffer()
 {
     // Context may be gone at destruction time. In this case just no-op the cleanup
     if (Object::Subsystem<Graphics>())
-        Release();
+        Destroy();
 }
 
-void FrameBuffer::Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBuffer)
+bool FrameBuffer::Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBuffer)
 {
     ZoneScoped;
 
-    Bind();
+    if (!Create())
+        return false;
 
     IntVector2 size = IntVector2::ZERO;
 
@@ -63,13 +62,15 @@ void FrameBuffer::Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBu
     }
 
     LOGDEBUGF("Defined framebuffer width %d height %d", size.x, size.y);
+    return true;
 }
 
-void FrameBuffer::Define(Texture* colorTexture, Texture* depthStencilTexture)
+bool FrameBuffer::Define(Texture* colorTexture, Texture* depthStencilTexture)
 {
     ZoneScoped;
 
-    Bind();
+    if (!Create())
+        return false;
 
     IntVector2 size = IntVector2::ZERO;
 
@@ -102,13 +103,15 @@ void FrameBuffer::Define(Texture* colorTexture, Texture* depthStencilTexture)
     }
 
     LOGDEBUGF("Defined framebuffer width %d height %d", size.x, size.y);
+    return true;
 }
 
-void FrameBuffer::Define(Texture* colorTexture, size_t cubeMapFace, Texture* depthStencilTexture)
+bool FrameBuffer::Define(Texture* colorTexture, size_t cubeMapFace, Texture* depthStencilTexture)
 {
     ZoneScoped;
 
-    Bind();
+    if (!Create())
+        return false;
 
     IntVector2 size = IntVector2::ZERO;
 
@@ -141,13 +144,15 @@ void FrameBuffer::Define(Texture* colorTexture, size_t cubeMapFace, Texture* dep
     }
 
     LOGDEBUGF("Defined framebuffer width %d height %d from cube texture", size.x, size.y);
+    return true;
 }
 
-void FrameBuffer::Define(const std::vector<Texture*>& colorTextures, Texture* depthStencilTexture)
+bool FrameBuffer::Define(const std::vector<Texture*>& colorTextures, Texture* depthStencilTexture)
 {
     ZoneScoped;
 
-    Bind();
+    if (!Create())
+        return false;
 
     IntVector2 size = IntVector2::ZERO;
 
@@ -190,6 +195,7 @@ void FrameBuffer::Define(const std::vector<Texture*>& colorTextures, Texture* de
     }
 
     LOGDEBUGF("Defined MRT framebuffer width %d height %d", size.x, size.y);
+    return true;
 }
 
 void FrameBuffer::Bind()
@@ -199,6 +205,18 @@ void FrameBuffer::Bind()
 
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, buffer);
     boundDrawBuffer = this;
+}
+
+void FrameBuffer::Destroy()
+{
+    if (buffer)
+    {
+        if (boundDrawBuffer == this || boundReadBuffer == this)
+            FrameBuffer::Unbind();
+
+        glDeleteFramebuffers(1, &buffer);
+        buffer = 0;
+    }
 }
 
 void FrameBuffer::Bind(FrameBuffer* draw, FrameBuffer* read)
@@ -230,14 +248,22 @@ void FrameBuffer::Unbind()
     }
 }
 
-void FrameBuffer::Release()
+bool FrameBuffer::Create()
 {
-    if (buffer)
-    {
-        if (boundDrawBuffer == this || boundReadBuffer == this)
-            FrameBuffer::Unbind();
+    assert(Object::Subsystem<Graphics>()->IsInitialized());
 
-        glDeleteFramebuffers(1, &buffer);
-        buffer = 0;
+    if (!buffer)
+    {
+        glGenFramebuffers(1, &buffer);
+        if (!buffer)
+        {
+            LOGERROR("Failed to create framebuffer");
+            return false;
+        }
+        else
+            LOGDEBUG("Created framebuffer");
     }
+
+    Bind();
+    return true;
 }

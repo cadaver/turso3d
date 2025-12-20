@@ -15,21 +15,22 @@ UniformBuffer::UniformBuffer() :
     size(0),
     usage(USAGE_DEFAULT)
 {
-    assert(Object::Subsystem<Graphics>()->IsInitialized());
 }
 
 UniformBuffer::~UniformBuffer()
 {
     // Context may be gone at destruction time. In this case just no-op the cleanup
     if (Object::Subsystem<Graphics>())
-        Release();
+        Destroy();
 }
 
 bool UniformBuffer::Define(ResourceUsage usage_, size_t size_, const void* data)
 {
     ZoneScoped;
 
-    Release();
+    assert(Object::Subsystem<Graphics>()->IsInitialized());
+
+    Destroy();
 
     if (!size_)
     {
@@ -85,6 +86,22 @@ void UniformBuffer::Bind(size_t index)
     boundUniformBuffers[index] = this;
 }
 
+void UniformBuffer::Destroy()
+{
+    if (buffer)
+    {
+        glDeleteBuffers(1, &buffer);
+        buffer = 0;
+        size = 0;
+
+        for (size_t i = 0; i < MAX_CONSTANT_BUFFER_SLOTS; ++i)
+        {
+            if (boundUniformBuffers[i] == this)
+                boundUniformBuffers[i] = nullptr;
+        }
+    }
+}
+
 void UniformBuffer::Unbind(size_t index)
 {
     if (boundUniformBuffers[index])
@@ -108,19 +125,4 @@ bool UniformBuffer::Create(const void* data)
     LOGDEBUGF("Created constant buffer size %u", (unsigned)size);
 
     return true;
-}
-
-void UniformBuffer::Release()
-{
-    if (buffer)
-    {
-        glDeleteBuffers(1, &buffer);
-        buffer = 0;
-
-        for (size_t i = 0; i < MAX_CONSTANT_BUFFER_SLOTS; ++i)
-        {
-            if (boundUniformBuffers[i] == this)
-                boundUniformBuffers[i] = nullptr;
-        }
-    }
 }

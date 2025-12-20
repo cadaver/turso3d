@@ -245,9 +245,13 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     AutoPtr<FrameBuffer> viewFbo = new FrameBuffer();
     AutoPtr<FrameBuffer> viewMRTFbo = new FrameBuffer();
     AutoPtr<FrameBuffer> ssaoFbo = new FrameBuffer();
+    AutoPtr<FrameBuffer> msaaResolveSrcFbo = new FrameBuffer();
+    AutoPtr<FrameBuffer> msaaResolveDestFbo = new FrameBuffer();
     AutoPtr<Texture> colorBuffer = new Texture();
     AutoPtr<Texture> normalBuffer = new Texture();
     AutoPtr<Texture> depthStencilBuffer = new Texture();
+    AutoPtr<Texture> normalResolveBuffer = new Texture();
+    AutoPtr<Texture> depthResolveBuffer = new Texture();
     AutoPtr<Texture> ssaoTexture = new Texture();
     AutoPtr<Texture> occlusionDebugTexture = new Texture();
 
@@ -417,6 +421,25 @@ int ApplicationMain(const std::vector<std::string>& arguments)
             mrt.push_back(colorBuffer.Get());
             mrt.push_back(normalBuffer.Get());
             viewMRTFbo->Define(mrt, depthStencilBuffer);
+
+            if (multisample > 1)
+            {
+                // If using multisampling, resolve depth and normals into non-multisampled textures for screen effects like SSAO
+                normalResolveBuffer->Define(TEX_2D, IntVector2(width, height), FMT_RGBA8);
+                normalResolveBuffer->DefineSampler(FILTER_BILINEAR, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
+                depthResolveBuffer->Define(TEX_2D, IntVector2(width, height), FMT_D32);
+                depthResolveBuffer->DefineSampler(FILTER_BILINEAR, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
+                msaaResolveSrcFbo->Define(normalBuffer, depthStencilBuffer);
+                msaaResolveDestFbo->Define(normalResolveBuffer, depthResolveBuffer);
+            }
+            else
+            {
+                // When multisampling switched off, destroy the GPU-side resolve textures and framebuffer objects to free up memory
+                msaaResolveSrcFbo->Destroy();
+                msaaResolveDestFbo->Destroy();
+                depthResolveBuffer->Destroy();
+                normalResolveBuffer->Destroy();
+            }
         }
 
         // Similarly recreate SSAO texture if needed
@@ -470,17 +493,20 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 Vector3 nearVec, farVec;
                 camera->FrustumSize(nearVec, farVec);
 
-                ShaderProgram* program = graphics->SetProgram("Shaders/SSAO.glsl", "", multisample > 1 ? "MSAA" : "");
+                // Resolve multisampled depth and normals before rendering and use the resolved textures for SSAO sampling
+                if (multisample > 1)
+                    graphics->Blit(msaaResolveDestFbo, IntRect(0, 0, width, height), msaaResolveSrcFbo, IntRect(0, 0, width, height), true, true, FILTER_POINT);
+
+                ShaderProgram* program = graphics->SetProgram("Shaders/SSAO.glsl");
                 graphics->SetFrameBuffer(ssaoFbo);
                 graphics->SetViewport(IntRect(0, 0, ssaoTexture->Width(), ssaoTexture->Height()));
                 graphics->SetUniform(program, "noiseInvSize", Vector2(ssaoTexture->Width() / 4.0f, ssaoTexture->Height() / 4.0f));
                 graphics->SetUniform(program, "screenInvSize", Vector2(1.0f / colorBuffer->Width(), 1.0f / colorBuffer->Height()));
-                graphics->SetUniform(program, "screenSize", Vector2((float)colorBuffer->Width(), (float)colorBuffer->Height()));
                 graphics->SetUniform(program, "frustumSize", Vector4(farVec, (float)height / (float)width));
-                graphics->SetUniform(program, "aoParameters", Vector4(0.15f, 1.0f, 0.025f, 0.15f));
+                graphics->SetUniform(program, "aoParameters", Vector4(0.15f, 1.0f, 0.050f, 0.15f));
                 graphics->SetUniform(program, "depthReconstruct", Vector2(farClip / (farClip - nearClip), -nearClip / (farClip - nearClip)));
-                graphics->SetTexture(0, depthStencilBuffer);
-                graphics->SetTexture(1, normalBuffer);
+                graphics->SetTexture(0, multisample > 1 ? depthResolveBuffer : depthStencilBuffer);
+                graphics->SetTexture(1, multisample > 1 ? normalResolveBuffer : normalBuffer);
                 graphics->SetTexture(2, noiseTexture);
                 graphics->SetRenderState(BLEND_REPLACE, CULL_NONE, CMP_ALWAYS, true, false);
                 graphics->DrawQuad();

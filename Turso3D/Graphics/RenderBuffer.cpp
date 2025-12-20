@@ -14,21 +14,22 @@ RenderBuffer::RenderBuffer() :
     format(FMT_NONE),
     multisample(0)
 {
-    assert(Object::Subsystem<Graphics>()->IsInitialized());
 }
 
 RenderBuffer::~RenderBuffer()
 {
     // Context may be gone at destruction time. In this case just no-op the cleanup
     if (Object::Subsystem<Graphics>())
-        Release();
+        Destroy();
 }
 
 bool RenderBuffer::Define(const IntVector2& size_, ImageFormat format_, int multisample_)
 {
     ZoneScoped;
 
-    Release();
+    assert(Object::Subsystem<Graphics>()->IsInitialized());
+
+    Destroy();
 
     if (format_ > FMT_DXT1)
     {
@@ -71,7 +72,7 @@ bool RenderBuffer::Define(const IntVector2& size_, ImageFormat format_, int mult
     // If we have an error now, the buffer was not created correctly
     if (glGetError() != GL_NO_ERROR)
     {
-        Release();
+        Destroy();
         size = IntVector2::ZERO;
         format = FMT_NONE;
 
@@ -84,7 +85,7 @@ bool RenderBuffer::Define(const IntVector2& size_, ImageFormat format_, int mult
     return true;
 }
 
-void RenderBuffer::Release()
+void RenderBuffer::Destroy()
 {
     if (buffer)
     {

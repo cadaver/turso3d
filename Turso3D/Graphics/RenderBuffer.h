@@ -16,8 +16,10 @@ public:
     /// Destruct.
     ~RenderBuffer();
 
-    /// Define renderbuffer type and dimensions.
+    /// Create the GPU renderbuffer with specified dimensions and format.
     bool Define(const IntVector2& size, ImageFormat format, int multisample = 1);
+    /// Destroy the GPU renderbuffer.
+    void Destroy();
 
     /// Return dimensions.
     const IntVector2& Size() const { return size; }
@@ -33,9 +35,6 @@ public:
     unsigned GLBuffer() const { return buffer; }
 
 private:
-    /// Release the renderbuffer.
-    void Release();
-
     /// OpenGL object identifier.
     unsigned buffer;
     /// Texture dimensions in pixels.

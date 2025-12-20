@@ -7,18 +7,12 @@ out vec2 vUv;
 
 uniform vec2 noiseInvSize;
 uniform vec2 screenInvSize;
-uniform vec2 screenSize;
 uniform vec4 frustumSize;
 uniform vec4 aoParameters;
 uniform vec2 depthReconstruct;
 
-#ifdef MSAA
-uniform sampler2DMS depthTex0;
-uniform sampler2DMS normalTex1;
-#else
 uniform sampler2D depthTex0;
 uniform sampler2D normalTex1;
-#endif
 uniform sampler2D noiseTex2;
 
 in vec2 vUv;
@@ -31,21 +25,12 @@ float GetLinearDepth(float hwDepth)
 
 float SampleDepth(vec2 uv)
 {
-    // NOTE: known issue with multisampled SSAO, depth discontinuities due to lack of filtering cause artifacts. Should do a manual filtering or resolve multisampled textures before SSAO
-    #ifdef MSAA
-    return GetLinearDepth(texelFetch(depthTex0, ivec2(uv * screenSize), 0).r);
-    #else
-    return GetLinearDepth(texture(depthTex0, uv).r);
-    #endif
+    return GetLinearDepth(texture(depthTex0, uv).r);    
 }
 
 vec3 SampleNormal(vec2 uv)
 {
-    #ifdef MSAA
-    return texelFetch(normalTex1, ivec2(vUv * screenSize), 0).rgb * 2.0 - 1.0;
-    #else
     return texture(normalTex1, vUv).rgb * 2.0 - 1.0;
-    #endif
 }
 
 vec3 GetPosition(float depth, vec2 uv)

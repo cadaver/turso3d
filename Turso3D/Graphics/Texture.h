@@ -41,6 +41,8 @@ public:
     bool SetData(size_t level, const IntBox& box, const ImageLevel& data);
     /// Bind to texture unit. No-op if already bound.
     void Bind(size_t unit);
+    /// Destroy the GPU texture.
+    void Destroy();
 
     /// Return texture type.
     TextureType TexType() const { return type; }
@@ -89,8 +91,6 @@ public:
 private:
     /// Force bind to the first texture unit. Used when editing.
     void ForceBind();
-    /// Release the texture.
-    void Release();
 
     /// OpenGL object identifier.
     unsigned texture;

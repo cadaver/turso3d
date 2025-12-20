@@ -15,12 +15,14 @@ public:
     /// Destruct.
     ~IndexBuffer();
 
-    /// Define buffer. Return true on success.
+    /// Define GPU index buffer. Return true on success.
     bool Define(ResourceUsage usage, size_t numIndices, size_t indexSize, const void* data = nullptr);
     /// Redefine buffer data either completely or partially. Return true on success.
     bool SetData(size_t firstIndex, size_t numIndices, const void* data, bool discard = false);
     /// Bind to use. No-op if already bound. Used also when defining or setting data.
     void Bind();
+    /// Destroy the GPU index buffer.
+    void Destroy();
 
     /// Return number of indices.
     size_t NumIndices() const { return numIndices; }
@@ -40,8 +42,6 @@ public:
 private:
     /// Create the GPU-side index buffer. Return true on success.
     bool Create(const void* data);
-    /// Release the index buffer and CPU shadow data.
-    void Release();
 
     /// OpenGL object identifier.
     unsigned buffer;

@@ -40,8 +40,8 @@ public:
 private:
     /// Compile & link.
     void Create(const std::string& sourceCode, const std::vector<std::string>& vsDefines, const std::vector<std::string>& fsDefines);
-    /// Release the program.
-    void Release();
+    /// Destroy the program.
+    void Destroy();
 
     /// OpenGL shader program identifier.
     unsigned program;

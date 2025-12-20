@@ -7,7 +7,7 @@
 
 void Sphere::Define(const Vector3* vertices, size_t count)
 {
-    Undefine();
+    Destroy();
     Merge(vertices, count);
 }
 
@@ -16,7 +16,7 @@ void Sphere::Define(const BoundingBox& box)
     const Vector3& min = box.min;
     const Vector3& max = box.max;
     
-    Undefine();
+    Destroy();
     Merge(min);
     Merge(Vector3(max.x, min.y, min.z));
     Merge(Vector3(min.x, max.y, min.z));
@@ -34,7 +34,7 @@ void Sphere::Define(const Frustum& frustum)
 
 void Sphere::Define(const Polyhedron& poly)
 {
-    Undefine();
+    Destroy();
     Merge(poly);
 }
 

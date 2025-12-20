@@ -10,7 +10,7 @@
 
 void BoundingBox::Define(const Vector3* vertices, size_t count)
 {
-    Undefine();
+    Destroy();
     Merge(vertices, count);
 }
 
@@ -21,7 +21,7 @@ void BoundingBox::Define(const Frustum& frustum)
 
 void BoundingBox::Define(const Polyhedron& poly)
 {
-    Undefine();
+    Destroy();
     Merge(poly);
 }
 

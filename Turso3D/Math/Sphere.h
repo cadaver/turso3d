@@ -120,7 +120,7 @@ public:
     }
     
     /// Set as undefined to allow the next merge to set initial size.
-    void Undefine()
+    void Destroy()
     {
         radius = -M_MAX_FLOAT;
     }

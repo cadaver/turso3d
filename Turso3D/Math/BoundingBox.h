@@ -198,7 +198,7 @@ public:
     }
     
     /// Set as undefined (negative size) to allow the next merge to set initial size.
-    void Undefine()
+    void Destroy()
     {
         min = Vector3(M_MAX_FLOAT, M_MAX_FLOAT, M_MAX_FLOAT);
         max = -min;
