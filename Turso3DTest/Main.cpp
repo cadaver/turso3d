@@ -282,6 +282,7 @@ int ApplicationMain(const std::vector<std::string>& arguments)
     float dt = 0.0f;
     float angle = 0.0f;
     int shadowMode = 1;
+    int multisample = 1;
     bool drawSSAO = false;
     bool useOcclusion = true;
     bool animate = true;
@@ -346,6 +347,9 @@ int ApplicationMain(const std::vector<std::string>& arguments)
         if (input->KeyPressed(SDLK_V))
             graphics->SetVSync(!graphics->VSync());
 
+        if (input->KeyPressed(SDLK_M))
+            multisample = multisample > 1 ? 1 : 4;
+
         // Camera movement
         IntVector2 mouseMove = input->MouseMove();
         yaw += mouseMove.x * 0.1f;
@@ -399,13 +403,13 @@ int ApplicationMain(const std::vector<std::string>& arguments)
         int width = graphics->RenderWidth();
         int height = graphics->RenderHeight();
 
-        if (colorBuffer->Width() != width || colorBuffer->Height() != height)
+        if (colorBuffer->Width() != width || colorBuffer->Height() != height || colorBuffer->Multisample() != multisample)
         {
-            colorBuffer->Define(TEX_2D, IntVector2(width, height), FMT_RGBA8);
+            colorBuffer->Define(TEX_2D, IntVector2(width, height), FMT_RGBA8, multisample);
             colorBuffer->DefineSampler(FILTER_BILINEAR, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
-            depthStencilBuffer->Define(TEX_2D, IntVector2(width, height), FMT_D32);
+            depthStencilBuffer->Define(TEX_2D, IntVector2(width, height), FMT_D32, multisample);
             depthStencilBuffer->DefineSampler(FILTER_BILINEAR, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
-            normalBuffer->Define(TEX_2D, IntVector2(width, height), FMT_RGBA8);
+            normalBuffer->Define(TEX_2D, IntVector2(width, height), FMT_RGBA8, multisample);
             normalBuffer->DefineSampler(FILTER_BILINEAR, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
             viewFbo->Define(colorBuffer, depthStencilBuffer);
 
@@ -466,11 +470,12 @@ int ApplicationMain(const std::vector<std::string>& arguments)
                 Vector3 nearVec, farVec;
                 camera->FrustumSize(nearVec, farVec);
 
-                ShaderProgram* program = graphics->SetProgram("Shaders/SSAO.glsl");
+                ShaderProgram* program = graphics->SetProgram("Shaders/SSAO.glsl", "", multisample > 1 ? "MSAA" : "");
                 graphics->SetFrameBuffer(ssaoFbo);
                 graphics->SetViewport(IntRect(0, 0, ssaoTexture->Width(), ssaoTexture->Height()));
                 graphics->SetUniform(program, "noiseInvSize", Vector2(ssaoTexture->Width() / 4.0f, ssaoTexture->Height() / 4.0f));
                 graphics->SetUniform(program, "screenInvSize", Vector2(1.0f / colorBuffer->Width(), 1.0f / colorBuffer->Height()));
+                graphics->SetUniform(program, "screenSize", Vector2((float)colorBuffer->Width(), (float)colorBuffer->Height()));
                 graphics->SetUniform(program, "frustumSize", Vector4(farVec, (float)height / (float)width));
                 graphics->SetUniform(program, "aoParameters", Vector4(0.15f, 1.0f, 0.025f, 0.15f));
                 graphics->SetUniform(program, "depthReconstruct", Vector2(farClip / (farClip - nearClip), -nearClip / (farClip - nearClip)));

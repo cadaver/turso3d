@@ -7,12 +7,18 @@ out vec2 vUv;
 
 uniform vec2 noiseInvSize;
 uniform vec2 screenInvSize;
+uniform vec2 screenSize;
 uniform vec4 frustumSize;
 uniform vec4 aoParameters;
 uniform vec2 depthReconstruct;
 
+#ifdef MSAA
+uniform sampler2DMS depthTex0;
+uniform sampler2DMS normalTex1;
+#else
 uniform sampler2D depthTex0;
 uniform sampler2D normalTex1;
+#endif
 uniform sampler2D noiseTex2;
 
 in vec2 vUv;
@@ -23,6 +29,25 @@ float GetLinearDepth(float hwDepth)
     return depthReconstruct.y / (hwDepth - depthReconstruct.x);
 }
 
+float SampleDepth(vec2 uv)
+{
+    // NOTE: known issue with multisampled SSAO, depth discontinuities due to lack of filtering cause artifacts. Should do a manual filtering or resolve multisampled textures before SSAO
+    #ifdef MSAA
+    return GetLinearDepth(texelFetch(depthTex0, ivec2(uv * screenSize), 0).r);
+    #else
+    return GetLinearDepth(texture(depthTex0, uv).r);
+    #endif
+}
+
+vec3 SampleNormal(vec2 uv)
+{
+    #ifdef MSAA
+    return texelFetch(normalTex1, ivec2(vUv * screenSize), 0).rgb * 2.0 - 1.0;
+    #else
+    return texture(normalTex1, vUv).rgb * 2.0 - 1.0;
+    #endif
+}
+
 vec3 GetPosition(float depth, vec2 uv)
 {
     vec3 pos = vec3((uv - 0.5) * frustumSize.xy, frustumSize.z) * depth;
@@ -31,8 +56,7 @@ vec3 GetPosition(float depth, vec2 uv)
 
 vec3 GetPosition(vec2 uv)
 {
-    float depth = GetLinearDepth(texture(depthTex0, uv).r);
-    return GetPosition(depth, uv);
+    return GetPosition(SampleDepth(uv), uv);
 }
 
 float DoAmbientOcclusion(vec2 uv, vec2 offs, vec3 pos, vec3 n)
@@ -54,7 +78,7 @@ void vert()
 void frag()
 {
     vec2 rand = texture(noiseTex2, vUv * noiseInvSize).rg * 2.0 - 1.0;
-    float depth = GetLinearDepth(texture(depthTex0, vUv).r);
+    float depth = SampleDepth(vUv);
     vec3 pos = GetPosition(depth, vUv);
 
     float rad = min(aoParameters.x / pos.z, aoParameters.w);
@@ -62,7 +86,7 @@ void frag()
 
     if (rad > 3.5 * screenInvSize.x)
     {
-        vec3 normal = texture(normalTex1, vUv).rgb * 2.0 - 1.0;
+        vec3 normal = SampleNormal(vUv);
 
         vec2 vec[4] = vec2[](
             vec2(1,0),

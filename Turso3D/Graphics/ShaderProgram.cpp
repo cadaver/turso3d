@@ -268,7 +268,7 @@ void ShaderProgram::Create(const std::string& sourceCode, const std::vector<std:
         if (preset < MAX_PRESET_UNIFORMS)
             presetUniforms[preset] = location;
 
-        if ((type >= GL_SAMPLER_1D && type <= GL_SAMPLER_2D_SHADOW) || (type >= GL_SAMPLER_1D_ARRAY && type <= GL_SAMPLER_CUBE_SHADOW) || (type >= GL_INT_SAMPLER_1D && type <= GL_UNSIGNED_INT_SAMPLER_2D_ARRAY))
+        if ((type >= GL_SAMPLER_1D && type <= GL_SAMPLER_2D_SHADOW) || (type >= GL_SAMPLER_1D_ARRAY && type <= GL_SAMPLER_CUBE_SHADOW) || (type >= GL_INT_SAMPLER_1D && type <= GL_UNSIGNED_INT_SAMPLER_2D_ARRAY) || type == GL_SAMPLER_2D_MULTISAMPLE)
         {
             // Assign sampler uniforms to a texture unit according to the number appended to the sampler name
             int unit = NumberPostfix(name);
