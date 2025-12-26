@@ -58,3 +58,62 @@ std::string Color::ToString() const
 {
     return FormatString("%g %g %g %g", r, g, b, a);
 }
+
+Color Color::FromHSV(float h, float s, float v, float a)
+{
+    while (h < 0.0f)
+		h += 360.0f;
+    while (h >= 360.0f)
+        h -= 360.0f;
+
+    s = Clamp(s, 0.0f, 1.0f);
+	v = Clamp(v, 0.0f, 1.0f);
+
+    if (s == 0.0f)
+        return Color(v, v, v, a);
+
+	float sector = h / 60.0f;
+	int i = (int)sector;
+
+	float f = sector - i;
+
+	float p = v * (1.0f - s);
+	float q = v * (1.0f - s * f);
+    float t = v * (1.0f - s * (1.0f - f));
+
+    switch (i)
+    {
+    case 0:
+        return Color(v, t, p, a);
+    case 1:
+        return Color(q, v, p, a);
+    case 2:
+        return Color(p, v, t, a);
+    case 3:
+        return Color(p, q, v, a);
+    case 4:
+        return Color(t, p, v, a);
+    default:
+        return Color(v, p, q, a);
+    }
+}
+
+Vector3 Color::ToHSV() const
+{
+    return Vector3();
+}
+
+Color Color::BlendPremultiplied(const Color& rhs) const
+{
+    return Color();
+}
+
+Color Color::GammaToLinear() const
+{
+    return Color();
+}
+
+Color Color::LinearToGamma() const
+{
+    return Color();
+}
