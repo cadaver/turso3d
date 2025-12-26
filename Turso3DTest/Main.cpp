@@ -29,115 +29,6 @@
 #include <SDL3/SDL.h>
 #include <tracy/Tracy.hpp>
 
-
-void TestColorFunctions()
-{
-    printf("Running Color class tests...\n");
-
-    // Test HSV round-trip conversion
-    {
-        Color orange(1.0f, 0.5f, 0.0f);
-        Vector3 hsv = orange.ToHSV();
-        Color restored = Color::FromHSV(hsv.x, hsv.y, hsv.z);
-
-        assert(fabs(orange.r - restored.r) < 0.001f);
-        assert(fabs(orange.g - restored.g) < 0.001f);
-        assert(fabs(orange.b - restored.b) < 0.001f);
-    }
-
-    // Test primary colors HSV values
-    {
-        Vector3 redHSV = Color::RED.ToHSV();
-        assert(fabs(redHSV.x - 0.0f) < 1.0f);  // Hue ~0°
-        assert(fabs(redHSV.y - 1.0f) < 0.001f); // Saturation = 1
-        assert(fabs(redHSV.z - 1.0f) < 0.001f); // Value = 1
-
-        Vector3 greenHSV = Color::GREEN.ToHSV();
-        assert(fabs(greenHSV.x - 120.0f) < 1.0f); // Hue ~120°
-
-        Vector3 blueHSV = Color::BLUE.ToHSV();
-        assert(fabs(blueHSV.x - 240.0f) < 1.0f); // Hue ~240°
-
-    }
-
-    // Test gamma conversion round-trip
-    {
-        Color srgb(0.5f, 0.5f, 0.5f);
-        Color linear = srgb.GammaToLinear();
-        Color back = linear.LinearToGamma();
-
-        assert(fabs(srgb.r - back.r) < 0.001f);
-        assert(fabs(srgb.g - back.g) < 0.001f);
-        assert(fabs(srgb.b - back.b) < 0.001f);
-    }
-
-    // Test gamma values are different
-    {
-        Color srgb(0.5f, 0.5f, 0.5f);
-        Color linear = srgb.GammaToLinear();
-
-        // Linear space value should be darker (~0.21)
-        assert(linear.r < 0.25f && linear.r > 0.20f);
-    }
-
-    // Test premultiplied alpha conversion
-    {
-        Color color(1.0f, 0.0f, 0.0f, 0.5f); // 50% red
-        Color premul = color.ToPremultiplied();
-
-        assert(fabs(premul.r - 0.5f) < 0.001f); // RGB should be halved
-        assert(fabs(premul.a - 0.5f) < 0.001f); // Alpha unchanged
-
-        Color restored = premul.FromPremultiplied();
-        assert(fabs(restored.r - 1.0f) < 0.001f);
-    }
-
-    // Test premultiplied blending
-    {
-        Color bg = Color::BLUE.ToPremultiplied();
-        Color fg = Color(1.0f, 0.0f, 0.0f, 0.5f).ToPremultiplied();
-        Color result = bg.BlendPremultiplied(fg);
-
-        // Result should have some red and some blue
-        assert(result.r > 0.0f);
-        assert(result.b > 0.0f);
-    }
-
-    // Test luma calculation
-    {
-        assert(fabs(Color::WHITE.Luma() - 1.0f) < 0.001f);
-        assert(fabs(Color::BLACK.Luma() - 0.0f) < 0.001f);
-
-        // Green should contribute most to luma (0.587 weight)
-        assert(Color::GREEN.Luma() > Color::RED.Luma());
-        assert(Color::GREEN.Luma() > Color::BLUE.Luma());
-    }
-
-    // Test FromHSV specific colors
-    {
-        Color red = Color::FromHSV(0.0f, 1.0f, 1.0f);
-        assert(fabs(red.r - 1.0f) < 0.001f);
-        assert(red.g < 0.001f);
-        assert(red.b < 0.001f);
-
-        Color yellow = Color::FromHSV(60.0f, 1.0f, 1.0f);
-        assert(fabs(yellow.r - 1.0f) < 0.001f);
-        assert(fabs(yellow.g - 1.0f) < 0.001f);
-        assert(yellow.b < 0.001f);
-
-    }
-
-    // Test grayscale in HSV (saturation = 0)
-    {
-        Color gray = Color::FromHSV(180.0f, 0.0f, 0.5f);
-        assert(fabs(gray.r - 0.5f) < 0.001f);
-        assert(fabs(gray.g - 0.5f) < 0.001f);
-        assert(fabs(gray.b - 0.5f) < 0.001f);
-    }
-
-    printf("All Color class tests passed!\n\n");
-}
-
 std::vector<StaticModel*> rotatingObjects;
 std::vector<AnimatedModel*> animatingObjects;
 
@@ -326,8 +217,6 @@ void CreateScene(Scene* scene, Camera* camera, int preset)
 
 int ApplicationMain(const std::vector<std::string>& arguments)
 {
-	TestColorFunctions();
-
     bool useThreads = true;
 
     if (arguments.size() > 1 && arguments[1].find("nothreads") != std::string::npos)

@@ -134,9 +134,7 @@ Vector3 Color::ToHSV() const
 
 Color Color::BlendPremultiplied(const Color& rhs) const
 {
-    // Assumes 'this' is the background and 'rhs' is the foreground
-    // Both colors should be premultiplied (RGB already multiplied by alpha)
-
+    // result = src + dst * (1 - src.a)
     float invSrcAlpha = 1.0f - rhs.a;
 
     return Color(
