@@ -100,7 +100,36 @@ Color Color::FromHSV(float h, float s, float v, float a)
 
 Vector3 Color::ToHSV() const
 {
-    return Vector3();
+    float min = Min(r, Min(g, b));
+    float max = Max(r, Max(g, b));
+    float delta = max - min;
+
+    float h = 0.0f;
+    float s = 0.0f;
+    float v = max;
+
+    // Calculate saturation
+    if (max > 0.0f)
+        s = delta / max;
+
+    // Calculate hue (only if color is not gray)
+    if (delta > 0.0f)
+    {
+        if (r == max)
+            h = (g - b) / delta;        // Between yellow & magenta
+        else if (g == max)
+            h = 2.0f + (b - r) / delta; // Between cyan & yellow
+        else
+            h = 4.0f + (r - g) / delta; // Between magenta & cyan
+
+        h *= 60.0f; // Convert to degrees
+
+        // Ensure hue is positive
+        if (h < 0.0f)
+            h += 360.0f;
+    }
+
+    return Vector3(h, s, v);
 }
 
 Color Color::BlendPremultiplied(const Color& rhs) const
