@@ -132,6 +132,15 @@ public:
 	/// Convert between linear space and gamma space.
 	Color LinearToGamma() const;
 
+    /// Convert from standard alpha to premultiplied alpha
+    Color ToPremultiplied() const { return Color(r * a, g * a, b * a, a); }
+
+    /// Convert from premultiplied alpha to standard alpha
+    Color FromPremultiplied() const
+    {
+        return a > 0.0f ? Color(r / a, g / a, b / a, a) : Color(0.0f, 0.0f, 0.0f, 0.0f);
+    }
+
     /// Return RGB as a three-dimensional vector.
     Vector3 ToVector3() const { return Vector3(r, g, b); }
     /// Return RGBA as a four-dimensional vector.
