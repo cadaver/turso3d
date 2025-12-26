@@ -115,6 +115,32 @@ public:
     /// Parse from a C string. Return true on success.
     bool FromString(const char* string);
 
+	/// Convert from HSV to RGB color space.
+	static Color FromHSV(float h, float s, float v, float a = 1.0f);
+
+	/// Convert to HSV color space. Return value's x, y, and z components are hue, saturation, and value.
+    Vector3 ToHSV() const;
+
+	/// Blend this color with another one using premultiplied alpha.
+	Color BlendPremultiplied(const Color& rhs) const;
+
+	/// Return the luma (perceived brightness) of the color.
+	float Luma() const { return 0.299f * r + 0.587f * g + 0.114f * b; }
+
+	/// Convert between gamma space and linear space.
+	Color GammaToLinear() const;
+	/// Convert between linear space and gamma space.
+	Color LinearToGamma() const;
+
+    /// Convert from standard alpha to premultiplied alpha
+    Color ToPremultiplied() const { return Color(r * a, g * a, b * a, a); }
+
+    /// Convert from premultiplied alpha to standard alpha
+    Color FromPremultiplied() const
+    {
+        return a > 0.0f ? Color(r / a, g / a, b / a, a) : Color(0.0f, 0.0f, 0.0f, 0.0f);
+    }
+
     /// Return RGB as a three-dimensional vector.
     Vector3 ToVector3() const { return Vector3(r, g, b); }
     /// Return RGBA as a four-dimensional vector.
