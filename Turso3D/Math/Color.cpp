@@ -134,15 +134,35 @@ Vector3 Color::ToHSV() const
 
 Color Color::BlendPremultiplied(const Color& rhs) const
 {
-    return Color();
+    // Assumes 'this' is the background and 'rhs' is the foreground
+    // Both colors should be premultiplied (RGB already multiplied by alpha)
+
+    float invSrcAlpha = 1.0f - rhs.a;
+
+    return Color(
+        rhs.r + r * invSrcAlpha,
+        rhs.g + g * invSrcAlpha,
+        rhs.b + b * invSrcAlpha,
+        rhs.a + a * invSrcAlpha
+    );
 }
 
 Color Color::GammaToLinear() const
 {
-    return Color();
+    return Color(
+        r <= 0.04045f ? r / 12.92f : pow((r + 0.055f) / 1.055f, 2.4f),
+        g <= 0.04045f ? g / 12.92f : pow((g + 0.055f) / 1.055f, 2.4f),
+        b <= 0.04045f ? b / 12.92f : pow((b + 0.055f) / 1.055f, 2.4f),
+        a
+    );
 }
 
 Color Color::LinearToGamma() const
 {
-    return Color();
+    return Color(
+        r <= 0.0031308f ? r * 12.92f : 1.055f * pow(r, 1.0f / 2.4f) - 0.055f,
+        g <= 0.0031308f ? g * 12.92f : 1.055f * pow(g, 1.0f / 2.4f) - 0.055f,
+        b <= 0.0031308f ? b * 12.92f : 1.055f * pow(b, 1.0f / 2.4f) - 0.055f,
+        a
+    );
 }
