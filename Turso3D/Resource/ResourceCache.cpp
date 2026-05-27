@@ -250,15 +250,23 @@ Resource* ResourceCache::LoadResource(StringHash type, const std::string& nameIn
 {
     ZoneScoped;
 
-    std::string name = SanitateResourceName(nameIn);
-
     // If empty name, return null pointer immediately without logging an error
-    if (name.empty())
+    if (nameIn.empty())
         return nullptr;
 
     // Check for existing resource
-    auto key = std::make_pair(type, StringHash(name));
+    auto key = std::make_pair(type, StringHash(nameIn));
     auto it = resources.find(key);
+    if (it != resources.end())
+        return it->second;
+
+    // If not found, retry with sanitated resource name
+    std::string name = SanitateResourceName(nameIn);
+    if (name.empty())
+        return nullptr;
+
+    key = std::make_pair(type, StringHash(name));
+    it = resources.find(key);
     if (it != resources.end())
         return it->second;
 
@@ -348,8 +356,9 @@ std::string ResourceCache::SanitateResourceName(const std::string& nameIn) const
     // If the path refers to one of the resource directories, normalize the resource name
     if (resourceDirs.size())
     {
+        const std::string& exePath = ExecutableDir();
         std::string namePath = Path(name);
-        std::string exePath = ExecutableDir();
+
         for (unsigned i = 0; i < resourceDirs.size(); ++i)
         {
             std::string relativeResourcePath = resourceDirs[i];

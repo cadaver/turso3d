@@ -178,6 +178,10 @@ int TestApplication::Run(const std::vector<std::string>& arguments)
         FrameMark;
     }
 
+    // Destroy scene before exiting to verify it working properly
+    camera.Reset();
+    scene.Reset();
+
     printf("%s", profilerOutput.c_str());
     return 0;
 }

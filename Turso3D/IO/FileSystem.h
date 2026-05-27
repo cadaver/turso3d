@@ -33,7 +33,7 @@ bool DirExists(const std::string& pathName);
 /// Scan a directory for specified files.
 void ScanDir(std::vector<std::string>& result, const std::string& pathName, const std::string& filter, unsigned flags = SCAN_FILES, bool recursive = false);
 /// Return the executable's directory.
-std::string ExecutableDir();
+const std::string& ExecutableDir();
 /// Split a full path to path, filename and extension.
 void SplitPath(const std::string& fullPath, std::string& pathName, std::string& fileName, std::string& extension, bool lowercaseExtension = false);
 /// Return the path from a full path.

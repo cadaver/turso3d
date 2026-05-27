@@ -250,32 +250,37 @@ void ScanDir(std::vector<std::string>& result, const std::string& pathName, cons
     ScanDirInternal(result, initialPath, initialPath, filter, flags, recursive);
 }
 
-std::string ExecutableDir()
+const std::string& ExecutableDir()
 {
-    std::string ret;
+    static std::string ret;
 
-    #if defined(_WIN32)
-    char exeName[MAX_PATH];
-    exeName[0] = 0;
-    GetModuleFileName(0, exeName, MAX_PATH);
-    ret = Path(std::string(exeName));
-    #elif defined(__APPLE__)
-    char exeName[MAX_PATH];
-    memset(exeName, 0, MAX_PATH);
-    unsigned size = MAX_PATH;
-    _NSGetExecutablePath(exeName, &size);
-    ret = Path(std::string(exeName));
-    #elif defined(__linux__)
-    char exeName[MAX_PATH];
-    memset(exeName, 0, MAX_PATH);
-    pid_t pid = getpid();
-    std::string link = "/proc/" + ToString(pid) + "/exe";
-    readlink(link.c_str(), exeName, MAX_PATH);
-    ret = Path(std::string(exeName));
-    #endif
+    // Cache result
+    if (ret.empty())
+    {
+        #if defined(_WIN32)
+        char exeName[MAX_PATH];
+        exeName[0] = 0;
+        GetModuleFileName(0, exeName, MAX_PATH);
+        ret = Path(std::string(exeName));
+        #elif defined(__APPLE__)
+        char exeName[MAX_PATH];
+        memset(exeName, 0, MAX_PATH);
+        unsigned size = MAX_PATH;
+        _NSGetExecutablePath(exeName, &size);
+        ret = Path(std::string(exeName));
+        #elif defined(__linux__)
+        char exeName[MAX_PATH];
+        memset(exeName, 0, MAX_PATH);
+        pid_t pid = getpid();
+        std::string link = "/proc/" + ToString(pid) + "/exe";
+        readlink(link.c_str(), exeName, MAX_PATH);
+        ret = Path(std::string(exeName));
+        #endif
     
-    // Sanitate /./ construct away
-    ReplaceInPlace(ret, "/./", "/");
+        // Sanitate /./ construct away
+        ReplaceInPlace(ret, "/./", "/");
+    }
+
     return ret;
 }
 
