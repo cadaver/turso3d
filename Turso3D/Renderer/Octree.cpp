@@ -279,8 +279,6 @@ void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
 
     // Collect nodes to the root and delete all child octants
     updateQueue.clear();
-    std::vector<Drawable*> occluders;
-    
     CollectDrawables(updateQueue, &root);
     DeleteChildOctants(&root, false);
 
