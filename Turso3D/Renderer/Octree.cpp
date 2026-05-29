@@ -277,12 +277,19 @@ void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
 {
     ZoneScoped;
 
-    // Collect nodes to the root and delete all child octants
-    updateQueue.clear();
-    CollectDrawables(updateQueue, &root);
-    DeleteChildOctants(&root, false);
+    // Collect nodes to the update queue for reinsertion and delete all child octants
+    bool hasChildOctants = false;
+    for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        hasChildOctants |= (root.children[i] != nullptr);
 
-    allocator.Reset();
+    if (hasChildOctants)
+    { 
+        updateQueue.clear();
+        CollectDrawables(updateQueue, &root);
+        DeleteChildOctants(&root, false);
+        allocator.Reset();
+    }
+
     root.Initialize(nullptr, boundingBox, (unsigned char)Clamp(numLevels, 1, MAX_OCTREE_LEVELS), 0);
 }
 

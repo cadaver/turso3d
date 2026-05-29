@@ -290,7 +290,7 @@ private:
     Octant* CreateChildOctant(Octant* octant, unsigned char index);
     /// Delete one child octant.
     void DeleteChildOctant(Octant* octant, unsigned char index);
-    /// Delete a child octant hierarchy. If not deleting the octree for good, moves any nodes back to the root octant.
+    /// Delete a child octant hierarchy. If deleting the octree, also remove the octree association from the drawables.
     void DeleteChildOctants(Octant* octant, bool deletingOctree);
     /// Return all drawables from an octant recursively.
     void CollectDrawables(std::vector<Drawable*>& result, Octant* octant) const;
@@ -369,7 +369,7 @@ private:
     volatile bool threadedUpdate;
     /// Current framenumber.
     unsigned short frameNumber;
-    /// Queue of nodes to be reinserted.
+    /// Queue of drawables to be reinserted.
     std::vector<Drawable*> updateQueue;
     /// Octants which need to have their drawables sorted.
     std::vector<Octant*> sortDirtyOctants;
