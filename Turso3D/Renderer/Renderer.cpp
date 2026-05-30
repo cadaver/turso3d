@@ -360,9 +360,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     if (rootLevelOctants.empty())
         return;
 
-    // Enable threaded update during geometry / light gathering in case nodes' OnPrepareRender() causes further reinsertion queuing
-    octree->SetThreadedUpdate(workQueue->NumThreads() > 1);
-
     // Keep track of both batch + octant task progress before main batches can be sorted (batch tasks will add to the counter when queued)
     numPendingBatchTasks.store((int)rootLevelOctants.size());
     numPendingShadowViewTasks[0].store(0);
@@ -383,9 +380,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     // Start threaded work and wait for it to finish
     workQueue->QueueTasks(rootLevelOctants.size(), reinterpret_cast<Task**>(&collectOctantsTasks[0]));
     workQueue->Complete();
-
-    // No more threaded reinsertion will take place
-    octree->SetThreadedUpdate(false);
 }
 
 void Renderer::RenderShadowMaps()

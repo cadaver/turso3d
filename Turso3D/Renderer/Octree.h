@@ -209,8 +209,6 @@ public:
     void FinishUpdate();
     /// Resize the octree.
     void Resize(const BoundingBox& boundingBox, int numLevels);
-    /// Enable or disable threaded update mode. In threaded mode reinsertions go to per-thread queues, which are processed in FinishUpdate().
-    void SetThreadedUpdate(bool enable) { threadedUpdate = enable; }
     /// Queue octree reinsertion for a drawable.
     void QueueUpdate(Drawable* drawable);
     /// Remove a drawable from the octree.
@@ -226,8 +224,6 @@ public:
     template <class T> void FindDrawables(std::vector<Drawable*>& result, const T& volume, unsigned short drawableFlags, unsigned layerMask = LAYERMASK_ALL) const { CollectDrawables(result, const_cast<Octant*>(&root), volume, drawableFlags, layerMask); }
     /// Query for drawables using a frustum and masked testing.
     void FindDrawablesMasked(std::vector<Drawable*>& result, const Frustum& frustum, unsigned short drawableFlags, unsigned layerMask = LAYERMASK_ALL) const;
-    /// Return whether threaded update is enabled.
-    bool ThreadedUpdate() const { return threadedUpdate; }
     /// Return the root octant.
     Octant* Root() const { return const_cast<Octant*>(&root); }
 
@@ -365,12 +361,14 @@ private:
         }
     }
 
-    /// Threaded update flag. During threaded update moved drawables should go directly to thread-specific reinsert queues.
-    volatile bool threadedUpdate;
+    /// In-update flag. During update moved drawables go directly to thread-specific reinsert queues.
+    bool inUpdate;
     /// Current framenumber.
     unsigned short frameNumber;
-    /// Queue of drawables to be reinserted.
-    std::vector<Drawable*> updateQueue;
+    /// Queue of drawables to be reinserted, per-thread to allow node update outside the main thread.
+    AutoArrayPtr<std::vector<Drawable*> > updateQueues;
+    /// Intermediate reinsert queues during update.
+    AutoArrayPtr<std::vector<Drawable*> > reinsertQueues;
     /// Octants which need to have their drawables sorted.
     std::vector<Octant*> sortDirtyOctants;
     /// Extents of the octree root level box.
@@ -383,8 +381,6 @@ private:
     WorkQueue* workQueue;
     /// Tasks for threaded reinsert execution.
     std::vector<AutoPtr<ReinsertDrawablesTask> > reinsertTasks;
-    /// Intermediate reinsert queues for threaded execution.
-    AutoArrayPtr<std::vector<Drawable*> > reinsertQueues;
     /// RaycastSingle initial coarse result.
     mutable std::vector<std::pair<Drawable*, float> > initialRayResult;
     /// RaycastSingle final result.

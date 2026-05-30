@@ -29,6 +29,22 @@
 #include <SDL3/SDL.h>
 #include <tracy/Tracy.hpp>
 
+class TestApplication;
+
+struct AnimateObjectsTask : public MemberFunctionTask<TestApplication>
+{
+    AnimateObjectsTask(TestApplication* object_, MemberWorkFunctionPtr function_) :
+        MemberFunctionTask<TestApplication>(object_, function_)
+    {
+    }
+
+    OctreeNode** start;
+    OctreeNode** end;
+    float dt;
+    float angle;
+};
+
+/// Turso3D test application.
 class TestApplication
 {
 public:
@@ -37,6 +53,7 @@ public:
 private:
     void CreateScene(int preset);
     void Update(float dt);
+    void AnimateObjectsWork(Task* task_, unsigned threadIndex_);
     void PrepareRender();
     void RenderAndPresent();
 
@@ -66,8 +83,8 @@ private:
     SharedPtr<Scene> scene;
     SharedPtr<Camera> camera;
 
-    std::vector<StaticModel*> rotatingObjects;
-    std::vector<AnimatedModel*> animatingObjects;
+    std::vector<OctreeNode*> animatingObjects;
+    std::vector<AutoPtr<AnimateObjectsTask> > animateTasks;
 
     float yaw = 0.0f;
     float pitch = 20.0f;
@@ -188,7 +205,6 @@ int TestApplication::Run(const std::vector<std::string>& arguments)
 
 void TestApplication::CreateScene(int preset)
 {
-    rotatingObjects.clear();
     animatingObjects.clear();
 
     scene->Clear();
@@ -319,7 +335,7 @@ void TestApplication::CreateScene(int preset)
                 object->SetScale(0.25f);
                 object->SetModel(cache->LoadResource<Model>("Box.mdl"));
                 object->SetMaterial(customMat);
-                rotatingObjects.push_back(object);
+                animatingObjects.push_back(object);
             }
         }
 
@@ -434,34 +450,70 @@ void TestApplication::Update(float dt)
     if (input->KeyDown(SDLK_D))
         camera->Translate(Vector3::RIGHT * dt * moveSpeed);
 
-    // Scene animation
-    if (animate)
+    // Scene animation. As animation only modifies individual objects and does not modify hierarchy or create / destroy nodes, it can be split into worker threads
+    if (animate && animatingObjects.size())
     {
-        ZoneScopedN("MoveObjects");
+        ZoneScopedN("AnimateObjects");
 
-        PROFILE(MoveObjects);
+        PROFILE(AnimateObjects);
         
-        if (rotatingObjects.size())
-        {
-            angle += 100.0f * dt;
-            Quaternion rotQuat(angle, Vector3::ONE);
-            for (auto it = rotatingObjects.begin(); it != rotatingObjects.end(); ++it)
-                (*it)->SetRotation(rotQuat);
-        }
-        else if (animatingObjects.size())
-        {
-            for (auto it = animatingObjects.begin(); it != animatingObjects.end(); ++it)
-            {
-                AnimatedModel* object = *it;
-                AnimationState* state = object->AnimationStates()[0];
-                state->AddTime(dt);
-                object->Translate(Vector3::FORWARD * 2.0f * dt);
+        angle += 100.0f * dt;
 
-                // Rotate to avoid going outside the plane
-                Vector3 pos = object->Position();
-                if (pos.x < -45.0f || pos.x > 45.0f || pos.z < -45.0f || pos.z > 45.0f)
-                    object->Yaw(45.0f * dt);
-            }
+        // Try to guess a good size of objects per task
+        size_t nodesPerTask = Max((size_t)256, animatingObjects.size() / workQueue->NumThreads() / 4);
+        size_t taskIdx = 0;
+
+        for (size_t start = 0; start < animatingObjects.size(); start += nodesPerTask)
+        {
+            size_t end = start + nodesPerTask;
+            if (end > animatingObjects.size())
+                end = animatingObjects.size();
+
+            if (animateTasks.size() <= taskIdx)
+                animateTasks.push_back(new AnimateObjectsTask(this, &TestApplication::AnimateObjectsWork));
+            animateTasks[taskIdx]->start = &animatingObjects[0] + start;
+            animateTasks[taskIdx]->end = &animatingObjects[0] + end;
+            animateTasks[taskIdx]->dt = dt;
+            animateTasks[taskIdx]->angle = angle;
+            ++taskIdx;
+        }
+
+        workQueue->QueueTasks(taskIdx, reinterpret_cast<Task**>(&animateTasks[0]));
+        // No other threaded work going on at this time, so simply complete
+        workQueue->Complete();
+    }
+}
+
+void TestApplication::AnimateObjectsWork(Task* task_, unsigned /*threadIndex_*/)
+{
+    ZoneScoped;
+
+    AnimateObjectsTask* task = static_cast<AnimateObjectsTask*>(task_);
+    OctreeNode** start = task->start;
+    OctreeNode** end = task->end;
+    Quaternion rotQuat(task->angle, Vector3::ONE);
+
+    for (; start != end; ++start)
+    {
+        OctreeNode* node = *start;
+
+        if (node->Type() == AnimatedModel::TypeStatic())
+        {
+            // Scene preset 2 animated models: walk forward
+            AnimatedModel* object = static_cast<AnimatedModel*>(node);
+            AnimationState* state = object->AnimationStates()[0];
+            state->AddTime(task->dt);
+            object->Translate(Vector3::FORWARD * 2.0f * task->dt);
+
+            // Rotate to avoid going outside the plane
+            Vector3 pos = object->Position();
+            if (pos.x < -45.0f || pos.x > 45.0f || pos.z < -45.0f || pos.z > 45.0f)
+                object->Yaw(45.0f * task->dt);
+        }
+        else
+        {
+            // Scene preset 1 cubes: rotate
+            node->SetRotation(rotQuat);
         }
     }
 }
