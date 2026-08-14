@@ -1,8 +1,16 @@
+#ifndef GL_ES
 uniform sampler2DShadow dirShadowTex8;
 uniform sampler2DShadow shadowTex9;
 uniform samplerCube faceSelectionTex10;
 uniform samplerCube faceSelectionTex11;
 uniform usampler3D clusterTex12;
+#else
+uniform highp sampler2DShadow dirShadowTex8;
+uniform highp sampler2DShadow shadowTex9;
+uniform highp samplerCube faceSelectionTex10;
+uniform highp samplerCube faceSelectionTex11;
+uniform highp usampler3D clusterTex12;
+#endif
 
 vec3 CalculateClusterPos(vec2 screenPos, float depth)
 {
@@ -13,7 +21,11 @@ vec3 CalculateClusterPos(vec2 screenPos, float depth)
     );
 }
 
+#ifndef GL_ES
 float SampleShadowMap(sampler2DShadow shadowTex, vec4 shadowPos, vec4 parameters)
+#else
+float SampleShadowMap(highp sampler2DShadow shadowTex, vec4 shadowPos, vec4 parameters)
+#endif
 {
 #ifdef HQSHADOW
     vec4 offsets1 = vec4(2.0 * parameters.xy * shadowPos.w, 0.0, 0.0);

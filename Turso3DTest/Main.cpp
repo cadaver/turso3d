@@ -29,6 +29,12 @@
 #include <SDL3/SDL.h>
 #include <tracy/Tracy.hpp>
 
+// Web build mainloop handling
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <emscripten/html5.h>
+#endif
+
 class TestApplication;
 
 struct AnimateObjectsTask : public MemberFunctionTask<TestApplication>
@@ -48,11 +54,13 @@ struct AnimateObjectsTask : public MemberFunctionTask<TestApplication>
 class TestApplication
 {
 public:
-    int Run(const std::vector<std::string>& arguments);
+    bool Init(const std::vector<std::string>& arguments);
+    bool RunFrame();
+    void Exit();
 
 private:
     void CreateScene(int preset);
-    void Update(float dt);
+    void Update();
     void AnimateObjectsWork(Task* task_, unsigned threadIndex_);
     void PrepareRender();
     void RenderAndPresent();
@@ -86,6 +94,7 @@ private:
     std::vector<OctreeNode*> animatingObjects;
     std::vector<AutoPtr<AnimateObjectsTask> > animateTasks;
 
+    float dt = 0.0f;
     float yaw = 0.0f;
     float pitch = 20.0f;
     float angle = 0.0f;
@@ -97,26 +106,38 @@ private:
     bool drawDebug = false;
     bool drawShadowDebug = false;
     bool drawOcclusionDebug = false;
+
+    std::string profilerOutput;
+    Timer profilerTimer;
+    HiresTimer frameTimer;
+    long long lastFrameTime = 0;
 };
 
-int TestApplication::Run(const std::vector<std::string>& arguments)
+bool TestApplication::Init(const std::vector<std::string>& arguments)
 {
     bool useThreads = true;
 
     if (arguments.size() > 1 && arguments[1].find("nothreads") != std::string::npos)
         useThreads = false;
 
+#ifdef __EMSCRIPTEN__
+    // For now both threading and occlusion queries disabled for web build
+    useThreads = false;
+    useOcclusion = false;
+#endif
+
     // Create subsystems that don't depend on the application window / OpenGL context
     workQueue = new WorkQueue(useThreads ? 0 : 1);
     profiler = new Profiler();
     log = new Log();
     cache = new ResourceCache();
+
     cache->AddResourceDir(ExecutableDir() + "Data");
 
     // Create the Graphics subsystem to open the application window and initialize OpenGL
     graphics = new Graphics("Turso3D renderer test", IntVector2(1920, 1080), WINDOWED);
     if (!graphics->IsInitialized())
-        return 1;
+        return false;
 
     // Create subsystems that depend on the application window / OpenGL
     input = new Input(graphics->Window());
@@ -165,42 +186,49 @@ int TestApplication::Run(const std::vector<std::string>& arguments)
     CreateScene(0);
 
     camera->SetPosition(Vector3(0.0f, 20.0f, -75.0f));
+    return true;
+}
 
-    std::string profilerOutput;
-    Timer profilerTimer;
-    HiresTimer frameTimer;
-    float dt = 0.0f;
+bool TestApplication::RunFrame()
+{
+#ifndef __EMSCRIPTEN__
+    // For now just keep running in web build until the tab is closed
+    if (input->ShouldExit() || input->KeyPressed(27))
+        return false;
+#endif
 
-    // Main loop
-    while (!input->ShouldExit() && !input->KeyPressed(27))
+
+    if (profilerTimer.ElapsedMSec() >= 1000)
     {
-        frameTimer.Reset();
-
-        if (profilerTimer.ElapsedMSec() >= 1000)
-        {
-            profilerOutput = profiler->OutputResults();
-            profiler->BeginInterval();
-            profilerTimer.Reset();
-        }
-
-        profiler->BeginFrame();
-
-        Update(dt);
-        PrepareRender();
-        RenderAndPresent();
-
-        profiler->EndFrame();
-        dt = frameTimer.ElapsedUSec() * 0.000001f;
-
-        FrameMark;
+        profilerOutput = profiler->OutputResults();
+        profiler->BeginInterval();
+        profilerTimer.Reset();
     }
 
+    profiler->BeginFrame();
+
+    Update();
+    PrepareRender();
+    RenderAndPresent();
+
+    profiler->EndFrame();
+
+    long long currentFrameTime = frameTimer.ElapsedUSec();
+    dt = (currentFrameTime - lastFrameTime) * 0.000001f;
+    lastFrameTime = currentFrameTime;
+
+    FrameMark;
+
+    return true;
+}
+
+void TestApplication::Exit()
+{
     // Destroy scene before exiting to verify it working properly
     camera.Reset();
     scene.Reset();
 
     printf("%s", profilerOutput.c_str());
-    return 0;
 }
 
 void TestApplication::CreateScene(int preset)
@@ -385,7 +413,7 @@ void TestApplication::CreateScene(int preset)
     }
 }
 
-void TestApplication::Update(float dt)
+void TestApplication::Update()
 {
     ZoneScoped;
 
@@ -695,8 +723,32 @@ void TestApplication::RenderAndPresent()
     }
 }
 
+TestApplication* app = nullptr;
+
+#ifdef __EMSCRIPTEN__
+void FrameCallback()
+{
+    app->RunFrame();
+}
+#endif
+
 int main(int argc, char** argv)
 {
-    TestApplication app;
-    return app.Run(ParseArguments(argc, argv));
+    app = new TestApplication();
+    if (!app->Init(ParseArguments(argc, argv)))
+        return 1;
+    
+#ifndef __EMSCRIPTEN__
+    while (app->RunFrame())
+    {
+    }
+
+    app->Exit();
+    delete app;
+#else
+    emscripten_set_main_loop(FrameCallback, 0, 0);
+#endif
+
+    return 0;
 }
+

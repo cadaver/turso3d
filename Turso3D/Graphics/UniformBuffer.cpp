@@ -1,10 +1,10 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
+#include "GLHeaders.h"
 #include "Graphics.h"
 #include "UniformBuffer.h"
 
-#include <glew.h>
 #include <cstring>
 #include <tracy/Tracy.hpp>
 

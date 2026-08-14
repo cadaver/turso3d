@@ -7,6 +7,8 @@
 #ifdef _WIN32
 #include <Windows.h>
 #include <MMSystem.h>
+#elif __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
 #else
 #include <sys/time.h>
 #include <unistd.h>
@@ -45,26 +47,30 @@ Timer::Timer()
 
 unsigned Timer::ElapsedMSec()
 {
-    #ifdef _WIN32
-    unsigned currentTime = timeGetTime();
-    #else
-    struct timeval time;
-    gettimeofday(&time, 0);
-    unsigned currentTime = time.tv_sec * 1000 + time.tv_usec / 1000;
-    #endif
+#ifdef _WIN32
+    unsigned currentTime = (unsigned)timeGetTime();
+#elif __EMSCRIPTEN__
+    unsigned currentTime = (unsigned)emscripten_get_now();
+#else
+    struct timeval time {};
+    gettimeofday(&time, nullptr);
+    unsigned currentTime = (unsigned)(time.tv_sec * 1000 + time.tv_usec / 1000);
+#endif
     
     return currentTime - startTime;
 }
 
 void Timer::Reset()
 {
-    #ifdef _WIN32
-    startTime = timeGetTime();
-    #else
+#ifdef _WIN32
+    startTime = (unsigned)timeGetTime();
+#elif __EMSCRIPTEN__
+    startTime = (unsigned)emscripten_get_now();
+#else
     struct timeval time;
     gettimeofday(&time, 0);
-    startTime = time.tv_sec * 1000 + time.tv_usec / 1000;
-    #endif
+    startTime = (unsigned)(time.tv_sec * 1000 + time.tv_usec / 1000);
+#endif
 }
 
 HiresTimer::HiresTimer()
@@ -76,7 +82,7 @@ long long HiresTimer::ElapsedUSec()
 {
     long long currentTime;
     
-    #ifdef _WIN32
+#ifdef _WIN32
     if (supported)
     {
         LARGE_INTEGER counter;
@@ -85,11 +91,13 @@ long long HiresTimer::ElapsedUSec()
     }
     else
         currentTime = timeGetTime();
-    #else
+#elif __EMSCRIPTEN__
+    currentTime = (long long)(emscripten_get_now() * 1000.0);
+#else
     struct timeval time;
     gettimeofday(&time, 0);
     currentTime = time.tv_sec * 1000000LL + time.tv_usec;
-    #endif
+#endif
     
     long long elapsedTime = currentTime - startTime;
     
@@ -102,7 +110,7 @@ long long HiresTimer::ElapsedUSec()
 
 void HiresTimer::Reset()
 {
-    #ifdef _WIN32
+#ifdef _WIN32
     if (supported)
     {
         LARGE_INTEGER counter;
@@ -111,24 +119,26 @@ void HiresTimer::Reset()
     }
     else
         startTime = timeGetTime();
-    #else
+#elif __EMSCRIPTEN__
+    startTime = (long long)(emscripten_get_now() * 1000.0);
+#else
     struct timeval time;
     gettimeofday(&time, 0);
     startTime = time.tv_sec * 1000000LL + time.tv_usec;
-    #endif
+#endif
 }
 
 void HiresTimer::Initialize()
 {
-    #ifdef _WIN32
+#ifdef _WIN32
     LARGE_INTEGER frequency_;
     if (QueryPerformanceFrequency(&frequency_))
     {
         frequency = frequency_.QuadPart;
         supported = true;
     }
-    #else
+#else
     frequency = 1000000;
     supported = true;
-    #endif
+#endif
 }

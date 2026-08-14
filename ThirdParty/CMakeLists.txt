@@ -1,4 +1,6 @@
-add_subdirectory (GLEW)
+if (NOT EMSCRIPTEN)
+    add_subdirectory (GLEW)
+endif ()
 add_subdirectory (STB)
 add_subdirectory (Tracy)
 

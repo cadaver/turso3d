@@ -1,11 +1,11 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
+#include "GLHeaders.h"
 #include "Graphics.h"
 #include "RenderBuffer.h"
 #include "Texture.h"
 
-#include <glew.h>
 #include <tracy/Tracy.hpp>
 
 RenderBuffer::RenderBuffer() :

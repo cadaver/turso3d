@@ -84,6 +84,8 @@ public:
 
     /// Unbind a texture unit.
     static void Unbind(size_t unit);
+    /// Return whether texture format is supported in hardware.
+    static bool FormatSupported(ImageFormat format);
 
     /// OpenGL texture internal formats by image format.
     static const unsigned glInternalFormats[];

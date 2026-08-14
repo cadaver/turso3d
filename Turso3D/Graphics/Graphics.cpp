@@ -4,6 +4,7 @@
 #include "../Math/Math.h"
 #include "../Resource/ResourceCache.h"
 #include "FrameBuffer.h"
+#include "GLHeaders.h"
 #include "Graphics.h"
 #include "IndexBuffer.h"
 #include "Shader.h"
@@ -13,7 +14,6 @@
 #include "VertexBuffer.h"
 
 #include <SDL3/SDL.h>
-#include <glew.h>
 #include <tracy/Tracy.hpp>
 
 #ifdef WIN32
@@ -82,7 +82,11 @@ static const unsigned glBlendOp[] =
     GL_FUNC_REVERSE_SUBTRACT
 };
 
+#ifndef GL_ES_VERSION_3_0
 unsigned occlusionQueryType = GL_SAMPLES_PASSED;
+#else
+unsigned occlusionQueryType = GL_ANY_SAMPLES_PASSED;
+#endif
 
 Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize, FullScreenMode mode) :
     window(nullptr),
@@ -112,11 +116,18 @@ Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize, FullSc
     SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 0);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
+
+#ifndef GL_ES_VERSION_3_0
+    // Desktop OpenGL 3.2+
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-
     // On Windows and Intel, this will be converted (SDL2 hack) to SDL_GL_CONTEXT_PROFILE_COMPATIBILITY to avoid bugs like vsync failing to toggle multiple times
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+#else
+    // GLES3
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+#endif
 
     const SDL_DisplayMode* desktopMode = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay());
 
@@ -154,6 +165,7 @@ Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize, FullSc
         return;
     }
     
+#ifndef GL_ES_VERSION_3_0
     GLenum err = glewInit();
     if (err != GLEW_OK || !GLEW_VERSION_3_2)
     {
@@ -164,13 +176,21 @@ Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize, FullSc
     // "Any samples passed" is potentially faster if supported
     if (GLEW_VERSION_3_3)
         occlusionQueryType = GL_ANY_SAMPLES_PASSED;
+#endif
 
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glEnable(GL_DEPTH_TEST);
+
+#ifndef GL_ES_VERSION_3_0
     glEnable(GL_MULTISAMPLE);
     glClearDepth(1.0f);
     glDepthRange(0.0f, 1.0f);
+#else
+    glClearDepthf(1.0f);
+    glDepthRangef(0.0f, 1.0f);
+#endif
+
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glDepthMask(GL_TRUE);
 
@@ -179,6 +199,7 @@ Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize, FullSc
     glBindVertexArray(defaultVao);
 
     // Use texcoords 3-5 for instancing if supported
+#ifndef GL_ES_VERSION_3_0
     if (glVertexAttribDivisorARB)
     {
         hasInstancing = true;
@@ -187,6 +208,12 @@ Graphics::Graphics(const char* windowTitle, const IntVector2& windowSize, FullSc
         glVertexAttribDivisorARB(ATTR_TEXCOORD4, 1);
         glVertexAttribDivisorARB(ATTR_TEXCOORD5, 1);
     }
+#else
+    hasInstancing = true;
+    glVertexAttribDivisor(ATTR_TEXCOORD3, 1);
+    glVertexAttribDivisor(ATTR_TEXCOORD4, 1);
+    glVertexAttribDivisor(ATTR_TEXCOORD5, 1);
+#endif
 
     DefineQuadVertexBuffer();
 

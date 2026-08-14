@@ -27,60 +27,60 @@
 
 bool SetCurrentDir(const std::string& pathName)
 {
-    #ifdef _WIN32
+#ifdef _WIN32
     if (SetCurrentDirectory(NativePath(pathName).c_str()) == FALSE)
         return false;
-    #else
+#else
     if (chdir(NativePath(pathName).c_str()) != 0)
         return false;
-    #endif
+#endif
 
     return true;
 }
 
 bool CreateDir(const std::string& pathName)
 {
-    #ifdef _WIN32
+#ifdef _WIN32
     bool success = (CreateDirectory(NativePath(RemoveTrailingSlash(pathName)).c_str(), 0) == TRUE) ||
         (GetLastError() == ERROR_ALREADY_EXISTS);
-    #else
+#else
     bool success = mkdir(NativePath(RemoveTrailingSlash(pathName)).c_str(), S_IRWXU) == 0 || errno == EEXIST;
-    #endif
+#endif
 
     return success;
 }
 
 bool RenameFile(const std::string& srcFileName, const std::string& destFileName)
 {
-    #ifdef _WIN32
+#ifdef _WIN32
     return MoveFile(NativePath(srcFileName).c_str(), NativePath(destFileName).c_str()) != 0;
-    #else
+#else
     return rename(NativePath(srcFileName).c_str(), NativePath(destFileName).c_str()) == 0;
-    #endif
+#endif
 }
 
 bool DeleteFile(const std::string& fileName)
 {
-    #ifdef _WIN32
+#ifdef _WIN32
     return DeleteFile(NativePath(fileName).c_str()) != 0;
-    #else
+#else
     return remove(NativePath(fileName).c_str()) == 0;
-    #endif
+#endif
 }
 
 std::string CurrentDir()
 {
-    #ifdef _WIN32
+#ifdef _WIN32
     char path[MAX_PATH];
     path[0] = 0;
     GetCurrentDirectory(MAX_PATH, path);
     return AddTrailingSlash(std::string(path));
-    #else
+#else
     char path[MAX_PATH];
     path[0] = 0;
     getcwd(path, MAX_PATH);
     return AddTrailingSlash(std::string(path));
-    #endif
+#endif
 }
 
 unsigned LastModifiedTime(const std::string& fileName)
@@ -88,19 +88,19 @@ unsigned LastModifiedTime(const std::string& fileName)
     if (fileName.empty())
         return 0;
 
-    #ifdef _WIN32
+#ifdef _WIN32
     struct _stat st;
     if (!_stat(fileName.c_str(), &st))
         return (unsigned)st.st_mtime;
     else
         return 0;
-    #else
+#else
     struct stat st;
     if (!stat(fileName.c_str(), &st))
         return (unsigned)st.st_mtime;
     else
         return 0;
-    #endif
+#endif
 }
 
 bool SetLastModifiedTime(const std::string& fileName, unsigned newTime)
@@ -108,7 +108,7 @@ bool SetLastModifiedTime(const std::string& fileName, unsigned newTime)
     if (fileName.empty())
         return false;
 
-    #ifdef WIN32
+#ifdef WIN32
     struct _stat oldTime;
     struct _utimbuf newTimes;
     if (_stat(fileName.c_str(), &oldTime) != 0)
@@ -116,7 +116,7 @@ bool SetLastModifiedTime(const std::string& fileName, unsigned newTime)
     newTimes.actime = oldTime.st_atime;
     newTimes.modtime = newTime;
     return _utime(fileName.c_str(), &newTimes) == 0;
-    #else
+#else
     struct stat oldTime;
     struct utimbuf newTimes;
     if (stat(fileName.c_str(), &oldTime) != 0)
@@ -124,45 +124,45 @@ bool SetLastModifiedTime(const std::string& fileName, unsigned newTime)
     newTimes.actime = oldTime.st_atime;
     newTimes.modtime = newTime;
     return utime(fileName.c_str(), &newTimes) == 0;
-    #endif
+#endif
 }
 
 bool FileExists(const std::string& fileName)
 {
     std::string fixedName = NativePath(RemoveTrailingSlash(fileName));
 
-    #ifdef _WIN32
+#ifdef _WIN32
     DWORD attributes = GetFileAttributes(fixedName.c_str());
     if (attributes == INVALID_FILE_ATTRIBUTES || attributes & FILE_ATTRIBUTE_DIRECTORY)
         return false;
-    #else
+#else
     struct stat st;
     if (stat(fixedName.c_str(), &st) || st.st_mode & S_IFDIR)
         return false;
-    #endif
+#endif
 
     return true;
 }
 
 bool DirExists(const std::string& pathName)
 {
-    #ifndef WIN32
+#ifndef WIN32
     // Always return true for the root directory
     if (pathName == "/")
         return true;
-    #endif
+#endif
 
     std::string fixedName = NativePath(RemoveTrailingSlash(pathName));
 
-    #ifdef _WIN32
+#ifdef _WIN32
     DWORD attributes = GetFileAttributes(fixedName.c_str());
     if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_DIRECTORY))
         return false;
-    #else
+#else
     struct stat st;
     if (stat(fixedName.c_str(), &st) || !(st.st_mode & S_IFDIR))
         return false;
-    #endif
+#endif
 
     return true;
 }
@@ -257,25 +257,25 @@ const std::string& ExecutableDir()
     // Cache result
     if (ret.empty())
     {
-        #if defined(_WIN32)
+#if defined(_WIN32)
         char exeName[MAX_PATH];
         exeName[0] = 0;
         GetModuleFileName(0, exeName, MAX_PATH);
         ret = Path(std::string(exeName));
-        #elif defined(__APPLE__)
+#elif defined(__APPLE__)
         char exeName[MAX_PATH];
         memset(exeName, 0, MAX_PATH);
         unsigned size = MAX_PATH;
         _NSGetExecutablePath(exeName, &size);
         ret = Path(std::string(exeName));
-        #elif defined(__linux__)
+#elif defined(__linux__)
         char exeName[MAX_PATH];
         memset(exeName, 0, MAX_PATH);
         pid_t pid = getpid();
         std::string link = "/proc/" + ToString(pid) + "/exe";
         readlink(link.c_str(), exeName, MAX_PATH);
         ret = Path(std::string(exeName));
-        #endif
+#endif
     
         // Sanitate /./ construct away
         ReplaceInPlace(ret, "/./", "/");

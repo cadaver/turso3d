@@ -2,11 +2,11 @@
 
 #include "../IO/Log.h"
 #include "FrameBuffer.h"
+#include "GLHeaders.h"
 #include "Graphics.h"
 #include "RenderBuffer.h"
 #include "Texture.h"
 
-#include <glew.h>
 #include <tracy/Tracy.hpp>
 
 static FrameBuffer* boundDrawBuffer = nullptr;
@@ -32,18 +32,19 @@ bool FrameBuffer::Define(RenderBuffer* colorBuffer, RenderBuffer* depthStencilBu
         return false;
 
     IntVector2 size = IntVector2::ZERO;
+    GLenum drawBufferId = GL_NONE;
 
     if (colorBuffer)
     {
         size = colorBuffer->Size();
-        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        drawBufferId = GL_COLOR_ATTACHMENT0;
         glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorBuffer->GLBuffer());
+
     }
     else
-    {
-        glDrawBuffer(GL_NONE);
         glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, 0);
-    }
+
+    glDrawBuffers(1, &drawBufferId);
 
     if (depthStencilBuffer)
     {
@@ -73,18 +74,18 @@ bool FrameBuffer::Define(Texture* colorTexture, Texture* depthStencilTexture)
         return false;
 
     IntVector2 size = IntVector2::ZERO;
+    GLenum drawBufferId = GL_NONE;
 
     if (colorTexture && colorTexture->TexType() == TEX_2D)
     {
         size = colorTexture->Size2D();
-        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        drawBufferId = GL_COLOR_ATTACHMENT0;
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, colorTexture->GLTarget(), colorTexture->GLTexture(), 0);
     }
     else
-    {
-        glDrawBuffer(GL_NONE);
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
-    }
+
+    glDrawBuffers(1, &drawBufferId);
 
     if (depthStencilTexture)
     {
@@ -114,18 +115,18 @@ bool FrameBuffer::Define(Texture* colorTexture, size_t cubeMapFace, Texture* dep
         return false;
 
     IntVector2 size = IntVector2::ZERO;
+    GLenum drawBufferId = GL_NONE;
 
     if (colorTexture && colorTexture->TexType() == TEX_CUBE)
     {
         size = colorTexture->Size2D();
-        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        drawBufferId = GL_COLOR_ATTACHMENT0;
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + (GLenum)cubeMapFace, colorTexture->GLTexture(), 0);
     }
     else
-    {
-        glDrawBuffer(GL_NONE);
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
-    }
+
+    glDrawBuffers(1, &drawBufferId);
 
     if (depthStencilTexture)
     {
@@ -155,8 +156,8 @@ bool FrameBuffer::Define(const std::vector<Texture*>& colorTextures, Texture* de
         return false;
 
     IntVector2 size = IntVector2::ZERO;
-
     std::vector<GLenum> drawBufferIds;
+
     for (size_t i = 0; i < colorTextures.size(); ++i)
     {
         if (colorTextures[i] && colorTextures[i]->TexType() == TEX_2D)
@@ -173,10 +174,10 @@ bool FrameBuffer::Define(const std::vector<Texture*>& colorTextures, Texture* de
             glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + (GLenum)i, GL_TEXTURE_2D, 0, 0);
     }
 
-    if (drawBufferIds.size())
-        glDrawBuffers((GLsizei)drawBufferIds.size(), &drawBufferIds[0]);
-    else
-        glDrawBuffer(GL_NONE);
+    if (!drawBufferIds.size())
+        drawBufferIds.push_back(GL_NONE);
+
+    glDrawBuffers((GLsizei)drawBufferIds.size(), &drawBufferIds[0]);
 
     if (depthStencilTexture)
     {

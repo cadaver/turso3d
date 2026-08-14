@@ -1,10 +1,10 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
+#include "GLHeaders.h"
 #include "Graphics.h"
 #include "Texture.h"
 
-#include <glew.h>
 #include <tracy/Tracy.hpp>
 
 static size_t activeTextureUnit = 0xffffffff;
@@ -25,9 +25,15 @@ const unsigned Texture::glInternalFormats[] =
     GL_RG8,
     GL_RGBA8,
     GL_ALPHA,
+#ifndef GL_ES_VERSION_3_0
     GL_R16,
     GL_RG16,
     GL_RGBA16,
+#else
+    0,
+    0,
+    0,
+#endif
     GL_R16F,
     GL_RG16F,
     GL_RGBA16F,
@@ -39,12 +45,23 @@ const unsigned Texture::glInternalFormats[] =
     GL_RG32UI,
     GL_RGBA32UI,
     GL_DEPTH_COMPONENT16,
+#ifndef GL_ES_VERSION_3_0
     GL_DEPTH_COMPONENT32,
+#else
+    GL_DEPTH_COMPONENT32F,
+#endif
     GL_DEPTH24_STENCIL8,
+#ifndef GL_ES_VERSION_3_0
     GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
     GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,
     GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
     0,
+#else
+    0,
+    0,
+    0,
+    GL_COMPRESSED_RGB8_ETC2,
+#endif
     0,
     0,
     0,
@@ -74,10 +91,17 @@ static const unsigned glFormats[] =
     GL_DEPTH_COMPONENT,
     GL_DEPTH_COMPONENT,
     GL_DEPTH_STENCIL,
+#ifndef GL_ES_VERSION_3_0
     GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
     GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,
     GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
     0,
+#else
+    0,
+    0,
+    0,
+    GL_COMPRESSED_RGB8_ETC2,
+#endif
     0,
     0,
     0,
@@ -105,7 +129,11 @@ static const unsigned glDataTypes[] =
     GL_UNSIGNED_INT,
     GL_UNSIGNED_INT,
     GL_UNSIGNED_SHORT,
+#ifndef GL_ES_VERSION_3_0
     GL_UNSIGNED_INT,
+#else
+    GL_FLOAT,
+#endif
     GL_UNSIGNED_INT_24_8,
     0,
     0,
@@ -122,8 +150,14 @@ static const unsigned glWrapModes[] =
     GL_REPEAT,
     GL_MIRRORED_REPEAT,
     GL_CLAMP_TO_EDGE,
+#ifndef GL_ES_VERSION_3_0
     GL_CLAMP_TO_BORDER,
     GL_MIRROR_CLAMP_EXT
+#else
+    // GLES3 fallbacks
+    GL_CLAMP_TO_EDGE,
+    GL_MIRRORED_REPEAT
+#endif
 };
 
 Texture::Texture() :
@@ -162,7 +196,7 @@ bool Texture::BeginLoad(Stream& source)
     }
 
     // If image uses unsupported format, decompress to RGBA now
-    if (loadImages[0]->Format() >= FMT_ETC1)
+    if (!FormatSupported(loadImages[0]->Format()))
     {
         Image* rgbaImage = new Image();
         rgbaImage->SetSize(loadImages[0]->Size(), FMT_RGBA8);
@@ -221,9 +255,9 @@ bool Texture::Define(TextureType type_, const IntVector3& size_, ImageFormat for
 
     Destroy();
 
-    if (format_ > FMT_DXT5)
+    if (!FormatSupported(format_))
     {
-        LOGERROR("ETC1 and PVRTC formats are unsupported");
+        LOGERRORF("Unsupported texture format %d", format_);
         return false;
     }
     if (size_.x < 1 || size_.y < 1 || size_.z < 1)
@@ -246,6 +280,13 @@ bool Texture::Define(TextureType type_, const IntVector3& size_, ImageFormat for
         numLevels_ = 1;
     if (multisample_ < 1)
         multisample_ = 1;
+#ifdef GL_ES_VERSION_3_0
+    if (multisample_ > 1)
+    {
+        LOGWARNING("Multisampled texture not supported on GLES3, falling back to non-multisampled");
+        multisample_ = 1;
+    }
+#endif
 
     type = type_;
 
@@ -267,8 +308,10 @@ bool Texture::Define(TextureType type_, const IntVector3& size_, ImageFormat for
     multisample = multisample_;
 
     target = glTargets[type];
+#ifndef GL_ES_VERSION_3_0
     if (target == GL_TEXTURE_2D && multisample > 1)
         target = GL_TEXTURE_2D_MULTISAMPLE;
+#endif
 
     ForceBind();
 
@@ -289,6 +332,7 @@ bool Texture::Define(TextureType type_, const IntVector3& size_, ImageFormat for
                     glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + (GLenum)i, 0, glInternalFormats[format], size.x, size.y, 0, glFormats[format], glDataTypes[format], nullptr);
             }
         }
+#ifndef GL_ES_VERSION_3_0
         else
         {
             if (type == TEX_2D)
@@ -301,6 +345,7 @@ bool Texture::Define(TextureType type_, const IntVector3& size_, ImageFormat for
                     glTexImage2DMultisample(GL_TEXTURE_CUBE_MAP_POSITIVE_X + (GLenum)i, multisample, glInternalFormats[format], size.x, size.y, GL_TRUE);
             }
         }
+#endif
     }
 
     if (initialData)
@@ -389,13 +434,14 @@ bool Texture::DefineSampler(TextureFilterMode filter_, TextureAddressMode u, Tex
     glTexParameteri(target, GL_TEXTURE_WRAP_T, glWrapModes[addressModes[1]]);
     glTexParameteri(target, GL_TEXTURE_WRAP_R, glWrapModes[addressModes[2]]);
 
-    glTexParameterf(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, filter == FILTER_ANISOTROPIC ? maxAnisotropy : 1.0f);
-
     glTexParameterf(target, GL_TEXTURE_MIN_LOD, minLod);
     glTexParameterf(target, GL_TEXTURE_MAX_LOD, maxLod);
 
+#ifndef GL_ES_VERSION_3_0
+    glTexParameterf(target, GL_TEXTURE_MAX_ANISOTROPY_EXT, filter == FILTER_ANISOTROPIC ? maxAnisotropy : 1.0f);
     glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, borderColor.Data());
-        
+#endif        
+
     if (filter >= COMPARE_POINT)
     {
         glTexParameteri(target, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
@@ -532,6 +578,11 @@ void Texture::Unbind(size_t unit)
         activeTargets[unit] = 0;
         boundTextures[unit] = nullptr;
     }
+}
+
+bool Texture::FormatSupported(ImageFormat format)
+{
+    return glInternalFormats[format] != 0;
 }
 
 unsigned Texture::GLTarget() const

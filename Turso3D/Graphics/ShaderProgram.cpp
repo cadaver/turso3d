@@ -1,13 +1,12 @@
 ﻿// For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
+#include "GLHeaders.h"
 #include "Graphics.h"
 #include "ShaderProgram.h"
 
-#include <glew.h>
-#include <tracy/Tracy.hpp>
-
 #include <cctype>
+#include <tracy/Tracy.hpp>
 
 static ShaderProgram* boundProgram = nullptr;
 
@@ -117,7 +116,13 @@ void ShaderProgram::Create(const std::string& sourceCode, const std::vector<std:
     ZoneScoped;
 
     std::string vsSourceCode;
+
+#ifndef GL_ES_VERSION_3_0
     vsSourceCode += "#version 150\n";
+#else
+    vsSourceCode += "#version 300 es\n";
+#endif
+
     vsSourceCode += "#define COMPILEVS\n";
     for (size_t i = 0; i < vsDefines.size(); ++i)
     {
@@ -153,7 +158,14 @@ void ShaderProgram::Create(const std::string& sourceCode, const std::vector<std:
     }
 
     std::string fsSourceCode;
+
+#ifndef GL_ES_VERSION_3_0
     fsSourceCode += "#version 150\n";
+#else
+    fsSourceCode += "#version 300 es\n";
+#endif
+    fsSourceCode += "precision highp float;\n";
+
     fsSourceCode += "#define COMPILEFS\n";
     for (size_t i = 0; i < fsDefines.size(); ++i)
     {
@@ -268,7 +280,11 @@ void ShaderProgram::Create(const std::string& sourceCode, const std::vector<std:
         if (preset < MAX_PRESET_UNIFORMS)
             presetUniforms[preset] = location;
 
+#ifndef GL_ES_VERSION_3_0
         if ((type >= GL_SAMPLER_1D && type <= GL_SAMPLER_2D_SHADOW) || (type >= GL_SAMPLER_1D_ARRAY && type <= GL_SAMPLER_CUBE_SHADOW) || (type >= GL_INT_SAMPLER_1D && type <= GL_UNSIGNED_INT_SAMPLER_2D_ARRAY) || type == GL_SAMPLER_2D_MULTISAMPLE)
+#else
+        if ((type >= GL_SAMPLER_2D || type <= GL_SAMPLER_2D_SHADOW) || (type >= GL_INT_SAMPLER_2D && type <= GL_UNSIGNED_INT_SAMPLER_2D_ARRAY) || (type >= GL_SAMPLER_2D_ARRAY && type <= GL_SAMPLER_CUBE_SHADOW))
+#endif
         {
             // Assign sampler uniforms to a texture unit according to the number appended to the sampler name
             int unit = NumberPostfix(name);

@@ -1,0 +1,1 @@
+emcmake cmake -B ".build/emscripten" %* .

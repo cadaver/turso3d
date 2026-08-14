@@ -14,7 +14,7 @@ out vec3 vNormal;
 out vec4 vTangent;
 out vec3 vViewNormal;
 out vec2 vTexCoord;
-noperspective out vec2 vScreenPos;
+out vec2 vScreenPos;
 
 #else
 
@@ -25,7 +25,7 @@ in vec3 vNormal;
 in vec4 vTangent;
 in vec3 vViewNormal;
 in vec2 vTexCoord;
-noperspective in vec2 vScreenPos;
+in vec2 vScreenPos;
 out vec4 fragColor[2];
 
 layout(std140) uniform PerMaterialData3
@@ -50,7 +50,7 @@ vec3 DecodeNormal(vec4 normalInput)
 void vert()
 {
     mat3x4 world = GetWorldMatrix();
-    
+
     vWorldPos.xyz = vec4(position, 1.0) * world;
     vNormal = normalize((vec4(normal, 0.0) * world));
     vTangent = vec4(normalize(vec4(tangent.xyz, 0.0) * world), tangent.w);
@@ -58,7 +58,7 @@ void vert()
     vTexCoord = texCoord;
     gl_Position = vec4(vWorldPos.xyz, 1.0) * viewProjMatrix;
     vWorldPos.w = CalculateDepth(gl_Position);
-    vScreenPos = CalculateScreenPos(gl_Position);
+    vScreenPos = CalculateScreenPos(gl_Position) * gl_Position.w;
 }
 
 void frag()
@@ -68,7 +68,7 @@ void frag()
 
     vec3 diffuseLight;
     vec3 specularLight;
-    CalculateLighting(vWorldPos, normal, vScreenPos, matDiffColor, matSpecColor, diffuseLight, specularLight);
+    CalculateLighting(vWorldPos, normal, vScreenPos * gl_FragCoord.w, matDiffColor, matSpecColor, diffuseLight, specularLight);
 
     vec3 finalColor = texture(diffuseTex0, vTexCoord).rgb * diffuseLight + specularLight;
 
