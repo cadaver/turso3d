@@ -116,23 +116,19 @@ private:
 
 bool TestApplication::Init(const std::vector<std::string>& arguments)
 {
-    bool useThreads = true;
-
-    if (arguments.size() > 1 && arguments[1].find("nothreads") != std::string::npos)
-        useThreads = false;
-
-#ifdef __EMSCRIPTEN__
-    // For now both threading and occlusion queries disabled for web build
-    useThreads = false;
-    useOcclusion = false;
-#endif
-
     // Create subsystems that don't depend on the application window / OpenGL context
-    workQueue = new WorkQueue(useThreads ? 0 : 1);
     profiler = new Profiler();
     log = new Log();
-    cache = new ResourceCache();
 
+    // Init worker threads
+    bool useThreads = true;
+    if (arguments.size() > 1 && arguments[1].find("nothreads") != std::string::npos)
+        useThreads = false;
+    workQueue = new WorkQueue(useThreads ? 0 : 1);
+    LOGINFOF("Using %d threads", workQueue->NumThreads());
+
+    // Add data directory
+    cache = new ResourceCache();
     cache->AddResourceDir(ExecutableDir() + "Data");
 
     // Create the Graphics subsystem to open the application window and initialize OpenGL
@@ -143,9 +139,13 @@ bool TestApplication::Init(const std::vector<std::string>& arguments)
     // Create subsystems that depend on the application window / OpenGL
     input = new Input(graphics->Window());
     renderer = new Renderer();
+    renderer->SetupShadowMaps(1024, 2048, FMT_D16);
     debugRenderer = new DebugRenderer();
 
-    renderer->SetupShadowMaps(1024, 2048, FMT_D16);
+    // Disable occlusion queries from web build for now due to performance loss
+#ifdef __EMSCRIPTEN__
+    useOcclusion = false;
+#endif
 
     // Rendering result framebuffers and textures
     viewFbo = new FrameBuffer();

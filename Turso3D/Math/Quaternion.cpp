@@ -224,18 +224,52 @@ float Quaternion::RollAngle() const
 
 Quaternion Quaternion::Slerp(Quaternion rhs, float t) const
 {
+    // Use fast approximation for web builds
+#ifdef __EMSCRIPTEN__
+    float angle = DotProduct(rhs);
+    float sign = 1.f; // Multiply by a sign of +/-1 to guarantee we rotate the shorter arc.
+    if (angle < 0.f)
+    {
+        angle = -angle;
+        sign = -1.f;
+    }
+
+    float a;
+    float b;
+    if (angle < 0.999f) // perform spherical linear interpolation.
+    {
+        // angle = acos(angle); // After this, angle is in the range pi/2 -> 0 as the original angle variable ranged from 0 -> 1.
+        angle = (-0.69813170079773212f * angle * angle - 0.87266462599716477f) * angle + 1.5707963267948966f;
+        float ta = t * angle;
+        // Manually compute the two sines by using a very rough approximation.
+        float ta2 = ta * ta;
+        b = ((5.64311797634681035370e-03f * ta2 - 1.55271410633428644799e-01f) * ta2 + 9.87862135574673806965e-01f) * ta;
+        a = angle - ta;
+        float a2 = a * a;
+        a = ((5.64311797634681035370e-03f * a2 - 1.55271410633428644799e-01f) * a2 + 9.87862135574673806965e-01f) * a;
+    }
+    else // If angle is close to taking the denominator to zero, resort to linear interpolation (and normalization).
+    {
+        a = 1.f - t;
+        b = t;
+    }
+    // Lerp and renormalize.
+    return (*this * (a * sign) + rhs * b).Normalized();
+#else
+    // Favor accuracy for native code builds
     float cosAngle = DotProduct(rhs);
+    float sign = 1.0f;
     // Enable shortest path rotation
     if (cosAngle < 0.0f)
     {
         cosAngle = -cosAngle;
-        rhs = -rhs;
+        sign = -1.0f;
     }
-    
+
     float angle = acosf(cosAngle);
     float sinAngle = sinf(angle);
     float t1, t2;
-    
+
     if (sinAngle > 0.001f)
     {
         float invSinAngle = 1.0f / sinAngle;
@@ -247,8 +281,9 @@ Quaternion Quaternion::Slerp(Quaternion rhs, float t) const
         t1 = 1.0f - t;
         t2 = t;
     }
-    
-    return *this * t1 + rhs * t2;
+
+    return *this * t1 + (rhs * sign) * t2;
+#endif
 }
 
 Quaternion Quaternion::Nlerp(Quaternion rhs, float t, bool shortestPath) const

@@ -2,7 +2,7 @@
 
 Experimental 3D / game engine technology partially based on the Urho3D codebase. Expected to remain in an immature or "toy" state for the time being.
 
-- OpenGL 3.2 / SDL3
+- OpenGL 3.2 (WebGL2 on web build) / SDL3
 - Forward+ rendering, currently up to 255 lights in view
 - Threaded work queue to speed up animation and view preparation
 - Caching of static shadow maps
@@ -13,6 +13,8 @@ Experimental 3D / game engine technology partially based on the Urho3D codebase.
 
 Execute one of the provided CMake scripts to generate build files in .build subdirectory (will be created). Execute with command line option -DTURSO3D_TRACY=1
 to enable Tracy profiling.
+
+For a web build, have the Emscripten SDK environment prepared before invoking CMake. After building, serve the Turso3DTest.html page from the Bin directory to run.
 
 ## Test application controls
 

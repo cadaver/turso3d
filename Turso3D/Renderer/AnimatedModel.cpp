@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <tracy/Tracy.hpp>
 
+static const size_t MAX_BONES = 96;
+
 static Allocator<AnimatedModelDrawable> drawableAllocator;
 
 Bone::Bone() :
@@ -262,7 +264,13 @@ void AnimatedModelDrawable::CreateBones()
 
     if (!skinMatrixBuffer)
         skinMatrixBuffer = new UniformBuffer();
+ 
+ // On WebGL, must ensure the matrix uniform buffer is at least as much as what the shader expects, as it's illegal to have unbound data in the uniform block
+#ifdef __EMSCRIPTEN__
+    skinMatrixBuffer->Define(USAGE_DYNAMIC, (numBones < MAX_BONES ? MAX_BONES : numBones) * sizeof(Matrix3x4));
+#else
     skinMatrixBuffer->Define(USAGE_DYNAMIC, numBones * sizeof(Matrix3x4));
+#endif
 
     // Set initial bone bounding box recalculation and skinning dirty. Also calculate a valid bone bounding box immediately to ensure models can enter the view without updating animation first
     OnBoneTransformChanged();
