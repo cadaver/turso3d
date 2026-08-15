@@ -1,3 +1,5 @@
+// For conditions of distribution and use, see copyright notice in License.txt
+
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/Graphics.h"
 #include "Graphics/Texture.h"
@@ -110,7 +112,6 @@ private:
     std::string profilerOutput;
     Timer profilerTimer;
     HiresTimer frameTimer;
-    long long lastFrameTime = 0;
 };
 
 bool TestApplication::Init(const std::vector<std::string>& arguments)
@@ -197,6 +198,8 @@ bool TestApplication::RunFrame()
         return false;
 #endif
 
+    // Get deltatime since last frame & reset
+    dt = frameTimer.ElapsedUSec(true) * 0.000001f;
 
     if (profilerTimer.ElapsedMSec() >= 1000)
     {
@@ -212,10 +215,6 @@ bool TestApplication::RunFrame()
     RenderAndPresent();
 
     profiler->EndFrame();
-
-    long long currentFrameTime = frameTimer.ElapsedUSec();
-    dt = (currentFrameTime - lastFrameTime) * 0.000001f;
-    lastFrameTime = currentFrameTime;
 
     FrameMark;
 
@@ -738,15 +737,15 @@ int main(int argc, char** argv)
     if (!app->Init(ParseArguments(argc, argv)))
         return 1;
     
-#ifndef __EMSCRIPTEN__
+#ifdef __EMSCRIPTEN__
+    emscripten_set_main_loop(FrameCallback, 0, 0);
+#else
     while (app->RunFrame())
     {
     }
 
     app->Exit();
     delete app;
-#else
-    emscripten_set_main_loop(FrameCallback, 0, 0);
 #endif
 
     return 0;

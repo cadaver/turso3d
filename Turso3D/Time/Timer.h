@@ -9,8 +9,8 @@ public:
     /// Construct. Get the starting clock value.
     Timer();
 
-    /// Return elapsed milliseconds.
-    unsigned ElapsedMSec();
+    /// Return elapsed milliseconds and optionally reset as one operation.
+    unsigned ElapsedMSec(bool reset = false);
     /// Reset the timer.
     void Reset();
 
@@ -26,8 +26,8 @@ public:
     /// Construct. Get the starting high-resolution clock value.
     HiresTimer();
 
-    /// Return elapsed microseconds.
-    long long ElapsedUSec();
+    /// Return elapsed microseconds and optionally reset as one operation.
+    long long ElapsedUSec(bool reset = false);
     /// Reset the timer.
     void Reset();
 
