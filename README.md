@@ -30,3 +30,6 @@ For a web build, have the Emscripten SDK environment prepared before invoking CM
 - F toggle windowed, fullscreen and borderless fullscreen
 - M toggle between 4x MSAA and no MSAA
 - V toggle vsync
+
+<a href="https://cadaver.github.io/turso3d/Turso3DTest.html">Web build of the test application for Wasm / WebGL2-capable browsers</a>
+
