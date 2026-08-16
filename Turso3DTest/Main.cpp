@@ -206,6 +206,10 @@ bool TestApplication::RunFrame()
         profilerOutput = profiler->OutputResults();
         profiler->BeginInterval();
         profilerTimer.Reset();
+        // In web build, keep printing profiler output to stdout in case it's interesting, since we don't get it at program exit
+#ifdef __EMSCRIPTEN__
+        LOGRAWF("%s", profilerOutput.c_str());
+#endif
     }
 
     profiler->BeginFrame();
