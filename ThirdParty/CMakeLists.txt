@@ -5,6 +5,7 @@ add_subdirectory (STB)
 add_subdirectory (Tracy)
 
 # SDL3
+add_definitions (-DSDL_LEAN_AND_MEAN=1)
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
 set(SDL_LIBC ON CACHE BOOL "" FORCE)
