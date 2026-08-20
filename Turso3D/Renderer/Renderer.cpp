@@ -606,10 +606,9 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
             }
             return;
 
-            // If the octant's parent is already visible too, only test the octant if it is a "leaf octant" with drawables
+            // If the octant is already visible, only test if it is a "leaf octant" with drawables
         case VIS_VISIBLE:
-            Octant* parent = octant->Parent();
-            if (octant->Drawables().size() > 0 || (parent && parent->Visibility() != VIS_VISIBLE))
+            if (octant->Drawables().size())
                 AddOcclusionQuery(octant, result, planeMask);
             break;
         }
