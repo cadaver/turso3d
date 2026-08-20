@@ -39,6 +39,9 @@ struct OcclusionQueryResult
     bool visible;
 };
 
+// Occlusion query "queued and waiting" fake id.
+static const unsigned OCCLUSION_WAITING_QUERY_ID = 0xffffffff;
+
 /// %Graphics rendering context and application window.
 class Graphics : public Object
 {

@@ -7,11 +7,11 @@
 #include "OctreeNode.h"
 
 #include <atomic>
+#include <deque>
 
 static const size_t NUM_OCTANTS = 8;
 static const unsigned char OF_DRAWABLES_SORT_DIRTY = 0x1;
 static const unsigned char OF_CULLING_BOX_DIRTY = 0x2;
-static const float OCCLUSION_QUERY_INTERVAL = 0.133333f; // About 8 frame stagger at 60fps
 
 class Ray;
 class WorkQueue;
@@ -53,11 +53,11 @@ public:
     /// Destruct. If has a pending occlusion query, free it.
     ~Octant();
 
-    /// Initialize parent and bounds.
-    void Initialize(Octant* parent, const BoundingBox& boundingBox, unsigned char level, unsigned char childIndex);
+    /// Initialize into an octree with parent and bounds.
+    void Initialize(Octree* octree, Octant* parent, const BoundingBox& boundingBox, unsigned char level, unsigned char childIndex);
     /// Add debug geometry to be rendered.
     void OnRenderDebug(DebugRenderer* debug);
-    /// React to occlusion query being rendered for the octant. Store the query ID to know not to re-test until have the result.
+    /// React to occlusion query being rendered for the octant. Store the query ID to know not to re-test until have the result. A waiting "fake query" is also queued this way
     void OnOcclusionQuery(unsigned queryId);
     /// React to occlusion query result. Push changed visibility to parents or children as necessary. If outside frustum, no operation.
     void OnOcclusionQueryResult(bool visible);
@@ -76,7 +76,7 @@ public:
     unsigned char ChildIndex(const Vector3& position) const { unsigned char ret = position.x < center.x ? 0 : 1; ret += position.y < center.y ? 0 : 2; ret += position.z < center.z ? 0 : 4; return ret; }
     /// Return last occlusion visibility status.
     OctantVisibility Visibility() const { return visibility; }
-    /// Return whether is pending an occlusion query result.
+    /// Return whether is pending an occlusion query result. Also returns true when on the query waiting queue.
     bool OcclusionQueryPending() const { return occlusionQueryId != 0; }
     /// Set bit flag. Called internally.
     void SetFlag(unsigned char bit, bool set) const { if (set) flags |= bit; else flags &= ~bit; }
@@ -124,26 +124,6 @@ public:
             PushVisibilityToChildren(this, newVisibility);
     }
 
-    /// Return true if a new occlusion query should be executed. Use a time interval for already visible octants. Return false if previous query still pending.
-    bool CheckNewOcclusionQuery(float frameTime)
-    {
-        if (visibility != VIS_VISIBLE)
-            return occlusionQueryId == 0;
-
-        occlusionQueryTimer += frameTime;
-
-        if (occlusionQueryId != 0)
-            return false;
-
-        if (occlusionQueryTimer >= OCCLUSION_QUERY_INTERVAL)
-        {
-            occlusionQueryTimer = fmodf(occlusionQueryTimer, OCCLUSION_QUERY_INTERVAL);
-            return true;
-        }
-        else
-            return false;
-    }
-
     /// Push visibility status to child octants.
     static void PushVisibilityToChildren(Octant* octant, OctantVisibility newVisibility)
     {
@@ -173,12 +153,12 @@ private:
     Octant* children[NUM_OCTANTS];
     /// Parent octant.
     Octant* parent;
+    /// Parent octree.
+    Octree* octree;
     /// Last occlusion query visibility.
     OctantVisibility visibility;
     /// Occlusion query id, or 0 if no query pending.
     unsigned occlusionQueryId;
-    /// Occlusion query interval timer.
-    float occlusionQueryTimer;
     /// Number of child octants.
     unsigned char numChildren;
     /// Subdivision level, decreasing for child octants.
@@ -215,6 +195,12 @@ public:
     void RemoveDrawable(Drawable* drawable);
     /// Add debug geometry to be rendered. Visualizes the whole octree.
     void OnRenderDebug(DebugRenderer* debug);
+    /// Queue a "waiting" occlusion query for an octant, to be executed later.
+    void QueueWaitingOcclusionQuery(Octant* octant);
+    /// Remove a "waiting" occlusion query when the octant was destroyed early.
+    void RemoveWaitingOcclusionQuery(Octant* octant);
+    /// Return the queue of octants waiting for occlusion query.
+    std::deque<Octant*>& WaitingOcclusionOctants() { return waitingOcclusionOctants; }
 
     /// Query for drawables with a raycast and return all results.
     void Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance = M_MAX_FLOAT, unsigned layerMask = LAYERMASK_ALL) const;
@@ -379,6 +365,8 @@ private:
     Allocator<Octant> allocator;
     /// Cached %WorkQueue subsystem.
     WorkQueue* workQueue;
+    /// Occlusion culling waiting octant queue.
+    std::deque<Octant*> waitingOcclusionOctants;
     /// Tasks for threaded reinsert execution.
     std::vector<AutoPtr<ReinsertDrawablesTask> > reinsertTasks;
     /// RaycastSingle initial coarse result.

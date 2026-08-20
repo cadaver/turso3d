@@ -320,9 +320,6 @@ void Renderer::PrepareView(Scene* scene_, Camera* camera_, bool drawShadows_, bo
     maxZ = 0.0f;
     geometryBounds.Destroy();
 
-    // Stagger for occlusion queries based on last frametime
-    lastFrameTime = graphics->LastFrameTime();
-
     for (size_t i = 0; i < NUM_OCTANT_TASKS; ++i)
         octantResults[i].Clear();
     for (size_t i = 0; i < workQueue->NumThreads(); ++i)
@@ -610,7 +607,6 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
             return;
 
             // If the octant's parent is already visible too, only test the octant if it is a "leaf octant" with drawables
-            // Note: visible octants will also add a time-based staggering to reduce queries
         case VIS_VISIBLE:
             Octant* parent = octant->Parent();
             if (octant->Drawables().size() > 0 || (parent && parent->Visibility() != VIS_VISIBLE))
@@ -676,9 +672,9 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
 
 void Renderer::AddOcclusionQuery(Octant* octant, ThreadOctantResult& result, unsigned char planeMask)
 {
-    // No-op if previous query still ongoing. Also If the octant intersects the frustum, verify with SAT test that it actually covers some screen area
+    // No-op if previous query still executing or already on the waiting queue. Also If the octant intersects the frustum, verify with SAT test that it actually covers some screen area
     // Otherwise the occlusion test will produce a false negative
-    if (octant->CheckNewOcclusionQuery(lastFrameTime) && (!planeMask || frustum.IsInsideSAT(octant->CullingBox(), frustumSATData)))
+    if (!octant->OcclusionQueryPending() && (!planeMask || frustum.IsInsideSAT(octant->CullingBox(), frustumSATData)))
         result.occlusionQueries.push_back(octant);
 }
 
@@ -1012,11 +1008,71 @@ void Renderer::RenderOcclusionQueries()
     boundingBoxShaderProgram->Bind();
     graphics->SetRenderState(BLEND_REPLACE, CULL_BACK, CMP_LESS_EQUAL, false, false);
 
+    const size_t MAX_QUERIES = 256;
+    const size_t MIN_WAITING = 64;
+
+    // Execute previously waiting queries (as much as we can). Ensure that at least MIN_WAITING queries will be added
+    std::deque<Octant*>& waitingQueue = octree->WaitingOcclusionOctants();
+    size_t waitingLimit = Max(graphics->PendingOcclusionQueries() + MIN_WAITING, MAX_QUERIES);
+
+    while (waitingQueue.size())
+    {
+        Octant* octant = waitingQueue.front();
+        waitingQueue.pop_front();
+
+        // If the octant already left the frustum in the meanwhile, assume visible without performing query
+        if (octant->Visibility() == VIS_OUTSIDE_FRUSTUM)
+        {
+            octant->OnOcclusionQueryResult(true);
+            continue;
+        }
+
+        const BoundingBox& octantBox = octant->CullingBox();
+        BoundingBox box(octantBox.min - enlargement, octantBox.max + enlargement);
+
+        // If bounding box could be clipped by near plane, assume visible without performing query
+        if (box.Distance(cameraPosition) < 2.0f * nearClip)
+        {
+            octant->OnOcclusionQueryResult(true);
+            continue;
+        }
+
+        Vector3 size = box.HalfSize();
+        Vector3 center = box.Center();
+
+        boxMatrix.m00 = size.x;
+        boxMatrix.m11 = size.y;
+        boxMatrix.m22 = size.z;
+        boxMatrix.m03 = center.x;
+        boxMatrix.m13 = center.y;
+        boxMatrix.m23 = center.z;
+
+        graphics->SetUniform(boundingBoxShaderProgram, U_WORLDMATRIX, boxMatrix);
+
+        unsigned queryId = graphics->BeginOcclusionQuery(octant);
+        graphics->DrawIndexed(PT_TRIANGLE_LIST, 0, NUM_BOX_INDICES);
+        graphics->EndOcclusionQuery();
+
+        // Remember query in octant to not re-test it until result arrives
+        octant->OnOcclusionQuery(queryId);
+
+        if (graphics->PendingOcclusionQueries() >= waitingLimit)
+            break;
+    }
+
+    // Execute new queries
     for (size_t i = 0; i < NUM_OCTANT_TASKS; ++i)
     {
         for (auto it = octantResults[i].occlusionQueries.begin(); it != octantResults[i].occlusionQueries.end(); ++it)
         {
             Octant* octant = *it;
+            
+            // To avoid missing objects, must always execute query for a previously occluded octant. For visible octants, check the maximum query limit
+            if (octant->Visibility() >= VIS_VISIBLE_UNKNOWN && graphics->PendingOcclusionQueries() >= MAX_QUERIES)
+            {
+                octree->QueueWaitingOcclusionQuery(octant);
+                continue;
+            }
 
             const BoundingBox& octantBox = octant->CullingBox();
             BoundingBox box(octantBox.min - enlargement, octantBox.max + enlargement);

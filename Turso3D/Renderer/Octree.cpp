@@ -57,7 +57,6 @@ Octant::Octant() :
     parent(nullptr),
     visibility(VIS_VISIBLE_UNKNOWN),
     occlusionQueryId(0),
-    occlusionQueryTimer(Random() * OCCLUSION_QUERY_INTERVAL),
     numChildren(0)
 {
     for (size_t i = 0; i < NUM_OCTANTS; ++i)
@@ -68,13 +67,19 @@ Octant::~Octant()
 {
     if (occlusionQueryId)
     {
-        Graphics* graphics = Object::Subsystem<Graphics>();
-        if (graphics)
-            graphics->FreeOcclusionQuery(occlusionQueryId);
+        // Remove either from the waiting queue or free the actual HW query for reuse without handling the result
+        if (occlusionQueryId == OCCLUSION_WAITING_QUERY_ID)
+            octree->RemoveWaitingOcclusionQuery(this);
+        else
+        {
+            Graphics* graphics = Object::Subsystem<Graphics>();
+            if (graphics)
+                graphics->FreeOcclusionQuery(occlusionQueryId);
+        }
     }
 }
 
-void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigned char level_, unsigned char childIndex_)
+void Octant::Initialize(Octree* octree_, Octant* parent_, const BoundingBox& boundingBox, unsigned char level_, unsigned char childIndex_)
 {
     BoundingBox worldBoundingBox = boundingBox;
     center = worldBoundingBox.Center();
@@ -82,6 +87,7 @@ void Octant::Initialize(Octant* parent_, const BoundingBox& boundingBox, unsigne
     fittingBox = BoundingBox(worldBoundingBox.min - halfSize, worldBoundingBox.max + halfSize);
 
     parent = parent_;
+    octree = octree_;
     level = level_;
     childIndex = childIndex_;
     flags = OF_CULLING_BOX_DIRTY;
@@ -94,8 +100,8 @@ void Octant::OnRenderDebug(DebugRenderer* debug)
 
 void Octant::OnOcclusionQuery(unsigned queryId)
 {
-    // Should not have an existing query in flight
-    assert(!occlusionQueryId);
+    // Should not have an existing actual HW query in flight
+    assert(!occlusionQueryId || occlusionQueryId == OCCLUSION_WAITING_QUERY_ID);
 
     // Mark pending
     occlusionQueryId = queryId;
@@ -177,7 +183,7 @@ Octree::Octree() :
 {
     assert(workQueue);
 
-    root.Initialize(nullptr, BoundingBox(-DEFAULT_OCTREE_SIZE, DEFAULT_OCTREE_SIZE), DEFAULT_OCTREE_LEVELS, 0);
+    root.Initialize(this, nullptr, BoundingBox(-DEFAULT_OCTREE_SIZE, DEFAULT_OCTREE_SIZE), DEFAULT_OCTREE_LEVELS, 0);
 
     size_t numQueues = workQueue->NumThreads();
     updateQueues = new std::vector<Drawable*>[numQueues];
@@ -309,12 +315,37 @@ void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
         allocator.Reset();
     }
 
-    root.Initialize(nullptr, boundingBox, (unsigned char)Clamp(numLevels, 1, MAX_OCTREE_LEVELS), 0);
+    root.Initialize(this, nullptr, boundingBox, (unsigned char)Clamp(numLevels, 1, MAX_OCTREE_LEVELS), 0);
 }
 
 void Octree::OnRenderDebug(DebugRenderer* debug)
 {
     root.OnRenderDebug(debug);
+}
+
+void Octree::QueueWaitingOcclusionQuery(Octant* octant)
+{
+    if (octant && !octant->occlusionQueryId)
+    {
+        octant->occlusionQueryId = OCCLUSION_WAITING_QUERY_ID;
+        waitingOcclusionOctants.push_back(octant);
+    }
+}
+
+void Octree::RemoveWaitingOcclusionQuery(Octant* octant)
+{
+    if (octant && octant->occlusionQueryId == OCCLUSION_WAITING_QUERY_ID)
+    {
+        for (auto it = waitingOcclusionOctants.begin(); it != waitingOcclusionOctants.end(); ++it)
+        { 
+            if (*it == octant)
+            {
+                waitingOcclusionOctants.erase(it);
+                octant->occlusionQueryId = 0;
+                break;
+            }
+        }
+    }
 }
 
 void Octree::Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance, unsigned layerMask) const
@@ -521,7 +552,7 @@ Octant* Octree::CreateChildOctant(Octant* octant, unsigned char index)
         newMax.z = oldCenter.z;
 
     Octant* child = allocator.Allocate();
-    child->Initialize(octant, BoundingBox(newMin, newMax), octant->level - 1, index);
+    child->Initialize(this, octant, BoundingBox(newMin, newMax), octant->level - 1, index);
     octant->children[index] = child;
     ++octant->numChildren;
 
