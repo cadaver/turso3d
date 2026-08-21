@@ -39,9 +39,6 @@ struct OcclusionQueryResult
     bool visible;
 };
 
-// Occlusion query "queued and waiting" fake id.
-static const unsigned OCCLUSION_WAITING_QUERY_ID = 0xffffffff;
-
 /// %Graphics rendering context and application window.
 class Graphics : public Object
 {
@@ -123,7 +120,7 @@ public:
     /// Draw a quad with current renderstate. The quad vertex buffer is left bound.
     void DrawQuad();
 
-    /// Begin an occlusion query and associate an object with it for checking results. Return the query ID.
+    /// Begin an occlusion query and optionally associate an object with it for checking results. Return the query ID.
     unsigned BeginOcclusionQuery(void* object);
     /// End an occlusion query.
     void EndOcclusionQuery();

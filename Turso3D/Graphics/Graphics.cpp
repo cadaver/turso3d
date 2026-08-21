@@ -752,7 +752,7 @@ void Graphics::EndOcclusionQuery()
 
 void Graphics::FreeOcclusionQuery(unsigned queryId)
 {
-    if (!queryId || queryId == OCCLUSION_WAITING_QUERY_ID)
+    if (!queryId)
         return;
 
     for (auto it = pendingQueries.begin(); it != pendingQueries.end(); ++it)
@@ -778,7 +778,6 @@ void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& res
         for (size_t i = pendingQueries.size() - 1; i < pendingQueries.size(); --i)
         {
             GLuint queryId = pendingQueries[i].first;
-            void* object = pendingQueries[i].second;
 
             if (!available)
                 glGetQueryObjectuiv(queryId, GL_QUERY_RESULT_AVAILABLE, &available);
@@ -788,15 +787,11 @@ void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& res
                 GLuint passed = 0;
                 glGetQueryObjectuiv(queryId, GL_QUERY_RESULT, &passed);
 
-                // Only store the result if the target object is still live. Otherwise just return the query for reuse
-                if (object)
-                {
-                    OcclusionQueryResult newResult;
-                    newResult.id = queryId;
-                    newResult.object = object;
-                    newResult.visible = passed > 0;
-                    result.push_back(newResult);
-                }
+                OcclusionQueryResult newResult;
+                newResult.id = queryId;
+                newResult.object = pendingQueries[i].second;
+                newResult.visible = passed > 0;
+                result.push_back(newResult);
 
                 freeQueries.push_back(queryId);
                 pendingQueries.erase(pendingQueries.begin() + i);
@@ -809,26 +804,21 @@ void Graphics::CheckOcclusionQueryResults(std::vector<OcclusionQueryResult>& res
         for (auto it = pendingQueries.begin(); it != pendingQueries.end(); ++it)
         {
             GLuint queryId = it->first;
-            void* object = it->second;
-
             GLuint passed = 0;
             glGetQueryObjectuiv(queryId, GL_QUERY_RESULT, &passed);
 
-            // Only store the result if the target object is still live. Otherwise just return the query for reuse
-            if (object)
-            {
-                OcclusionQueryResult newResult;
-                newResult.id = queryId;
-                newResult.object = object;
-                newResult.visible = passed > 0;
-                result.push_back(newResult);
-            }
+            OcclusionQueryResult newResult;
+            newResult.id = queryId;
+            newResult.object = it->second;
+            newResult.visible = passed > 0;
+            result.push_back(newResult);
 
             freeQueries.push_back(queryId);
         }
 
         pendingQueries.clear();
     }
+
 }
 
 IntVector2 Graphics::Size() const

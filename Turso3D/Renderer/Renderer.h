@@ -289,6 +289,8 @@ private:
     bool hasInstancing;
     /// Previous frame camera position for occlusion culling bounding box elongation.
     Vector3 previousCameraPosition;
+    /// Last frame time for occlusion query staggering.
+    float lastFrameTime;
     /// Root-level octants, used as a starting point for octant and batch collection. The root octant is included if it also contains drawables.
     std::vector<Octant*> rootLevelOctants;
     /// Counter for batch collection tasks remaining. When zero, main batch sorting can begin while other tasks go on.
