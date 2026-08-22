@@ -9,7 +9,7 @@ uniform highp sampler2DShadow dirShadowTex8;
 uniform highp sampler2DShadow shadowTex9;
 uniform highp samplerCube faceSelectionTex10;
 uniform highp samplerCube faceSelectionTex11;
-uniform highp usampler3D clusterTex12;
+uniform highp sampler3D clusterTex12;
 #endif
 
 vec3 CalculateClusterPos(vec2 screenPos, float depth)
@@ -156,6 +156,8 @@ void CalculateLighting(vec4 worldPos, vec3 normal, vec2 screenPos, vec4 matDiffC
 
     CalculateDirLight(worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
 
+#ifndef GL_ES
+    // Desktop path: max. 16 lights in a cluster
     uvec4 lightClusterData = texture(clusterTex12, CalculateClusterPos(screenPos, worldPos.w));
 
     while (lightClusterData.x > 0U)
@@ -178,4 +180,30 @@ void CalculateLighting(vec4 worldPos, vec3 normal, vec2 screenPos, vec4 matDiffC
         CalculateLight((lightClusterData.w & 0xffU), worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
         lightClusterData.w >>= 8U;
     }
+#else
+    // Web/mobile path: max 4 lights in a cluster
+    vec4 lightClusterData = texture(clusterTex12, CalculateClusterPos(screenPos, worldPos.w));
+
+    uint light1 = uint(lightClusterData.x * 255.0);
+    if (light1 > 0U)
+    {
+        CalculateLight(light1, worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
+
+        uint light2 = uint(lightClusterData.y * 255.0);
+        if (light2 > 0U)
+        {
+            CalculateLight(light2, worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
+
+            uint light3 = uint(lightClusterData.z * 255.0);
+            if (light3 > 0U)
+            {
+                CalculateLight(light3, worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
+
+                uint light4 = uint(lightClusterData.w * 255.0);
+                if (light4 > 0U)
+                    CalculateLight(light4, worldPos, normal, matDiffColor, matSpecColor, diffuseLight, specularLight);
+            }
+        }
+    }
+#endif
 }

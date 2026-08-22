@@ -1,6 +1,7 @@
 // For conditions of distribution and use, seecopyright notice in License.txt
 
 #include "../Graphics/FrameBuffer.h"
+#include "../Graphics/GLHeaders.h"
 #include "../Graphics/Graphics.h"
 #include "../Graphics/IndexBuffer.h"
 #include "../Graphics/RenderBuffer.h"
@@ -33,6 +34,13 @@
 static const size_t DRAWABLES_PER_BATCH_TASK = 256;
 static const size_t NUM_BOX_INDICES = 36;
 static const float OCCLUSION_MARGIN = 0.1f;
+
+#ifndef GL_ES_VERSION_3_0
+static const size_t MAX_LIGHTS_CLUSTER = 16;
+#else
+// On GLES3 use less bits for the light cluster texture and a simpler shader, due to bit shifts potentially failing on mobile GPUs
+static const size_t MAX_LIGHTS_CLUSTER = 4;
+#endif
 
 static inline bool CompareDrawableDistances(Drawable* lhs, Drawable* rhs)
 {
@@ -194,7 +202,11 @@ Renderer::Renderer() :
     }
 
     clusterTexture = new Texture();
+#ifndef GL_ES_VERSION_3_0
     clusterTexture->Define(TEX_3D, IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RGBA32U, 1);
+#else
+    clusterTexture->Define(TEX_3D, IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RGBA8, 1);
+#endif
     clusterTexture->DefineSampler(FILTER_POINT, ADDRESS_CLAMP, ADDRESS_CLAMP, ADDRESS_CLAMP);
 
     clusterCullData = new ClusterCullData[NUM_CLUSTER_X * NUM_CLUSTER_Y * NUM_CLUSTER_Z];
@@ -824,7 +836,11 @@ void Renderer::UpdateLightData()
 {
     ZoneScoped;
 
+#ifndef GL_ES_VERSION_3_0
     ImageLevel clusterLevel(IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RGBA32U, clusterData);
+#else
+    ImageLevel clusterLevel(IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RGBA8, clusterData);
+#endif
     clusterTexture->SetData(0, IntBox(0, 0, 0, NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), clusterLevel);
     lightDataBuffer->SetData(0, (lights.size() + 1) * sizeof(LightData), lightData);
 }
@@ -1844,7 +1860,7 @@ void Renderer::CullLightsToFrustumWork(Task* task, unsigned)
                     if (cullData->numLights < MAX_LIGHTS_CLUSTER)
                     {
                         if (bounds.IsInsideFast(cullData->boundingBox) && cullData->frustum.IsInsideFast(bounds))
-                            clusterData[(idx << 4) + cullData->numLights++] = (unsigned char)(i + 1);
+                            clusterData[idx * MAX_LIGHTS_CLUSTER + cullData->numLights++] = (unsigned char)(i + 1);
                     }
 
                     ++idx;
@@ -1871,7 +1887,7 @@ void Renderer::CullLightsToFrustumWork(Task* task, unsigned)
                     if (cullData->numLights < MAX_LIGHTS_CLUSTER)
                     {
                         if (bounds.IsInsideFast(cullData->boundingBox) && cullData->frustum.IsInsideFast(boundsBox))
-                            clusterData[(idx << 4) + cullData->numLights++] = (unsigned char)(i + 1);
+                            clusterData[idx * MAX_LIGHTS_CLUSTER + cullData->numLights++] = (unsigned char)(i + 1);
                     }
 
                     ++idx;

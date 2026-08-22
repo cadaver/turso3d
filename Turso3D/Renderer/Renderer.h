@@ -40,7 +40,6 @@ static const size_t NUM_CLUSTER_X = 16;
 static const size_t NUM_CLUSTER_Y = 8;
 static const size_t NUM_CLUSTER_Z = 8;
 static const size_t MAX_LIGHTS = 255;
-static const size_t MAX_LIGHTS_CLUSTER = 16;
 static const size_t NUM_OCTANT_TASKS = 9;
 static const size_t NUM_SHADOW_MAPS = 2; // One for directional lights and another for the rest
 static const size_t NUM_OPAQUE_Z_SPLITS = 8;
