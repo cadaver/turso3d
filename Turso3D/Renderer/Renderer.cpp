@@ -824,7 +824,7 @@ void Renderer::UpdateLightData()
 {
     ZoneScoped;
 
-    ImageLevel clusterLevel(IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RG32U, clusterData);
+    ImageLevel clusterLevel(IntVector3(NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), FMT_RGBA32U, clusterData);
     clusterTexture->SetData(0, IntBox(0, 0, 0, NUM_CLUSTER_X, NUM_CLUSTER_Y, NUM_CLUSTER_Z), clusterLevel);
     lightDataBuffer->SetData(0, (lights.size() + 1) * sizeof(LightData), lightData);
 }
