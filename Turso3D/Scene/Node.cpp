@@ -451,7 +451,7 @@ Node* Node::FindChildByLayer(unsigned layerMask, bool recursive) const
     for (auto it = children.begin(); it != children.end(); ++it)
     {
         Node* child = *it;
-        if (child->LayerMask() && layerMask)
+        if (child->LayerMask() & layerMask)
             return child;
         else if (recursive && child->children.size())
         {

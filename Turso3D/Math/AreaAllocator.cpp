@@ -47,6 +47,7 @@ bool AreaAllocator::Allocate(int width, int height, int& x, int& y)
     {
         best = freeAreas.end();
         bestFreeArea = M_MAX_INT;
+
         for (auto i = freeAreas.begin(); i != freeAreas.end(); ++i)
         {
             int freeWidth = i->Width();
@@ -67,6 +68,10 @@ bool AreaAllocator::Allocate(int width, int height, int& x, int& y)
 
         if (best == freeAreas.end())
         {
+            // Fail if no more growth possible in either dimension
+            if (size.x >= maxSize.x && size.y >= maxSize.y)
+                return false;
+
             if (doubleWidth && size.x < maxSize.x)
             {
                 int oldWidth = size.x;
@@ -94,8 +99,6 @@ bool AreaAllocator::Allocate(int width, int height, int& x, int& y)
                     freeAreas.push_back(newArea);
                 }
             }
-            else
-                return false;
 
             doubleWidth = !doubleWidth;
         }
