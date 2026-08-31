@@ -825,7 +825,7 @@ bool JSONValue::ReadJSONString(std::string& dest, const char*& pos, const char*&
                 {
                     /// \todo Doesn't handle unicode
                     unsigned code;
-                    sscanf(pos, "%x", &code);
+                    sscanf(pos, "%4x", &code);
                     pos += 4;
                     dest += (char)code;
                 }
