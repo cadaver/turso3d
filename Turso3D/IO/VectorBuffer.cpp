@@ -51,7 +51,7 @@ size_t VectorBuffer::Read(void* dest, size_t numBytes)
     if (copySize & 1)
         *destPtr = *srcPtr;
     
-    return size;
+    return numBytes;
 }
 
 size_t VectorBuffer::Seek(size_t newPosition)

@@ -175,7 +175,8 @@ static void ScanDirInternal(std::vector<std::string>& result, std::string path, 
     if (path.length() > startPath.length())
         deltaPath = path.substr(startPath.length());
 
-    std::string filterExtension = filter.substr(filter.find('.'));
+    size_t extPos = filter.find('.');
+    std::string filterExtension = (extPos != std::string::npos) ? filter.substr(extPos) : std::string();
     if (filterExtension.find('*') != std::string::npos)
         filterExtension.clear();
 

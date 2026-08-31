@@ -749,7 +749,7 @@ void JSONValue::WriteJSONString(std::string& dest, const std::string& str)
             default:
                 {
                     char buffer[6];
-                    sprintf(buffer, "u%04x", c);
+                    sprintf(buffer, "u%04x", (unsigned)c);
                     dest += buffer;
                 }
                 break;

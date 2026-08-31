@@ -45,7 +45,7 @@ bool File::Open(const std::string& fileName, FileMode fileMode)
     handle = fopen(NativePath(fileName).c_str(), openModes[fileMode]);
 
     // If file did not exist in readwrite mode, retry with write-update mode
-    if (mode == FILE_READWRITE && !handle)
+    if (fileMode == FILE_READWRITE && !handle)
     {
         handle = fopen(NativePath(fileName).c_str(), openModes[fileMode + 1]);
     }
@@ -138,7 +138,7 @@ size_t File::Write(const void* data, size_t numBytes)
     if (position > size)
         size = position;
 
-    return size;
+    return numBytes;
 }
 
 bool File::IsReadable() const

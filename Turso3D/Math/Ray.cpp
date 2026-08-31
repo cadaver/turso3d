@@ -253,8 +253,8 @@ float Ray::HitDistance(const void* vertexData, size_t vertexSize, const void* in
     // 32-bit indices
     else
     {
-        const size_t* indices = ((const size_t*)indexData) + indexStart;
-        const size_t* indicesEnd = indices + indexCount;
+        const unsigned* indices = ((const unsigned*)indexData) + indexStart;
+        const unsigned* indicesEnd = indices + indexCount;
         
         while (indices < indicesEnd)
         {
@@ -331,8 +331,8 @@ bool Ray::InsideGeometry(const void* vertexData, size_t vertexSize, const void* 
     // 32-bit indices
     else
     {
-        const size_t* indices = ((const size_t*)indexData) + indexStart;
-        const size_t* indicesEnd = indices + indexCount;
+        const unsigned* indices = ((const unsigned*)indexData) + indexStart;
+        const unsigned* indicesEnd = indices + indexCount;
         
         while (indices < indicesEnd)
         {
