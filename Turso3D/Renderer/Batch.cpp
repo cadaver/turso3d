@@ -40,13 +40,17 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode 
     if (!convertToInstanced || batches.size() < 2)
         return;
 
+    // Assume all batches can be converted to instances, then set actual size later
+    size_t destIdx = instanceTransforms.size();
+    instanceTransforms.resize(instanceTransforms.size() + batches.size());
+
     for (auto it = batches.begin(); it < batches.end() - 1; ++it)
     {
         // Check if batch is static geometry and can be converted to instanced
         if (it->programBits)
             continue;
 
-        size_t start = instanceTransforms.size();
+        size_t start = destIdx;
         auto next = it + 1;
 
         if (next->pass == it->pass && next->geometry == it->geometry && !next->programBits)
@@ -54,22 +58,24 @@ void BatchQueue::Sort(std::vector<Matrix3x4>& instanceTransforms, BatchSortMode 
             // Convert to instances if at least one batch with same state found, then loop for more of the same
             it->instanceStart = (unsigned)start;
             it->programBits = SP_INSTANCED;
-            instanceTransforms.push_back(*it->worldTransform);
-            instanceTransforms.push_back(*next->worldTransform);
+            instanceTransforms[destIdx++] =  *it->worldTransform;
+            instanceTransforms[destIdx++] = *next->worldTransform;
             ++next;
 
             for (; next < batches.end(); ++next)
             {
                 if (next->pass == it->pass && next->geometry == it->geometry && !next->programBits)
-                    instanceTransforms.push_back(*next->worldTransform);
+                    instanceTransforms[destIdx++] = *next->worldTransform;
                 else
                     break;
             }
 
             // Finalize the conversion by writing instance count
-            size_t count = instanceTransforms.size() - start;
+            size_t count = destIdx - start;
             it->instanceCount = (unsigned)count;
             it += count - 1;
         }
     }
+
+    instanceTransforms.resize(destIdx);
 }
