@@ -6,18 +6,6 @@
 #include "DebugRenderer.h"
 #include "Octree.h"
 
-OctreeNodeBase::OctreeNodeBase() :
-    octree(nullptr),
-    drawable(nullptr)
-{
-}
-
-void OctreeNodeBase::OnLayerChanged(unsigned char newLayer)
-{
-    if (drawable)
-        drawable->SetLayer(newLayer);
-}
-
 Drawable::Drawable() :
     owner(nullptr),
     octant(nullptr),
@@ -76,7 +64,7 @@ void Drawable::OnRenderDebug(DebugRenderer* debug)
     debug->AddBoundingBox(WorldBoundingBox(), Color::GREEN, false);
 }
 
-void Drawable::SetOwner(OctreeNodeBase* owner_)
+void Drawable::SetOwner(OctreeNode* owner_)
 {
     owner = owner_;
     worldTransform = const_cast<Matrix3x4*>(&owner_->WorldTransform());
@@ -85,6 +73,12 @@ void Drawable::SetOwner(OctreeNodeBase* owner_)
 void Drawable::SetLayer(unsigned char newLayer)
 {
     layer = newLayer;
+}
+
+OctreeNode::OctreeNode() :
+    octree(nullptr),
+    drawable(nullptr)
+{
 }
 
 void OctreeNode::RegisterObject()
@@ -158,11 +152,12 @@ void OctreeNode::OnBoundingBoxChanged()
         octree->QueueUpdate(drawable);
 }
 
-void OctreeNode::RemoveFromOctree()
+void OctreeNode::RemoveFromOctree(bool deletingOctree)
 {
     if (octree)
     {
-        octree->RemoveDrawable(drawable);
+        if (!deletingOctree)
+            octree->RemoveDrawable(drawable);
         octree = nullptr;
     }
 }
@@ -177,3 +172,10 @@ void OctreeNode::OnEnabledChanged(bool newEnabled)
             octree->RemoveDrawable(drawable);
     }
 }
+
+void OctreeNode::OnLayerChanged(unsigned char newLayer)
+{
+    if (drawable)
+        drawable->SetLayer(newLayer);
+}
+

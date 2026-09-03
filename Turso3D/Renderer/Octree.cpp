@@ -543,7 +543,7 @@ void Octree::DeleteChildOctants(Octant* octant, bool deletingOctree)
         drawable->octant = nullptr;
         drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
         if (deletingOctree)
-            drawable->Owner()->octree = nullptr;
+            drawable->Owner()->RemoveFromOctree(true);
     }
     octant->drawables.clear();
 

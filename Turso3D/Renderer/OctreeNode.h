@@ -10,6 +10,7 @@ class DebugRenderer;
 class Drawable;
 class Octant;
 class Octree;
+class OctreeNode;
 class Ray;
 struct RaycastResult;
 
@@ -28,25 +29,6 @@ static const unsigned short DF_OCTREE_UPDATE_CALL = 0x100;
 static const unsigned short DF_WORLD_TRANSFORM_DIRTY = 0x200;
 static const unsigned short DF_BOUNDING_BOX_DIRTY = 0x400;
 static const unsigned short DF_OCTREE_REINSERT_QUEUED = 0x800;
-
-/// Common base class for renderable scene objects and occluders.
-class OctreeNodeBase : public SpatialNode
-{
-    friend class Octree;
-
-public:
-    /// Construct.
-    OctreeNodeBase();
-
-protected:
-    /// Handle the layer changing.
-    void OnLayerChanged(unsigned char newLayer) override;
-
-    /// Current octree.
-    Octree* octree;
-    /// This node's drawable.
-    Drawable* drawable;
-};
 
 /// Base class for objects that are inserted to the octree for rendering. These are managed by their scene node. Inserting drawables instead of scene nodes helps to keep the rendering-critical information more tightly packed in memory.
 class Drawable
@@ -72,7 +54,7 @@ public:
     virtual void OnRenderDebug(DebugRenderer* debug);
 
     /// Set the owner node.
-    void SetOwner(OctreeNodeBase* owner);
+    void SetOwner(OctreeNode* owner);
     /// Set the layer.
     void SetLayer(unsigned char newLayer);
 
@@ -81,7 +63,7 @@ public:
     /// Return bitmask corresponding to layer.
     unsigned LayerMask() const { return 1 << layer; }
     /// Return the owner node.
-    OctreeNodeBase* Owner() const { return owner; }
+    OctreeNode* Owner() const { return owner; }
     /// Return current octree octant this drawable resides in.
     Octant* GetOctant() const { return octant; }
     /// Return distance from camera in the current view.
@@ -123,7 +105,7 @@ public:
         {
             SetFlag(DF_WORLD_TRANSFORM_DIRTY, false);
             // Update the shared world transform as necessary, then return
-            return owner->WorldTransform();
+            return reinterpret_cast<const SpatialNode*>(owner)->WorldTransform();
         }
         else
             return *worldTransform;
@@ -163,15 +145,18 @@ protected:
     /// Max distance for rendering.
     float maxDistance;
     /// Owner scene node.
-    OctreeNodeBase* owner;
+    OctreeNode* owner;
 };
 
 /// Base class for scene nodes that insert drawables to the octree for rendering.
-class OctreeNode : public OctreeNodeBase
+class OctreeNode : public SpatialNode
 {
     OBJECT(OctreeNode);
 
 public:
+    /// Construct.
+    OctreeNode();
+
     /// Register attributes.
     static void RegisterObject();
 
@@ -208,6 +193,8 @@ public:
     bool InView(unsigned short frameNumber) { return drawable->InView(frameNumber); }
     /// Check whether was in view last frame, compared to the current.
     bool WasInView(unsigned short frameNumber) const { return drawable->WasInView(frameNumber); }
+    /// Remove from the current octree. If octree is also being deleted, drawable removal is not necessary.
+    void RemoveFromOctree(bool deletingOctree = false);
 
 protected:
     /// Search for an octree from the scene root and add self to it.
@@ -218,6 +205,11 @@ protected:
     void OnBoundingBoxChanged();
     /// Handle the enabled status changing.
     void OnEnabledChanged(bool newEnabled) override;
-    /// Remove from the current octree.
-    void RemoveFromOctree();
+    /// Handle the layer changing.
+    void OnLayerChanged(unsigned char newLayer) override;
+
+    /// Current octree.
+    Octree* octree;
+    /// This node's drawable.
+    Drawable* drawable;
 };
