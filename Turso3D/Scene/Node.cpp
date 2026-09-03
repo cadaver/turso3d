@@ -6,7 +6,6 @@
 #include "../Resource/JSONFile.h"
 #include "Scene.h"
 
-static std::vector<SharedPtr<Node> > noChildren;
 static Allocator<NodeImpl> nodeImplAllocator;
 
 Node::Node() :
