@@ -338,7 +338,7 @@ private:
     Matrix4 lastClusterFrustumProj;
     /// Cluster frustums, bounding boxes and number of found lights.
     AutoArrayPtr<ClusterCullData> clusterCullData;
-    /// Cluster uniform buffer data CPU copy.
+    /// Cluster light lookup 3D texture data CPU copy.
     AutoArrayPtr<unsigned char> clusterData;
     /// Light uniform buffer data CPU copy.
     AutoArrayPtr<LightData> lightData;
@@ -366,7 +366,7 @@ private:
     AutoPtr<Texture> faceSelectionTexture1;
     /// Face selection UV indirection texture 2.
     AutoPtr<Texture> faceSelectionTexture2;
-    /// Cluster lookup 3D texture.
+    /// Cluster light lookup 3D texture.
     AutoPtr<Texture> clusterTexture;
     /// Per-view uniform buffer.
     AutoPtr<UniformBuffer> perViewDataBuffer;
