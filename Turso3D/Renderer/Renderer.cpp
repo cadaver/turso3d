@@ -1909,10 +1909,29 @@ void Renderer::CullLightsToFrustumWork(Task* task, unsigned)
             {
                 for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
                 {
-                    if (cullData->numLights < MAX_LIGHTS_CLUSTER)
+                    if (bounds.IsInsideFast(cullData->boundingBox) && cullData->frustum.IsInsideFast(bounds))
                     {
-                        if (bounds.IsInsideFast(cullData->boundingBox) && cullData->frustum.IsInsideFast(bounds))
+                        Vector3 cameraViewPos = cameraView * light->WorldPosition();
+                        float distance = cullData->frustum.Distance(cameraViewPos);
+
+                        if (cullData->numLights < MAX_LIGHTS_CLUSTER)
+                        {
+                            cullData->distances[cullData->numLights] = distance;
                             clusterData[idx * MAX_LIGHTS_CLUSTER + cullData->numLights++] = (unsigned char)(i + 1);
+                        }
+                        else
+                        {
+                            // If maximum lights exceeded, overwrite a light that is further away
+                            for (size_t j = 0; j < MAX_LIGHTS_CLUSTER; ++j)
+                            {
+                                if (cullData->distances[j] > distance)
+                                {
+                                    cullData->distances[j] = distance;
+                                    clusterData[idx * MAX_LIGHTS_CLUSTER + j] = (unsigned char)(i + 1);
+                                    break;
+                                }
+                            }
+                        }
                     }
 
                     ++idx;
@@ -1936,10 +1955,29 @@ void Renderer::CullLightsToFrustumWork(Task* task, unsigned)
             {
                 for (size_t x = 0; x < NUM_CLUSTER_X; ++x)
                 {
-                    if (cullData->numLights < MAX_LIGHTS_CLUSTER)
+                    if (bounds.IsInsideFast(cullData->boundingBox) && cullData->frustum.IsInsideFast(boundsBox))
                     {
-                        if (bounds.IsInsideFast(cullData->boundingBox) && cullData->frustum.IsInsideFast(boundsBox))
+                        Vector3 cameraViewPos = cameraView * light->WorldPosition();
+                        float distance = cullData->frustum.Distance(cameraViewPos);
+
+                        if (cullData->numLights < MAX_LIGHTS_CLUSTER)
+                        {
+                            cullData->distances[cullData->numLights] = distance;
                             clusterData[idx * MAX_LIGHTS_CLUSTER + cullData->numLights++] = (unsigned char)(i + 1);
+                        }
+                        else
+                        {
+                            // If maximum lights exceeded, overwrite a light that is further away
+                            for (size_t j = 0; j < MAX_LIGHTS_CLUSTER; ++j)
+                            {
+                                if (cullData->distances[j] > distance)
+                                {
+                                    cullData->distances[j] = distance;
+                                    clusterData[idx * MAX_LIGHTS_CLUSTER + j] = (unsigned char)(i + 1);
+                                    break;
+                                }
+                            }
+                        }
                     }
 
                     ++idx;

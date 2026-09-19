@@ -299,29 +299,27 @@ void TestApplication::CreateScene(int preset)
             light->SetShadowMaxDistance(200.0f);
             light->SetMaxDistance(900.0f);
 
-            for (;;)
+            Vector3 newPos;
+
+            for (int retries = 30; retries > 0; --retries)
             {
-                Vector3 newPos = quadrantCenters[i % 4] + Vector3(Random() * 440.0f - 220.0f, 10.0f, Random() * 440.0f - 220.0f);
+                newPos = quadrantCenters[i % 4] + Vector3(Random() * 440.0f - 220.0f, 10.0f, Random() * 440.0f - 220.0f);
                 bool posOk = true;
-                int retries = 10;
 
                 for (unsigned j = 0; j < lights.size(); ++j)
                 {
-                    if ((newPos - lights[j]->Position()).Length() < 70.0f && retries > 0)
+                    if ((newPos - lights[j]->Position()).Length() < 70.0f)
                     {
                         posOk = false;
-                        --retries;
                         break;
                     }
                 }
 
                 if (posOk)
-                {
-                    light->SetPosition(newPos);
                     break;
-                }
             }
-
+            
+            light->SetPosition(newPos);
             lights.push_back(light);
         }
 

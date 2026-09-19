@@ -179,6 +179,8 @@ struct ClusterCullData
     BoundingBox boundingBox;
     /// Number of lights already in cluster.
     unsigned char numLights;
+    /// Distances of current lights from cluster for overwriting.
+    float distances[16];
 };
 
 /// High-level rendering subsystem. Performs rendering of 3D scenes.
