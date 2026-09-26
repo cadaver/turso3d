@@ -6,8 +6,8 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <deque>
 #include <mutex>
-#include <queue>
 #include <thread>
 
 /// %Task for execution by worker threads.
@@ -111,9 +111,9 @@ private:
     /// Condition variable to wake up workers.
     std::condition_variable signal;
     /// Exit flag.
-    volatile bool shouldExit;
+    std::atomic<bool> shouldExit;
     /// Task queue.
-    std::queue<Task*> tasks;
+    std::deque<Task*> tasks;
     /// Worker threads.
     std::vector<std::thread> threads;
     /// Amount of tasks pending execution, including those that wait for their dependencies.

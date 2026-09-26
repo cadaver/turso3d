@@ -13,3 +13,8 @@ unsigned CPUCount()
 {
     return std::thread::hardware_concurrency();
 }
+
+void YieldThread()
+{
+    std::this_thread::yield();
+}

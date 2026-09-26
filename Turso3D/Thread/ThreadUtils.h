@@ -6,3 +6,5 @@
 bool IsMainThread();
 // Return hardware CPU count, for determining e.g. amount of worker threads.
 unsigned CPUCount();
+// Yield execution of current thread to the OS.
+void YieldThread();

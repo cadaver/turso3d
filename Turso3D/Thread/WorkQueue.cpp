@@ -16,12 +16,12 @@ Task::~Task()
 {
 }
 
-WorkQueue::WorkQueue(unsigned numThreads) :
-    shouldExit(false)
+WorkQueue::WorkQueue(unsigned numThreads)
 {
     RegisterSubsystem(this);
 
     numPendingTasks.store(0);
+    shouldExit.store(false);
 
     if (!numThreads)
     {
@@ -41,7 +41,7 @@ WorkQueue::~WorkQueue()
         return;
 
     // Signal exit and wait for threads to finish
-    shouldExit = true;
+    shouldExit.store(true);
 
     signal.notify_all();
     for (auto it = threads.begin(); it != threads.end(); ++it)
@@ -59,7 +59,7 @@ void WorkQueue::QueueTask(Task* task)
 
         {
             std::lock_guard<std::mutex> lock(queueMutex);
-            tasks.push(task);
+            tasks.push_back(task);
         }
 
         signal.notify_one();
@@ -85,7 +85,7 @@ void WorkQueue::QueueTasks(size_t count, Task** tasks_)
             {
                 assert(tasks_[i]);
                 assert(tasks_[i]->numDependencies.load() == 0);
-                tasks.push(tasks_[i]);
+                tasks.push_back(tasks_[i]);
             }
         }
 
@@ -129,33 +129,20 @@ void WorkQueue::Complete()
         return;
 
     // Execute queued tasks in main thread to speed up
-    // Hack: potentially thread-unsafe early out test, but it is just checking a member variable, while actual access happens inside lock guard
-    while (tasks.size())
+    while (TryComplete())
     {
-        Task* task;
-
-        {
-            std::lock_guard<std::mutex> lock(queueMutex);
-            if (!tasks.size())
-                break;
-
-            task = tasks.front();
-            tasks.pop();
-        }
-
-        CompleteTask(task, threadIndex);
     }
 
     // Finally wait for all tasks to finish
     while (numPendingTasks.load())
     {
+        YieldThread();
     }
 }
 
 bool WorkQueue::TryComplete()
 {
-    // Hack: potentially thread-unsafe early out test, but it is just checking a member variable, while actual access happens inside lock guard
-    if (!threads.size() || !tasks.size())
+    if (!threads.size())
         return false;
 
     Task* task;
@@ -166,11 +153,10 @@ bool WorkQueue::TryComplete()
             return false;
 
         task = tasks.front();
-        tasks.pop();
+        tasks.pop_front();
     }
 
     CompleteTask(task, threadIndex);
-
     return true;
 }
 
@@ -186,14 +172,14 @@ void WorkQueue::WorkerLoop(unsigned threadIndex_)
             std::unique_lock<std::mutex> lock(queueMutex);
             signal.wait(lock, [this]
             {
-                return !tasks.empty() || shouldExit;
+                return !tasks.empty() || shouldExit.load();
             });
 
-            if (shouldExit)
+            if (shouldExit.load())
                 break;
 
             task = tasks.front();
-            tasks.pop();
+            tasks.pop_front();
         }
 
         CompleteTask(task, threadIndex_);
@@ -217,7 +203,7 @@ void WorkQueue::CompleteTask(Task* task, unsigned threadIndex_)
                 {
                     {
                         std::lock_guard<std::mutex> lock(queueMutex);
-                        tasks.push(dependentTask);
+                        tasks.push_back(dependentTask);
                     }
 
                     signal.notify_one();
