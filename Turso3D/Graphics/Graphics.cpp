@@ -241,59 +241,68 @@ Graphics::~Graphics()
 
 void Graphics::SetScreenMode(const IntVector2& size, FullScreenMode mode)
 {
-    SDL_DisplayMode fullscreenMode;
+    // No-op if same size and mode
+    FullScreenMode lastMode = FullScreen();
+    if (size == Size() && mode == lastMode)
+        return;
 
-    switch (mode)
-    {
-    case WINDOWED:
+    // Cancel full screen mode first
+    if (lastMode != WINDOWED)
         SDL_SetWindowFullscreen(window, false);
-        if (size != IntVector2::ZERO)
-            SDL_SetWindowSize(window, size.x, size.y);
-        break;
 
-    case BORDERLESS_FULLSCREEN:
-        SDL_SetWindowFullscreenMode(window, nullptr);
-        SDL_SetWindowFullscreen(window, true);
-        break;
+    SDL_SetWindowSize(window, size.x, size.y);
 
-    case FULLSCREEN:
-        SDL_GetClosestFullscreenDisplayMode(SDL_GetPrimaryDisplay(), size.x, size.y, 0.0f, true, &fullscreenMode);
-        SDL_SetWindowFullscreenMode(window, &fullscreenMode);
+    if (mode != WINDOWED)
+    {
+        if (mode == FULLSCREEN)
+        {
+            SDL_DisplayMode fullscreenMode;
+
+            SDL_GetClosestFullscreenDisplayMode(SDL_GetPrimaryDisplay(), size.x, size.y, 0.0f, SDL_GetWindowFlags(window) & SDL_WINDOW_HIGH_PIXEL_DENSITY ? true : false, &fullscreenMode);
+            SDL_SetWindowFullscreenMode(window, &fullscreenMode);
+        }
+        else
+            SDL_SetWindowFullscreenMode(window, NULL);
+
         SDL_SetWindowFullscreen(window, true);
-        break;
     }
+
+    SDL_RaiseWindow(window);
 }
 
 void Graphics::Resize(const IntVector2& size)
 {
-    SetScreenMode(size, FullScreenMode());
+    SetScreenMode(size, FullScreen());
 }
 
 void Graphics::SetFullScreen(FullScreenMode mode)
 {
-    SDL_DisplayMode fullscreenMode;
-    IntVector2 lastSize = Size();
-    FullScreenMode lastMode = FullScreenMode();
+    // No-op if same  mode
+    FullScreenMode lastMode = FullScreen();
+    if (mode == lastMode)
+        return;
 
-    switch (mode)
-    {
-    case WINDOWED:
+    // Cancel full screen mode first
+    if (lastMode != WINDOWED)
         SDL_SetWindowFullscreen(window, false);
-        if (lastMode == FULLSCREEN)
-            SDL_SetWindowSize(window, lastSize.x, lastSize.y);
-        break;
 
-    case BORDERLESS_FULLSCREEN:
-        SDL_SetWindowFullscreenMode(window, nullptr);
-        SDL_SetWindowFullscreen(window, true);
-        break;
+    if (mode != WINDOWED)
+    {
+        if (mode == FULLSCREEN)
+        {
+            SDL_DisplayMode fullscreenMode;
+            IntVector2 size = Size();
 
-    case FULLSCREEN:
-        SDL_GetClosestFullscreenDisplayMode(SDL_GetPrimaryDisplay(), lastSize.x, lastSize.y, 0.0f, true, &fullscreenMode);
-        SDL_SetWindowFullscreenMode(window, &fullscreenMode);
+            SDL_GetClosestFullscreenDisplayMode(SDL_GetPrimaryDisplay(), size.x, size.y, 0.0f, SDL_GetWindowFlags(window) & SDL_WINDOW_HIGH_PIXEL_DENSITY ? true : false, &fullscreenMode);
+            SDL_SetWindowFullscreenMode(window, &fullscreenMode);
+        }
+        else
+            SDL_SetWindowFullscreenMode(window, NULL);
+
         SDL_SetWindowFullscreen(window, true);
-        break;
     }
+
+    SDL_RaiseWindow(window);
 }
 
 void Graphics::SetVSync(bool enable)
