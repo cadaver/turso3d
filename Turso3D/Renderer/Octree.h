@@ -9,8 +9,9 @@
 #include <atomic>
 
 static const size_t NUM_OCTANTS = 8;
-static const unsigned char OF_DRAWABLES_SORT_DIRTY = 0x1;
-static const unsigned char OF_CULLING_BOX_DIRTY = 0x2;
+static const unsigned char OF_CULLING_BOX_DIRTY = 0x1;
+static const unsigned char OF_DRAWABLE_UPDATE_QUEUED = 0x2;
+static const unsigned char OF_DRAWABLE_SORT_DIRTY = 0x4;
 static const float OCCLUSION_QUERY_INTERVAL = 0.133333f; // About 8 frame stagger at 60fps
 
 class Ray;
@@ -114,6 +115,19 @@ public:
             octant = octant->parent;
         }
     }
+
+    /// Mark drawables needing reinsertion check or update in the parent hierarchy.
+    void MarkDrawableUpdateQueued() const
+    {
+        const Octant* octant = this;
+
+        while (octant && !octant->TestFlag(OF_DRAWABLE_UPDATE_QUEUED))
+        {
+            octant->SetFlag(OF_DRAWABLE_UPDATE_QUEUED | OF_CULLING_BOX_DIRTY, true);
+            octant = octant->parent;
+        }
+    }
+
 
     /// Set visibility status manually.
     void SetVisibility(OctantVisibility newVisibility, bool pushToChildren = false)
@@ -250,9 +264,9 @@ private:
         octant->MarkCullingBoxDirty();
         drawable->octant = octant;
 
-        if (!octant->TestFlag(OF_DRAWABLES_SORT_DIRTY))
+        if (!octant->TestFlag(OF_DRAWABLE_SORT_DIRTY))
         {
-            octant->SetFlag(OF_DRAWABLES_SORT_DIRTY, true);
+            octant->SetFlag(OF_DRAWABLE_SORT_DIRTY, true);
             sortDirtyOctants.push_back(octant);
         }
     }
