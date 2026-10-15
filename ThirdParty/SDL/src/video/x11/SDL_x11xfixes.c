@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -51,7 +51,7 @@ void X11_InitXfixes(SDL_VideoDevice *_this)
     int event, error;
     int fixes_opcode;
 
-    Atom XA_CLIPBOARD = X11_XInternAtom(data->display, "CLIPBOARD", 0);
+    Atom XA_CLIPBOARD = data->atoms.CLIPBOARD;
 
     if (!SDL_X11_HAVE_XFIXES ||
         !X11_XQueryExtension(data->display, "XFIXES", &fixes_opcode, &event, &error)) {

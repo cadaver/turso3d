@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -38,21 +38,11 @@
 #include "vita/SDL_systhread_c.h"
 #elif defined(SDL_THREAD_N3DS)
 #include "n3ds/SDL_systhread_c.h"
-#elif defined(SDL_THREAD_NGAGE)
-#include "ngage/SDL_systhread_c.h"
 #else
 #error Need thread implementation for this platform
 #include "generic/SDL_systhread_c.h"
 #endif
 #include "../SDL_error_c.h"
-
-typedef enum SDL_ThreadState
-{
-    SDL_THREAD_STATE_ALIVE,
-    SDL_THREAD_STATE_DETACHED,
-    SDL_THREAD_STATE_ZOMBIE,
-    SDL_THREAD_STATE_CLEANED,
-} SDL_ThreadState;
 
 // This is the system-independent thread info structure
 struct SDL_Thread
@@ -60,7 +50,7 @@ struct SDL_Thread
     SDL_ThreadID threadid;
     SYS_ThreadHandle handle;
     int status;
-    SDL_AtomicInt state; /* SDL_THREAD_STATE_* */
+    SDL_AtomicInt state; /* SDL_ThreadState */
     SDL_error errbuf;
     char *name;
     size_t stacksize; // 0 for default, >0 for user-specified stack size.
@@ -77,11 +67,18 @@ extern void SDL_RunThread(SDL_Thread *thread);
 typedef struct
 {
     int limit;
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4200) // Flexible array members (C99)
+#endif
     struct
     {
         void *data;
         void(SDLCALL *destructor)(void *);
-    } array[1];
+    } array[];
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 } SDL_TLSData;
 
 // This is how many TLS entries we allocate at once

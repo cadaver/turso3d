@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -20,9 +20,9 @@
 */
 #include "SDL_internal.h"
 
-#if SDL_HAVE_BLIT_1
+#ifdef SDL_HAVE_BLIT_1
 
-#include "SDL_blit.h"
+#include "SDL_surface_c.h"
 #include "SDL_sysvideo.h"
 
 // Functions to blit from 8-bit surfaces to other surfaces
@@ -48,7 +48,7 @@ static void Blit1to1(SDL_BlitInfo *info)
     while (height--) {
 #ifdef USE_DUFFS_LOOP
         /* *INDENT-OFF* */ // clang-format off
-        DUFFS_LOOP(
+        DUFFS_LOOP_TRIVIAL(
             {
               *dst = map[*src];
             }
@@ -100,7 +100,7 @@ static void Blit1to2(SDL_BlitInfo *info)
 #ifdef USE_DUFFS_LOOP
     while (height--) {
         /* *INDENT-OFF* */ // clang-format off
-        DUFFS_LOOP(
+        DUFFS_LOOP_TRIVIAL(
         {
             *(Uint16 *)dst = map[*src++];
             dst += 2;
@@ -256,7 +256,7 @@ static void Blit1to4(SDL_BlitInfo *info)
     while (height--) {
 #ifdef USE_DUFFS_LOOP
         /* *INDENT-OFF* */ // clang-format off
-        DUFFS_LOOP(
+        DUFFS_LOOP_TRIVIAL(
             *dst++ = map[*src++];
         , width);
         /* *INDENT-ON* */ // clang-format on
@@ -297,7 +297,7 @@ static void Blit1to1Key(SDL_BlitInfo *info)
     if (palmap) {
         while (height--) {
             /* *INDENT-OFF* */ // clang-format off
-            DUFFS_LOOP(
+            DUFFS_LOOP_TRIVIAL(
             {
                 if ( *src != ckey ) {
                   *dst = palmap[*src];
@@ -313,7 +313,7 @@ static void Blit1to1Key(SDL_BlitInfo *info)
     } else {
         while (height--) {
             /* *INDENT-OFF* */ // clang-format off
-            DUFFS_LOOP(
+            DUFFS_LOOP_TRIVIAL(
             {
                 if ( *src != ckey ) {
                   *dst = *src;
@@ -345,7 +345,7 @@ static void Blit1to2Key(SDL_BlitInfo *info)
 
     while (height--) {
         /* *INDENT-OFF* */ // clang-format off
-        DUFFS_LOOP(
+        DUFFS_LOOP_TRIVIAL(
         {
             if ( *src != ckey ) {
                 *dstp=palmap[*src];
@@ -408,7 +408,7 @@ static void Blit1to4Key(SDL_BlitInfo *info)
 
     while (height--) {
         /* *INDENT-OFF* */ // clang-format off
-        DUFFS_LOOP(
+        DUFFS_LOOP_TRIVIAL(
         {
             if ( *src != ckey ) {
                 *dstp = palmap[*src];
@@ -434,7 +434,7 @@ static void Blit1toNAlpha(SDL_BlitInfo *info)
     const SDL_PixelFormatDetails *dstfmt = info->dst_fmt;
     const SDL_Color *srcpal = info->src_pal->colors;
     int dstbpp;
-    Uint32 pixel;
+    Uint32 pixelvalue;
     unsigned sR, sG, sB, sA;
     unsigned dR, dG, dB, dA;
     const unsigned A = info->a;
@@ -444,13 +444,13 @@ static void Blit1toNAlpha(SDL_BlitInfo *info)
 
     while (height--) {
         /* *INDENT-OFF* */ // clang-format off
-        DUFFS_LOOP4(
+        DUFFS_LOOP(
         {
             sR = srcpal[*src].r;
             sG = srcpal[*src].g;
             sB = srcpal[*src].b;
             sA = (srcpal[*src].a * A) / 255;
-            DISEMBLE_RGBA(dst, dstbpp, dstfmt, pixel, dR, dG, dB, dA);
+            DISEMBLE_RGBA(dst, dstbpp, dstfmt, pixelvalue, dR, dG, dB, dA);
             ALPHA_BLEND_RGBA(sR, sG, sB, sA, dR, dG, dB, dA);
             ASSEMBLE_RGBA(dst, dstbpp, dstfmt, dR, dG, dB, dA);
             src++;
@@ -475,7 +475,7 @@ static void Blit1toNAlphaKey(SDL_BlitInfo *info)
     const SDL_Color *srcpal = info->src_pal->colors;
     Uint32 ckey = info->colorkey;
     int dstbpp;
-    Uint32 pixel;
+    Uint32 pixelvalue;
     unsigned sR, sG, sB, sA;
     unsigned dR, dG, dB, dA;
     const unsigned A = info->a;
@@ -492,7 +492,7 @@ static void Blit1toNAlphaKey(SDL_BlitInfo *info)
                 sG = srcpal[*src].g;
                 sB = srcpal[*src].b;
                 sA = (srcpal[*src].a * A) / 255;
-                DISEMBLE_RGBA(dst, dstbpp, dstfmt, pixel, dR, dG, dB, dA);
+                DISEMBLE_RGBA(dst, dstbpp, dstfmt, pixelvalue, dR, dG, dB, dA);
                 ALPHA_BLEND_RGBA(sR, sG, sB, sA, dR, dG, dB, dA);
                 ASSEMBLE_RGBA(dst, dstbpp, dstfmt, dR, dG, dB, dA);
             }
@@ -518,13 +518,13 @@ SDL_BlitFunc SDL_CalculateBlit1(SDL_Surface *surface)
 {
     int which;
 
-    if (SDL_BITSPERPIXEL(surface->internal->map.info.dst_fmt->format) < 8) {
+    if (SDL_BITSPERPIXEL(surface->map.info.dst_fmt->format) < 8) {
         which = 0;
     } else {
-        which = SDL_BYTESPERPIXEL(surface->internal->map.info.dst_fmt->format);
+        which = SDL_BYTESPERPIXEL(surface->map.info.dst_fmt->format);
     }
 
-    switch (surface->internal->map.info.flags & ~SDL_COPY_RLE_MASK) {
+    switch (surface->map.info.flags & ~SDL_COPY_RLE_MASK) {
     case 0:
         if (which < SDL_arraysize(one_blit)) {
             return one_blit[which];
@@ -538,7 +538,7 @@ SDL_BlitFunc SDL_CalculateBlit1(SDL_Surface *surface)
         break;
 
     case SDL_COPY_COLORKEY | SDL_COPY_BLEND:  // this is not super-robust but handles a specific case we found sdl12-compat.
-        if (surface->internal->map.info.a == 255) {
+        if (surface->map.info.a == 255) {
             if (which < SDL_arraysize(one_blitkey)) {
                 return one_blitkey[which];
             }

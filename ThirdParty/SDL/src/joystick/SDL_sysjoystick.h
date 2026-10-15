@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -83,6 +83,8 @@ struct SDL_Joystick
     SDL_GUID guid _guarded;      // Joystick guid
     Uint16 firmware_version _guarded;    // Firmware version, if available
     Uint64 steam_handle _guarded;        // Steam controller API handle
+    bool swap_face_buttons _guarded;     // Whether we should swap face buttons
+    bool is_virtual _guarded;            // Whether this is a virtual joystick
 
     int naxes _guarded; // Number of axis controls on the joystick
     SDL_JoystickAxisInfo *axes _guarded;
@@ -111,6 +113,7 @@ struct SDL_Joystick
     Uint16 left_trigger_rumble _guarded;
     Uint16 right_trigger_rumble _guarded;
     Uint64 trigger_rumble_expiration _guarded;
+    Uint64 trigger_rumble_resend _guarded;
 
     Uint8 led_red _guarded;
     Uint8 led_green _guarded;
@@ -240,6 +243,7 @@ typedef struct SDL_JoystickDriver
 #define SDL_LED_MIN_REPEAT_MS 5000
 
 // The available joystick drivers
+extern SDL_JoystickDriver SDL_PRIVATE_JoystickDriver;
 extern SDL_JoystickDriver SDL_ANDROID_JoystickDriver;
 extern SDL_JoystickDriver SDL_BSD_JoystickDriver;
 extern SDL_JoystickDriver SDL_DARWIN_JoystickDriver;

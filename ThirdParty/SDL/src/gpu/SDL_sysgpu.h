@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -24,6 +24,21 @@
 #ifndef SDL_GPU_DRIVER_H
 #define SDL_GPU_DRIVER_H
 
+// GraphicsDevice Limits
+
+#define MAX_TEXTURE_SAMPLERS_PER_STAGE 16
+#define MAX_STORAGE_TEXTURES_PER_STAGE 8
+#define MAX_STORAGE_BUFFERS_PER_STAGE  8
+#define MAX_UNIFORM_BUFFERS_PER_STAGE  4
+#define MAX_COMPUTE_WRITE_TEXTURES     8
+#define MAX_COMPUTE_WRITE_BUFFERS      8
+#define UNIFORM_BUFFER_SIZE            32768
+#define MAX_VERTEX_BUFFERS             16
+#define MAX_VERTEX_ATTRIBUTES          16
+#define MAX_COLOR_TARGET_BINDINGS      8
+#define MAX_PRESENT_COUNT              16
+#define MAX_FRAMES_IN_FLIGHT           3
+
 // Common Structs
 
 typedef struct Pass
@@ -32,21 +47,80 @@ typedef struct Pass
     bool in_progress;
 } Pass;
 
+typedef struct ComputePass
+{
+    SDL_GPUCommandBuffer *command_buffer;
+    bool in_progress;
+
+    SDL_GPUComputePipeline *compute_pipeline;
+
+    bool sampler_bound[MAX_TEXTURE_SAMPLERS_PER_STAGE];
+    bool read_only_storage_texture_bound[MAX_STORAGE_TEXTURES_PER_STAGE];
+    bool read_only_storage_buffer_bound[MAX_STORAGE_BUFFERS_PER_STAGE];
+    bool read_write_storage_texture_bound[MAX_COMPUTE_WRITE_TEXTURES];
+    bool read_write_storage_buffer_bound[MAX_COMPUTE_WRITE_BUFFERS];
+} ComputePass;
+
+typedef struct RenderPass
+{
+    SDL_GPUCommandBuffer *command_buffer;
+    bool in_progress;
+    SDL_GPUTexture *color_targets[MAX_COLOR_TARGET_BINDINGS];
+    Uint32 num_color_targets;
+    SDL_GPUTexture *depth_stencil_target;
+
+    SDL_GPUGraphicsPipeline *graphics_pipeline;
+
+    bool vertex_sampler_bound[MAX_TEXTURE_SAMPLERS_PER_STAGE];
+    bool vertex_storage_texture_bound[MAX_STORAGE_TEXTURES_PER_STAGE];
+    bool vertex_storage_buffer_bound[MAX_STORAGE_BUFFERS_PER_STAGE];
+
+    bool fragment_sampler_bound[MAX_TEXTURE_SAMPLERS_PER_STAGE];
+    bool fragment_storage_texture_bound[MAX_STORAGE_TEXTURES_PER_STAGE];
+    bool fragment_storage_buffer_bound[MAX_STORAGE_BUFFERS_PER_STAGE];
+} RenderPass;
+
 typedef struct CommandBufferCommonHeader
 {
     SDL_GPUDevice *device;
-    Pass render_pass;
-    bool graphics_pipeline_bound;
-    Pass compute_pass;
-    bool compute_pipeline_bound;
+
+    RenderPass render_pass;
+    ComputePass compute_pass;
+
     Pass copy_pass;
+    bool swapchain_texture_acquired;
     bool submitted;
+    // used to avoid tripping assert on GenerateMipmaps
+    bool ignore_render_pass_texture_validation;
 } CommandBufferCommonHeader;
 
 typedef struct TextureCommonHeader
 {
     SDL_GPUTextureCreateInfo info;
 } TextureCommonHeader;
+
+typedef struct GraphicsPipelineCommonHeader
+{
+    Uint32 num_vertex_samplers;
+    Uint32 num_vertex_storage_textures;
+    Uint32 num_vertex_storage_buffers;
+    Uint32 num_vertex_uniform_buffers;
+
+    Uint32 num_fragment_samplers;
+    Uint32 num_fragment_storage_textures;
+    Uint32 num_fragment_storage_buffers;
+    Uint32 num_fragment_uniform_buffers;
+} GraphicsPipelineCommonHeader;
+
+typedef struct ComputePipelineCommonHeader
+{
+    Uint32 numSamplers;
+    Uint32 numReadonlyStorageTextures;
+    Uint32 numReadonlyStorageBuffers;
+    Uint32 numReadWriteStorageTextures;
+    Uint32 numReadWriteStorageBuffers;
+    Uint32 numUniformBuffers;
+} ComputePipelineCommonHeader;
 
 typedef struct BlitFragmentUniforms
 {
@@ -69,19 +143,63 @@ typedef struct BlitPipelineCacheEntry
 
 // Internal Helper Utilities
 
-#define SDL_GPU_TEXTUREFORMAT_MAX_ENUM_VALUE        (SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT + 1)
+#define SDL_GPU_TEXTUREFORMAT_MAX_ENUM_VALUE        (SDL_GPU_TEXTUREFORMAT_ASTC_12x12_FLOAT + 1)
 #define SDL_GPU_VERTEXELEMENTFORMAT_MAX_ENUM_VALUE  (SDL_GPU_VERTEXELEMENTFORMAT_HALF4 + 1)
 #define SDL_GPU_COMPAREOP_MAX_ENUM_VALUE            (SDL_GPU_COMPAREOP_ALWAYS + 1)
 #define SDL_GPU_STENCILOP_MAX_ENUM_VALUE            (SDL_GPU_STENCILOP_DECREMENT_AND_WRAP + 1)
 #define SDL_GPU_BLENDOP_MAX_ENUM_VALUE              (SDL_GPU_BLENDOP_MAX + 1)
 #define SDL_GPU_BLENDFACTOR_MAX_ENUM_VALUE          (SDL_GPU_BLENDFACTOR_SRC_ALPHA_SATURATE + 1)
-#define SDL_GPU_SWAPCHAINCOMPOSITION_MAX_ENUM_VALUE (SDL_GPU_SWAPCHAINCOMPOSITION_HDR10_ST2048 + 1)
+#define SDL_GPU_SWAPCHAINCOMPOSITION_MAX_ENUM_VALUE (SDL_GPU_SWAPCHAINCOMPOSITION_HDR10_ST2084 + 1)
 #define SDL_GPU_PRESENTMODE_MAX_ENUM_VALUE          (SDL_GPU_PRESENTMODE_MAILBOX + 1)
 
-static inline Sint32 Texture_GetBlockSize(
+static inline Sint32 Texture_GetBlockWidth(
     SDL_GPUTextureFormat format)
 {
     switch (format) {
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x10_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x12_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x10_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x12_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x10_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x12_FLOAT:
+        return 12;
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x5_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x6_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x8_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x10_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x5_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x6_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x8_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x10_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x5_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x6_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x8_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x10_FLOAT:
+        return 10;
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x5_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x6_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x8_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x5_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x6_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x8_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x5_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x6_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x8_FLOAT:
+        return 8;
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x5_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x6_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x5_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x6_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x5_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x6_FLOAT:
+        return 6;
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x4_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x5_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x4_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x5_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x4_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x5_FLOAT:
+        return 5;
     case SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM:
     case SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM:
     case SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM:
@@ -91,8 +209,12 @@ static inline Sint32 Texture_GetBlockSize(
     case SDL_GPU_TEXTUREFORMAT_BC6H_RGB_FLOAT:
     case SDL_GPU_TEXTUREFORMAT_BC6H_RGB_UFLOAT:
     case SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM_SRGB:
     case SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM_SRGB:
     case SDL_GPU_TEXTUREFORMAT_BC7_RGBA_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_4x4_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_4x4_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_4x4_FLOAT:
         return 4;
     case SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM:
     case SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM:
@@ -125,14 +247,146 @@ static inline Sint32 Texture_GetBlockSize(
     case SDL_GPU_TEXTUREFORMAT_R16_UINT:
     case SDL_GPU_TEXTUREFORMAT_R16G16_UINT:
     case SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT:
+    case SDL_GPU_TEXTUREFORMAT_R32_UINT:
+    case SDL_GPU_TEXTUREFORMAT_R32G32_UINT:
+    case SDL_GPU_TEXTUREFORMAT_R32G32B32A32_UINT:
     case SDL_GPU_TEXTUREFORMAT_R8_INT:
     case SDL_GPU_TEXTUREFORMAT_R8G8_INT:
     case SDL_GPU_TEXTUREFORMAT_R8G8B8A8_INT:
     case SDL_GPU_TEXTUREFORMAT_R16_INT:
     case SDL_GPU_TEXTUREFORMAT_R16G16_INT:
     case SDL_GPU_TEXTUREFORMAT_R16G16B16A16_INT:
+    case SDL_GPU_TEXTUREFORMAT_R32_INT:
+    case SDL_GPU_TEXTUREFORMAT_R32G32_INT:
+    case SDL_GPU_TEXTUREFORMAT_R32G32B32A32_INT:
     case SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB:
     case SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_D16_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_D24_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_D32_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT:
+    case SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT:
+        return 1;
+    default:
+        SDL_assert_release(!"Unrecognized TextureFormat!");
+        return 0;
+    }
+}
+
+static inline Sint32 Texture_GetBlockHeight(
+    SDL_GPUTextureFormat format)
+{
+    switch (format) {
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x12_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x12_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x12_FLOAT:
+        return 12;
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x10_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x10_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x10_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x10_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x10_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x10_FLOAT:
+        return 10;
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x8_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x8_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x8_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x8_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x8_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x8_FLOAT:
+        return 8;
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x6_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x6_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x6_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x6_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x6_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x6_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x6_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x6_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x6_FLOAT:
+        return 6;
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x5_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x5_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x5_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x5_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x5_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x5_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x5_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x5_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x5_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x5_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x5_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x5_FLOAT:
+        return 5;
+    case SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_BC4_R_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_BC5_RG_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_BC7_RGBA_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_BC6H_RGB_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_BC6H_RGB_UFLOAT:
+    case SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_BC7_RGBA_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x4_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x4_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x4_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_4x4_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_4x4_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_4x4_FLOAT:
+        return 4;
+    case SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_B5G6R5_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_B5G5R5A1_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_B4G4R4A4_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_R10G10B10A2_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_R8G8_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_R16G16_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_R8_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_R16_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_A8_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_R8_SNORM:
+    case SDL_GPU_TEXTUREFORMAT_R8G8_SNORM:
+    case SDL_GPU_TEXTUREFORMAT_R8G8B8A8_SNORM:
+    case SDL_GPU_TEXTUREFORMAT_R16_SNORM:
+    case SDL_GPU_TEXTUREFORMAT_R16G16_SNORM:
+    case SDL_GPU_TEXTUREFORMAT_R16G16B16A16_SNORM:
+    case SDL_GPU_TEXTUREFORMAT_R16_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_R16G16_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_R32_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_R32G32_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_R11G11B10_UFLOAT:
+    case SDL_GPU_TEXTUREFORMAT_R8_UINT:
+    case SDL_GPU_TEXTUREFORMAT_R8G8_UINT:
+    case SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UINT:
+    case SDL_GPU_TEXTUREFORMAT_R16_UINT:
+    case SDL_GPU_TEXTUREFORMAT_R16G16_UINT:
+    case SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT:
+    case SDL_GPU_TEXTUREFORMAT_R32_UINT:
+    case SDL_GPU_TEXTUREFORMAT_R32G32_UINT:
+    case SDL_GPU_TEXTUREFORMAT_R32G32B32A32_UINT:
+    case SDL_GPU_TEXTUREFORMAT_R8_INT:
+    case SDL_GPU_TEXTUREFORMAT_R8G8_INT:
+    case SDL_GPU_TEXTUREFORMAT_R8G8B8A8_INT:
+    case SDL_GPU_TEXTUREFORMAT_R16_INT:
+    case SDL_GPU_TEXTUREFORMAT_R16G16_INT:
+    case SDL_GPU_TEXTUREFORMAT_R16G16B16A16_INT:
+    case SDL_GPU_TEXTUREFORMAT_R32_INT:
+    case SDL_GPU_TEXTUREFORMAT_R32G32_INT:
+    case SDL_GPU_TEXTUREFORMAT_R32G32B32A32_INT:
+    case SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_D16_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_D24_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_D32_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT:
+    case SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT:
         return 1;
     default:
         SDL_assert_release(!"Unrecognized TextureFormat!");
@@ -192,6 +446,154 @@ static inline bool IsIntegerFormat(
     }
 }
 
+static inline bool IsCompressedFormat(
+    SDL_GPUTextureFormat format)
+{
+    switch (format) {
+    case SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_BC4_R_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_BC5_RG_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_BC6H_RGB_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_BC6H_RGB_UFLOAT:
+    case SDL_GPU_TEXTUREFORMAT_BC7_RGBA_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_BC7_RGBA_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_4x4_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x4_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x5_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x5_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x6_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x5_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x6_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x8_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x5_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x6_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x8_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x10_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x10_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x12_UNORM:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_4x4_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x4_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x5_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x5_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x6_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x5_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x6_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x8_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x5_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x6_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x8_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x10_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x10_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x12_UNORM_SRGB:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_4x4_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x4_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_5x5_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x5_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_6x6_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x5_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x6_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_8x8_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x5_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x6_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x8_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_10x10_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x10_FLOAT:
+    case SDL_GPU_TEXTUREFORMAT_ASTC_12x12_FLOAT:
+        return true;
+
+    default:
+        return false;
+    }
+}
+
+static inline bool FormatHasAlpha(
+    SDL_GPUTextureFormat format)
+{
+    switch (format) {
+        case SDL_GPU_TEXTUREFORMAT_ASTC_12x10_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_12x12_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_12x10_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_12x12_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_12x10_FLOAT:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_12x12_FLOAT:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_10x5_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_10x6_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_10x8_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_10x10_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_10x5_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_10x6_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_10x8_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_10x10_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_10x5_FLOAT:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_10x6_FLOAT:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_10x8_FLOAT:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_10x10_FLOAT:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_8x5_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_8x6_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_8x8_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_8x5_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_8x6_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_8x8_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_8x5_FLOAT:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_8x6_FLOAT:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_8x8_FLOAT:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_6x5_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_6x6_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_6x5_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_6x6_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_6x5_FLOAT:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_6x6_FLOAT:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_5x4_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_5x5_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_5x4_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_5x5_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_5x4_FLOAT:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_5x5_FLOAT:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_4x4_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_4x4_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_ASTC_4x4_FLOAT:
+            // ASTC textures may or may not have alpha; return true as this is mainly intended for validation
+            return true;
+
+        case SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_BC7_RGBA_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_BC7_RGBA_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_B5G5R5A1_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_B4G4R4A4_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_R10G10B10A2_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_A8_UNORM:
+        case SDL_GPU_TEXTUREFORMAT_R8G8B8A8_SNORM:
+        case SDL_GPU_TEXTUREFORMAT_R16G16B16A16_SNORM:
+        case SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT:
+        case SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT:
+        case SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UINT:
+        case SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UINT:
+        case SDL_GPU_TEXTUREFORMAT_R32G32B32A32_UINT:
+        case SDL_GPU_TEXTUREFORMAT_R8G8B8A8_INT:
+        case SDL_GPU_TEXTUREFORMAT_R16G16B16A16_INT:
+        case SDL_GPU_TEXTUREFORMAT_R32G32B32A32_INT:
+        case SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM_SRGB:
+        case SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB:
+            return true;
+
+        default:
+            return false;
+    }
+}
+
 static inline Uint32 IndexSize(SDL_GPUIndexElementSize size)
 {
     return (size == SDL_GPU_INDEXELEMENTSIZE_16BIT) ? 2 : 4;
@@ -201,51 +603,22 @@ static inline Uint32 BytesPerRow(
     Sint32 width,
     SDL_GPUTextureFormat format)
 {
-    Uint32 blocksPerRow = width;
-    Uint32 pixelRowsPerBlock = Texture_GetBlockSize(format);
-
-    blocksPerRow = (width + pixelRowsPerBlock - 1) / pixelRowsPerBlock;
+    Uint32 blockWidth = Texture_GetBlockWidth(format);
+    Uint32 blocksPerRow = (width + blockWidth - 1) / blockWidth;
     return blocksPerRow * SDL_GPUTextureFormatTexelBlockSize(format);
 }
-
-static inline Sint32 BytesPerImage(
-    Uint32 width,
-    Uint32 height,
-    SDL_GPUTextureFormat format)
-{
-    Uint32 blocksPerRow = width;
-    Uint32 blocksPerColumn = height;
-    Uint32 pixelRowsPerBlock = Texture_GetBlockSize(format);
-    Uint32 pixelColumnsPerBlock = pixelRowsPerBlock;
-
-    blocksPerRow = (width + pixelRowsPerBlock - 1) / pixelRowsPerBlock;
-    blocksPerColumn = (height + pixelColumnsPerBlock - 1) / pixelColumnsPerBlock;
-    return blocksPerRow * blocksPerColumn * SDL_GPUTextureFormatTexelBlockSize(format);
-}
-
-// GraphicsDevice Limits
-
-#define MAX_TEXTURE_SAMPLERS_PER_STAGE 16
-#define MAX_STORAGE_TEXTURES_PER_STAGE 8
-#define MAX_STORAGE_BUFFERS_PER_STAGE  8
-#define MAX_UNIFORM_BUFFERS_PER_STAGE  4
-#define MAX_COMPUTE_WRITE_TEXTURES     8
-#define MAX_COMPUTE_WRITE_BUFFERS      8
-#define UNIFORM_BUFFER_SIZE            32768
-#define MAX_BUFFER_BINDINGS            16
-#define MAX_COLOR_TARGET_BINDINGS      4
-#define MAX_PRESENT_COUNT              16
-#define MAX_FRAMES_IN_FLIGHT           3
 
 // Internal Macros
 
 #define EXPAND_ARRAY_IF_NEEDED(arr, elementType, newCount, capacity, newCapacity) \
-    if (newCount >= capacity) {                                                   \
-        capacity = newCapacity;                                                   \
-        arr = (elementType *)SDL_realloc(                                         \
-            arr,                                                                  \
-            sizeof(elementType) * capacity);                                      \
-    }
+    do {                                                                          \
+        if ((newCount) >= (capacity)) {                                           \
+            (capacity) = (newCapacity);                                           \
+            (arr) = (elementType *)SDL_realloc(                                   \
+                (arr),                                                            \
+                sizeof(elementType) * (capacity));                                \
+        }                                                                         \
+    } while (0)
 
 // Internal Declarations
 
@@ -262,6 +635,7 @@ SDL_GPUGraphicsPipeline *SDL_GPU_FetchBlitPipeline(
     SDL_GPUShader *blitFrom2DArrayShader,
     SDL_GPUShader *blitFrom3DShader,
     SDL_GPUShader *blitFromCubeShader,
+    SDL_GPUShader *blitFromCubeArrayShader,
     BlitPipelineCacheEntry **blitPipelines,
     Uint32 *blitPipelineCount,
     Uint32 *blitPipelineCapacity);
@@ -276,6 +650,7 @@ void SDL_GPU_BlitCommon(
     SDL_GPUShader *blitFrom2DArrayShader,
     SDL_GPUShader *blitFrom3DShader,
     SDL_GPUShader *blitFromCubeShader,
+    SDL_GPUShader *blitFromCubeArrayShader,
     BlitPipelineCacheEntry **blitPipelines,
     Uint32 *blitPipelineCount,
     Uint32 *blitPipelineCapacity);
@@ -290,9 +665,11 @@ typedef struct SDL_GPURenderer SDL_GPURenderer;
 
 struct SDL_GPUDevice
 {
-    // Quit
+    // Device
 
     void (*DestroyDevice)(SDL_GPUDevice *device);
+
+    SDL_PropertiesID (*GetDeviceProperties)(SDL_GPUDevice *device);
 
     // State Creation
 
@@ -319,12 +696,14 @@ struct SDL_GPUDevice
     SDL_GPUBuffer *(*CreateBuffer)(
         SDL_GPURenderer *driverData,
         SDL_GPUBufferUsageFlags usageFlags,
-        Uint32 size);
+        Uint32 size,
+        const char *debugName);
 
     SDL_GPUTransferBuffer *(*CreateTransferBuffer)(
         SDL_GPURenderer *driverData,
         SDL_GPUTransferBufferUsage usage,
-        Uint32 size);
+        Uint32 size,
+        const char *debugName);
 
     // Debug Naming
 
@@ -409,7 +788,7 @@ struct SDL_GPUDevice
 
     void (*BindVertexBuffers)(
         SDL_GPUCommandBuffer *commandBuffer,
-        Uint32 firstBinding,
+        Uint32 firstSlot,
         const SDL_GPUBufferBinding *bindings,
         Uint32 numBindings);
 
@@ -500,9 +879,9 @@ struct SDL_GPUDevice
 
     void (*BeginComputePass)(
         SDL_GPUCommandBuffer *commandBuffer,
-        const SDL_GPUStorageTextureWriteOnlyBinding *storageTextureBindings,
+        const SDL_GPUStorageTextureReadWriteBinding *storageTextureBindings,
         Uint32 numStorageTextureBindings,
-        const SDL_GPUStorageBufferWriteOnlyBinding *storageBufferBindings,
+        const SDL_GPUStorageBufferReadWriteBinding *storageBufferBindings,
         Uint32 numStorageBufferBindings);
 
     void (*BindComputePipeline)(
@@ -638,6 +1017,10 @@ struct SDL_GPUDevice
         SDL_GPUSwapchainComposition swapchainComposition,
         SDL_GPUPresentMode presentMode);
 
+    bool (*SetAllowedFramesInFlight)(
+        SDL_GPURenderer *driverData,
+        Uint32 allowedFramesInFlight);
+
     SDL_GPUTextureFormat (*GetSwapchainTextureFormat)(
         SDL_GPURenderer *driverData,
         SDL_Window *window);
@@ -645,22 +1028,37 @@ struct SDL_GPUDevice
     SDL_GPUCommandBuffer *(*AcquireCommandBuffer)(
         SDL_GPURenderer *driverData);
 
-    SDL_GPUTexture *(*AcquireSwapchainTexture)(
+    bool (*AcquireSwapchainTexture)(
         SDL_GPUCommandBuffer *commandBuffer,
         SDL_Window *window,
-        Uint32 *w,
-        Uint32 *h);
+        SDL_GPUTexture **swapchainTexture,
+        Uint32 *swapchainTextureWidth,
+        Uint32 *swapchainTextureHeight);
 
-    void (*Submit)(
+    bool (*WaitForSwapchain)(
+        SDL_GPURenderer *driverData,
+        SDL_Window *window);
+
+    bool (*WaitAndAcquireSwapchainTexture)(
+        SDL_GPUCommandBuffer *commandBuffer,
+        SDL_Window *window,
+        SDL_GPUTexture **swapchainTexture,
+        Uint32 *swapchainTextureWidth,
+        Uint32 *swapchainTextureHeight);
+
+    bool (*Submit)(
         SDL_GPUCommandBuffer *commandBuffer);
 
     SDL_GPUFence *(*SubmitAndAcquireFence)(
         SDL_GPUCommandBuffer *commandBuffer);
 
-    void (*Wait)(
+    bool (*Cancel)(
+        SDL_GPUCommandBuffer *commandBuffer);
+
+    bool (*Wait)(
         SDL_GPURenderer *driverData);
 
-    void (*WaitForFences)(
+    bool (*WaitForFences)(
         SDL_GPURenderer *driverData,
         bool waitAll,
         SDL_GPUFence *const *fences,
@@ -690,18 +1088,24 @@ struct SDL_GPUDevice
     // Opaque pointer for the Driver
     SDL_GPURenderer *driverData;
 
-    // Store this for SDL_GetGPUDriver()
-    SDL_GPUDriver backend;
+    // Store this for SDL_GetGPUDeviceDriver()
+    const char *backend;
+
+    // Store this for SDL_GetGPUShaderFormats()
+    SDL_GPUShaderFormat shader_formats;
 
     // Store this for SDL_gpu.c's debug layer
     bool debug_mode;
-    SDL_GPUShaderFormat shader_formats;
+    bool default_enable_depth_clip;
+    bool validate_feature_depth_clamp_disabled;
+    bool validate_feature_anisotropy_disabled;
 };
 
 #define ASSIGN_DRIVER_FUNC(func, name) \
     result->func = name##_##func;
 #define ASSIGN_DRIVER(name)                                 \
     ASSIGN_DRIVER_FUNC(DestroyDevice, name)                 \
+    ASSIGN_DRIVER_FUNC(GetDeviceProperties, name)      \
     ASSIGN_DRIVER_FUNC(CreateComputePipeline, name)         \
     ASSIGN_DRIVER_FUNC(CreateGraphicsPipeline, name)        \
     ASSIGN_DRIVER_FUNC(CreateSampler, name)                 \
@@ -768,11 +1172,15 @@ struct SDL_GPUDevice
     ASSIGN_DRIVER_FUNC(ClaimWindow, name)                   \
     ASSIGN_DRIVER_FUNC(ReleaseWindow, name)                 \
     ASSIGN_DRIVER_FUNC(SetSwapchainParameters, name)        \
+    ASSIGN_DRIVER_FUNC(SetAllowedFramesInFlight, name)      \
     ASSIGN_DRIVER_FUNC(GetSwapchainTextureFormat, name)     \
     ASSIGN_DRIVER_FUNC(AcquireCommandBuffer, name)          \
     ASSIGN_DRIVER_FUNC(AcquireSwapchainTexture, name)       \
+    ASSIGN_DRIVER_FUNC(WaitForSwapchain, name)              \
+    ASSIGN_DRIVER_FUNC(WaitAndAcquireSwapchainTexture, name)\
     ASSIGN_DRIVER_FUNC(Submit, name)                        \
     ASSIGN_DRIVER_FUNC(SubmitAndAcquireFence, name)         \
+    ASSIGN_DRIVER_FUNC(Cancel, name)                        \
     ASSIGN_DRIVER_FUNC(Wait, name)                          \
     ASSIGN_DRIVER_FUNC(WaitForFences, name)                 \
     ASSIGN_DRIVER_FUNC(QueryFence, name)                    \
@@ -783,9 +1191,7 @@ struct SDL_GPUDevice
 typedef struct SDL_GPUBootstrap
 {
     const char *name;
-    const SDL_GPUDriver backendflag;
-    const SDL_GPUShaderFormat shader_formats;
-    bool (*PrepareDriver)(SDL_VideoDevice *_this);
+    bool (*PrepareDriver)(SDL_VideoDevice *_this, SDL_PropertiesID props);
     SDL_GPUDevice *(*CreateDevice)(bool debug_mode, bool prefer_low_power, SDL_PropertiesID props);
 } SDL_GPUBootstrap;
 
@@ -794,10 +1200,9 @@ extern "C" {
 #endif
 
 extern SDL_GPUBootstrap VulkanDriver;
-extern SDL_GPUBootstrap D3D11Driver;
 extern SDL_GPUBootstrap D3D12Driver;
 extern SDL_GPUBootstrap MetalDriver;
-extern SDL_GPUBootstrap PS5Driver;
+extern SDL_GPUBootstrap PrivateGPUDriver;
 
 #ifdef __cplusplus
 }

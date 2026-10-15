@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -38,7 +38,8 @@ typedef enum
     PENDING_OPERATION_NONE = 0x00,
     PENDING_OPERATION_ENTER_FULLSCREEN = 0x01,
     PENDING_OPERATION_LEAVE_FULLSCREEN = 0x02,
-    PENDING_OPERATION_MINIMIZE = 0x04
+    PENDING_OPERATION_MINIMIZE = 0x04,
+    PENDING_OPERATION_ZOOM = 0x08
 } PendingWindowOperation;
 
 @interface SDL3Cocoa_WindowListener : NSResponder <NSWindowDelegate>
@@ -58,6 +59,7 @@ typedef enum
     NSInteger focusClickPending;
     float pendingWindowWarpX, pendingWindowWarpY;
     BOOL isDragAreaRunning;
+    NSTimer *liveResizeTimer;
 }
 
 - (BOOL)isTouchFromTrackpad:(NSEvent *)theEvent;
@@ -82,6 +84,9 @@ typedef enum
 // Window delegate functionality
 - (BOOL)windowShouldClose:(id)sender;
 - (void)windowDidExpose:(NSNotification *)aNotification;
+- (void)windowDidChangeOcclusionState:(NSNotification *)aNotification;
+- (void)windowWillStartLiveResize:(NSNotification *)aNotification;
+- (void)windowDidEndLiveResize:(NSNotification *)aNotification;
 - (void)windowDidMove:(NSNotification *)aNotification;
 - (void)windowDidResize:(NSNotification *)aNotification;
 - (void)windowDidMiniaturize:(NSNotification *)aNotification;
@@ -117,6 +122,7 @@ typedef enum
 - (void)touchesMovedWithEvent:(NSEvent *)theEvent;
 - (void)touchesEndedWithEvent:(NSEvent *)theEvent;
 - (void)touchesCancelledWithEvent:(NSEvent *)theEvent;
+- (void)magnifyWithEvent:(NSEvent *) theEvent;
 
 // Touch event handling
 - (void)handleTouches:(NSTouchPhase)phase withEvent:(NSEvent *)theEvent;
@@ -135,19 +141,21 @@ typedef enum
 @property(nonatomic) SDL_Window *window;
 @property(nonatomic) NSWindow *nswindow;
 @property(nonatomic) NSView *sdlContentView;
+@property(nonatomic) NSRect viewport;
 @property(nonatomic) NSMutableArray *nscontexts;
 @property(nonatomic) BOOL in_blocking_transition;
+@property(nonatomic) BOOL fullscreen_space_requested;
 @property(nonatomic) BOOL was_zoomed;
 @property(nonatomic) NSInteger window_number;
 @property(nonatomic) NSInteger flash_request;
-@property(nonatomic) SDL_Window *keyboard_focus;
 @property(nonatomic) SDL3Cocoa_WindowListener *listener;
 @property(nonatomic) NSModalSession modal_session;
 @property(nonatomic) SDL_CocoaVideoData *videodata;
-@property(nonatomic) bool send_floating_size;
-@property(nonatomic) bool send_floating_position;
+@property(nonatomic) bool pending_size;
+@property(nonatomic) bool pending_position;
 @property(nonatomic) bool border_toggled;
-@property(nonatomic) BOOL checking_zoom;
+@property(nonatomic) bool has_modal_dialog;
+
 #ifdef SDL_VIDEO_OPENGL_EGL
 @property(nonatomic) EGLSurface egl_surface;
 #endif
@@ -162,6 +170,7 @@ extern bool Cocoa_SetWindowPosition(SDL_VideoDevice *_this, SDL_Window *window);
 extern void Cocoa_SetWindowSize(SDL_VideoDevice *_this, SDL_Window *window);
 extern void Cocoa_SetWindowMinimumSize(SDL_VideoDevice *_this, SDL_Window *window);
 extern void Cocoa_SetWindowMaximumSize(SDL_VideoDevice *_this, SDL_Window *window);
+extern void Cocoa_SetWindowAspectRatio(SDL_VideoDevice *_this, SDL_Window *window);
 extern void Cocoa_GetWindowSizeInPixels(SDL_VideoDevice *_this, SDL_Window *window, int *w, int *h);
 extern bool Cocoa_SetWindowOpacity(SDL_VideoDevice *_this, SDL_Window *window, float opacity);
 extern void Cocoa_ShowWindow(SDL_VideoDevice *_this, SDL_Window *window);
@@ -186,5 +195,7 @@ extern bool Cocoa_SetWindowFocusable(SDL_VideoDevice *_this, SDL_Window *window,
 extern bool Cocoa_SetWindowModal(SDL_VideoDevice *_this, SDL_Window *window, bool modal);
 extern bool Cocoa_SetWindowParent(SDL_VideoDevice *_this, SDL_Window *window, SDL_Window *parent);
 extern bool Cocoa_SyncWindow(SDL_VideoDevice *_this, SDL_Window *window);
+
+extern void Cocoa_MenuVisibilityCallback(void *userdata, const char *name, const char *oldValue, const char *newValue);
 
 #endif // SDL_cocoawindow_h_

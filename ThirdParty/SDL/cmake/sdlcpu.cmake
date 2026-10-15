@@ -1,18 +1,18 @@
 function(SDL_DetectTargetCPUArchitectures DETECTED_ARCHS)
 
-  set(known_archs EMSCRIPTEN ARM32 ARM64 ARM64EC LOONGARCH64 POWERPC32 POWERPC64 X86 X64)
+  set(known_archs EMSCRIPTEN ARM32 ARM64 ARM64EC LOONGARCH64 MIPS32 MIPS64 POWERPC32 POWERPC64 RISCV32 RISCV64 X86 X64)
 
   if(APPLE AND CMAKE_OSX_ARCHITECTURES)
     foreach(known_arch IN LISTS known_archs)
-      set(SDL_CPU_${known_arch} "0")
+      set(SDL_CPU_${known_arch} "0" PARENT_SCOPE)
     endforeach()
     set(detected_archs)
     foreach(osx_arch IN LISTS CMAKE_OSX_ARCHITECTURES)
       if(osx_arch STREQUAL "x86_64")
-        set(SDL_CPU_X64 "1")
+        set(SDL_CPU_X64 "1" PARENT_SCOPE)
         list(APPEND detected_archs "X64")
       elseif(osx_arch STREQUAL "arm64")
-        set(SDL_CPU_ARM64 "1")
+        set(SDL_CPU_ARM64 "1" PARENT_SCOPE)
         list(APPEND detected_archs "ARM64")
       endif()
     endforeach()
@@ -37,8 +37,12 @@ function(SDL_DetectTargetCPUArchitectures DETECTED_ARCHS)
   set(arch_check_ARM64EC "defined(_M_ARM64EC)")
   set(arch_check_EMSCRIPTEN "defined(__EMSCRIPTEN__)")
   set(arch_check_LOONGARCH64 "defined(__loongarch64)")
+  set(arch_check_MIPS32 "(defined(__mips__) && !defined(__mips64))")
+  set(arch_check_MIPS64 "(defined(__mips__) && defined(__mips64))")
   set(arch_check_POWERPC32 "(defined(__PPC__) || defined(__powerpc__)) && !defined(__powerpc64__)")
   set(arch_check_POWERPC64 "defined(__PPC64__) || defined(__powerpc64__)")
+  set(arch_check_RISCV32 "defined(__riscv) && defined(__riscv_xlen) && __riscv_xlen == 32")
+  set(arch_check_RISCV64 "defined(__riscv) && defined(__riscv_xlen) && __riscv_xlen == 64")
   set(arch_check_X86 "defined(__i386__) || defined(__i486__) || defined(__i586__) || defined(__i686__) ||defined( __i386) || defined(_M_IX86)")
   set(arch_check_X64 "(defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64) || defined(_M_X64) || defined(_M_AMD64)) && !defined(_M_ARM64EC)")
 
@@ -61,13 +65,21 @@ const char *arch_${known_arch} = \"INFO<${known_arch}=\" ARCH_${known_arch} \">\
 
   set(src_arch_detect "${src_vars}
 int main(int argc, char *argv[]) {
-  (void)argv;
   int result = 0;
+  (void)argv;
 ${src_main}
   return result;
 }")
 
-  set(path_src_arch_detect "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/CMakeTmp/SDL_detect_arch.c")
+  if(CMAKE_C_COMPILER)
+    set(ext ".c")
+  elseif(CMAKE_CXX_COMPILER)
+    set(ext ".cpp")
+  else()
+    enable_language(C)
+    set(ext ".c")
+  endif()
+  set(path_src_arch_detect "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/CMakeTmp/SDL_detect_arch${ext}")
   file(WRITE "${path_src_arch_detect}" "${src_arch_detect}")
   set(path_dir_arch_detect "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/CMakeTmp/SDL_detect_arch")
   set(path_bin_arch_detect "${path_dir_arch_detect}/bin")

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -40,15 +40,12 @@
 #define CONVERT_MAGNITUDE(x) (((x)*10000) / 0x7FFF)
 
 // external variables referenced.
-#ifdef SDL_VIDEO_DRIVER_WINDOWS
 extern HWND SDL_HelperWindow;
-#else
-static const HWND SDL_HelperWindow = NULL;
-#endif
 
 // local variables
 static bool coinitialized = false;
 static LPDIRECTINPUT8 dinput = NULL;
+static bool has_broken_EZFRD64DLL = false;
 
 // Taken from Wine - Thanks!
 static DIOBJECTDATAFORMAT dfDIJoystick2[] = {
@@ -267,13 +264,21 @@ static bool SDL_IsXInputDevice(Uint16 vendor_id, Uint16 product_id, const char *
     return false;
 }
 
-static bool QueryDeviceName(LPDIRECTINPUTDEVICE8 device, char **device_name)
+static bool QueryDeviceName(LPDIRECTINPUTDEVICE8 device, Uint16 vendor_id, Uint16 product_id, char **manufacturer_string, char **product_string)
 {
     DIPROPSTRING dipstr;
 
-    if (!device || !device_name) {
+    if (!device || !manufacturer_string || !product_string) {
         return false;
     }
+
+#ifdef SDL_JOYSTICK_HIDAPI
+    *manufacturer_string = HIDAPI_GetDeviceManufacturerName(vendor_id, product_id);
+    *product_string = HIDAPI_GetDeviceProductName(vendor_id, product_id);
+    if (*product_string) {
+        return true;
+    }
+#endif
 
     dipstr.diph.dwSize = sizeof(dipstr);
     dipstr.diph.dwHeaderSize = sizeof(dipstr.diph);
@@ -284,7 +289,8 @@ static bool QueryDeviceName(LPDIRECTINPUTDEVICE8 device, char **device_name)
         return false;
     }
 
-    *device_name = WIN_StringToUTF8(dipstr.wsz);
+    *manufacturer_string = NULL;
+    *product_string = WIN_StringToUTF8W(dipstr.wsz);
 
     return true;
 }
@@ -432,6 +438,29 @@ bool SDL_DINPUT_JoystickInit(void)
         dinput = NULL;
         return SetDIerror("IDirectInput::Initialize", result);
     }
+
+#ifdef _WIN64
+    if (SDL_GetHintBoolean("SDL_JOYSTICK_CHECK_EZFRD64", true)) {
+        // The 64-bit version of EZFRD64.DLL crashes after being loaded,
+        // which happens implicitly when querying the device capabilities,
+        // so make sure we don't do that if there's a possibility of crashing
+        static const char *directories[] = {
+            "C:/Windows/USB_Vibration",
+            "C:/Windows/USB Vibration"
+        };
+        for (int i = 0; i < SDL_arraysize(directories) && !has_broken_EZFRD64DLL; ++i) {
+            int count = 0;
+            char **files = SDL_GlobDirectory(directories[i], "*/EZFRD64.DLL", SDL_GLOB_CASEINSENSITIVE, &count);
+            if (count > 0) {
+                has_broken_EZFRD64DLL = true;
+            }
+            SDL_free(files);
+        }
+        if (has_broken_EZFRD64DLL) {
+            SDL_LogWarn(SDL_LOG_CATEGORY_INPUT, "Broken EZFRD64.DLL detected, disabling DirectInput force feedback");
+        }
+    }
+#endif
     return true;
 }
 
@@ -460,18 +489,21 @@ static BOOL CALLBACK EnumJoystickDetectCallback(LPCDIDEVICEINSTANCE pDeviceInsta
     Uint16 product = 0;
     Uint16 version = 0;
     char *hidPath = NULL;
-    char *name = NULL;
+    char *manufacturer_string = NULL;
+    char *product_string = NULL;
     LPDIRECTINPUTDEVICE8 device = NULL;
 
     // We are only supporting HID devices.
     CHECK(pDeviceInstance->dwDevType & DIDEVTYPE_HID);
 
     CHECK(SUCCEEDED(IDirectInput8_CreateDevice(dinput, &pDeviceInstance->guidInstance, &device, NULL)));
-    CHECK(QueryDeviceName(device, &name));
     CHECK(QueryDevicePath(device, &hidPath));
     CHECK(QueryDeviceInfo(device, &vendor, &product));
+    CHECK(QueryDeviceName(device, vendor, product, &manufacturer_string, &product_string));
 
     CHECK(!SDL_IsXInputDevice(vendor, product, hidPath));
+    CHECK(!SDL_ShouldIgnoreJoystick(vendor, product, version, product_string));
+    CHECK(!SDL_JoystickHandledByAnotherDriver(&SDL_WINDOWS_JoystickDriver, vendor, product, version, product_string));
 
     pNewJoystick = *(JoyStick_DeviceData **)pContext;
     while (pNewJoystick) {
@@ -505,18 +537,14 @@ static BOOL CALLBACK EnumJoystickDetectCallback(LPCDIDEVICEINSTANCE pDeviceInsta
     SDL_strlcpy(pNewJoystick->path, hidPath, SDL_arraysize(pNewJoystick->path));
     SDL_memcpy(&pNewJoystick->dxdevice, pDeviceInstance, sizeof(DIDEVICEINSTANCE));
 
-    pNewJoystick->joystickname = SDL_CreateJoystickName(vendor, product, NULL, name);
+    pNewJoystick->joystickname = SDL_CreateJoystickName(vendor, product, manufacturer_string, product_string);
     CHECK(pNewJoystick->joystickname);
 
     if (vendor && product) {
-        pNewJoystick->guid = SDL_CreateJoystickGUID(SDL_HARDWARE_BUS_USB, vendor, product, version, NULL, name, 0, 0);
+        pNewJoystick->guid = SDL_CreateJoystickGUID(SDL_HARDWARE_BUS_USB, vendor, product, version, manufacturer_string, product_string, 0, 0);
     } else {
-        pNewJoystick->guid = SDL_CreateJoystickGUID(SDL_HARDWARE_BUS_BLUETOOTH, vendor, product, version, NULL, name, 0, 0);
+        pNewJoystick->guid = SDL_CreateJoystickGUID(SDL_HARDWARE_BUS_BLUETOOTH, vendor, product, version, manufacturer_string, product_string, 0, 0);
     }
-
-    CHECK(!SDL_ShouldIgnoreJoystick(pNewJoystick->joystickname, pNewJoystick->guid));
-
-    CHECK(!SDL_JoystickHandledByAnotherDriver(&SDL_WINDOWS_JoystickDriver, vendor, product, version, pNewJoystick->joystickname));
 
     WINDOWS_AddJoystickDevice(pNewJoystick);
     pNewJoystick = NULL;
@@ -528,7 +556,8 @@ err:
     }
 
     SDL_free(hidPath);
-    SDL_free(name);
+    SDL_free(manufacturer_string);
+    SDL_free(product_string);
 
     if (device) {
         IDirectInputDevice8_Release(device);
@@ -615,6 +644,10 @@ static BOOL CALLBACK EnumDevObjectsCallback(LPCDIDEVICEOBJECTINSTANCE pDeviceObj
         in->ofs = DIJOFS_BUTTON(in->num);
         joystick->nbuttons++;
     } else if (pDeviceObject->dwType & DIDFT_POV) {
+        // DIJOYSTATE2.rgdwPOV only has room for 4 POVs, ignore any beyond that.
+        if (joystick->nhats >= 4) {
+            return DIENUM_CONTINUE;
+        }
         in->type = HAT;
         in->num = (Uint8)joystick->nhats;
         in->ofs = DIJOFS_POV(in->num);
@@ -773,12 +806,14 @@ bool SDL_DINPUT_JoystickOpen(SDL_Joystick *joystick, JoyStick_DeviceData *joysti
         return SetDIerror("IDirectInputDevice8::SetDataFormat", result);
     }
 
-    // Get device capabilities
-    result =
-        IDirectInputDevice8_GetCapabilities(joystick->hwdata->InputDevice,
-                                            &joystick->hwdata->Capabilities);
-    if (FAILED(result)) {
-        return SetDIerror("IDirectInputDevice8::GetCapabilities", result);
+    if (!has_broken_EZFRD64DLL) {
+        // Get device capabilities to see if we are force feedback capable
+        result =
+            IDirectInputDevice8_GetCapabilities(joystick->hwdata->InputDevice,
+                                                &joystick->hwdata->Capabilities);
+        if (FAILED(result)) {
+            return SetDIerror("IDirectInputDevice8::GetCapabilities", result);
+        }
     }
 
     // Force capable?
@@ -1037,7 +1072,7 @@ static void UpdateDINPUTJoystickState_Polled(SDL_Joystick *joystick)
             break;
         case HAT:
         {
-            Uint8 pos = TranslatePOV(state.rgdwPOV[in->ofs - DIJOFS_POV(0)]);
+            Uint8 pos = TranslatePOV(state.rgdwPOV[in->num]);
             SDL_SendJoystickHat(timestamp, joystick, in->num, pos);
             break;
         }

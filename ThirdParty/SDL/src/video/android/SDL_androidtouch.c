@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -32,7 +32,7 @@
 #define ACTION_DOWN 0
 #define ACTION_UP   1
 #define ACTION_MOVE 2
-// #define ACTION_CANCEL 3
+#define ACTION_CANCEL 3
 // #define ACTION_OUTSIDE 4
 #define ACTION_POINTER_DOWN 5
 #define ACTION_POINTER_UP   6
@@ -47,6 +47,25 @@ void Android_QuitTouch(void)
 {
 }
 
+
+SDL_TouchID Android_ConvertJavaTouchID(int touchID)
+{
+    SDL_TouchID retval = touchID;
+
+    if (touchID < 0) {
+        // Touch ID -1 appears when using Android emulator, eg:
+        //  adb shell input mouse tap 100 100
+        //  adb shell input touchscreen tap 100 100
+        //
+        // Prevent the values -1 and -2, since they're used in SDL internal for synthetic events:
+        retval -= 2;
+    } else {
+        // Touch ID 0 is invalid
+        retval += 1;
+    }
+    return retval;
+}
+
 void Android_OnTouch(SDL_Window *window, int touch_device_id_in, int pointer_finger_id_in, int action, float x, float y, float p)
 {
     SDL_TouchID touchDeviceId = 0;
@@ -56,23 +75,19 @@ void Android_OnTouch(SDL_Window *window, int touch_device_id_in, int pointer_fin
         return;
     }
 
-    /* Touch device -1 appears when using Android emulator, eg:
-     *  adb shell input mouse tap 100 100
-     *  adb shell input touchscreen tap 100 100
-     */
-    touchDeviceId = (SDL_TouchID)(touch_device_id_in + 2);
+    touchDeviceId = Android_ConvertJavaTouchID(touch_device_id_in);
 
     // Finger ID should be greater than 0
     fingerId = (SDL_FingerID)(pointer_finger_id_in + 1);
 
     if (SDL_AddTouch(touchDeviceId, SDL_TOUCH_DEVICE_DIRECT, "") < 0) {
-        SDL_Log("error: can't add touch %s, %d", __FILE__, __LINE__);
+        return;
     }
 
     switch (action) {
     case ACTION_DOWN:
     case ACTION_POINTER_DOWN:
-        SDL_SendTouch(0, touchDeviceId, fingerId, window, true, x, y, p);
+        SDL_SendTouch(0, touchDeviceId, fingerId, window, SDL_EVENT_FINGER_DOWN, x, y, p);
         break;
 
     case ACTION_MOVE:
@@ -81,7 +96,11 @@ void Android_OnTouch(SDL_Window *window, int touch_device_id_in, int pointer_fin
 
     case ACTION_UP:
     case ACTION_POINTER_UP:
-        SDL_SendTouch(0, touchDeviceId, fingerId, window, false, x, y, p);
+        SDL_SendTouch(0, touchDeviceId, fingerId, window, SDL_EVENT_FINGER_UP, x, y, p);
+        break;
+
+    case ACTION_CANCEL:
+        SDL_SendTouch(0, touchDeviceId, fingerId, window, SDL_EVENT_FINGER_CANCELED, x, y, p);
         break;
 
     default:

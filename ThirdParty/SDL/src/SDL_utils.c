@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -20,10 +20,19 @@
 */
 #include "SDL_internal.h"
 
-#include "SDL_hashtable.h"
-
-#if defined(SDL_PLATFORM_UNIX) || defined(SDL_PLATFORM_APPLE)
+#if defined(HAVE_GETHOSTNAME) && !defined(SDL_PLATFORM_WINDOWS)
 #include <unistd.h>
+#endif
+
+#include "joystick/SDL_joystick_c.h" // For SDL_GetGamepadTypeFromVIDPID()
+
+#ifdef SDL_PLATFORM_EMSCRIPTEN
+#include <emscripten.h>
+
+EMSCRIPTEN_KEEPALIVE void Emscripten_force_free(void *ptr)
+{
+    free(ptr);  // This should NOT be SDL_free()
+}
 #endif
 
 // Common utility functions that aren't in the public API
@@ -102,7 +111,8 @@ void SDL_CalculateFraction(float x, int *numerator, int *denominator)
 
 bool SDL_startswith(const char *string, const char *prefix)
 {
-    if (SDL_strncmp(string, prefix, SDL_strlen(prefix)) == 0) {
+    if (string && prefix &&
+        SDL_strncmp(string, prefix, SDL_strlen(prefix)) == 0) {
         return true;
     }
     return false;
@@ -121,7 +131,6 @@ bool SDL_endswith(const char *string, const char *suffix)
     return false;
 }
 
-// Assume we can wrap SDL_AtomicInt values and cast to Uint32
 SDL_COMPILE_TIME_ASSERT(sizeof_object_id, sizeof(int) == sizeof(Uint32));
 
 Uint32 SDL_GetNextObjectID(void)
@@ -135,14 +144,39 @@ Uint32 SDL_GetNextObjectID(void)
     return id;
 }
 
+static SDL_InitState SDL_objects_init;
 static SDL_HashTable *SDL_objects;
+bool SDL_object_validation = true;
 
-static Uint32 SDL_HashObject(const void *key, void *unused)
+static void SDLCALL SDL_InvalidParamChecksChanged(void *userdata, const char *name, const char *oldValue, const char *hint)
+{
+    bool validation_enabled = true;
+
+#ifndef OBJECT_VALIDATION_REQUIRED
+    if (hint) {
+        switch (*hint) {
+        case '0':
+        case '1':
+            validation_enabled = false;
+            break;
+        case '2':
+            validation_enabled = true;
+            break;
+        default:
+            break;
+        }
+    }
+#endif // !OBJECT_VALIDATION_REQUIRED
+
+    SDL_object_validation = validation_enabled;
+}
+
+static Uint32 SDLCALL SDL_HashObject(void *unused, const void *key)
 {
     return (Uint32)(uintptr_t)key;
 }
 
-static bool SDL_KeyMatchObject(const void *a, const void *b, void *unused)
+static bool SDL_KeyMatchObject(void *unused, const void *a, const void *b)
 {
     return (a == b);
 }
@@ -151,25 +185,25 @@ void SDL_SetObjectValid(void *object, SDL_ObjectType type, bool valid)
 {
     SDL_assert(object != NULL);
 
-    if (valid) {
-        if (!SDL_objects) {
-            SDL_objects = SDL_CreateHashTable(NULL, 32, SDL_HashObject, SDL_KeyMatchObject, NULL, false);
+    if (SDL_ShouldInit(&SDL_objects_init)) {
+        SDL_objects = SDL_CreateHashTable(0, true, SDL_HashObject, SDL_KeyMatchObject, NULL, NULL);
+        const bool initialized = (SDL_objects != NULL);
+        SDL_SetInitialized(&SDL_objects_init, initialized);
+        if (!initialized) {
+            return;
         }
+        SDL_AddHintCallback(SDL_HINT_INVALID_PARAM_CHECKS, SDL_InvalidParamChecksChanged, NULL);
+    }
 
-        SDL_InsertIntoHashTable(SDL_objects, object, (void *)(uintptr_t)type);
+    if (valid) {
+        SDL_InsertIntoHashTable(SDL_objects, object, (void *)(uintptr_t)type, true);
     } else {
-        if (SDL_objects) {
-            SDL_RemoveFromHashTable(SDL_objects, object);
-        }
+        SDL_RemoveFromHashTable(SDL_objects, object);
     }
 }
 
-bool SDL_ObjectValid(void *object, SDL_ObjectType type)
+bool SDL_FindObject(void *object, SDL_ObjectType type)
 {
-    if (!object) {
-        return false;
-    }
-
     const void *object_type;
     if (!SDL_FindInHashTable(SDL_objects, object, &object_type)) {
         return false;
@@ -178,52 +212,66 @@ bool SDL_ObjectValid(void *object, SDL_ObjectType type)
     return (((SDL_ObjectType)(uintptr_t)object_type) == type);
 }
 
+typedef struct GetOneObjectData
+{
+    const SDL_ObjectType type;
+    void **objects;
+    const int count;
+    int num_objects;
+} GetOneObjectData;
+
+static bool SDLCALL GetOneObject(void *userdata, const SDL_HashTable *table, const void *object, const void *object_type)
+{
+    GetOneObjectData *data = (GetOneObjectData *) userdata;
+    if ((SDL_ObjectType)(uintptr_t)object_type == data->type) {
+        if (data->num_objects < data->count) {
+            data->objects[data->num_objects] = (void *)object;
+        }
+        ++data->num_objects;
+    }
+    return true;  // keep iterating.
+}
+
+
+int SDL_GetObjects(SDL_ObjectType type, void **objects, int count)
+{
+    GetOneObjectData data = { type, objects, count, 0 };
+    SDL_IterateHashTable(SDL_objects, GetOneObject, &data);
+    return data.num_objects;
+}
+
+static bool SDLCALL LogOneLeakedObject(void *userdata, const SDL_HashTable *table, const void *object, const void *object_type)
+{
+    const char *type = "unknown object";
+    switch ((SDL_ObjectType)(uintptr_t)object_type) {
+        #define SDLOBJTYPECASE(typ, name) case SDL_OBJECT_TYPE_##typ: type = name; break
+        SDLOBJTYPECASE(WINDOW, "SDL_Window");
+        SDLOBJTYPECASE(RENDERER, "SDL_Renderer");
+        SDLOBJTYPECASE(TEXTURE, "SDL_Texture");
+        SDLOBJTYPECASE(JOYSTICK, "SDL_Joystick");
+        SDLOBJTYPECASE(GAMEPAD, "SDL_Gamepad");
+        SDLOBJTYPECASE(HAPTIC, "SDL_Haptic");
+        SDLOBJTYPECASE(SENSOR, "SDL_Sensor");
+        SDLOBJTYPECASE(HIDAPI_DEVICE, "hidapi device");
+        SDLOBJTYPECASE(HIDAPI_JOYSTICK, "hidapi joystick");
+        SDLOBJTYPECASE(THREAD, "thread");
+        SDLOBJTYPECASE(TRAY, "SDL_Tray");
+        #undef SDLOBJTYPECASE
+        default: break;
+    }
+    SDL_LogDebug(SDL_LOG_CATEGORY_SYSTEM, "Leaked %s (%p)", type, object);
+    return true;  // keep iterating.
+}
+
 void SDL_SetObjectsInvalid(void)
 {
-    if (SDL_objects) {
+    if (SDL_ShouldQuit(&SDL_objects_init)) {
         // Log any leaked objects
-        const void *object, *object_type;
-        void *iter = NULL;
-        while (SDL_IterateHashTable(SDL_objects, &object, &object_type, &iter)) {
-            const char *type;
-            switch ((SDL_ObjectType)(uintptr_t)object_type) {
-            case SDL_OBJECT_TYPE_WINDOW:
-                type = "SDL_Window";
-                break;
-            case SDL_OBJECT_TYPE_RENDERER:
-                type = "SDL_Renderer";
-                break;
-            case SDL_OBJECT_TYPE_TEXTURE:
-                type = "SDL_Texture";
-                break;
-            case SDL_OBJECT_TYPE_JOYSTICK:
-                type = "SDL_Joystick";
-                break;
-            case SDL_OBJECT_TYPE_GAMEPAD:
-                type = "SDL_Gamepad";
-                break;
-            case SDL_OBJECT_TYPE_HAPTIC:
-                type = "SDL_Haptic";
-                break;
-            case SDL_OBJECT_TYPE_SENSOR:
-                type = "SDL_Sensor";
-                break;
-            case SDL_OBJECT_TYPE_HIDAPI_DEVICE:
-                type = "hidapi device";
-                break;
-            case SDL_OBJECT_TYPE_HIDAPI_JOYSTICK:
-                type = "hidapi joystick";
-                break;
-            default:
-                type = "unknown object";
-                break;
-            }
-            SDL_Log("Leaked %s (%p)\n", type, object);
-        }
-        SDL_assert(SDL_HashTableEmpty(SDL_objects));
-
+        SDL_IterateHashTable(SDL_objects, LogOneLeakedObject, NULL);
         SDL_DestroyHashTable(SDL_objects);
         SDL_objects = NULL;
+        SDL_SetInitialized(&SDL_objects_init, false);
+        SDL_RemoveHintCallback(SDL_HINT_INVALID_PARAM_CHECKS, SDL_InvalidParamChecksChanged, NULL);
     }
 }
 
@@ -302,7 +350,7 @@ int SDL_URIToLocal(const char *src, char *dst)
             const size_t src_len = hostname_end - (src + 1);
             size_t hostname_len;
 
-#if defined(SDL_PLATFORM_UNIX) || defined(SDL_PLATFORM_APPLE)
+#if defined(HAVE_GETHOSTNAME) && !defined(SDL_PLATFORM_WINDOWS)
             char hostname[257];
             if (gethostname(hostname, 255) == 0) {
                 hostname[256] = '\0';
@@ -337,6 +385,39 @@ int SDL_URIToLocal(const char *src, char *dst)
     return -1;
 }
 
+bool SDL_IsURI(const char *uri)
+{
+    /* A valid URI begins with a letter and is followed by any sequence of
+     * letters, digits, '+', '.', or '-'.
+     */
+    if (!uri) {
+        return false;
+    }
+
+    // The first character of the scheme must be a letter.
+    if (!((*uri >= 'a' && *uri <= 'z') || (*uri >= 'A' && *uri <= 'Z'))) {
+        return false;
+    }
+
+    /* If the colon is found before encountering the end of the string or
+     * any invalid characters, the scheme can be considered valid.
+     */
+    while (*uri) {
+        if (!((*uri >= 'a' && *uri <= 'z') ||
+              (*uri >= 'A' && *uri <= 'Z') ||
+              (*uri >= '0' && *uri <= '9') ||
+              *uri == '+' || *uri == '-' || *uri == '.')) {
+            return false;
+        }
+
+        if (*++uri == ':') {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // This is a set of per-thread persistent strings that we can return from the SDL API.
 // This is used for short strings that might persist past the lifetime of the object
 // they are related to.
@@ -360,7 +441,7 @@ const char *SDL_GetPersistentString(const char *string)
 
     SDL_HashTable *strings = (SDL_HashTable *)SDL_GetTLS(&SDL_string_storage);
     if (!strings) {
-        strings = SDL_CreateHashTable(NULL, 32, SDL_HashString, SDL_KeyMatchString, SDL_NukeFreeValue, false);
+        strings = SDL_CreateHashTable(0, false, SDL_HashString, SDL_KeyMatchString, SDL_DestroyHashValue, NULL);
         if (!strings) {
             return NULL;
         }
@@ -376,8 +457,168 @@ const char *SDL_GetPersistentString(const char *string)
         }
 
         // If the hash table insert fails, at least we can return the string we allocated
-        SDL_InsertIntoHashTable(strings, new_string, new_string);
+        SDL_InsertIntoHashTable(strings, new_string, new_string, false);
         result = new_string;
     }
     return result;
+}
+
+static int PrefixMatch(const char *a, const char *b)
+{
+    int matchlen = 0;
+    // Fixes the "HORI HORl Taiko No Tatsujin Drum Controller"
+    if (SDL_strncmp(a, "HORI ", 5) == 0 && SDL_strncmp(b, "HORl ", 5) == 0) {
+        return 5;
+    }
+    while (*a && *b) {
+        if (SDL_tolower((unsigned char)*a++) == SDL_tolower((unsigned char)*b++)) {
+            ++matchlen;
+        } else {
+            break;
+        }
+    }
+    return matchlen;
+}
+
+char *SDL_CreateDeviceName(Uint16 vendor, Uint16 product, const char *vendor_name, const char *product_name, const char *default_name)
+{
+    static struct
+    {
+        const char *prefix;
+        const char *replacement;
+    } replacements[] = {
+        { "(Standard system devices) ", "" },
+        { "8BitDo Tech Ltd", "8BitDo" },
+        { "ASTRO Gaming", "ASTRO" },
+        { "Bensussen Deutsch & Associates,Inc.(BDA)", "BDA" },
+        { "Guangzhou Chicken Run Network Technology Co., Ltd.", "GameSir" },
+        { "HORI CO.,LTD.", "HORI" },
+        { "HORI CO.,LTD", "HORI" },
+        { "Mad Catz Inc.", "Mad Catz" },
+        { "Nintendo Co., Ltd.", "Nintendo" },
+        { "NVIDIA Corporation ", "" },
+        { "Performance Designed Products", "PDP" },
+        { "QANBA USA, LLC", "Qanba" },
+        { "QANBA USA,LLC", "Qanba" },
+        { "Unknown ", "" },
+    };
+    char *name = NULL;
+    size_t i, len;
+
+    if (!vendor_name) {
+        vendor_name = "";
+    }
+    if (!product_name) {
+        product_name = "";
+    }
+
+    while (*vendor_name == ' ') {
+        ++vendor_name;
+    }
+    while (*product_name == ' ') {
+        ++product_name;
+    }
+
+    if (*vendor_name && *product_name) {
+        len = (SDL_strlen(vendor_name) + 1 + SDL_strlen(product_name) + 1);
+        name = (char *)SDL_malloc(len);
+        if (name) {
+            (void)SDL_snprintf(name, len, "%s %s", vendor_name, product_name);
+        }
+    } else if (*product_name) {
+        name = SDL_strdup(product_name);
+    } else if (vendor || product) {
+        // Couldn't find a controller name, try to give it one based on device type
+        switch (SDL_GetGamepadTypeFromVIDPID(vendor, product, NULL, true)) {
+        case SDL_GAMEPAD_TYPE_XBOX360:
+            name = SDL_strdup("Xbox 360 Controller");
+            break;
+        case SDL_GAMEPAD_TYPE_XBOXONE:
+            name = SDL_strdup("Xbox One Controller");
+            break;
+        case SDL_GAMEPAD_TYPE_PS3:
+            name = SDL_strdup("PS3 Controller");
+            break;
+        case SDL_GAMEPAD_TYPE_PS4:
+            name = SDL_strdup("PS4 Controller");
+            break;
+        case SDL_GAMEPAD_TYPE_PS5:
+            name = SDL_strdup("DualSense Wireless Controller");
+            break;
+        case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO:
+            name = SDL_strdup("Nintendo Switch Pro Controller");
+            break;
+        default:
+            len = (6 + 1 + 6 + 1);
+            name = (char *)SDL_malloc(len);
+            if (name) {
+                (void)SDL_snprintf(name, len, "0x%.4x/0x%.4x", vendor, product);
+            }
+            break;
+        }
+    } else if (default_name) {
+        name = SDL_strdup(default_name);
+    }
+
+    if (!name) {
+        return NULL;
+    }
+
+    // Trim trailing whitespace
+    for (len = SDL_strlen(name); (len > 0 && name[len - 1] == ' '); --len) {
+        // continue
+    }
+    name[len] = '\0';
+
+    // Compress duplicate spaces
+    for (i = 0; i < (len - 1);) {
+        if (name[i] == ' ' && name[i + 1] == ' ') {
+            SDL_memmove(&name[i], &name[i + 1], (len - i));
+            --len;
+        } else {
+            ++i;
+        }
+    }
+
+    // Perform any manufacturer replacements
+    for (i = 0; i < SDL_arraysize(replacements); ++i) {
+        size_t prefixlen = SDL_strlen(replacements[i].prefix);
+        if (SDL_strncasecmp(name, replacements[i].prefix, prefixlen) == 0) {
+            size_t replacementlen = SDL_strlen(replacements[i].replacement);
+            if (replacementlen <= prefixlen) {
+                SDL_memcpy(name, replacements[i].replacement, replacementlen);
+                SDL_memmove(name + replacementlen, name + prefixlen, (len - prefixlen) + 1);
+                len -= (prefixlen - replacementlen);
+            } else {
+                // FIXME: Need to handle the expand case by reallocating the string
+            }
+            break;
+        }
+    }
+
+    /* Remove duplicate manufacturer or product in the name
+     * e.g. Razer Razer Raiju Tournament Edition Wired
+     */
+    for (i = 1; i < (len - 1); ++i) {
+        int matchlen = PrefixMatch(name, &name[i]);
+        while (matchlen > 0) {
+            if (name[matchlen] == ' ' || name[matchlen] == '-') {
+                SDL_memmove(name, name + matchlen + 1, len - matchlen);
+                break;
+            }
+            --matchlen;
+        }
+        if (matchlen > 0) {
+            // We matched the manufacturer's name and removed it
+            break;
+        }
+    }
+
+    return name;
+}
+
+
+void SDL_DebugLogBackend(const char *subsystem, const char *backend)
+{
+    SDL_LogDebug(SDL_LOG_CATEGORY_SYSTEM, "SDL chose %s backend '%s'", subsystem, backend);
 }

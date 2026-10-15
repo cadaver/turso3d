@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -19,24 +19,59 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 #include "SDL_internal.h"
+#include "../SDL_dialog.h"
 #include "../SDL_dialog_utils.h"
+
+#ifdef SDL_PLATFORM_MACOS
 
 #import <Cocoa/Cocoa.h>
 #import <UniformTypeIdentifiers/UTType.h>
 
-typedef enum
-{
-    FDT_SAVE,
-    FDT_OPEN,
-    FDT_OPENFOLDER
-} cocoa_FileDialogType;
-
-void show_file_dialog(cocoa_FileDialogType type, SDL_DialogFileCallback callback, void* userdata, SDL_Window* window, const SDL_DialogFileFilter *filters, int nfilters, const char* default_location, bool allow_many)
-{
-#if defined(SDL_PLATFORM_TVOS) || defined(SDL_PLATFORM_IOS)
-    SDL_SetError("tvOS and iOS don't support path-based file dialogs");
-    callback(userdata, NULL, -1);
+#ifdef SDL_VIDEO_DRIVER_COCOA
+extern void Cocoa_SetWindowHasModalDialog(SDL_Window *window, bool has_modal);
 #else
+#define Cocoa_SetWindowHasModalDialog(window, has_modal)
+#endif
+
+static void AddFileExtensionType(NSMutableArray *types, const char *pattern_ptr)
+{
+    if (!*pattern_ptr) {
+        return;  // in case the string had an extra ';' at the end.
+    }
+
+    // -[UTType typeWithFilenameExtension] will return nil if there's a period in the string. It's better to
+    //  allow too many files than not allow the one the user actually needs, so just take the part after the '.'
+    const char *dot = SDL_strrchr(pattern_ptr, '.');
+    NSString *extstr = [NSString stringWithFormat: @"%s", dot ? (dot + 1) : pattern_ptr];
+    if (@available(macOS 11.0, *)) {
+        UTType *uttype = [UTType typeWithFilenameExtension:extstr];
+        if (uttype) {  // still failed? Don't add the pattern. This is what the pre-macOS11 path does internally anyhow.
+            [types addObject:uttype];
+        }
+    } else {
+        [types addObject:extstr];
+    }
+}
+
+static void ReactivateAfterDialog(void)
+{
+    for (NSRunningApplication *i in [NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.apple.dock"]) {
+        [i activateWithOptions:0];
+        break;
+    }
+    [NSApp activateIgnoringOtherApps:YES];
+}
+
+void SDL_SYS_ShowFileDialogWithProperties(SDL_FileDialogType type, SDL_DialogFileCallback callback, void *userdata, SDL_PropertiesID props)
+{
+    SDL_Window *window = SDL_GetPointerProperty(props, SDL_PROP_FILE_DIALOG_WINDOW_POINTER, NULL);
+    SDL_DialogFileFilter *filters = SDL_GetPointerProperty(props, SDL_PROP_FILE_DIALOG_FILTERS_POINTER, NULL);
+    int nfilters = (int) SDL_GetNumberProperty(props, SDL_PROP_FILE_DIALOG_NFILTERS_NUMBER, 0);
+    bool allow_many = SDL_GetBooleanProperty(props, SDL_PROP_FILE_DIALOG_MANY_BOOLEAN, false);
+    const char *default_location = SDL_GetStringProperty(props, SDL_PROP_FILE_DIALOG_LOCATION_STRING, NULL);
+    const char *title = SDL_GetStringProperty(props, SDL_PROP_FILE_DIALOG_TITLE_STRING, NULL);
+    const char *accept = SDL_GetStringProperty(props, SDL_PROP_FILE_DIALOG_ACCEPT_STRING, NULL);
+
     if (filters) {
         const char *msg = validate_filters(filters, nfilters);
 
@@ -48,7 +83,7 @@ void show_file_dialog(cocoa_FileDialogType type, SDL_DialogFileCallback callback
     }
 
     if (SDL_GetHint(SDL_HINT_FILE_DIALOG_DRIVER) != NULL) {
-        SDL_SetError("File dialog driver unsupported");
+        SDL_SetError("File dialog driver unsupported (don't set SDL_HINT_FILE_DIALOG_DRIVER)");
         callback(userdata, NULL, -1);
         return;
     }
@@ -58,15 +93,17 @@ void show_file_dialog(cocoa_FileDialogType type, SDL_DialogFileCallback callback
     NSOpenPanel *dialog_as_open;
 
     switch (type) {
-    case FDT_SAVE:
+    case SDL_FILEDIALOG_SAVEFILE:
         dialog = [NSSavePanel savePanel];
         break;
-    case FDT_OPEN:
+
+    case SDL_FILEDIALOG_OPENFILE:
         dialog_as_open = [NSOpenPanel openPanel];
         [dialog_as_open setAllowsMultipleSelection:((allow_many == true) ? YES : NO)];
         dialog = dialog_as_open;
         break;
-    case FDT_OPENFOLDER:
+
+    case SDL_FILEDIALOG_OPENFOLDER:
         dialog_as_open = [NSOpenPanel openPanel];
         [dialog_as_open setCanChooseFiles:NO];
         [dialog_as_open setCanChooseDirectories:YES];
@@ -75,9 +112,17 @@ void show_file_dialog(cocoa_FileDialogType type, SDL_DialogFileCallback callback
         break;
     };
 
+    if (title) {
+        [dialog setTitle:[NSString stringWithUTF8String:title]];
+    }
+
+    if (accept) {
+        [dialog setPrompt:[NSString stringWithUTF8String:accept]];
+    }
+
     if (filters) {
         // On macOS 11.0 and up, this is an array of UTType. Prior to that, it's an array of NSString
-        NSMutableArray *types = [[NSMutableArray alloc] initWithCapacity:nfilters ];
+        NSMutableArray *types = [[NSMutableArray alloc] initWithCapacity:nfilters];
 
         int has_all_files = 0;
         for (int i = 0; i < nfilters; i++) {
@@ -92,21 +137,14 @@ void show_file_dialog(cocoa_FileDialogType type, SDL_DialogFileCallback callback
             for (char *c = pattern; *c; c++) {
                 if (*c == ';') {
                     *c = '\0';
-                    if(@available(macOS 11.0, *)) {
-                        [types addObject: [UTType typeWithFilenameExtension:[NSString stringWithFormat: @"%s", pattern_ptr]]];
-                    } else {
-                        [types addObject: [NSString stringWithFormat: @"%s", pattern_ptr]];
-                    }
+                    AddFileExtensionType(types, pattern_ptr);
                     pattern_ptr = c + 1;
                 } else if (*c == '*') {
                     has_all_files = 1;
                 }
             }
-            if(@available(macOS 11.0, *)) {
-                [types addObject: [UTType typeWithFilenameExtension:[NSString stringWithFormat: @"%s", pattern_ptr]]];
-            } else {
-                [types addObject: [NSString stringWithFormat: @"%s", pattern_ptr]];
-            }
+
+            AddFileExtensionType(types, pattern_ptr);  // get the last piece of the string.
 
             SDL_free(pattern);
         }
@@ -123,23 +161,32 @@ void show_file_dialog(cocoa_FileDialogType type, SDL_DialogFileCallback callback
     // Keep behavior consistent with other platforms
     [dialog setAllowsOtherFileTypes:YES];
 
-    if (default_location) {
-        [dialog setDirectoryURL:[NSURL fileURLWithPath:[NSString stringWithUTF8String:default_location]]];
+    if (default_location && *default_location) {
+        char last = default_location[SDL_strlen(default_location) - 1];
+        NSURL* url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:default_location]];
+        if (last == '/') {
+            [dialog setDirectoryURL:url];
+        } else {
+            [dialog setDirectoryURL:[url URLByDeletingLastPathComponent]];
+            [dialog setNameFieldStringValue:[url lastPathComponent]];
+        }
     }
 
     NSWindow *w = NULL;
 
     if (window) {
         w = (__bridge NSWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, NULL);
+        if (w) {
+            Cocoa_SetWindowHasModalDialog(window, true);
+        }
     }
 
     if (w) {
         // [dialog beginWithCompletionHandler:^(NSInteger result) {
         [dialog beginSheetModalForWindow:w completionHandler:^(NSInteger result) {
-            // NSModalResponseOK for >= 10.13
-            if (result == NSFileHandlingPanelOKButton) {
+            if (result == NSModalResponseOK) {
                 if (dialog_as_open) {
-                    NSArray* urls = [dialog_as_open URLs];
+                    NSArray *urls = [dialog_as_open URLs];
                     const char *files[[urls count] + 1];
                     for (int i = 0; i < [urls count]; i++) {
                         files[i] = [[[urls objectAtIndex:i] path] UTF8String];
@@ -154,12 +201,14 @@ void show_file_dialog(cocoa_FileDialogType type, SDL_DialogFileCallback callback
                 const char *files[1] = { NULL };
                 callback(userdata, files, -1);
             }
+
+            Cocoa_SetWindowHasModalDialog(window, false);
+            ReactivateAfterDialog();
         }];
     } else {
-        // NSModalResponseOK for >= 10.10
-        if ([dialog runModal] == NSOKButton) {
+        if ([dialog runModal] == NSModalResponseOK) {
             if (dialog_as_open) {
-                NSArray* urls = [dialog_as_open URLs];
+                NSArray *urls = [dialog_as_open URLs];
                 const char *files[[urls count] + 1];
                 for (int i = 0; i < [urls count]; i++) {
                     files[i] = [[[urls objectAtIndex:i] path] UTF8String];
@@ -174,21 +223,9 @@ void show_file_dialog(cocoa_FileDialogType type, SDL_DialogFileCallback callback
             const char *files[1] = { NULL };
             callback(userdata, files, -1);
         }
+
+        ReactivateAfterDialog();
     }
-#endif // defined(SDL_PLATFORM_TVOS) || defined(SDL_PLATFORM_IOS)
 }
 
-void SDL_ShowOpenFileDialog(SDL_DialogFileCallback callback, void* userdata, SDL_Window* window, const SDL_DialogFileFilter *filters, int nfilters, const char* default_location, SDL_bool allow_many)
-{
-    show_file_dialog(FDT_OPEN, callback, userdata, window, filters, nfilters, default_location, allow_many);
-}
-
-void SDL_ShowSaveFileDialog(SDL_DialogFileCallback callback, void* userdata, SDL_Window* window, const SDL_DialogFileFilter *filters, int nfilters, const char* default_location)
-{
-    show_file_dialog(FDT_SAVE, callback, userdata, window, filters, nfilters, default_location, 0);
-}
-
-void SDL_ShowOpenFolderDialog(SDL_DialogFileCallback callback, void* userdata, SDL_Window* window, const char* default_location, SDL_bool allow_many)
-{
-    show_file_dialog(FDT_OPENFOLDER, callback, userdata, window, NULL, 0, default_location, allow_many);
-}
+#endif // SDL_PLATFORM_MACOS

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -62,6 +62,8 @@ typedef enum SDL_EventCategory
     SDL_EVENTCATEGORY_PAXIS,
     SDL_EVENTCATEGORY_DROP,
     SDL_EVENTCATEGORY_CLIPBOARD,
+    SDL_EVENTCATEGORY_RENDER,
+    SDL_EVENTCATEGORY_PINCH,
 } SDL_EventCategory;
 
 extern SDL_EventCategory SDL_GetEventCategory(Uint32 type);

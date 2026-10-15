@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -23,15 +23,7 @@
 #ifndef SDL_touch_c_h_
 #define SDL_touch_c_h_
 
-typedef struct SDL_Touch
-{
-    SDL_TouchID id;
-    SDL_TouchDeviceType type;
-    int num_fingers;
-    int max_fingers;
-    SDL_Finger **fingers;
-    char *name;
-} SDL_Touch;
+typedef struct SDL_Touch SDL_Touch;
 
 // Initialize the touch subsystem
 extern bool SDL_InitTouch(void);
@@ -46,7 +38,7 @@ extern int SDL_AddTouch(SDL_TouchID id, SDL_TouchDeviceType type, const char *na
 extern SDL_Touch *SDL_GetTouch(SDL_TouchID id);
 
 // Send a touch down/up event for a touch
-extern void SDL_SendTouch(Uint64 timestamp, SDL_TouchID id, SDL_FingerID fingerid, SDL_Window *window, bool down, float x, float y, float pressure);
+extern void SDL_SendTouch(Uint64 timestamp, SDL_TouchID id, SDL_FingerID fingerid, SDL_Window *window, SDL_EventType type, float x, float y, float pressure);
 
 // Send a touch motion event for a touch
 extern void SDL_SendTouchMotion(Uint64 timestamp, SDL_TouchID id, SDL_FingerID fingerid, SDL_Window *window, float x, float y, float pressure);
@@ -56,5 +48,8 @@ extern void SDL_DelTouch(SDL_TouchID id);
 
 // Shutdown the touch subsystem
 extern void SDL_QuitTouch(void);
+
+// Send Gesture events
+extern int SDL_SendPinch(SDL_EventType type, Uint64 timestamp, SDL_Window *window, float scale);
 
 #endif // SDL_touch_c_h_

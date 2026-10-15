@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -27,13 +27,13 @@
 // This header makes sure SRWLOCK is actually declared, even on ancient WinSDKs.
 #include "SDL_sysmutex_c.h"
 
-typedef VOID(WINAPI *pfnInitializeSRWLock)(PSRWLOCK);
-typedef VOID(WINAPI *pfnReleaseSRWLockShared)(PSRWLOCK);
-typedef VOID(WINAPI *pfnAcquireSRWLockShared)(PSRWLOCK);
-typedef BOOLEAN(WINAPI *pfnTryAcquireSRWLockShared)(PSRWLOCK);
-typedef VOID(WINAPI *pfnReleaseSRWLockExclusive)(PSRWLOCK);
-typedef VOID(WINAPI *pfnAcquireSRWLockExclusive)(PSRWLOCK);
-typedef BOOLEAN(WINAPI *pfnTryAcquireSRWLockExclusive)(PSRWLOCK);
+typedef VOID (WINAPI *pfnInitializeSRWLock)(PSRWLOCK);
+typedef VOID (WINAPI *pfnReleaseSRWLockShared)(PSRWLOCK);
+typedef VOID (WINAPI *pfnAcquireSRWLockShared)(PSRWLOCK);
+typedef BOOLEAN (WINAPI *pfnTryAcquireSRWLockShared)(PSRWLOCK);
+typedef VOID (WINAPI *pfnReleaseSRWLockExclusive)(PSRWLOCK);
+typedef VOID (WINAPI *pfnAcquireSRWLockExclusive)(PSRWLOCK);
+typedef BOOLEAN (WINAPI *pfnTryAcquireSRWLockExclusive)(PSRWLOCK);
 
 static pfnInitializeSRWLock pInitializeSRWLock = NULL;
 static pfnReleaseSRWLockShared pReleaseSRWLockShared = NULL;
@@ -204,7 +204,7 @@ void SDL_LockRWLockForWriting(SDL_RWLock *rwlock) SDL_NO_THREAD_SAFETY_ANALYSIS 
     }
 }
 
-SDL_bool SDL_TryLockRWLockForReading(SDL_RWLock *rwlock)
+bool SDL_TryLockRWLockForReading(SDL_RWLock *rwlock)
 {
     bool result = true;
     if (rwlock) {
@@ -213,7 +213,7 @@ SDL_bool SDL_TryLockRWLockForReading(SDL_RWLock *rwlock)
     return result;
 }
 
-SDL_bool SDL_TryLockRWLockForWriting(SDL_RWLock *rwlock)
+bool SDL_TryLockRWLockForWriting(SDL_RWLock *rwlock)
 {
     bool result = true;
     if (rwlock) {

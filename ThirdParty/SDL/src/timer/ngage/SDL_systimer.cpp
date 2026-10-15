@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -20,40 +20,29 @@
 */
 #include "SDL_internal.h"
 
-#ifdef SDL_TIMER_NGAGE
-
-#include <e32std.h>
 #include <e32hal.h>
-
-static TUint start_tick = 0;
+#include <e32std.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-
 Uint64 SDL_GetPerformanceCounter(void)
 {
-    // FIXME: Need to account for 32-bit wrapping
-    return (Uint64)User::TickCount();
+    return static_cast<Uint64>(User::TickCount());
 }
 
 Uint64 SDL_GetPerformanceFrequency(void)
 {
-    return SDL_US_PER_SECOND;
+    // On Symbian S60v1, tick frequency is 64 Hz => 1 tick = 15,625 microseconds.
+    return 64;
 }
 
 void SDL_SYS_DelayNS(Uint64 ns)
 {
-    const Uint64 max_delay = 0x7fffffffLL * SDL_NS_PER_US;
-    if (ns > max_delay) {
-        ns = max_delay;
-    }
-    User::After(TTimeIntervalMicroSeconds32((TInt)SDL_NS_TO_US(ns)));
+    User::After(SDL_NS_TO_US(ns));
 }
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif // SDL_TIMER_NGAGE

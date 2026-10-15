@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -55,7 +55,7 @@ typedef struct X11_PenHandle
 
 // Converts XINPUT2 valuators into pen axis information, including normalisation.
 extern void X11_PenAxesFromValuators(const X11_PenHandle *pen,
-                                     const double *input_values, const unsigned char *mask, const int mask_len,
+                                     const double *input_values, const unsigned char *mask, int mask_len,
                                      float axis_values[SDL_PEN_AXIS_COUNT]);
 
 // Add a pen (if this function's further checks validate it).
@@ -66,6 +66,9 @@ extern void X11_RemovePenByDeviceID(int deviceid);
 
 // Map X11 device ID to pen ID.
 extern X11_PenHandle *X11_FindPenByDeviceID(int deviceid);
+
+// Notify that the pen has entered/left proximity
+extern void X11_NotifyPenProximityChange(SDL_VideoDevice *_this, SDL_Window *window, int deviceid);
 
 #endif // SDL_VIDEO_DRIVER_X11_XINPUT2
 

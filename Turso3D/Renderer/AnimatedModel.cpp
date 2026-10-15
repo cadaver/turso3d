@@ -316,7 +316,7 @@ void AnimatedModelDrawable::UpdateAnimation()
     // Else just dirty the skinning
     if (!TestFlag(DF_UPDATE_INVISIBLE))
     {
-        if (octree && octant && !TestFlag(DF_OCTREE_REINSERT_QUEUED))
+        if (octree && !TestFlag(DF_OCTREE_REINSERT_QUEUED))
             octree->QueueUpdate(this);
     }
 
@@ -563,7 +563,7 @@ void AnimatedModel::OnTransformChanged()
     }
 
     modelDrawable->SetFlag(DF_BOUNDING_BOX_DIRTY, true);
-    if (octree && modelDrawable->octant && !modelDrawable->TestFlag(DF_OCTREE_REINSERT_QUEUED))
+    if (octree && !modelDrawable->TestFlag(DF_OCTREE_REINSERT_QUEUED))
         octree->QueueUpdate(modelDrawable);
 }
 

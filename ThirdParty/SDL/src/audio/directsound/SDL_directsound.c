@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -39,17 +39,17 @@ static bool SupportsIMMDevice = false;
 #endif
 
 // DirectX function pointers for audio
-static void *DSoundDLL = NULL;
-typedef HRESULT(WINAPI *fnDirectSoundCreate8)(LPGUID, LPDIRECTSOUND *, LPUNKNOWN);
-typedef HRESULT(WINAPI *fnDirectSoundEnumerateW)(LPDSENUMCALLBACKW, LPVOID);
-typedef HRESULT(WINAPI *fnDirectSoundCaptureCreate8)(LPCGUID, LPDIRECTSOUNDCAPTURE8 *, LPUNKNOWN);
-typedef HRESULT(WINAPI *fnDirectSoundCaptureEnumerateW)(LPDSENUMCALLBACKW, LPVOID);
-typedef HRESULT(WINAPI *fnGetDeviceID)(LPCGUID, LPGUID);
-static fnDirectSoundCreate8 pDirectSoundCreate8 = NULL;
-static fnDirectSoundEnumerateW pDirectSoundEnumerateW = NULL;
-static fnDirectSoundCaptureCreate8 pDirectSoundCaptureCreate8 = NULL;
-static fnDirectSoundCaptureEnumerateW pDirectSoundCaptureEnumerateW = NULL;
-static fnGetDeviceID pGetDeviceID = NULL;
+static SDL_SharedObject *DSoundDLL = NULL;
+typedef HRESULT (WINAPI *pfnDirectSoundCreate8)(LPGUID, LPDIRECTSOUND *, LPUNKNOWN);
+typedef HRESULT (WINAPI *pfnDirectSoundEnumerateW)(LPDSENUMCALLBACKW, LPVOID);
+typedef HRESULT (WINAPI *pfnDirectSoundCaptureCreate8)(LPCGUID, LPDIRECTSOUNDCAPTURE8 *, LPUNKNOWN);
+typedef HRESULT (WINAPI *pfnDirectSoundCaptureEnumerateW)(LPDSENUMCALLBACKW, LPVOID);
+typedef HRESULT (WINAPI *pfnGetDeviceID)(LPCGUID, LPGUID);
+static pfnDirectSoundCreate8 pDirectSoundCreate8 = NULL;
+static pfnDirectSoundEnumerateW pDirectSoundEnumerateW = NULL;
+static pfnDirectSoundCaptureCreate8 pDirectSoundCaptureCreate8 = NULL;
+static pfnDirectSoundCaptureEnumerateW pDirectSoundCaptureEnumerateW = NULL;
+static pfnGetDeviceID pGetDeviceID = NULL;
 
 #include <initguid.h>
 DEFINE_GUID(SDL_DSDEVID_DefaultPlayback, 0xdef00000, 0x9c6d, 0x47ed, 0xaa, 0xf1, 0x4d, 0xda, 0x8f, 0x2b, 0x5c, 0x03);
@@ -85,7 +85,7 @@ static bool DSOUND_Load(void)
 // Now make sure we have DirectX 8 or better...
 #define DSOUNDLOAD(f)                                  \
     {                                                  \
-        p##f = (fn##f)SDL_LoadFunction(DSoundDLL, #f); \
+        p##f = (pfn##f)SDL_LoadFunction(DSoundDLL, #f); \
         if (!p##f)                                     \
             loaded = false;                                \
     }
@@ -206,7 +206,7 @@ static void DSOUND_DetectDevices(SDL_AudioDevice **default_playback, SDL_AudioDe
 {
 #ifdef HAVE_MMDEVICEAPI_H
     if (SupportsIMMDevice) {
-        SDL_IMMDevice_EnumerateEndpoints(default_playback, default_recording);
+        SDL_IMMDevice_EnumerateEndpoints(default_playback, default_recording, SDL_AUDIO_UNKNOWN, false);
     } else
 #endif
     {
@@ -234,7 +234,7 @@ static bool DSOUND_WaitDevice(SDL_AudioDevice *device)
     /* Semi-busy wait, since we have no way of getting play notification
        on a primary mixing buffer located in hardware (DirectX 5.0)
      */
-    while (!SDL_AtomicGet(&device->shutdown)) {
+    while (!SDL_GetAtomicInt(&device->shutdown)) {
         DWORD status = 0;
         DWORD cursor = 0;
         DWORD junk = 0;
@@ -336,7 +336,7 @@ static Uint8 *DSOUND_GetDeviceBuf(SDL_AudioDevice *device, int *buffer_size)
 static bool DSOUND_WaitRecordingDevice(SDL_AudioDevice *device)
 {
     struct SDL_PrivateAudioData *h = device->hidden;
-    while (!SDL_AtomicGet(&device->shutdown)) {
+    while (!SDL_GetAtomicInt(&device->shutdown)) {
         DWORD junk, cursor;
         if (IDirectSoundCaptureBuffer_GetCurrentPosition(h->capturebuf, &junk, &cursor) != DS_OK) {
             return false;
@@ -545,6 +545,7 @@ static bool DSOUND_OpenDevice(SDL_AudioDevice *device)
             tried_format = true;
 
             device->spec.format = test_format;
+            device->spec.freq = SDL_min(DSBFREQUENCY_MAX, device->spec.freq);
 
             // Update the fragment size as size in bytes
             SDL_UpdatedAudioDeviceFormat(device);
@@ -674,7 +675,7 @@ static bool DSOUND_Init(SDL_AudioDriverImpl *impl)
 }
 
 AudioBootStrap DSOUND_bootstrap = {
-    "directsound", "DirectSound", DSOUND_Init, false
+    "directsound", "DirectSound", DSOUND_Init, false, false
 };
 
 #endif // SDL_AUDIO_DRIVER_DSOUND

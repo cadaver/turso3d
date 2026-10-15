@@ -53,8 +53,8 @@ static bool videoInit(SDL_VideoDevice *_this)
     }
 
     // Assume we have a mouse and keyboard
-    SDL_AddKeyboard(SDL_DEFAULT_KEYBOARD_ID, NULL, false);
-    SDL_AddMouse(SDL_DEFAULT_MOUSE_ID, NULL, false);
+    SDL_AddKeyboard(SDL_DEFAULT_KEYBOARD_ID, NULL);
+    SDL_AddMouse(SDL_DEFAULT_MOUSE_ID, NULL);
 
     return true;
 }
@@ -246,8 +246,8 @@ static void setWindowSize(SDL_VideoDevice *_this, SDL_Window *window)
     window_impl_t   *impl = (window_impl_t *)window->internal;
     int             size[2];
 
-    size[0] = window->floating.w;
-    size[1] = window->floating.h;
+    size[0] = window->pending.w;
+    size[1] = window->pending.h;
 
     screen_set_window_property_iv(impl->window, SCREEN_PROPERTY_SIZE, size);
     screen_set_window_property_iv(impl->window, SCREEN_PROPERTY_SOURCE_SIZE, size);
@@ -346,5 +346,6 @@ static SDL_VideoDevice *createDevice(void)
 VideoBootStrap QNX_bootstrap = {
     "qnx", "QNX Screen",
     createDevice,
-    NULL // no ShowMessageBox implementation
+    NULL, // no ShowMessageBox implementation
+    false
 };

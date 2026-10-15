@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -34,27 +34,92 @@
 
 typedef struct
 {
-    void *lib;
+    SDL_SharedObject *lib;
     const char *libname;
 } x11dynlib;
 
-#ifndef SDL_VIDEO_DRIVER_X11_DYNAMIC_XEXT
+SDL_ELF_NOTE_DLOPEN(
+    "x11",
+    "Support for video through X11 backend",
+    SDL_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+    SDL_VIDEO_DRIVER_X11_DYNAMIC
+)
+
+#ifdef SDL_VIDEO_DRIVER_X11_DYNAMIC_XEXT
+SDL_ELF_NOTE_DLOPEN(
+    "x11",
+    "Support for video through X11 backend",
+    SDL_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+    SDL_VIDEO_DRIVER_X11_DYNAMIC_XEXT
+)
+#else
 #define SDL_VIDEO_DRIVER_X11_DYNAMIC_XEXT NULL
 #endif
-#ifndef SDL_VIDEO_DRIVER_X11_DYNAMIC_XCURSOR
+
+#ifdef SDL_VIDEO_DRIVER_X11_DYNAMIC_XCURSOR
+SDL_ELF_NOTE_DLOPEN(
+    "x11",
+    "Support for video through X11 backend",
+    SDL_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+    SDL_VIDEO_DRIVER_X11_DYNAMIC_XCURSOR
+)
+#else
 #define SDL_VIDEO_DRIVER_X11_DYNAMIC_XCURSOR NULL
 #endif
-#ifndef SDL_VIDEO_DRIVER_X11_DYNAMIC_XINPUT2
+
+#ifdef SDL_VIDEO_DRIVER_X11_DYNAMIC_XINPUT2
+SDL_ELF_NOTE_DLOPEN(
+    "x11",
+    "Support for video through X11 backend",
+    SDL_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+    SDL_VIDEO_DRIVER_X11_DYNAMIC_XINPUT2
+)
+#else
 #define SDL_VIDEO_DRIVER_X11_DYNAMIC_XINPUT2 NULL
 #endif
-#ifndef SDL_VIDEO_DRIVER_X11_DYNAMIC_XFIXES
+
+#ifdef SDL_VIDEO_DRIVER_X11_DYNAMIC_XFIXES
+SDL_ELF_NOTE_DLOPEN(
+    "x11",
+    "Support for video through X11 backend",
+    SDL_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+    SDL_VIDEO_DRIVER_X11_DYNAMIC_XFIXES
+)
+#else
 #define SDL_VIDEO_DRIVER_X11_DYNAMIC_XFIXES NULL
 #endif
-#ifndef SDL_VIDEO_DRIVER_X11_DYNAMIC_XRANDR
+
+#ifdef SDL_VIDEO_DRIVER_X11_DYNAMIC_XRANDR
+SDL_ELF_NOTE_DLOPEN(
+    "x11",
+    "Support for video through X11 backend",
+    SDL_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+    SDL_VIDEO_DRIVER_X11_DYNAMIC_XRANDR
+)
+#else
 #define SDL_VIDEO_DRIVER_X11_DYNAMIC_XRANDR NULL
 #endif
-#ifndef SDL_VIDEO_DRIVER_X11_DYNAMIC_XSS
+
+#ifdef SDL_VIDEO_DRIVER_X11_DYNAMIC_XSS
+SDL_ELF_NOTE_DLOPEN(
+    "x11",
+    "Support for video through X11 backend",
+    SDL_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+    SDL_VIDEO_DRIVER_X11_DYNAMIC_XSS
+)
+#else
 #define SDL_VIDEO_DRIVER_X11_DYNAMIC_XSS NULL
+#endif
+
+#ifdef SDL_VIDEO_DRIVER_X11_DYNAMIC_XTEST
+SDL_ELF_NOTE_DLOPEN(
+    "x11",
+    "Support for video through X11 backend",
+    SDL_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+    SDL_VIDEO_DRIVER_X11_DYNAMIC_XTEST
+)
+#else
+#define SDL_VIDEO_DRIVER_X11_DYNAMIC_XTEST NULL
 #endif
 
 static x11dynlib x11libs[] = {
@@ -64,7 +129,8 @@ static x11dynlib x11libs[] = {
     { NULL, SDL_VIDEO_DRIVER_X11_DYNAMIC_XINPUT2 },
     { NULL, SDL_VIDEO_DRIVER_X11_DYNAMIC_XFIXES },
     { NULL, SDL_VIDEO_DRIVER_X11_DYNAMIC_XRANDR },
-    { NULL, SDL_VIDEO_DRIVER_X11_DYNAMIC_XSS }
+    { NULL, SDL_VIDEO_DRIVER_X11_DYNAMIC_XSS },
+    { NULL, SDL_VIDEO_DRIVER_X11_DYNAMIC_XTEST }
 };
 
 static void *X11_GetSym(const char *fnname, int *pHasModule)
@@ -97,14 +163,8 @@ static void *X11_GetSym(const char *fnname, int *pHasModule)
 #endif // SDL_VIDEO_DRIVER_X11_DYNAMIC
 
 // Define all the function pointers and wrappers...
-#define SDL_X11_SYM(rc, fn, params, args, ret) SDL_DYNX11FN_##fn X11_##fn = NULL;
+#define SDL_X11_SYM(rc, fn, params) SDL_DYNX11FN_##fn X11_##fn = NULL;
 #include "SDL_x11sym.h"
-
-// Annoying varargs entry point...
-#ifdef X_HAVE_UTF8_STRING
-SDL_DYNX11FN_XCreateIC X11_XCreateIC = NULL;
-SDL_DYNX11FN_XGetICValues X11_XGetICValues = NULL;
-#endif
 
 /* These SDL_X11_HAVE_* flags are here whether you have dynamic X11 or not. */
 #define SDL_X11_MODULE(modname) int SDL_X11_HAVE_##modname = 0;
@@ -123,12 +183,14 @@ void SDL_X11_UnloadSymbols(void)
 
             // set all the function pointers to NULL.
 #define SDL_X11_MODULE(modname)                SDL_X11_HAVE_##modname = 0;
-#define SDL_X11_SYM(rc, fn, params, args, ret) X11_##fn = NULL;
+#define SDL_X11_SYM(rc, fn, params) X11_##fn = NULL;
 #include "SDL_x11sym.h"
 
 #ifdef X_HAVE_UTF8_STRING
             X11_XCreateIC = NULL;
             X11_XGetICValues = NULL;
+            X11_XSetICValues = NULL;
+            X11_XVaCreateNestedList = NULL;
 #endif
 
 #ifdef SDL_VIDEO_DRIVER_X11_DYNAMIC
@@ -163,7 +225,7 @@ bool SDL_X11_LoadSymbols(void)
 #include "SDL_x11sym.h"
 
 #define SDL_X11_MODULE(modname)     thismod = &SDL_X11_HAVE_##modname;
-#define SDL_X11_SYM(a, fn, x, y, z) X11_##fn = (SDL_DYNX11FN_##fn)X11_GetSym(#fn, thismod);
+#define SDL_X11_SYM(rc, fn, params) X11_##fn = (SDL_DYNX11FN_##fn)X11_GetSym(#fn, thismod);
 #include "SDL_x11sym.h"
 
 #ifdef X_HAVE_UTF8_STRING
@@ -171,6 +233,10 @@ bool SDL_X11_LoadSymbols(void)
             X11_GetSym("XCreateIC", &SDL_X11_HAVE_UTF8);
         X11_XGetICValues = (SDL_DYNX11FN_XGetICValues)
             X11_GetSym("XGetICValues", &SDL_X11_HAVE_UTF8);
+        X11_XSetICValues = (SDL_DYNX11FN_XSetICValues)
+            X11_GetSym("XSetICValues", &SDL_X11_HAVE_UTF8);
+        X11_XVaCreateNestedList = (SDL_DYNX11FN_XVaCreateNestedList)
+            X11_GetSym("XVaCreateNestedList", &SDL_X11_HAVE_UTF8);
 #endif
 
         if (SDL_X11_HAVE_BASEXLIB) {
@@ -185,12 +251,14 @@ bool SDL_X11_LoadSymbols(void)
 #else // no dynamic X11
 
 #define SDL_X11_MODULE(modname)     SDL_X11_HAVE_##modname = 1; // default yes
-#define SDL_X11_SYM(a, fn, x, y, z) X11_##fn = (SDL_DYNX11FN_##fn)fn;
+#define SDL_X11_SYM(rc, fn, params) X11_##fn = (SDL_DYNX11FN_##fn)fn;
 #include "SDL_x11sym.h"
 
 #ifdef X_HAVE_UTF8_STRING
         X11_XCreateIC = XCreateIC;
         X11_XGetICValues = XGetICValues;
+        X11_XSetICValues = XSetICValues;
+        X11_XVaCreateNestedList = XVaCreateNestedList;
 #endif
 #endif
     }

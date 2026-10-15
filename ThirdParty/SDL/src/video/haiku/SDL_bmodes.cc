@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -178,7 +178,7 @@ static void _BDisplayModeToSdlDisplayMode(display_mode *bmode, SDL_DisplayMode *
     get_refresh_rate(*bmode, &mode->refresh_rate_numerator, &mode->refresh_rate_denominator);
 
 #if WRAP_BMODE
-    SDL_DisplayModeData *data = (SDL_DisplayModeData*)SDL_calloc(1, sizeof(SDL_DisplayModeData));
+    SDL_DisplayModeData *data = (SDL_DisplayModeData *)SDL_calloc(1, sizeof(SDL_DisplayModeData));
     data->bmode = bmode;
 
     mode->internal = data;
@@ -255,7 +255,7 @@ bool HAIKU_GetDisplayModes(SDL_VideoDevice *_this, SDL_VideoDisplay *display)
             SDL_AddFullscreenDisplayMode(display, &mode);
         }
     }
-    free(bmodes); // This should not be SDL_free()
+    free(bmodes); // This should NOT be SDL_free()
     return true;
 }
 
@@ -265,7 +265,7 @@ bool HAIKU_SetDisplayMode(SDL_VideoDevice *_this, SDL_VideoDisplay *display, SDL
     // Get the current screen
     BScreen bscreen;
     if (!bscreen.IsValid()) {
-        printf(__FILE__": %d - ERROR: BAD SCREEN\n", __LINE__);
+        return SDL_SetError("Invalid screen");
     }
 
     // Set the mode using the driver data
@@ -289,7 +289,7 @@ bool HAIKU_SetDisplayMode(SDL_VideoDevice *_this, SDL_VideoDisplay *display, SDL
         return SDL_SetError("Bad video mode");
     }
 
-    free(bmode_list); // This should not be SDL_free()
+    free(bmode_list); // This should NOT be SDL_free()
 
 #ifdef SDL_VIDEO_OPENGL
     /* FIXME: Is there some way to reboot the OpenGL context?  This doesn't

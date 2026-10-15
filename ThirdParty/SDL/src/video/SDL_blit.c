@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -21,7 +21,7 @@
 #include "SDL_internal.h"
 
 #include "SDL_sysvideo.h"
-#include "SDL_blit.h"
+#include "SDL_surface_c.h"
 #include "SDL_blit_auto.h"
 #include "SDL_blit_copy.h"
 #include "SDL_blit_slow.h"
@@ -59,28 +59,37 @@ static bool SDLCALL SDL_SoftBlit(SDL_Surface *src, const SDL_Rect *srcrect,
     }
 
     // Set up source and destination buffer pointers, and BLIT!
-    if (okay && !SDL_RectEmpty(srcrect)) {
+    if (okay) {
         SDL_BlitFunc RunBlit;
-        SDL_BlitInfo *info = &src->internal->map.info;
+        SDL_BlitInfo *info = &src->map.info;
 
         // Set up the blit information
-        info->src = (Uint8 *)src->pixels +
-                    (Uint16)srcrect->y * src->pitch +
-                    (Uint16)srcrect->x * info->src_fmt->bytes_per_pixel;
+        if (info->src_fmt->bits_per_pixel >= 8) {
+            info->src = (Uint8 *)src->pixels +
+                        srcrect->y * src->pitch +
+                        srcrect->x * info->src_fmt->bytes_per_pixel;
+        } else {
+            info->src = (Uint8 *)src->pixels +
+                        srcrect->y * src->pitch +
+                        (srcrect->x * info->src_fmt->bits_per_pixel) / 8;
+            info->leading_skip =
+                        ((srcrect->x * info->src_fmt->bits_per_pixel) % 8) /
+                        info->src_fmt->bits_per_pixel;
+        }
         info->src_w = srcrect->w;
         info->src_h = srcrect->h;
         info->src_pitch = src->pitch;
         info->src_skip =
             info->src_pitch - info->src_w * info->src_fmt->bytes_per_pixel;
-        info->dst =
-            (Uint8 *)dst->pixels + (Uint16)dstrect->y * dst->pitch +
-            (Uint16)dstrect->x * info->dst_fmt->bytes_per_pixel;
+        info->dst = (Uint8 *)dst->pixels +
+                    dstrect->y * dst->pitch +
+                    dstrect->x * info->dst_fmt->bytes_per_pixel;
         info->dst_w = dstrect->w;
         info->dst_h = dstrect->h;
         info->dst_pitch = dst->pitch;
         info->dst_skip =
             info->dst_pitch - info->dst_w * info->dst_fmt->bytes_per_pixel;
-        RunBlit = (SDL_BlitFunc)src->internal->map.data;
+        RunBlit = (SDL_BlitFunc)src->map.data;
 
         // Run the actual software blit
         RunBlit(info);
@@ -97,7 +106,7 @@ static bool SDLCALL SDL_SoftBlit(SDL_Surface *src, const SDL_Rect *srcrect,
     return okay;
 }
 
-#if SDL_HAVE_BLIT_AUTO
+#ifdef SDL_HAVE_BLIT_AUTO
 
 #ifdef SDL_PLATFORM_MACOS
 #include <sys/sysctl.h>
@@ -179,9 +188,9 @@ static SDL_BlitFunc SDL_ChooseBlitFunc(SDL_PixelFormat src_format, SDL_PixelForm
 bool SDL_CalculateBlit(SDL_Surface *surface, SDL_Surface *dst)
 {
     SDL_BlitFunc blit = NULL;
-    SDL_BlitMap *map = &surface->internal->map;
-    SDL_Colorspace src_colorspace = surface->internal->colorspace;
-    SDL_Colorspace dst_colorspace = dst->internal->colorspace;
+    SDL_BlitMap *map = &surface->map;
+    SDL_Colorspace src_colorspace = surface->colorspace;
+    SDL_Colorspace dst_colorspace = dst->colorspace;
 
     // We don't currently support blitting to < 8 bpp surfaces
     if (SDL_BITSPERPIXEL(dst->format) < 8) {
@@ -189,22 +198,18 @@ bool SDL_CalculateBlit(SDL_Surface *surface, SDL_Surface *dst)
         return SDL_SetError("Blit combination not supported");
     }
 
-#if SDL_HAVE_RLE
-    // Clean everything out to start
-    if (surface->flags & SDL_INTERNAL_SURFACE_RLEACCEL) {
-        SDL_UnRLESurface(surface, true);
-    }
-#endif
+    // We should have cleared out RLE at this point
+    SDL_assert(!(surface->internal_flags & SDL_INTERNAL_SURFACE_RLEACCEL));
 
     map->blit = SDL_SoftBlit;
     map->info.src_surface = surface;
-    map->info.src_fmt = surface->internal->format;
-    map->info.src_pal = surface->internal->palette;
+    map->info.src_fmt = surface->fmt;
+    map->info.src_pal = surface->palette;
     map->info.dst_surface = dst;
-    map->info.dst_fmt = dst->internal->format;
-    map->info.dst_pal = dst->internal->palette;
+    map->info.dst_fmt = dst->fmt;
+    map->info.dst_pal = dst->palette;
 
-#if SDL_HAVE_RLE
+#ifdef SDL_HAVE_RLE
     // See if we can do RLE acceleration
     if (map->info.flags & SDL_COPY_RLE_DESIRED) {
         if (SDL_RLESurface(surface)) {
@@ -228,30 +233,30 @@ bool SDL_CalculateBlit(SDL_Surface *surface, SDL_Surface *dst)
                    SDL_ISPIXELFORMAT_10BIT(dst->format)) {
             blit = SDL_Blit_Slow;
         }
-#if SDL_HAVE_BLIT_0
+#ifdef SDL_HAVE_BLIT_0
         else if (SDL_BITSPERPIXEL(surface->format) < 8 &&
                  SDL_ISPIXELFORMAT_INDEXED(surface->format)) {
             blit = SDL_CalculateBlit0(surface);
         }
 #endif
-#if SDL_HAVE_BLIT_1
+#ifdef SDL_HAVE_BLIT_1
         else if (SDL_BYTESPERPIXEL(surface->format) == 1 &&
                  SDL_ISPIXELFORMAT_INDEXED(surface->format)) {
             blit = SDL_CalculateBlit1(surface);
         }
 #endif
-#if SDL_HAVE_BLIT_A
+#ifdef SDL_HAVE_BLIT_A
         else if (map->info.flags & SDL_COPY_BLEND) {
             blit = SDL_CalculateBlitA(surface);
         }
 #endif
-#if SDL_HAVE_BLIT_N
+#ifdef SDL_HAVE_BLIT_N
         else {
             blit = SDL_CalculateBlitN(surface);
         }
 #endif
     }
-#if SDL_HAVE_BLIT_AUTO
+#ifdef SDL_HAVE_BLIT_AUTO
     if (!blit) {
         SDL_PixelFormat src_format = surface->format;
         SDL_PixelFormat dst_format = dst->format;
@@ -270,10 +275,10 @@ bool SDL_CalculateBlit(SDL_Surface *surface, SDL_Surface *dst)
         SDL_PixelFormat dst_format = dst->format;
 
         if ((!SDL_ISPIXELFORMAT_INDEXED(src_format) ||
-             (src_format == SDL_PIXELFORMAT_INDEX8 && surface->internal->palette)) &&
+             (src_format == SDL_PIXELFORMAT_INDEX8 && surface->palette)) &&
             !SDL_ISPIXELFORMAT_FOURCC(src_format) &&
             (!SDL_ISPIXELFORMAT_INDEXED(dst_format) ||
-             (dst_format == SDL_PIXELFORMAT_INDEX8 && dst->internal->palette)) &&
+             (dst_format == SDL_PIXELFORMAT_INDEX8 && dst->palette)) &&
             !SDL_ISPIXELFORMAT_FOURCC(dst_format)) {
             blit = SDL_Blit_Slow;
         }

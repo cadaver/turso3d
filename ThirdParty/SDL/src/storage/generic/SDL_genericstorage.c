@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -26,38 +26,82 @@
 
 static char *GENERIC_INTERNAL_CreateFullPath(const char *base, const char *relative)
 {
-    if (!base) {
-        return SDL_strdup(relative);
-    }
+    const char *rel = relative;
 
-    size_t len = SDL_strlen(base) + SDL_strlen(relative) + 1;
-    char *result = (char*)SDL_malloc(len);
-    if (result != NULL) {
-        SDL_snprintf(result, len, "%s%s", base, relative);
+#ifdef SDL_PLATFORM_ANDROID
+    if (rel) {
+        // Removes any leading slash
+        if (rel[0] == '/' || rel[0] == '\\') {
+            rel += 1;
+        }
     }
+#endif
+
+    char *result = NULL;
+    SDL_asprintf(&result, "%s%s", base ? base : "", rel ? rel : "");
     return result;
 }
 
-static SDL_bool GENERIC_CloseStorage(void *userdata)
+static bool GENERIC_CloseStorage(void *userdata)
 {
     SDL_free(userdata);
     return true;
 }
 
-static SDL_bool GENERIC_EnumerateStorageDirectory(void *userdata, const char *path, SDL_EnumerateDirectoryCallback callback, void *callback_userdata)
+typedef struct GenericEnumerateData
+{
+    size_t base_len;
+    SDL_EnumerateDirectoryCallback real_callback;
+    void *real_userdata;
+} GenericEnumerateData;
+
+static SDL_EnumerationResult SDLCALL GENERIC_EnumerateDirectory(void *userdata, const char *dirname, const char *fname)
+{
+    // SDL_EnumerateDirectory will return the full path, so for Storage we
+    // can take the base directory and add its length to the dirname string,
+    // effectively trimming the root without having to strdup anything.
+    const GenericEnumerateData *wrap_data = (GenericEnumerateData *)userdata;
+
+    dirname += wrap_data->base_len;  // skip the base, just return the part inside of the Storage.
+
+    #ifdef SDL_PLATFORM_WINDOWS
+    char *dirnamecpy = NULL;
+    const size_t slen = SDL_strlen(dirname);
+    if (slen && (dirname[slen - 1] == '\\')) {
+        dirnamecpy = SDL_strdup(dirname);
+        if (!dirnamecpy) {
+            return SDL_ENUM_FAILURE;
+        }
+        dirnamecpy[slen - 1] = '/';  // storage layer always uses '/' path separators.
+        dirname = dirnamecpy;
+    }
+    const SDL_EnumerationResult retval = wrap_data->real_callback(wrap_data->real_userdata, dirname, fname);
+    SDL_free(dirnamecpy);
+    return retval;
+    #else
+    return wrap_data->real_callback(wrap_data->real_userdata, dirname, fname);
+    #endif
+}
+
+static bool GENERIC_EnumerateStorageDirectory(void *userdata, const char *path, SDL_EnumerateDirectoryCallback callback, void *callback_userdata)
 {
     bool result = false;
+    GenericEnumerateData wrap_data;
 
     char *fullpath = GENERIC_INTERNAL_CreateFullPath((char *)userdata, path);
     if (fullpath) {
-        result = SDL_EnumerateDirectory(fullpath, callback, callback_userdata);
+        wrap_data.base_len = userdata ? SDL_strlen((char *)userdata) : 0;
+        wrap_data.real_callback = callback;
+        wrap_data.real_userdata = callback_userdata;
+
+        result = SDL_EnumerateDirectory(fullpath, GENERIC_EnumerateDirectory, &wrap_data);
 
         SDL_free(fullpath);
     }
     return result;
 }
 
-static SDL_bool GENERIC_GetStoragePathInfo(void *userdata, const char *path, SDL_PathInfo *info)
+static bool GENERIC_GetStoragePathInfo(void *userdata, const char *path, SDL_PathInfo *info)
 {
     bool result = false;
 
@@ -70,7 +114,7 @@ static SDL_bool GENERIC_GetStoragePathInfo(void *userdata, const char *path, SDL
     return result;
 }
 
-static SDL_bool GENERIC_ReadStorageFile(void *userdata, const char *path, void *destination, Uint64 length)
+static bool GENERIC_ReadStorageFile(void *userdata, const char *path, void *destination, Uint64 length)
 {
     bool result = false;
 
@@ -85,6 +129,8 @@ static SDL_bool GENERIC_ReadStorageFile(void *userdata, const char *path, void *
             // FIXME: Should SDL_ReadIO use u64 now...?
             if (SDL_ReadIO(stream, destination, (size_t)length) == length) {
                 result = true;
+            } else {
+                SDL_SetError("File length did not exactly match the destination length");
             }
             SDL_CloseIO(stream);
         }
@@ -93,7 +139,7 @@ static SDL_bool GENERIC_ReadStorageFile(void *userdata, const char *path, void *
     return result;
 }
 
-static SDL_bool GENERIC_WriteStorageFile(void *userdata, const char *path, const void *source, Uint64 length)
+static bool GENERIC_WriteStorageFile(void *userdata, const char *path, const void *source, Uint64 length)
 {
     // TODO: Recursively create subdirectories with SDL_CreateDirectory
     bool result = false;
@@ -110,6 +156,8 @@ static SDL_bool GENERIC_WriteStorageFile(void *userdata, const char *path, const
             // FIXME: Should SDL_WriteIO use u64 now...?
             if (SDL_WriteIO(stream, source, (size_t)length) == length) {
                 result = true;
+            } else {
+                SDL_SetError("Resulting file length did not exactly match the source length");
             }
             SDL_CloseIO(stream);
         }
@@ -118,7 +166,7 @@ static SDL_bool GENERIC_WriteStorageFile(void *userdata, const char *path, const
     return result;
 }
 
-static SDL_bool GENERIC_CreateStorageDirectory(void *userdata, const char *path)
+static bool GENERIC_CreateStorageDirectory(void *userdata, const char *path)
 {
     // TODO: Recursively create subdirectories with SDL_CreateDirectory
     bool result = false;
@@ -132,7 +180,7 @@ static SDL_bool GENERIC_CreateStorageDirectory(void *userdata, const char *path)
     return result;
 }
 
-static SDL_bool GENERIC_RemoveStoragePath(void *userdata, const char *path)
+static bool GENERIC_RemoveStoragePath(void *userdata, const char *path)
 {
     bool result = false;
 
@@ -145,7 +193,7 @@ static SDL_bool GENERIC_RemoveStoragePath(void *userdata, const char *path)
     return result;
 }
 
-static SDL_bool GENERIC_RenameStoragePath(void *userdata, const char *oldpath, const char *newpath)
+static bool GENERIC_RenameStoragePath(void *userdata, const char *oldpath, const char *newpath)
 {
     bool result = false;
 
@@ -160,7 +208,7 @@ static SDL_bool GENERIC_RenameStoragePath(void *userdata, const char *oldpath, c
     return result;
 }
 
-static SDL_bool GENERIC_CopyStorageFile(void *userdata, const char *oldpath, const char *newpath)
+static bool GENERIC_CopyStorageFile(void *userdata, const char *oldpath, const char *newpath)
 {
     bool result = false;
 
@@ -199,10 +247,20 @@ static const SDL_StorageInterface GENERIC_title_iface = {
 static SDL_Storage *GENERIC_Title_Create(const char *override, SDL_PropertiesID props)
 {
     SDL_Storage *result = NULL;
-
     char *basepath = NULL;
+
     if (override != NULL) {
-        basepath = SDL_strdup(override);
+        const size_t slen = SDL_strlen(override);
+        if (slen > 0) {
+            // make sure override has a path separator at the end. If you're not on Windows and used '\\', that's on you.
+            const bool need_sep = ((override[slen - 1] != '/') && (override[slen - 1] != '\\'));
+            if (SDL_asprintf(&basepath, "%s%s", override, need_sep ? "/" : "") == -1) {
+                return NULL;
+            }
+        } else {
+            // override == "" -> empty base (not "/")
+            basepath = SDL_strdup("");
+        }
     } else {
         const char *base = SDL_GetBasePath();
         basepath = base ? SDL_strdup(base) : NULL;
@@ -278,24 +336,57 @@ static const SDL_StorageInterface GENERIC_file_iface = {
 SDL_Storage *GENERIC_OpenFileStorage(const char *path)
 {
     SDL_Storage *result;
-    size_t len = 0;
     char *basepath = NULL;
+    char *prepend = NULL;
 
-    if (path) {
-        len += SDL_strlen(path);
+#ifdef SDL_PLATFORM_ANDROID
+    // Use a base path of "." so the filesystem operations fall back to internal storage and the asset system
+    if (!path || !*path) {
+        path = "./";
     }
-    if (len > 0) {
-        if (path[len-1] == '/') {
-            basepath = SDL_strdup(path);
-            if (!basepath) {
-                return NULL;
-            }
-        } else {
-            if (SDL_asprintf(&basepath, "%s/", path) < 0) {
-                return NULL;
-            }
+#else
+    if (!path || !*path) {
+#ifdef SDL_PLATFORM_WINDOWS
+        path = "C:/";
+#else
+        path = "/";
+#endif
+    }
+
+    bool is_absolute = false;
+#ifdef SDL_PLATFORM_WINDOWS
+    const char ch = (char) SDL_toupper(path[0]);
+    is_absolute = (ch == '/') ||   // some sort of absolute Unix-style path.
+                  (ch == '\\') ||  // some sort of absolute Windows-style path.
+                  (((ch >= 'A') && (ch <= 'Z')) && (path[1] == ':') && ((path[2] == '\\') || (path[2] == '/')));  // an absolute path with a drive letter.
+#else
+    is_absolute = (path[0] == '/');   // some sort of absolute Unix-style path.
+#endif
+    if (!is_absolute) {
+        prepend = SDL_GetCurrentDirectory();
+        if (!prepend) {
+            return NULL;
         }
     }
+#endif // SDL_PLATFORM_ANDROID
+
+    const size_t len = SDL_strlen(path);
+    const char *appended_separator = "";
+#ifdef SDL_PLATFORM_WINDOWS
+    if ((path[len-1] != '/') && (path[len-1] != '\\')) {
+        appended_separator = "/";
+    }
+#else
+    if (path[len-1] != '/') {
+        appended_separator = "/";
+    }
+#endif
+    const int rc = SDL_asprintf(&basepath, "%s%s%s", prepend ? prepend : "", path, appended_separator);
+    SDL_free(prepend);
+    if (rc < 0) {
+        return NULL;
+    }
+
     result = SDL_OpenStorage(&GENERIC_file_iface, basepath);
     if (result == NULL) {
         SDL_free(basepath);

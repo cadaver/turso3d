@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -50,9 +50,12 @@ SDL_EventCategory SDL_GetEventCategory(Uint32 type)
     case SDL_EVENT_DID_ENTER_FOREGROUND:
     case SDL_EVENT_LOCALE_CHANGED:
     case SDL_EVENT_SYSTEM_THEME_CHANGED:
+        return SDL_EVENTCATEGORY_SYSTEM;
+
     case SDL_EVENT_RENDER_TARGETS_RESET:
     case SDL_EVENT_RENDER_DEVICE_RESET:
-        return SDL_EVENTCATEGORY_SYSTEM;
+    case SDL_EVENT_RENDER_DEVICE_LOST:
+        return SDL_EVENTCATEGORY_RENDER;
 
     case SDL_EVENT_QUIT:
         return SDL_EVENTCATEGORY_QUIT;
@@ -133,8 +136,14 @@ SDL_EventCategory SDL_GetEventCategory(Uint32 type)
 
     case SDL_EVENT_FINGER_DOWN:
     case SDL_EVENT_FINGER_UP:
+    case SDL_EVENT_FINGER_CANCELED:
     case SDL_EVENT_FINGER_MOTION:
         return SDL_EVENTCATEGORY_TFINGER;
+
+    case SDL_EVENT_PINCH_BEGIN:
+    case SDL_EVENT_PINCH_UPDATE:
+    case SDL_EVENT_PINCH_END:
+        return SDL_EVENTCATEGORY_PINCH;
 
     case SDL_EVENT_CLIPBOARD_UPDATE:
         return SDL_EVENTCATEGORY_CLIPBOARD;
@@ -232,6 +241,12 @@ SDL_Window *SDL_GetWindowFromEvent(const SDL_Event *event)
         break;
     case SDL_EVENTCATEGORY_DROP:
         windowID = event->drop.windowID;
+        break;
+    case SDL_EVENTCATEGORY_RENDER:
+        windowID = event->render.windowID;
+        break;
+    case SDL_EVENTCATEGORY_PINCH:
+        windowID = event->pinch.windowID;
         break;
     default:
         // < 0  -> invalid event type (error is set by SDL_GetEventCategory)

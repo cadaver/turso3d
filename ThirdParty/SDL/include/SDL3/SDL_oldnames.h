@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -38,11 +38,14 @@
 #ifdef SDL_ENABLE_OLD_NAMES
 
 /* ##SDL_atomic.h */
-#define SDL_AtomicCAS SDL_AtomicCompareAndSwap
-#define SDL_AtomicCASPtr SDL_AtomicCompareAndSwapPointer
-#define SDL_AtomicGetPtr SDL_AtomicGetPointer
+#define SDL_AtomicAdd SDL_AddAtomicInt
+#define SDL_AtomicCAS SDL_CompareAndSwapAtomicInt
+#define SDL_AtomicCASPtr SDL_CompareAndSwapAtomicPointer
+#define SDL_AtomicGet SDL_GetAtomicInt
+#define SDL_AtomicGetPtr SDL_GetAtomicPointer
 #define SDL_AtomicLock SDL_LockSpinlock
-#define SDL_AtomicSetPtr SDL_AtomicSetPointer
+#define SDL_AtomicSet SDL_SetAtomicInt
+#define SDL_AtomicSetPtr SDL_SetAtomicPointer
 #define SDL_AtomicTryLock SDL_TryLockSpinlock
 #define SDL_AtomicUnlock SDL_UnlockSpinlock
 #define SDL_atomic_t SDL_AtomicInt
@@ -74,6 +77,7 @@
 #define SDL_NewAudioStream SDL_CreateAudioStream
 
 /* ##SDL_cpuinfo.h */
+#define SDL_GetCPUCount SDL_GetNumLogicalCPUCores
 #define SDL_SIMDGetAlignment SDL_GetSIMDAlignment
 
 /* ##SDL_endian.h */
@@ -166,14 +170,13 @@
 #define SDL_WINDOWEVENT_RESTORED SDL_EVENT_WINDOW_RESTORED
 #define SDL_WINDOWEVENT_SHOWN SDL_EVENT_WINDOW_SHOWN
 #define SDL_WINDOWEVENT_SIZE_CHANGED SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED
-#define SDL_WINDOWEVENT_TAKE_FOCUS SDL_EVENT_WINDOW_TAKE_FOCUS
 #define SDL_eventaction SDL_EventAction
 
 /* ##SDL_gamecontroller.h */
 #define SDL_CONTROLLER_AXIS_INVALID SDL_GAMEPAD_AXIS_INVALID
 #define SDL_CONTROLLER_AXIS_LEFTX SDL_GAMEPAD_AXIS_LEFTX
 #define SDL_CONTROLLER_AXIS_LEFTY SDL_GAMEPAD_AXIS_LEFTY
-#define SDL_CONTROLLER_AXIS_MAX SDL_GAMEPAD_AXIS_MAX
+#define SDL_CONTROLLER_AXIS_MAX SDL_GAMEPAD_AXIS_COUNT
 #define SDL_CONTROLLER_AXIS_RIGHTX SDL_GAMEPAD_AXIS_RIGHTX
 #define SDL_CONTROLLER_AXIS_RIGHTY SDL_GAMEPAD_AXIS_RIGHTY
 #define SDL_CONTROLLER_AXIS_TRIGGERLEFT SDL_GAMEPAD_AXIS_LEFT_TRIGGER
@@ -193,7 +196,7 @@
 #define SDL_CONTROLLER_BUTTON_INVALID SDL_GAMEPAD_BUTTON_INVALID
 #define SDL_CONTROLLER_BUTTON_LEFTSHOULDER SDL_GAMEPAD_BUTTON_LEFT_SHOULDER
 #define SDL_CONTROLLER_BUTTON_LEFTSTICK SDL_GAMEPAD_BUTTON_LEFT_STICK
-#define SDL_CONTROLLER_BUTTON_MAX SDL_GAMEPAD_BUTTON_MAX
+#define SDL_CONTROLLER_BUTTON_MAX SDL_GAMEPAD_BUTTON_COUNT
 #define SDL_CONTROLLER_BUTTON_MISC1 SDL_GAMEPAD_BUTTON_MISC1
 #define SDL_CONTROLLER_BUTTON_PADDLE1 SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1
 #define SDL_CONTROLLER_BUTTON_PADDLE2 SDL_GAMEPAD_BUTTON_LEFT_PADDLE1
@@ -304,6 +307,8 @@
 #define SDL_HINT_DIRECTINPUT_ENABLED SDL_HINT_JOYSTICK_DIRECTINPUT
 #define SDL_HINT_GDK_TEXTINPUT_DEFAULT SDL_HINT_GDK_TEXTINPUT_DEFAULT_TEXT
 #define SDL_HINT_JOYSTICK_GAMECUBE_RUMBLE_BRAKE SDL_HINT_JOYSTICK_HIDAPI_GAMECUBE_RUMBLE_BRAKE
+#define SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE SDL_HINT_JOYSTICK_ENHANCED_REPORTS
+#define SDL_HINT_JOYSTICK_HIDAPI_PS5_RUMBLE SDL_HINT_JOYSTICK_ENHANCED_REPORTS
 #define SDL_HINT_LINUX_DIGITAL_HATS SDL_HINT_JOYSTICK_LINUX_DIGITAL_HATS
 #define SDL_HINT_LINUX_HAT_DEADZONES SDL_HINT_JOYSTICK_LINUX_HAT_DEADZONES
 #define SDL_HINT_LINUX_JOYSTICK_CLASSIC SDL_HINT_JOYSTICK_LINUX_CLASSIC
@@ -425,6 +430,7 @@
 #define SDL_MESSAGEBOX_COLOR_MAX SDL_MESSAGEBOX_COLOR_COUNT
 
 /* ##SDL_mouse.h */
+#define SDL_BUTTON SDL_BUTTON_MASK
 #define SDL_FreeCursor SDL_DestroyCursor
 #define SDL_NUM_SYSTEM_CURSORS SDL_SYSTEM_CURSOR_COUNT
 #define SDL_SYSTEM_CURSOR_ARROW SDL_SYSTEM_CURSOR_DEFAULT
@@ -586,7 +592,10 @@
 #define SDL_SensorUpdate SDL_UpdateSensors
 
 /* ##SDL_stdinc.h */
+#define SDL_FALSE false
 #define SDL_TABLESIZE SDL_arraysize
+#define SDL_TRUE true
+#define SDL_bool bool
 #define SDL_size_add_overflow SDL_size_add_check_overflow
 #define SDL_size_mul_overflow SDL_size_mul_check_overflow
 #define SDL_strtokr SDL_strtok_r
@@ -637,6 +646,7 @@
 #define SDL_iPhoneSetEventPump SDL_SetiOSEventPump
 
 /* ##SDL_thread.h */
+#define SDL_SetThreadPriority SDL_SetCurrentThreadPriority
 #define SDL_TLSCleanup SDL_CleanupTLS
 #define SDL_TLSGet SDL_GetTLS
 #define SDL_TLSSet SDL_SetTLS
@@ -651,6 +661,10 @@
 
 /* ##SDL_video.h */
 #define SDL_GL_DeleteContext SDL_GL_DestroyContext
+#define SDL_GLattr SDL_GLAttr
+#define SDL_GLcontextFlag SDL_GLContextFlag
+#define SDL_GLcontextReleaseFlag SDL_GLContextReleaseFlag
+#define SDL_GLprofile SDL_GLProfile
 #define SDL_GetClosestDisplayMode SDL_GetClosestFullscreenDisplayMode
 #define SDL_GetDisplayOrientation SDL_GetCurrentDisplayOrientation
 #define SDL_GetPointDisplayIndex SDL_GetDisplayForPoint
@@ -667,11 +681,14 @@
 #elif !defined(SDL_DISABLE_OLD_NAMES)
 
 /* ##SDL_atomic.h */
-#define SDL_AtomicCAS SDL_AtomicCAS_renamed_SDL_AtomicCompareAndSwap
-#define SDL_AtomicCASPtr SDL_AtomicCASPtr_renamed_SDL_AtomicCompareAndSwapPointer
-#define SDL_AtomicGetPtr SDL_AtomicGetPtr_renamed_SDL_AtomicGetPointer
+#define SDL_AtomicAdd SDL_AtomicAdd_renamed_SDL_AddAtomicInt
+#define SDL_AtomicCAS SDL_AtomicCAS_renamed_SDL_CompareAndSwapAtomicInt
+#define SDL_AtomicCASPtr SDL_AtomicCASPtr_renamed_SDL_CompareAndSwapAtomicPointer
+#define SDL_AtomicGet SDL_AtomicGet_renamed_SDL_GetAtomicInt
+#define SDL_AtomicGetPtr SDL_AtomicGetPtr_renamed_SDL_GetAtomicPointer
 #define SDL_AtomicLock SDL_AtomicLock_renamed_SDL_LockSpinlock
-#define SDL_AtomicSetPtr SDL_AtomicSetPtr_renamed_SDL_AtomicSetPointer
+#define SDL_AtomicSet SDL_AtomicSet_renamed_SDL_SetAtomicInt
+#define SDL_AtomicSetPtr SDL_AtomicSetPtr_renamed_SDL_SetAtomicPointer
 #define SDL_AtomicTryLock SDL_AtomicTryLock_renamed_SDL_TryLockSpinlock
 #define SDL_AtomicUnlock SDL_AtomicUnlock_renamed_SDL_UnlockSpinlock
 #define SDL_atomic_t SDL_atomic_t_renamed_SDL_AtomicInt
@@ -703,6 +720,7 @@
 #define SDL_NewAudioStream SDL_NewAudioStream_renamed_SDL_CreateAudioStream
 
 /* ##SDL_cpuinfo.h */
+#define SDL_GetCPUCount SDL_GetCPUCount_renamed_SDL_GetNumLogicalCPUCores
 #define SDL_SIMDGetAlignment SDL_SIMDGetAlignment_renamed_SDL_GetSIMDAlignment
 
 /* ##SDL_endian.h */
@@ -778,6 +796,7 @@
 #define SDL_TEXTEDITING_EXT SDL_TEXTEDITING_EXT_renamed_SDL_EVENT_TEXT_EDITING_EXT
 #define SDL_TEXTINPUT SDL_TEXTINPUT_renamed_SDL_EVENT_TEXT_INPUT
 #define SDL_USEREVENT SDL_USEREVENT_renamed_SDL_EVENT_USER
+#define SDL_WINDOWEVENT SDL_WINDOWEVENT_deprecated_use_SDL_EVENT_WINDOW_NAME
 #define SDL_WINDOWEVENT_CLOSE SDL_WINDOWEVENT_CLOSE_renamed_SDL_EVENT_WINDOW_CLOSE_REQUESTED
 #define SDL_WINDOWEVENT_DISPLAY_CHANGED SDL_WINDOWEVENT_DISPLAY_CHANGED_renamed_SDL_EVENT_WINDOW_DISPLAY_CHANGED
 #define SDL_WINDOWEVENT_ENTER SDL_WINDOWEVENT_ENTER_renamed_SDL_EVENT_WINDOW_MOUSE_ENTER
@@ -795,14 +814,13 @@
 #define SDL_WINDOWEVENT_RESTORED SDL_WINDOWEVENT_RESTORED_renamed_SDL_EVENT_WINDOW_RESTORED
 #define SDL_WINDOWEVENT_SHOWN SDL_WINDOWEVENT_SHOWN_renamed_SDL_EVENT_WINDOW_SHOWN
 #define SDL_WINDOWEVENT_SIZE_CHANGED SDL_WINDOWEVENT_SIZE_CHANGED_renamed_SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED
-#define SDL_WINDOWEVENT_TAKE_FOCUS SDL_WINDOWEVENT_TAKE_FOCUS_renamed_SDL_EVENT_WINDOW_TAKE_FOCUS
 #define SDL_eventaction SDL_eventaction_renamed_SDL_EventAction
 
 /* ##SDL_gamecontroller.h */
 #define SDL_CONTROLLER_AXIS_INVALID SDL_CONTROLLER_AXIS_INVALID_renamed_SDL_GAMEPAD_AXIS_INVALID
 #define SDL_CONTROLLER_AXIS_LEFTX SDL_CONTROLLER_AXIS_LEFTX_renamed_SDL_GAMEPAD_AXIS_LEFTX
 #define SDL_CONTROLLER_AXIS_LEFTY SDL_CONTROLLER_AXIS_LEFTY_renamed_SDL_GAMEPAD_AXIS_LEFTY
-#define SDL_CONTROLLER_AXIS_MAX SDL_CONTROLLER_AXIS_MAX_renamed_SDL_GAMEPAD_AXIS_MAX
+#define SDL_CONTROLLER_AXIS_MAX SDL_CONTROLLER_AXIS_MAX_renamed_SDL_GAMEPAD_AXIS_COUNT
 #define SDL_CONTROLLER_AXIS_RIGHTX SDL_CONTROLLER_AXIS_RIGHTX_renamed_SDL_GAMEPAD_AXIS_RIGHTX
 #define SDL_CONTROLLER_AXIS_RIGHTY SDL_CONTROLLER_AXIS_RIGHTY_renamed_SDL_GAMEPAD_AXIS_RIGHTY
 #define SDL_CONTROLLER_AXIS_TRIGGERLEFT SDL_CONTROLLER_AXIS_TRIGGERLEFT_renamed_SDL_GAMEPAD_AXIS_LEFT_TRIGGER
@@ -822,7 +840,7 @@
 #define SDL_CONTROLLER_BUTTON_INVALID SDL_CONTROLLER_BUTTON_INVALID_renamed_SDL_GAMEPAD_BUTTON_INVALID
 #define SDL_CONTROLLER_BUTTON_LEFTSHOULDER SDL_CONTROLLER_BUTTON_LEFTSHOULDER_renamed_SDL_GAMEPAD_BUTTON_LEFT_SHOULDER
 #define SDL_CONTROLLER_BUTTON_LEFTSTICK SDL_CONTROLLER_BUTTON_LEFTSTICK_renamed_SDL_GAMEPAD_BUTTON_LEFT_STICK
-#define SDL_CONTROLLER_BUTTON_MAX SDL_CONTROLLER_BUTTON_MAX_renamed_SDL_GAMEPAD_BUTTON_MAX
+#define SDL_CONTROLLER_BUTTON_MAX SDL_CONTROLLER_BUTTON_MAX_renamed_SDL_GAMEPAD_BUTTON_COUNT
 #define SDL_CONTROLLER_BUTTON_MISC1 SDL_CONTROLLER_BUTTON_MISC1_renamed_SDL_GAMEPAD_BUTTON_MISC1
 #define SDL_CONTROLLER_BUTTON_PADDLE1 SDL_CONTROLLER_BUTTON_PADDLE1_renamed_SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1
 #define SDL_CONTROLLER_BUTTON_PADDLE2 SDL_CONTROLLER_BUTTON_PADDLE2_renamed_SDL_GAMEPAD_BUTTON_LEFT_PADDLE1
@@ -853,6 +871,7 @@
 #define SDL_GameControllerBindType SDL_GameControllerBindType_renamed_SDL_GamepadBindingType
 #define SDL_GameControllerButton SDL_GameControllerButton_renamed_SDL_GamepadButton
 #define SDL_GameControllerClose SDL_GameControllerClose_renamed_SDL_CloseGamepad
+#define SDL_GameControllerEventState SDL_GameControllerEventState_deprecated_use_SDL_SetGamepadEventsEnabled_true_false
 #define SDL_GameControllerFromInstanceID SDL_GameControllerFromInstanceID_renamed_SDL_GetGamepadFromID
 #define SDL_GameControllerFromPlayerIndex SDL_GameControllerFromPlayerIndex_renamed_SDL_GetGamepadFromPlayerIndex
 #define SDL_GameControllerGetAppleSFSymbolsNameForAxis SDL_GameControllerGetAppleSFSymbolsNameForAxis_renamed_SDL_GetGamepadAppleSFSymbolsNameForAxis
@@ -930,14 +949,19 @@
 
 /* ##SDL_hints.h */
 #define SDL_DelHintCallback SDL_DelHintCallback_renamed_SDL_RemoveHintCallback
+#define SDL_HINT_ACCELEROMETER_AS_JOYSTICK SDL_HINT_ACCELEROMETER_AS_JOYSTICK_deprecated_use_SDL_GamepadHasSensor_and_SDL_SetGamepadSensorEnabled
 #define SDL_HINT_ALLOW_TOPMOST SDL_HINT_ALLOW_TOPMOST_renamed_SDL_HINT_WINDOW_ALLOW_TOPMOST
 #define SDL_HINT_DIRECTINPUT_ENABLED SDL_HINT_DIRECTINPUT_ENABLED_renamed_SDL_HINT_JOYSTICK_DIRECTINPUT
 #define SDL_HINT_GDK_TEXTINPUT_DEFAULT SDL_HINT_GDK_TEXTINPUT_DEFAULT_renamed_SDL_HINT_GDK_TEXTINPUT_DEFAULT_TEXT
 #define SDL_HINT_JOYSTICK_GAMECUBE_RUMBLE_BRAKE SDL_HINT_JOYSTICK_GAMECUBE_RUMBLE_BRAKE_renamed_SDL_HINT_JOYSTICK_HIDAPI_GAMECUBE_RUMBLE_BRAKE
+#define SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE_renamed_SDL_HINT_JOYSTICK_ENHANCED_REPORTS
+#define SDL_HINT_JOYSTICK_HIDAPI_PS5_RUMBLE SDL_HINT_JOYSTICK_HIDAPI_PS5_RUMBLE_renamed_SDL_HINT_JOYSTICK_ENHANCED_REPORTS
 #define SDL_HINT_LINUX_DIGITAL_HATS SDL_HINT_LINUX_DIGITAL_HATS_renamed_SDL_HINT_JOYSTICK_LINUX_DIGITAL_HATS
 #define SDL_HINT_LINUX_HAT_DEADZONES SDL_HINT_LINUX_HAT_DEADZONES_renamed_SDL_HINT_JOYSTICK_LINUX_HAT_DEADZONES
 #define SDL_HINT_LINUX_JOYSTICK_CLASSIC SDL_HINT_LINUX_JOYSTICK_CLASSIC_renamed_SDL_HINT_JOYSTICK_LINUX_CLASSIC
 #define SDL_HINT_LINUX_JOYSTICK_DEADZONES SDL_HINT_LINUX_JOYSTICK_DEADZONES_renamed_SDL_HINT_JOYSTICK_LINUX_DEADZONES
+#define SDL_HINT_RENDER_SCALE_QUALITY SDL_HINT_RENDER_SCALE_QUALITY_deprecated_use_SDL_SetTextureScaleMode_with_SDL_SCALEMODE_NEAREST
+#define SDL_HINT_WINDOWS_FORCE_MUTEX_CRITICAL_SECTIONS SDL_HINT_WINDOWS_FORCE_MUTEX_CRITICAL_SECTIONS_deprecated_remove_this_line
 
 /* ##SDL_joystick.h */
 #define SDL_JOYSTICK_TYPE_GAMECONTROLLER SDL_JOYSTICK_TYPE_GAMECONTROLLER_renamed_SDL_JOYSTICK_TYPE_GAMEPAD
@@ -980,6 +1004,7 @@
 #define SDL_JoystickSetVirtualButton SDL_JoystickSetVirtualButton_renamed_SDL_SetJoystickVirtualButton
 #define SDL_JoystickSetVirtualHat SDL_JoystickSetVirtualHat_renamed_SDL_SetJoystickVirtualHat
 #define SDL_JoystickUpdate SDL_JoystickUpdate_renamed_SDL_UpdateJoysticks
+#define SDL_NumJoysticks SDL_NumJoysticks_deprecated_use_SDL_GetJoysticks
 
 /* ##SDL_keyboard.h */
 #define SDL_IsScreenKeyboardShown SDL_IsScreenKeyboardShown_renamed_SDL_ScreenKeyboardShown
@@ -1055,6 +1080,7 @@
 #define SDL_MESSAGEBOX_COLOR_MAX SDL_MESSAGEBOX_COLOR_MAX_renamed_SDL_MESSAGEBOX_COLOR_COUNT
 
 /* ##SDL_mouse.h */
+#define SDL_BUTTON SDL_BUTTON_renamed_SDL_BUTTON_MASK
 #define SDL_FreeCursor SDL_FreeCursor_renamed_SDL_DestroyCursor
 #define SDL_NUM_SYSTEM_CURSORS SDL_NUM_SYSTEM_CURSORS_renamed_SDL_SYSTEM_CURSOR_COUNT
 #define SDL_SYSTEM_CURSOR_ARROW SDL_SYSTEM_CURSOR_ARROW_renamed_SDL_SYSTEM_CURSOR_DEFAULT
@@ -1127,6 +1153,8 @@
 
 /* ##SDL_render.h */
 #define SDL_GetRendererOutputSize SDL_GetRendererOutputSize_renamed_SDL_GetCurrentRenderOutputSize
+#define SDL_RENDERER_ACCELERATED SDL_RENDERER_ACCELERATED_deprecated_remove_this_line
+#define SDL_RENDERER_PRESENTVSYNC SDL_RENDERER_PRESENTVSYNC_deprecated_use_SDL_SetRenderVSync
 #define SDL_RenderCopy SDL_RenderCopy_renamed_SDL_RenderTexture
 #define SDL_RenderCopyEx SDL_RenderCopyEx_renamed_SDL_RenderTextureRotated
 #define SDL_RenderCopyExF SDL_RenderCopyExF_renamed_SDL_RenderTextureRotated
@@ -1216,7 +1244,10 @@
 #define SDL_SensorUpdate SDL_SensorUpdate_renamed_SDL_UpdateSensors
 
 /* ##SDL_stdinc.h */
+#define SDL_FALSE SDL_FALSE_renamed_false
 #define SDL_TABLESIZE SDL_TABLESIZE_renamed_SDL_arraysize
+#define SDL_TRUE SDL_TRUE_renamed_true
+#define SDL_bool SDL_bool_renamed_bool
 #define SDL_size_add_overflow SDL_size_add_overflow_renamed_SDL_size_add_check_overflow
 #define SDL_size_mul_overflow SDL_size_mul_overflow_renamed_SDL_size_mul_check_overflow
 #define SDL_strtokr SDL_strtokr_renamed_SDL_strtok_r
@@ -1267,6 +1298,8 @@
 #define SDL_iPhoneSetEventPump SDL_iPhoneSetEventPump_renamed_SDL_iOSSetEventPump
 
 /* ##SDL_thread.h */
+#define SDL_SetThreadPriority SDL_SetThreadPriority_renamed_SDL_SetCurrentThreadPriority
+#define SDL_SetWindowInputFocus SDL_SetWindowInputFocus_deprecated_use_SDL_RaiseWindow
 #define SDL_TLSCleanup SDL_TLSCleanup_renamed_SDL_CleanupTLS
 #define SDL_TLSGet SDL_TLSGet_renamed_SDL_GetTLS
 #define SDL_TLSSet SDL_TLSSet_renamed_SDL_SetTLS
@@ -1281,6 +1314,10 @@
 
 /* ##SDL_video.h */
 #define SDL_GL_DeleteContext SDL_GL_DeleteContext_renamed_SDL_GL_DestroyContext
+#define SDL_GLattr SDL_GLattr_renamed_SDL_GLAttr
+#define SDL_GLcontextFlag SDL_GLcontextFlag_renamed_SDL_GLContextFlag
+#define SDL_GLcontextReleaseFlag SDL_GLcontextReleaseFlag_renamed_SDL_GLContextReleaseFlag
+#define SDL_GLprofile SDL_GLprofile_renamed_SDL_GLProfile
 #define SDL_GetClosestDisplayMode SDL_GetClosestDisplayMode_renamed_SDL_GetClosestFullscreenDisplayMode
 #define SDL_GetDisplayOrientation SDL_GetDisplayOrientation_renamed_SDL_GetCurrentDisplayOrientation
 #define SDL_GetPointDisplayIndex SDL_GetPointDisplayIndex_renamed_SDL_GetDisplayForPoint
@@ -1288,10 +1325,13 @@
 #define SDL_GetWindowDisplayIndex SDL_GetWindowDisplayIndex_renamed_SDL_GetDisplayForWindow
 #define SDL_GetWindowDisplayMode SDL_GetWindowDisplayMode_renamed_SDL_GetWindowFullscreenMode
 #define SDL_HasWindowSurface SDL_HasWindowSurface_renamed_SDL_WindowHasSurface
+#define SDL_INIT_EVERYTHING SDL_INIT_EVERYTHING_deprecated_list_flags_explicitly
 #define SDL_IsScreenSaverEnabled SDL_IsScreenSaverEnabled_renamed_SDL_ScreenSaverEnabled
 #define SDL_SetWindowDisplayMode SDL_SetWindowDisplayMode_renamed_SDL_SetWindowFullscreenMode
 #define SDL_WINDOW_ALLOW_HIGHDPI SDL_WINDOW_ALLOW_HIGHDPI_renamed_SDL_WINDOW_HIGH_PIXEL_DENSITY
+#define SDL_WINDOW_FULLSCREEN_DESKTOP SDL_WINDOW_FULLSCREEN_DESKTOP_deprecated_use_SDL_SetWindowFullscreen_with_bool
 #define SDL_WINDOW_INPUT_GRABBED SDL_WINDOW_INPUT_GRABBED_renamed_SDL_WINDOW_MOUSE_GRABBED
+#define SDL_WINDOW_SHOWN SDL_WINDOW_SHOWN_deprecated_windows_are_shown_by_default
 #define SDL_WINDOW_SKIP_TASKBAR SDL_WINDOW_SKIP_TASKBAR_renamed_SDL_WINDOW_UTILITY
 
 #endif /* SDL_ENABLE_OLD_NAMES */

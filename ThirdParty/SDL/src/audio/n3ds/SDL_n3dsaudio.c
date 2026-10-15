@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -203,7 +203,7 @@ static bool N3DSAUDIO_PlayDevice(SDL_AudioDevice *device, const Uint8 *buffer, i
 static bool N3DSAUDIO_WaitDevice(SDL_AudioDevice *device)
 {
     contextLock(device);
-    while (!device->hidden->isCancelled && !SDL_AtomicGet(&device->shutdown) &&
+    while (!device->hidden->isCancelled && !SDL_GetAtomicInt(&device->shutdown) &&
            device->hidden->waveBuf[device->hidden->nextbuf].status != NDSP_WBUF_FREE) {
         CondVar_Wait(&device->hidden->cv, &device->hidden->lock);
     }
@@ -280,7 +280,8 @@ AudioBootStrap N3DSAUDIO_bootstrap = {
     N3DSAUDIO_DRIVER_NAME,
     "SDL N3DS audio driver",
     N3DSAUDIO_Init,
-    0
+    false,
+    false
 };
 
 #endif // SDL_AUDIO_DRIVER_N3DS

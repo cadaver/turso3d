@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -39,7 +39,7 @@ void VITA_InitMouse(void)
     sceHidMouseEnumerate(&mouse_hid_handle, 1);
 
     if (mouse_hid_handle > 0) {
-        SDL_AddMouse((SDL_MouseID)mouse_hid_handle, NULL, false);
+        SDL_AddMouse((SDL_MouseID)mouse_hid_handle, NULL);
     }
 }
 
@@ -75,11 +75,27 @@ void VITA_PollMouse(void)
                     else
                         SDL_SendMouseButton(0, Vita_Window, mouseID, SDL_BUTTON_MIDDLE, true);
                 }
+                if (changed_buttons & 0x8) {
+                    if (prev_buttons & 0x8)
+                        SDL_SendMouseButton(0, Vita_Window, mouseID, SDL_BUTTON_X1, false);
+                    else
+                        SDL_SendMouseButton(0, Vita_Window, mouseID, SDL_BUTTON_X1, true);
+                }
+                if (changed_buttons & 0x10) {
+                    if (prev_buttons & 0x10)
+                        SDL_SendMouseButton(0, Vita_Window, mouseID, SDL_BUTTON_X2, false);
+                    else
+                        SDL_SendMouseButton(0, Vita_Window, mouseID, SDL_BUTTON_X2, true);
+                }
 
                 prev_buttons = m_reports[i].buttons;
 
                 if (m_reports[i].rel_x || m_reports[i].rel_y) {
                     SDL_SendMouseMotion(0, Vita_Window, mouseID, true, (float)m_reports[i].rel_x, (float)m_reports[i].rel_y);
+                }
+
+                if (m_reports[i].tilt != 0 || m_reports[i].wheel != 0) {
+                    SDL_SendMouseWheel(0, Vita_Window, mouseID, m_reports[i].tilt, m_reports[i].wheel, SDL_MOUSEWHEEL_NORMAL);
                 }
             }
         }

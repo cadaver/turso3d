@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -25,6 +25,7 @@
 #include "../SDL_syscamera.h"
 #include "../SDL_camera_c.h"
 #include "../../video/SDL_pixels_c.h"
+#include "../../video/SDL_surface_c.h"
 
 #include <emscripten/emscripten.h>
 
@@ -32,15 +33,13 @@
 //  each EM_ASM section is ugly.
 /* *INDENT-OFF* */ // clang-format off
 
-EM_JS_DEPS(sdlcamera, "$dynCall");
-
 static bool EMSCRIPTENCAMERA_WaitDevice(SDL_Camera *device)
 {
     SDL_assert(!"This shouldn't be called");  // we aren't using SDL's internal thread.
     return false;
 }
 
-static SDL_CameraFrameResult EMSCRIPTENCAMERA_AcquireFrame(SDL_Camera *device, SDL_Surface *frame, Uint64 *timestampNS)
+static SDL_CameraFrameResult EMSCRIPTENCAMERA_AcquireFrame(SDL_Camera *device, SDL_Surface *frame, Uint64 *timestampNS, float *rotation)
 {
     void *rgba = SDL_malloc(device->actual_spec.width * device->actual_spec.height * 4);
     if (!rgba) {
@@ -60,7 +59,7 @@ static SDL_CameraFrameResult EMSCRIPTENCAMERA_AcquireFrame(SDL_Camera *device, S
 
         SDL3.camera.ctx2d.drawImage(SDL3.camera.video, 0, 0, w, h);
         const imgrgba = SDL3.camera.ctx2d.getImageData(0, 0, w, h).data;
-        Module.HEAPU8.set(imgrgba, rgba);
+        HEAPU8.set(imgrgba, rgba);
 
         return 1;
     }, device->actual_spec.width, device->actual_spec.height, rgba);
@@ -97,17 +96,28 @@ static void EMSCRIPTENCAMERA_CloseDevice(SDL_Camera *device)
     }
 }
 
-static void SDLEmscriptenCameraPermissionOutcome(SDL_Camera *device, int approved, int w, int h, int fps)
+EMSCRIPTEN_KEEPALIVE int SDLEmscriptenCameraPermissionOutcome(SDL_Camera *device, int approved, int w, int h, int fps)
 {
-    device->spec.width = device->actual_spec.width = w;
-    device->spec.height = device->actual_spec.height = h;
-    device->spec.framerate_numerator = device->actual_spec.framerate_numerator = fps;
-    device->spec.framerate_denominator = device->actual_spec.framerate_denominator = 1;
-    if (device->acquire_surface) {
-        device->acquire_surface->w = w;
-        device->acquire_surface->h = h;
+    if (approved) {
+        device->actual_spec.format = SDL_PIXELFORMAT_RGBA32;
+        device->actual_spec.width = w;
+        device->actual_spec.height = h;
+        device->actual_spec.framerate_numerator = fps;
+        device->actual_spec.framerate_denominator = 1;
+
+        if (!SDL_PrepareCameraSurfaces(device)) {
+            // uhoh, we're in trouble. Probably ran out of memory.
+            SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Camera could not prepare surfaces: %s ... revoking approval!", SDL_GetError());
+            approved = 0;  // disconnecting the SDL camera might not be safe here, just mark it as denied by user.
+        }
     }
+
     SDL_CameraPermissionOutcome(device, approved ? true : false);
+    return approved;
+}
+
+EMSCRIPTEN_KEEPALIVE bool SDLEmscriptenThreadIterate(SDL_Camera *device) {
+    return SDL_CameraThreadIterate(device);
 }
 
 static bool EMSCRIPTENCAMERA_OpenDevice(SDL_Camera *device, const SDL_CameraSpec *spec)
@@ -120,8 +130,8 @@ static bool EMSCRIPTENCAMERA_OpenDevice(SDL_Camera *device, const SDL_CameraSpec
         const h = $2;
         const framerate_numerator = $3;
         const framerate_denominator = $4;
-        const outcome = $5;
-        const iterate = $6;
+        const outcome = Module._SDLEmscriptenCameraPermissionOutcome;
+        const iterate = Module._SDLEmscriptenThreadIterate;
 
         const constraints = {};
         if ((w <= 0) || (h <= 0)) {
@@ -147,7 +157,7 @@ static bool EMSCRIPTENCAMERA_OpenDevice(SDL_Camera *device, const SDL_CameraSpec
             const nextframems = SDL3.camera.next_frame_time;
             const now = performance.now();
             if (now >= nextframems) {
-                dynCall('vi', iterate, [device]);  // calls SDL_CameraThreadIterate, which will call our AcquireFrame implementation.
+                iterate(device);  // calls SDL_CameraThreadIterate, which will call our AcquireFrame implementation.
 
                 // bump ahead but try to stay consistent on timing, in case we dropped frames.
                 while (SDL3.camera.next_frame_time < now) {
@@ -166,42 +176,42 @@ static bool EMSCRIPTENCAMERA_OpenDevice(SDL_Camera *device, const SDL_CameraSpec
                 const actualfps = settings.frameRate;
                 console.log("Camera is opened! Actual spec: (" + actualw + "x" + actualh + "), fps=" + actualfps);
 
-                dynCall('viiiii', outcome, [device, 1, actualw, actualh, actualfps]);
+                if (outcome(device, 1, actualw, actualh, actualfps)) {
+                    const video = document.createElement("video");
+                    video.width = actualw;
+                    video.height = actualh;
+                    video.style.display = 'none';    // we need to attach this to a hidden video node so we can read it as pixels.
+                    video.srcObject = stream;
 
-                const video = document.createElement("video");
-                video.width = actualw;
-                video.height = actualh;
-                video.style.display = 'none';    // we need to attach this to a hidden video node so we can read it as pixels.
-                video.srcObject = stream;
+                    const canvas = document.createElement("canvas");
+                    canvas.width = actualw;
+                    canvas.height = actualh;
+                    canvas.style.display = 'none';    // we need to attach this to a hidden video node so we can read it as pixels.
 
-                const canvas = document.createElement("canvas");
-                canvas.width = actualw;
-                canvas.height = actualh;
-                canvas.style.display = 'none';    // we need to attach this to a hidden video node so we can read it as pixels.
+                    const ctx2d = canvas.getContext('2d');
 
-                const ctx2d = canvas.getContext('2d');
+                    const SDL3 = Module['SDL3'];
+                    SDL3.camera.width = actualw;
+                    SDL3.camera.height = actualh;
+                    SDL3.camera.fps = actualfps;
+                    SDL3.camera.fpsincrms = 1000.0 / actualfps;
+                    SDL3.camera.stream = stream;
+                    SDL3.camera.video = video;
+                    SDL3.camera.canvas = canvas;
+                    SDL3.camera.ctx2d = ctx2d;
+                    SDL3.camera.next_frame_time = performance.now();
 
-                const SDL3 = Module['SDL3'];
-                SDL3.camera.width = actualw;
-                SDL3.camera.height = actualh;
-                SDL3.camera.fps = actualfps;
-                SDL3.camera.fpsincrms = 1000.0 / actualfps;
-                SDL3.camera.stream = stream;
-                SDL3.camera.video = video;
-                SDL3.camera.canvas = canvas;
-                SDL3.camera.ctx2d = ctx2d;
-                SDL3.camera.next_frame_time = performance.now();
-
-                video.play();
-                video.addEventListener('loadedmetadata', () => {
-                    grabNextCameraFrame();  // start this loop going.
-                });
+                    video.play();
+                    video.addEventListener('loadedmetadata', () => {
+                        grabNextCameraFrame();  // start this loop going.
+                    });
+                }
             })
             .catch((err) => {
                 console.error("Tried to open camera but it threw an error! " + err.name + ": " +  err.message);
-                dynCall('viiiii', outcome, [device, 0, 0, 0, 0]);   // we call this a permission error, because it probably is.
+                outcome(device, 0, 0, 0, 0);   // we call this a permission error, because it probably is.
             });
-    }, device, spec->width, spec->height, spec->framerate_numerator, spec->framerate_denominator, SDLEmscriptenCameraPermissionOutcome, SDL_CameraThreadIterate);
+    }, device, spec->width, spec->height, spec->framerate_numerator, spec->framerate_denominator);
 
     return true;  // the real work waits until the user approves a camera.
 }
@@ -237,9 +247,6 @@ static void EMSCRIPTENCAMERA_DetectDevices(void)
 static bool EMSCRIPTENCAMERA_Init(SDL_CameraDriverImpl *impl)
 {
     MAIN_THREAD_EM_ASM({
-        if (typeof(Module['SDL3']) === 'undefined') {
-            Module['SDL3'] = {};
-        }
         Module['SDL3'].camera = {};
     });
 

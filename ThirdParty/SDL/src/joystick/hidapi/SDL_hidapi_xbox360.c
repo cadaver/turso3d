@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -32,6 +32,10 @@
 // Define this if you want to log all packets from the controller
 // #define DEBUG_XBOX_PROTOCOL
 
+#ifdef SDL_PLATFORM_MACOS
+#include <IOKit/IOKitLib.h>
+#endif
+
 typedef struct
 {
     SDL_HIDAPI_Device *device;
@@ -39,6 +43,10 @@ typedef struct
     int player_index;
     bool player_lights;
     Uint8 last_state[USB_PACKET_LENGTH];
+#ifdef SDL_PLATFORM_MACOS
+    bool controlled_by_360controller;
+    bool is_steam_virtual_gamepad;
+#endif
 } SDL_DriverXbox360_Context;
 
 static void HIDAPI_DriverXbox360_RegisterHints(SDL_HintCallback callback, void *userdata)
@@ -58,6 +66,22 @@ static bool HIDAPI_DriverXbox360_IsEnabled(void)
     return SDL_GetHintBoolean(SDL_HINT_JOYSTICK_HIDAPI_XBOX_360,
                               SDL_GetHintBoolean(SDL_HINT_JOYSTICK_HIDAPI_XBOX, SDL_GetHintBoolean(SDL_HINT_JOYSTICK_HIDAPI, SDL_HIDAPI_DEFAULT)));
 }
+
+#ifdef SDL_PLATFORM_MACOS
+static bool IsControlledBy360ControllerDriverMacOS(SDL_HIDAPI_Device *device)
+{
+    bool controlled_by_360controller = false;
+    if (device && device->path && SDL_strncmp("DevSrvsID:", device->path, 10) == 0) {
+        uint64_t entry_id = SDL_strtoull(device->path + 10, NULL, 10);
+        io_service_t service = IOServiceGetMatchingService(0, IORegistryEntryIDMatching(entry_id));
+        if (service != MACH_PORT_NULL) {
+            controlled_by_360controller = IOObjectConformsTo(service, "Xbox360ControllerClass");
+            IOObjectRelease(service);
+        }
+    }
+    return controlled_by_360controller;
+}
+#endif
 
 static bool HIDAPI_DriverXbox360_IsSupportedDevice(SDL_HIDAPI_Device *device, const char *name, SDL_GamepadType type, Uint16 vendor_id, Uint16 product_id, Uint16 version, int interface_number, int interface_class, int interface_subclass, int interface_protocol)
 {
@@ -81,23 +105,28 @@ static bool HIDAPI_DriverXbox360_IsSupportedDevice(SDL_HIDAPI_Device *device, co
         return false;
     }
 #ifdef SDL_PLATFORM_MACOS
-    if (vendor_id == USB_VENDOR_MICROSOFT && product_id == USB_PRODUCT_XBOX360_WIRED_CONTROLLER && version == 0) {
-        // This is the Steam Virtual Gamepad, which isn't supported by this driver
-        return false;
+    if (IsControlledBy360ControllerDriverMacOS(device)) {
+        // Wired Xbox controllers are handled by this driver, when they are
+        // controlled by the 360Controller driver available from:
+        // https://github.com/360Controller/360Controller/releases
+        return true;
     }
-    /* Wired Xbox One controllers are handled by this driver, interfacing with
-       the 360Controller driver available from:
-       https://github.com/360Controller/360Controller/releases
-
-       Bluetooth Xbox One controllers are handled by the SDL Xbox One driver
-    */
-    if (SDL_IsJoystickBluetoothXboxOne(vendor_id, product_id)) {
-        return false;
-    }
-    return (type == SDL_GAMEPAD_TYPE_XBOX360 || type == SDL_GAMEPAD_TYPE_XBOXONE);
-#else
-    return (type == SDL_GAMEPAD_TYPE_XBOX360);
 #endif
+#if defined(SDL_PLATFORM_MACOS) && defined(SDL_JOYSTICK_MFI)
+    if (SDL_GetHintBoolean(SDL_HINT_JOYSTICK_MFI, true)) {
+        if (SDL_IsJoystickSteamVirtualGamepad(vendor_id, product_id, version)) {
+            // GCController support doesn't work with the Steam Virtual Gamepad
+            return true;
+        }
+        if (device && SDL_strncmp(device->path, "DevSrvsID", 9) == 0) {
+            // On macOS when it isn't controlled by the 360Controller driver and
+            // it doesn't look like a Steam virtual gamepad and it's not
+            // available via libusb we should rely on GCController support.
+            return false;
+        }
+    }
+#endif
+    return (type == SDL_GAMEPAD_TYPE_XBOX360);
 }
 
 static bool SetSlotLED(SDL_hid_device *dev, Uint8 slot, bool on)
@@ -144,10 +173,21 @@ static bool HIDAPI_DriverXbox360_InitDevice(SDL_HIDAPI_Device *device)
         return false;
     }
     ctx->device = device;
+#ifdef SDL_PLATFORM_MACOS
+    ctx->controlled_by_360controller = IsControlledBy360ControllerDriverMacOS(device);
+    ctx->is_steam_virtual_gamepad = SDL_IsJoystickSteamVirtualGamepad(device->vendor_id, device->product_id, device->version);
+#endif
 
     device->context = ctx;
 
     device->type = SDL_GAMEPAD_TYPE_XBOX360;
+
+    if (SDL_IsJoystickSteamVirtualGamepad(device->vendor_id, device->product_id, device->version) &&
+        device->product_string && SDL_strncmp(device->product_string, "GamePad-", 8) == 0) {
+        int slot = 0;
+        SDL_sscanf(device->product_string, "GamePad-%d", &slot);
+        device->steam_virtual_gamepad_slot = (slot - 1);
+    }
 
     return HIDAPI_JoystickConnected(device, NULL);
 }
@@ -198,29 +238,18 @@ static bool HIDAPI_DriverXbox360_OpenJoystick(SDL_HIDAPI_Device *device, SDL_Joy
 static bool HIDAPI_DriverXbox360_RumbleJoystick(SDL_HIDAPI_Device *device, SDL_Joystick *joystick, Uint16 low_frequency_rumble, Uint16 high_frequency_rumble)
 {
 #ifdef SDL_PLATFORM_MACOS
-    if (SDL_IsJoystickBluetoothXboxOne(device->vendor_id, device->product_id)) {
-        Uint8 rumble_packet[] = { 0x03, 0x0F, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00 };
-
-        rumble_packet[4] = (low_frequency_rumble >> 8);
-        rumble_packet[5] = (high_frequency_rumble >> 8);
-
-        if (SDL_HIDAPI_SendRumble(device, rumble_packet, sizeof(rumble_packet)) != sizeof(rumble_packet)) {
-            return SDL_SetError("Couldn't send rumble packet");
-        }
-    } else {
-        /* On macOS the 360Controller driver uses this short report,
-           and we need to prefix it with a magic token so hidapi passes it through untouched
-         */
+    if (((SDL_DriverXbox360_Context *)device->context)->controlled_by_360controller) {
+        // On macOS the 360Controller driver uses this short report,
+        // and we need to prefix it with a magic token so hidapi passes it through untouched
         Uint8 rumble_packet[] = { 'M', 'A', 'G', 'I', 'C', '0', 0x00, 0x04, 0x00, 0x00 };
-
         rumble_packet[6 + 2] = (low_frequency_rumble >> 8);
         rumble_packet[6 + 3] = (high_frequency_rumble >> 8);
-
         if (SDL_HIDAPI_SendRumble(device, rumble_packet, sizeof(rumble_packet)) != sizeof(rumble_packet)) {
             return SDL_SetError("Couldn't send rumble packet");
         }
+        return true;
     }
-#else
+#endif
     Uint8 rumble_packet[] = { 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
     rumble_packet[3] = (low_frequency_rumble >> 8);
@@ -229,7 +258,6 @@ static bool HIDAPI_DriverXbox360_RumbleJoystick(SDL_HIDAPI_Device *device, SDL_J
     if (SDL_HIDAPI_SendRumble(device, rumble_packet, sizeof(rumble_packet)) != sizeof(rumble_packet)) {
         return SDL_SetError("Couldn't send rumble packet");
     }
-#endif
     return true;
 }
 
@@ -268,7 +296,10 @@ static void HIDAPI_DriverXbox360_HandleStatePacket(SDL_Joystick *joystick, SDL_D
 {
     Sint16 axis;
 #ifdef SDL_PLATFORM_MACOS
-    const bool invert_y_axes = false;
+    // For backwards compatibility reasons, the 360Controller driver and the Steam Virtual
+    // Gamepad require opposite Y axis inversion on macOS
+    const bool invert_y_axes = (ctx->controlled_by_360controller ||
+                                ctx->is_steam_virtual_gamepad) ? false : true;
 #else
     const bool invert_y_axes = true;
 #endif

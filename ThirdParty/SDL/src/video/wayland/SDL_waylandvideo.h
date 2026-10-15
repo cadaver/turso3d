@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -32,7 +32,7 @@
 #include "../../core/linux/SDL_ime.h"
 
 struct xkb_context;
-struct SDL_WaylandInput;
+struct SDL_WaylandSeat;
 
 typedef struct
 {
@@ -48,15 +48,12 @@ typedef struct
 
 struct SDL_VideoData
 {
-    bool initializing;
     struct wl_display *display;
-    int display_disconnected;
     struct wl_registry *registry;
     struct wl_compositor *compositor;
     struct wl_shm *shm;
     SDL_WaylandCursorTheme *cursor_themes;
     int num_cursor_themes;
-    struct wl_pointer *pointer;
     struct
     {
         struct xdg_wm_base *xdg;
@@ -66,6 +63,7 @@ struct SDL_VideoData
     } shell;
     struct zwp_relative_pointer_manager_v1 *relative_pointer_manager;
     struct zwp_pointer_constraints_v1 *pointer_constraints;
+    struct wp_pointer_warp_v1 *wp_pointer_warp_v1;
     struct wp_cursor_shape_manager_v1 *cursor_shape_manager;
     struct wl_data_device_manager *data_device_manager;
     struct zwp_primary_selection_device_manager_v1 *primary_selection_device_manager;
@@ -82,20 +80,26 @@ struct SDL_VideoData
     struct xdg_wm_dialog_v1 *xdg_wm_dialog_v1;
     struct wp_alpha_modifier_v1 *wp_alpha_modifier_v1;
     struct xdg_toplevel_icon_manager_v1 *xdg_toplevel_icon_manager_v1;
-    struct kde_output_order_v1 *kde_output_order;
     struct frog_color_management_factory_v1 *frog_color_management_factory_v1;
+    struct wp_color_manager_v1 *wp_color_manager_v1;
     struct zwp_tablet_manager_v2 *tablet_manager;
+    struct wl_fixes *wl_fixes;
+    struct zwp_pointer_gestures_v1 *zwp_pointer_gestures;
 
     struct xkb_context *xkb_context;
-    struct SDL_WaylandInput *input;
-    struct wl_list output_list;
-    struct wl_list output_order;
 
-    bool output_order_finalized;
+    struct wl_list seat_list;
+    struct SDL_WaylandSeat *last_implicit_grab_seat;
+    struct SDL_WaylandSeat *last_incoming_data_offer_seat;
+    struct SDL_WaylandSeat *last_incoming_primary_selection_seat;
 
-    int relative_mouse_mode;
+    SDL_DisplayData **output_list;
+    int output_count;
+    int output_max;
+
+    bool initializing;
+    bool display_disconnected;
     bool display_externally_owned;
-
     bool scale_to_display_enabled;
 };
 
@@ -104,18 +108,21 @@ struct SDL_DisplayData
     SDL_VideoData *videodata;
     struct wl_output *output;
     struct zxdg_output_v1 *xdg_output;
+    struct wp_color_management_output_v1 *wp_color_management_output;
     char *wl_output_name;
+    double scale_factor;
     uint32_t registry_id;
-    float scale_factor;
+    int logical_width, logical_height;
     int pixel_width, pixel_height;
-    int x, y, screen_width, screen_height, refresh, transform;
+    int x, y, refresh, transform;
     SDL_DisplayOrientation orientation;
-    int physical_width, physical_height;
+    int physical_width_mm, physical_height_mm;
     bool has_logical_position, has_logical_size;
+    SDL_HDROutputProperties HDR;
     SDL_DisplayID display;
     SDL_VideoDisplay placeholder;
     int wl_output_done_count;
-    struct wl_list link;
+    struct Wayland_ColorInfoState *color_info_state;
 };
 
 // Needed here to get wl_surface declaration, fixes GitHub#4594
@@ -129,9 +136,10 @@ extern bool SDL_WAYLAND_own_output(struct wl_output *output);
 extern SDL_WindowData *Wayland_GetWindowDataForOwnedSurface(struct wl_surface *surface);
 void Wayland_AddWindowDataToExternalList(SDL_WindowData *data);
 void Wayland_RemoveWindowDataFromExternalList(SDL_WindowData *data);
+struct wl_event_queue *Wayland_DisplayCreateQueue(struct wl_display *display, const char *name);
 
 extern bool Wayland_LoadLibdecor(SDL_VideoData *data, bool ignore_xdg);
 
-extern bool Wayland_VideoReconnect(SDL_VideoDevice *_this);
+extern bool Wayland_HandleDisplayDisconnected(SDL_VideoDevice *_this);
 
 #endif // SDL_waylandvideo_h_

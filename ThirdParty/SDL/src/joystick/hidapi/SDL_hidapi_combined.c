@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -70,13 +70,13 @@ static bool HIDAPI_DriverCombined_OpenJoystick(SDL_HIDAPI_Device *device, SDL_Jo
     for (i = 0; i < device->num_children; ++i) {
         SDL_HIDAPI_Device *child = device->children[i];
         if (!child->driver->OpenJoystick(child, joystick)) {
+            child->broken = true;
+
             while (i-- > 0) {
                 child = device->children[i];
                 child->driver->CloseJoystick(child, joystick);
             }
-            if (serial) {
-                SDL_free(serial);
-            }
+            SDL_free(serial);
             return false;
         }
 
@@ -100,9 +100,7 @@ static bool HIDAPI_DriverCombined_OpenJoystick(SDL_HIDAPI_Device *device, SDL_Jo
     }
 
     // Update the joystick with the combined serial numbers
-    if (joystick->serial) {
-        SDL_free(joystick->serial);
-    }
+    SDL_free(joystick->serial);
     joystick->serial = serial;
 
     return true;
@@ -115,7 +113,7 @@ static bool HIDAPI_DriverCombined_RumbleJoystick(SDL_HIDAPI_Device *device, SDL_
 
     for (i = 0; i < device->num_children; ++i) {
         SDL_HIDAPI_Device *child = device->children[i];
-        if (child->driver->RumbleJoystick(child, joystick, low_frequency_rumble, high_frequency_rumble) == 0) {
+        if (child->driver->RumbleJoystick(child, joystick, low_frequency_rumble, high_frequency_rumble)) {
             result = true;
         }
     }
@@ -129,7 +127,7 @@ static bool HIDAPI_DriverCombined_RumbleJoystickTriggers(SDL_HIDAPI_Device *devi
 
     for (i = 0; i < device->num_children; ++i) {
         SDL_HIDAPI_Device *child = device->children[i];
-        if (child->driver->RumbleJoystickTriggers(child, joystick, left_rumble, right_rumble) == 0) {
+        if (child->driver->RumbleJoystickTriggers(child, joystick, left_rumble, right_rumble)) {
             result = true;
         }
     }
@@ -155,7 +153,7 @@ static bool HIDAPI_DriverCombined_SetJoystickLED(SDL_HIDAPI_Device *device, SDL_
 
     for (i = 0; i < device->num_children; ++i) {
         SDL_HIDAPI_Device *child = device->children[i];
-        if (child->driver->SetJoystickLED(child, joystick, red, green, blue) == 0) {
+        if (child->driver->SetJoystickLED(child, joystick, red, green, blue)) {
             result = true;
         }
     }
@@ -174,7 +172,7 @@ static bool HIDAPI_DriverCombined_SetJoystickSensorsEnabled(SDL_HIDAPI_Device *d
 
     for (i = 0; i < device->num_children; ++i) {
         SDL_HIDAPI_Device *child = device->children[i];
-        if (child->driver->SetJoystickSensorsEnabled(child, joystick, enabled) == 0) {
+        if (child->driver->SetJoystickSensorsEnabled(child, joystick, enabled)) {
             result = true;
         }
     }

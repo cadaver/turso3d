@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -25,7 +25,7 @@
 
 // #define DEBUG_TIMERS
 
-#if !defined(SDL_PLATFORM_EMSCRIPTEN) || !defined(SDL_THREADS_DISABLED)
+#if !defined(SDL_PLATFORM_EMSCRIPTEN)
 
 typedef struct SDL_Timer
 {
@@ -50,6 +50,7 @@ typedef struct SDL_TimerMap
 typedef struct
 {
     // Data used by the main thread
+    SDL_InitState init;
     SDL_Thread *thread;
     SDL_TimerMap *timermap;
     SDL_Mutex *timermap_lock;
@@ -136,7 +137,7 @@ static int SDLCALL SDL_TimerThread(void *_data)
         freelist_tail = NULL;
 
         // Check to see if we're still running, after maintenance
-        if (!SDL_AtomicGet(&data->active)) {
+        if (!SDL_GetAtomicInt(&data->active)) {
             break;
         }
 
@@ -158,7 +159,7 @@ static int SDLCALL SDL_TimerThread(void *_data)
             // We're going to do something with this timer
             data->timers = current->next;
 
-            if (SDL_AtomicGet(&current->canceled)) {
+            if (SDL_GetAtomicInt(&current->canceled)) {
                 interval = 0;
             } else {
                 if (current->callback_ms) {
@@ -182,7 +183,7 @@ static int SDLCALL SDL_TimerThread(void *_data)
                 }
                 freelist_tail = current;
 
-                SDL_AtomicSet(&current->canceled, 1);
+                SDL_SetAtomicInt(&current->canceled, 1);
             }
         }
 
@@ -209,29 +210,35 @@ bool SDL_InitTimers(void)
 {
     SDL_TimerData *data = &SDL_timer_data;
 
-    if (!SDL_AtomicGet(&data->active)) {
-        const char *name = "SDLTimer";
-        data->timermap_lock = SDL_CreateMutex();
-        if (!data->timermap_lock) {
-            return false;
-        }
-
-        data->sem = SDL_CreateSemaphore(0);
-        if (!data->sem) {
-            SDL_DestroyMutex(data->timermap_lock);
-            return false;
-        }
-
-        SDL_AtomicSet(&data->active, 1);
-
-        // Timer threads use a callback into the app, so we can't set a limited stack size here.
-        data->thread = SDL_CreateThread(SDL_TimerThread, name, data);
-        if (!data->thread) {
-            SDL_QuitTimers();
-            return false;
-        }
+    if (!SDL_ShouldInit(&data->init)) {
+        return true;
     }
+
+    data->timermap_lock = SDL_CreateMutex();
+    if (!data->timermap_lock) {
+        goto error;
+    }
+
+    data->sem = SDL_CreateSemaphore(0);
+    if (!data->sem) {
+        goto error;
+    }
+
+    SDL_SetAtomicInt(&data->active, true);
+
+    // Timer threads use a callback into the app, so we can't set a limited stack size here.
+    data->thread = SDL_CreateThread(SDL_TimerThread, "SDLTimer", data);
+    if (!data->thread) {
+        goto error;
+    }
+
+    SDL_SetInitialized(&data->init, true);
     return true;
+
+error:
+    SDL_SetInitialized(&data->init, true);
+    SDL_QuitTimers();
+    return false;
 }
 
 void SDL_QuitTimers(void)
@@ -240,37 +247,52 @@ void SDL_QuitTimers(void)
     SDL_Timer *timer;
     SDL_TimerMap *entry;
 
-    if (SDL_AtomicCompareAndSwap(&data->active, 1, 0)) { // active? Move to inactive.
-        // Shutdown the timer thread
-        if (data->thread) {
-            SDL_SignalSemaphore(data->sem);
-            SDL_WaitThread(data->thread, NULL);
-            data->thread = NULL;
-        }
+    if (!SDL_ShouldQuit(&data->init)) {
+        return;
+    }
 
+    SDL_SetAtomicInt(&data->active, false);
+
+    // Shutdown the timer thread
+    if (data->thread) {
+        SDL_SignalSemaphore(data->sem);
+        SDL_WaitThread(data->thread, NULL);
+        data->thread = NULL;
+    }
+
+    if (data->sem) {
         SDL_DestroySemaphore(data->sem);
         data->sem = NULL;
+    }
 
-        // Clean up the timer entries
-        while (data->timers) {
-            timer = data->timers;
-            data->timers = timer->next;
-            SDL_free(timer);
-        }
-        while (data->freelist) {
-            timer = data->freelist;
-            data->freelist = timer->next;
-            SDL_free(timer);
-        }
-        while (data->timermap) {
-            entry = data->timermap;
-            data->timermap = entry->next;
-            SDL_free(entry);
-        }
+    // Clean up the timer entries
+    while (data->timers) {
+        timer = data->timers;
+        data->timers = timer->next;
+        SDL_free(timer);
+    }
+    while (data->freelist) {
+        timer = data->freelist;
+        data->freelist = timer->next;
+        SDL_free(timer);
+    }
+    while (data->timermap) {
+        entry = data->timermap;
+        data->timermap = entry->next;
+        SDL_free(entry);
+    }
 
+    if (data->timermap_lock) {
         SDL_DestroyMutex(data->timermap_lock);
         data->timermap_lock = NULL;
     }
+
+    SDL_SetInitialized(&data->init, false);
+}
+
+static bool SDL_CheckInitTimers(void)
+{
+    return SDL_InitTimers();
 }
 
 static SDL_TimerID SDL_CreateTimer(Uint64 interval, SDL_TimerCallback callback_ms, SDL_NSTimerCallback callback_ns, void *userdata)
@@ -279,19 +301,16 @@ static SDL_TimerID SDL_CreateTimer(Uint64 interval, SDL_TimerCallback callback_m
     SDL_Timer *timer;
     SDL_TimerMap *entry;
 
-    if (!callback_ms && !callback_ns) {
+    CHECK_PARAM(!callback_ms && !callback_ns) {
         SDL_InvalidParamError("callback");
         return 0;
     }
 
-    SDL_LockSpinlock(&data->lock);
-    if (!SDL_AtomicGet(&data->active)) {
-        if (!SDL_InitTimers()) {
-            SDL_UnlockSpinlock(&data->lock);
-            return 0;
-        }
+    if (!SDL_CheckInitTimers()) {
+        return 0;
     }
 
+    SDL_LockSpinlock(&data->lock);
     timer = data->freelist;
     if (timer) {
         data->freelist = timer->next;
@@ -312,7 +331,7 @@ static SDL_TimerID SDL_CreateTimer(Uint64 interval, SDL_TimerCallback callback_m
     timer->userdata = userdata;
     timer->interval = interval;
     timer->scheduled = SDL_GetTicksNS() + timer->interval;
-    SDL_AtomicSet(&timer->canceled, 0);
+    SDL_SetAtomicInt(&timer->canceled, 0);
 
     entry = (SDL_TimerMap *)SDL_malloc(sizeof(*entry));
     if (!entry) {
@@ -349,13 +368,13 @@ SDL_TimerID SDL_AddTimerNS(Uint64 interval, SDL_NSTimerCallback callback, void *
     return SDL_CreateTimer(interval, NULL, callback, userdata);
 }
 
-SDL_bool SDL_RemoveTimer(SDL_TimerID id)
+bool SDL_RemoveTimer(SDL_TimerID id)
 {
     SDL_TimerData *data = &SDL_timer_data;
     SDL_TimerMap *prev, *entry;
     bool canceled = false;
 
-    if (!id) {
+    CHECK_PARAM(!id) {
         return SDL_InvalidParamError("id");
     }
 
@@ -375,8 +394,8 @@ SDL_bool SDL_RemoveTimer(SDL_TimerID id)
     SDL_UnlockMutex(data->timermap_lock);
 
     if (entry) {
-        if (!SDL_AtomicGet(&entry->timer->canceled)) {
-            SDL_AtomicSet(&entry->timer->canceled, 1);
+        if (!SDL_GetAtomicInt(&entry->timer->canceled)) {
+            SDL_SetAtomicInt(&entry->timer->canceled, 1);
             canceled = true;
         }
         SDL_free(entry);
@@ -388,7 +407,7 @@ SDL_bool SDL_RemoveTimer(SDL_TimerID id)
     }
 }
 
-#else
+#else   // Emscripten-specific implementation.
 
 #include <emscripten/emscripten.h>
 #include <emscripten/eventloop.h>
@@ -448,7 +467,7 @@ static SDL_TimerID SDL_CreateTimer(Uint64 interval, SDL_TimerCallback callback_m
     SDL_TimerData *data = &SDL_timer_data;
     SDL_TimerMap *entry;
 
-    if (!callback_ms && !callback_ns) {
+    CHECK_PARAM(!callback_ms && !callback_ns) {
         SDL_InvalidParamError("callback");
         return 0;
     }
@@ -483,12 +502,12 @@ SDL_TimerID SDL_AddTimerNS(Uint64 interval, SDL_NSTimerCallback callback, void *
     return SDL_CreateTimer(interval, NULL, callback, userdata);
 }
 
-SDL_bool SDL_RemoveTimer(SDL_TimerID id)
+bool SDL_RemoveTimer(SDL_TimerID id)
 {
     SDL_TimerData *data = &SDL_timer_data;
     SDL_TimerMap *prev, *entry;
 
-    if (!id) {
+    CHECK_PARAM(!id) {
         return SDL_InvalidParamError("id");
     }
 
@@ -514,13 +533,22 @@ SDL_bool SDL_RemoveTimer(SDL_TimerID id)
     }
 }
 
-#endif // !defined(SDL_PLATFORM_EMSCRIPTEN) || !SDL_THREADS_DISABLED
+#endif // !SDL_PLATFORM_EMSCRIPTEN
+
+#ifdef USE_128BIT_MATH
+typedef unsigned __int128 Uint128;
+#endif
 
 static Uint64 tick_start;
+#ifdef USE_128BIT_MATH
+static Uint64 tick_numerator_ns;
+static Uint64 tick_numerator_ms;
+#else
 static Uint32 tick_numerator_ns;
 static Uint32 tick_denominator_ns;
 static Uint32 tick_numerator_ms;
 static Uint32 tick_denominator_ms;
+#endif
 
 #if defined(SDL_TIMER_WINDOWS) && !defined(SDL_PLATFORM_XBOXONE) && !defined(SDL_PLATFORM_XBOXSERIES)
 #include <mmsystem.h>
@@ -564,7 +592,9 @@ static void SDLCALL SDL_TimerResolutionChanged(void *userdata, const char *name,
 void SDL_InitTicks(void)
 {
     Uint64 tick_freq;
+#ifndef USE_128BIT_MATH
     Uint32 gcd;
+#endif
 
     if (tick_start) {
         return;
@@ -578,6 +608,10 @@ void SDL_InitTicks(void)
     tick_freq = SDL_GetPerformanceFrequency();
     SDL_assert(tick_freq > 0 && tick_freq <= (Uint64)SDL_MAX_UINT32);
 
+#ifdef USE_128BIT_MATH
+    tick_numerator_ns = ((Uint64)SDL_NS_PER_SECOND << 32) / tick_freq;
+    tick_numerator_ms = ((Uint64)SDL_MS_PER_SECOND << 32) / tick_freq;
+#else
     gcd = SDL_CalculateGCD(SDL_NS_PER_SECOND, (Uint32)tick_freq);
     tick_numerator_ns = (SDL_NS_PER_SECOND / gcd);
     tick_denominator_ns = (Uint32)(tick_freq / gcd);
@@ -585,6 +619,7 @@ void SDL_InitTicks(void)
     gcd = SDL_CalculateGCD(SDL_MS_PER_SECOND, (Uint32)tick_freq);
     tick_numerator_ms = (SDL_MS_PER_SECOND / gcd);
     tick_denominator_ms = (Uint32)(tick_freq / gcd);
+#endif
 
     tick_start = SDL_GetPerformanceCounter();
     if (!tick_start) {
@@ -611,9 +646,12 @@ Uint64 SDL_GetTicksNS(void)
     }
 
     starting_value = (SDL_GetPerformanceCounter() - tick_start);
-    value = (starting_value * tick_numerator_ns);
-    SDL_assert(value >= starting_value);
-    value /= tick_denominator_ns;
+#ifdef USE_128BIT_MATH
+    value = (Uint64)(((Uint128)starting_value * tick_numerator_ns) >> 32);
+#else
+    value = (starting_value / tick_denominator_ns) * tick_numerator_ns +
+            (starting_value % tick_denominator_ns) * tick_numerator_ns / tick_denominator_ns;
+#endif
     return value;
 }
 
@@ -626,9 +664,12 @@ Uint64 SDL_GetTicks(void)
     }
 
     starting_value = (SDL_GetPerformanceCounter() - tick_start);
-    value = (starting_value * tick_numerator_ms);
-    SDL_assert(value >= starting_value);
-    value /= tick_denominator_ms;
+#ifdef USE_128BIT_MATH
+    value = (Uint64)(((Uint128)starting_value * tick_numerator_ms) >> 32);
+#else
+    value = (starting_value / tick_denominator_ms) * tick_numerator_ms +
+            (starting_value % tick_denominator_ms) * tick_numerator_ms / tick_denominator_ms;
+#endif
     return value;
 }
 
@@ -639,21 +680,77 @@ void SDL_Delay(Uint32 ms)
 
 void SDL_DelayNS(Uint64 ns)
 {
-    Uint64 current_value = SDL_GetTicksNS();
-    Uint64 target_value = current_value + ns;
+    SDL_SYS_DelayNS(ns);
+}
 
-    // Sleep for a short number of cycles
-    // We'll use 1 ms as a scheduling timeslice, it's a good value for modern operating systems
-    const int SCHEDULING_TIMESLICE_NS = 1 * SDL_NS_PER_MS;
-    while (current_value < target_value) {
-        Uint64 remaining_ns = (target_value - current_value);
-        if (remaining_ns > (SCHEDULING_TIMESLICE_NS + SDL_NS_PER_US)) {
-            // Sleep for a short time, less than the scheduling timeslice
-            SDL_SYS_DelayNS(SCHEDULING_TIMESLICE_NS - SDL_NS_PER_US);
-        } else {
-            // Spin for any remaining time
-            SDL_CPUPauseInstruction();
+void SDL_DelayPrecise(Uint64 ns)
+{
+    Uint64 current_value = SDL_GetTicksNS();
+    const Uint64 target_value = current_value + ns;
+
+    // Sleep for a short number of cycles when real sleeps are desired.
+    // We'll use 1 ms, it's the minimum guaranteed to produce real sleeps across
+    // all platforms.
+    const Uint64 SHORT_SLEEP_NS = 1 * SDL_NS_PER_MS;
+
+    // Try to sleep short of target_value. If for some crazy reason
+    // a particular platform sleeps for less than 1 ms when 1 ms was requested,
+    // that's fine, the code below can cope with that, but in practice no
+    // platforms behave that way.
+    Uint64 max_sleep_ns = SHORT_SLEEP_NS;
+    while (current_value + max_sleep_ns < target_value) {
+        // Sleep for a short time
+        SDL_SYS_DelayNS(SHORT_SLEEP_NS);
+
+        const Uint64 now = SDL_GetTicksNS();
+        const Uint64 next_sleep_ns = (now - current_value);
+        if (next_sleep_ns > max_sleep_ns) {
+            max_sleep_ns = next_sleep_ns;
         }
+        current_value = now;
+    }
+
+    // Do a shorter sleep of the remaining time here, less the max overshoot in
+    // the first loop. Due to maintaining max_sleep_ns as
+    // greater-than-or-equal-to-1 ms, we can always subtract off 1 ms to get
+    // the duration overshot beyond a 1 ms sleep request; if the system never
+    // overshot, great, it's zero duration. By choosing the max overshoot
+    // amount, we're likely to not overshoot here. If the sleep here ends up
+    // functioning like SDL_DelayNS(0) internally, that's fine, we just don't
+    // get to do a more-precise-than-1 ms-resolution sleep to undershoot by a
+    // small amount on the current system, but SDL_DelayNS(0) does at least
+    // introduce a small, yielding delay on many platforms, better than an
+    // unyielding busyloop.
+    //
+    // Note that we'll always do at least one sleep in this function, so the
+    // minimum resolution will be that of SDL_SYS_DelayNS()
+    if (current_value < target_value && (target_value - current_value) > (max_sleep_ns - SHORT_SLEEP_NS)) {
+        const Uint64 delay_ns = (target_value - current_value) - (max_sleep_ns - SHORT_SLEEP_NS);
+        SDL_SYS_DelayNS(delay_ns);
+        current_value = SDL_GetTicksNS();
+    }
+
+    // We've likely undershot target_value at this point by a pretty small
+    // amount, but maybe not. The footgun case if not handled here is where
+    // we've undershot by a large amount, like several ms, but still smaller
+    // than the amount max_sleep_ns overshot by; in such a situation, the above
+    // shorter-sleep block didn't do any delay, the if-block wasn't entered.
+    // Also, maybe the shorter-sleep undershot by several ms, so we still don't
+    // want to spin a lot then. In such a case, we accept the possibility of
+    // overshooting to not spin much, or if overshot here, not at all, keeping
+    // CPU/power usage down in any case. Due to scheduler sloppiness, it's
+    // entirely possible to end up undershooting/overshooting here by much less
+    // than 1 ms even if the current system's sleep function is only 1
+    // ms-resolution, as SDL_GetTicksNS() generally is better resolution than 1
+    // ms on the systems SDL supports.
+    while (current_value + SHORT_SLEEP_NS < target_value) {
+        SDL_SYS_DelayNS(SHORT_SLEEP_NS);
+        current_value = SDL_GetTicksNS();
+    }
+
+    // Spin for any remaining time
+    while (current_value < target_value) {
+        SDL_CPUPauseInstruction();
         current_value = SDL_GetTicksNS();
     }
 }

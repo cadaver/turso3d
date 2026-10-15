@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -29,7 +29,7 @@
 #include "../SDL_clipboard_c.h"
 #include "../../events/SDL_events_c.h"
 
-static const char *text_mime_types[] = {
+static const char *const text_mime_types[] = {
     "UTF8_STRING",
     "text/plain;charset=utf-8",
     "text/plain",
@@ -38,7 +38,7 @@ static const char *text_mime_types[] = {
 };
 
 // Get any application owned window handle for clipboard association
-static Window GetWindow(SDL_VideoDevice *_this)
+Window GetWindow(SDL_VideoDevice *_this)
 {
     SDL_VideoData *data = _this->internal;
 
@@ -52,7 +52,7 @@ static Window GetWindow(SDL_VideoDevice *_this)
         XSetWindowAttributes xattr;
         data->clipboard_window = X11_XCreateWindow(dpy, parent, -10, -10, 1, 1, 0,
                                                    CopyFromParent, InputOnly,
-                                                   CopyFromParent, 0, &xattr);
+                                                   NULL, 0, &xattr);
 
         X11_XSelectInput(dpy, data->clipboard_window, PropertyChangeMask);
         X11_XFlush(data->display);
@@ -62,7 +62,7 @@ static Window GetWindow(SDL_VideoDevice *_this)
 }
 
 static bool SetSelectionData(SDL_VideoDevice *_this, Atom selection, SDL_ClipboardDataCallback callback,
-                            void *userdata, const char **mime_types, size_t mime_count, Uint32 sequence)
+                            void *userdata, const char *const *mime_types, size_t mime_count, Uint32 sequence)
 {
     SDL_VideoData *videodata = _this->internal;
     Display *display = videodata->display;
@@ -139,7 +139,7 @@ static bool WaitForSelection(SDL_VideoDevice *_this, Atom selection_type, bool *
     waitStart = SDL_GetTicks();
     *flag = true;
     while (*flag) {
-        SDL_PumpEvents();
+        X11_PumpEvents(_this);
         waitElapsed = SDL_GetTicks() - waitStart;
         // Wait one second for a selection response.
         if (waitElapsed > 1000) {
@@ -174,7 +174,6 @@ static void *GetSelectionData(SDL_VideoDevice *_this, Atom selection_type,
     unsigned char *src = NULL;
     bool incr_success = false;
     Atom XA_MIME = X11_XInternAtom(display, mime_type, False);
-    Atom XA_INCR = X11_XInternAtom(display, "INCR", False);
 
     *length = 0;
 
@@ -199,7 +198,7 @@ static void *GetSelectionData(SDL_VideoDevice *_this, Atom selection_type,
     } else {
         // Request that the selection owner copy the data to our window
         owner = window;
-        selection = X11_XInternAtom(display, "SDL_SELECTION", False);
+        selection = videodata->atoms.SDL_SELECTION;
         X11_XConvertSelection(display, selection_type, XA_MIME, selection, owner,
                               CurrentTime);
 
@@ -213,7 +212,7 @@ static void *GetSelectionData(SDL_VideoDevice *_this, Atom selection_type,
             if (seln_type == XA_MIME) {
                 *length = (size_t)count;
                 data = CloneDataBuffer(src, count);
-            } else if (seln_type == XA_INCR) {
+            } else if (seln_type == videodata->atoms.INCR) {
                 while (1) {
                     // Only delete the property after being done with the previous "chunk".
                     X11_XDeleteProperty(display, owner, selection);
@@ -249,7 +248,7 @@ static void *GetSelectionData(SDL_VideoDevice *_this, Atom selection_type,
 
                 if (incr_success == false) {
                     SDL_free(data);
-                    data = 0;
+                    data = NULL;
                     *length = 0;
                 }
             }
@@ -259,7 +258,7 @@ static void *GetSelectionData(SDL_VideoDevice *_this, Atom selection_type,
     return data;
 }
 
-const char **X11_GetTextMimeTypes(SDL_VideoDevice *_this, size_t *num_mime_types)
+const char *const *X11_GetTextMimeTypes(SDL_VideoDevice *_this, size_t *num_mime_types)
 {
     *num_mime_types = SDL_arraysize(text_mime_types);
     return text_mime_types;
@@ -268,23 +267,21 @@ const char **X11_GetTextMimeTypes(SDL_VideoDevice *_this, size_t *num_mime_types
 bool X11_SetClipboardData(SDL_VideoDevice *_this)
 {
     SDL_VideoData *videodata = _this->internal;
-    Atom XA_CLIPBOARD = X11_XInternAtom(videodata->display, "CLIPBOARD", 0);
-    if (XA_CLIPBOARD == None) {
-        return SDL_SetError("Couldn't access X clipboard");
-    }
-    return SetSelectionData(_this, XA_CLIPBOARD, _this->clipboard_callback, _this->clipboard_userdata, (const char **)_this->clipboard_mime_types, _this->num_clipboard_mime_types, _this->clipboard_sequence);
+    return SetSelectionData(_this, videodata->atoms.CLIPBOARD, _this->clipboard_callback, _this->clipboard_userdata, (const char **)_this->clipboard_mime_types, _this->num_clipboard_mime_types, _this->clipboard_sequence);
 }
 
 void *X11_GetClipboardData(SDL_VideoDevice *_this, const char *mime_type, size_t *length)
 {
     SDL_VideoData *videodata = _this->internal;
-    Atom XA_CLIPBOARD = X11_XInternAtom(videodata->display, "CLIPBOARD", 0);
-    if (XA_CLIPBOARD == None) {
-        SDL_SetError("Couldn't access X clipboard");
-        *length = 0;
+
+    *length = 0;
+
+    if (!SDL_HasInternalClipboardData(_this, mime_type)) {
+        // This mime type wasn't advertised by the last selection owner.
+        // The atom might still have data, but it's stale, so ignore it.
         return NULL;
     }
-    return GetSelectionData(_this, XA_CLIPBOARD, mime_type, length);
+    return GetSelectionData(_this, videodata->atoms.CLIPBOARD, mime_type, length);
 }
 
 bool X11_HasClipboardData(SDL_VideoDevice *_this, const char *mime_type)
@@ -292,9 +289,7 @@ bool X11_HasClipboardData(SDL_VideoDevice *_this, const char *mime_type)
     size_t length;
     void *data;
     data = X11_GetClipboardData(_this, mime_type, &length);
-    if (data) {
-        SDL_free(data);
-    }
+    SDL_free(data);
     return length > 0;
 }
 

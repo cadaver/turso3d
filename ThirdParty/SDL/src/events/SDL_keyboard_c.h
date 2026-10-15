@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -38,10 +38,10 @@ extern bool SDL_InitKeyboard(void);
 extern bool SDL_IsKeyboard(Uint16 vendor, Uint16 product, int num_keys);
 
 // A keyboard has been added to the system
-extern void SDL_AddKeyboard(SDL_KeyboardID keyboardID, const char *name, bool send_event);
+extern void SDL_AddKeyboard(SDL_KeyboardID keyboardID, const char *name);
 
 // A keyboard has been removed from the system
-extern void SDL_RemoveKeyboard(SDL_KeyboardID keyboardID, bool send_event);
+extern void SDL_RemoveKeyboard(SDL_KeyboardID keyboardID);
 
 // Set the mapping of scancode to key codes
 extern void SDL_SetKeymap(SDL_Keymap *keymap, bool send_event);
@@ -82,6 +82,6 @@ extern void SDL_SendEditingTextCandidates(char **candidates, int num_candidates,
 extern void SDL_QuitKeyboard(void);
 
 // Toggle on or off pieces of the keyboard mod state.
-extern void SDL_ToggleModState(const SDL_Keymod modstate, const bool toggle);
+extern void SDL_ToggleModState(SDL_Keymod modstate, bool toggle);
 
 #endif // SDL_keyboard_c_h_

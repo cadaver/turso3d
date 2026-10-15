@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -20,8 +20,6 @@
 */
 
 /**
- *  \file SDL_test_common.h
- *
  *  Common functions of SDL test framework.
  *
  *  This code is a part of the SDL test library, not the main SDL library.
@@ -88,7 +86,7 @@ typedef struct
     const char *window_title;
     const char *window_icon;
     SDL_WindowFlags window_flags;
-    SDL_bool flash_on_focus_loss;
+    bool flash_on_focus_loss;
     int window_x;
     int window_y;
     int window_w;
@@ -101,14 +99,13 @@ typedef struct
     float window_max_aspect;
     int logical_w;
     int logical_h;
-    SDL_bool auto_scale_content;
+    bool auto_scale_content;
     SDL_RendererLogicalPresentation logical_presentation;
-    SDL_ScaleMode logical_scale_mode;
     float scale;
     int depth;
     float refresh_rate;
-    SDL_bool fill_usable_bounds;
-    SDL_bool fullscreen_exclusive;
+    bool fill_usable_bounds;
+    bool fullscreen_exclusive;
     SDL_DisplayMode fullscreen_mode;
     int num_windows;
     SDL_Window **windows;
@@ -117,7 +114,7 @@ typedef struct
     /* Renderer info */
     const char *renderdriver;
     int render_vsync;
-    SDL_bool skip_renderer;
+    bool skip_renderer;
     SDL_Renderer **renderers;
     SDL_Texture **targets;
 
@@ -142,6 +139,7 @@ typedef struct
     int gl_accum_blue_size;
     int gl_accum_alpha_size;
     int gl_stereo;
+    int gl_release_behavior;
     int gl_multisamplebuffers;
     int gl_multisamplesamples;
     int gl_retained_backing;
@@ -153,7 +151,11 @@ typedef struct
 
     /* Mouse info */
     SDL_Rect confine;
-    SDL_bool hide_cursor;
+    bool hide_cursor;
+
+    /* Misc. */
+    int quit_after_ms_interval;
+    SDL_TimerID quit_after_ms_timer;
 
     /* Options info */
     SDLTest_ArgumentParser common_argparser;
@@ -179,7 +181,7 @@ extern "C" {
  *
  * \returns a newly allocated common state object.
  */
-SDLTest_CommonState *SDLCALL SDLTest_CommonCreateState(char **argv, SDL_InitFlags flags);
+SDLTest_CommonState * SDLCALL SDLTest_CommonCreateState(char **argv, SDL_InitFlags flags);
 
 /**
  * Free the common state object.
@@ -220,9 +222,9 @@ void SDLCALL SDLTest_CommonLogUsage(SDLTest_CommonState *state, const char *argv
  *
  * \param state The common state describing the test window to create.
  *
- * \returns SDL_TRUE if initialization succeeded, false otherwise
+ * \returns true if initialization succeeded, false otherwise
  */
-SDL_bool SDLCALL SDLTest_CommonInit(SDLTest_CommonState *state);
+bool SDLCALL SDLTest_CommonInit(SDLTest_CommonState *state);
 
 /**
  * Easy argument handling when test app doesn't need any custom args.
@@ -231,9 +233,9 @@ SDL_bool SDLCALL SDLTest_CommonInit(SDLTest_CommonState *state);
  * \param argc argc, as supplied to SDL_main
  * \param argv argv, as supplied to SDL_main
  *
- * \returns SDL_FALSE if app should quit, true otherwise.
+ * \returns false if app should quit, true otherwise.
  */
-SDL_bool SDLCALL SDLTest_CommonDefaultArgs(SDLTest_CommonState *state, const int argc, char **argv);
+bool SDLCALL SDLTest_CommonDefaultArgs(SDLTest_CommonState *state, int argc, char **argv);
 
 /**
  * Print the details of an event.

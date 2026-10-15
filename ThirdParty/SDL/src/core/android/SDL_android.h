@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -55,17 +55,18 @@ bool Android_WaitLifecycleEvent(SDL_AndroidLifecycleEvent *event, Sint64 timeout
 void Android_LockActivityMutex(void);
 void Android_UnlockActivityMutex(void);
 
+void Android_SetAllowRecreateActivity(bool enabled);
+
 // Interface from the SDL library into the Android Java activity
 extern void Android_JNI_SetActivityTitle(const char *title);
 extern void Android_JNI_SetWindowStyle(bool fullscreen);
 extern void Android_JNI_SetOrientation(int w, int h, int resizable, const char *hint);
-extern void Android_JNI_MinizeWindow(void);
+extern void Android_JNI_MinimizeWindow(void);
 extern bool Android_JNI_ShouldMinimizeOnFocusLoss(void);
 
 extern bool Android_JNI_GetAccelerometerValues(float values[3]);
 extern void Android_JNI_ShowScreenKeyboard(int input_type, SDL_Rect *inputRect);
 extern void Android_JNI_HideScreenKeyboard(void);
-extern bool Android_JNI_IsScreenKeyboardShown(void);
 extern ANativeWindow *Android_JNI_GetNativeWindow(void);
 
 extern SDL_DisplayOrientation Android_JNI_GetDisplayNaturalOrientation(void);
@@ -85,7 +86,9 @@ Sint64 Android_JNI_FileSize(void *userdata);
 Sint64 Android_JNI_FileSeek(void *userdata, Sint64 offset, SDL_IOWhence whence);
 size_t Android_JNI_FileRead(void *userdata, void *buffer, size_t size, SDL_IOStatus *status);
 size_t Android_JNI_FileWrite(void *userdata, const void *buffer, size_t size, SDL_IOStatus *status);
-SDL_bool Android_JNI_FileClose(void *userdata);
+bool Android_JNI_FileClose(void *userdata);
+bool Android_JNI_EnumerateAssetDirectory(const char *path, SDL_EnumerateDirectoryCallback cb, void *userdata);
+bool Android_JNI_GetAssetPathInfo(const char *path, SDL_PathInfo *info);
 
 // Environment support
 void Android_JNI_GetManifestEnvironmentVariables(void);
@@ -101,6 +104,8 @@ int Android_JNI_GetPowerInfo(int *plugged, int *charged, int *battery, int *seco
 
 // Joystick support
 void Android_JNI_PollInputDevices(void);
+void Android_JNI_JoystickSetLED(int device_id, int red, int green, int blue);
+void Android_JNI_JoystickSetSensorsEnabled(int device_id, bool enabled);
 
 // Haptic support
 void Android_JNI_PollHapticDevices(void);
@@ -146,9 +151,12 @@ bool Android_JNI_OpenURL(const char *url);
 int SDL_GetAndroidSDKVersion(void);
 
 bool SDL_IsAndroidTablet(void);
+bool SDL_IsAndroidTV(void);
+
+char *SDL_GetAndroidPackageName(void);  // this is a SDL_malloc'd string the caller will own.
 
 // File Dialogs
-bool Android_JNI_OpenFileDialog(SDL_DialogFileCallback callback, void* userdata,
+bool Android_JNI_OpenFileDialog(SDL_DialogFileCallback callback, void *userdata,
     const SDL_DialogFileFilter *filters, int nfilters, bool forwrite,
     bool multiple);
 

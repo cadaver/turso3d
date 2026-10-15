@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -26,6 +26,15 @@
  * # CategoryPower
  *
  * SDL power management routines.
+ *
+ * There is a single function in this category: SDL_GetPowerInfo().
+ *
+ * This function is useful for games on the go. This allows an app to know if
+ * it's running on a draining battery, which can be useful if the app wants to
+ * reduce processing, or perhaps framerate, to extend the duration of the
+ * battery's charge. Perhaps the app just wants to show a battery meter when
+ * fullscreen, or alert the user when the power is getting extremely low, so
+ * they can save their game.
  */
 
 #include <SDL3/SDL_stdinc.h>
@@ -42,7 +51,7 @@ extern "C" {
  *
  * These are results returned by SDL_GetPowerInfo().
  *
- * \since This enum is available since SDL 3.0.0
+ * \since This enum is available since SDL 3.2.0.
  */
 typedef enum SDL_PowerState
 {
@@ -70,17 +79,23 @@ typedef enum SDL_PowerState
  * It's possible a platform can only report battery percentage or time left
  * but not both.
  *
+ * On some platforms, retrieving power supply details might be expensive. If
+ * you want to display continuous status you could call this function every
+ * minute or so.
+ *
  * \param seconds a pointer filled in with the seconds of battery life left,
  *                or NULL to ignore. This will be filled in with -1 if we
  *                can't determine a value or there is no battery.
  * \param percent a pointer filled in with the percentage of battery life
  *                left, between 0 and 100, or NULL to ignore. This will be
- *                filled in with -1 we can't determine a value or there is no
- *                battery.
+ *                filled in with -1 when we can't determine a value or there
+ *                is no battery.
  * \returns the current battery state or `SDL_POWERSTATE_ERROR` on failure;
  *          call SDL_GetError() for more information.
  *
- * \since This function is available since SDL 3.0.0.
+ * \threadsafety This function is not thread safe.
+ *
+ * \since This function is available since SDL 3.2.0.
  */
 extern SDL_DECLSPEC SDL_PowerState SDLCALL SDL_GetPowerInfo(int *seconds, int *percent);
 

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -61,7 +61,7 @@ typedef struct WindowsGamingInputControllerState
     int steam_virtual_gamepad_slot;
 } WindowsGamingInputControllerState;
 
-typedef HRESULT(WINAPI *CoIncrementMTAUsage_t)(CO_MTA_USAGE_COOKIE *pCookie);
+typedef HRESULT(WINAPI *CoIncrementMTAUsage_t)(HANDLE* pCookie); // CO_MTA_USAGE_COOKIE*
 typedef HRESULT(WINAPI *RoGetActivationFactory_t)(HSTRING activatableClassId, REFIID iid, void **factory);
 typedef HRESULT(WINAPI *WindowsCreateStringReference_t)(PCWSTR sourceString, UINT32 length, HSTRING_HEADER *hstringHeader, HSTRING *string);
 typedef HRESULT(WINAPI *WindowsDeleteString_t)(HSTRING string);
@@ -69,6 +69,7 @@ typedef PCWSTR(WINAPI *WindowsGetStringRawBuffer_t)(HSTRING string, UINT32 *leng
 
 static struct
 {
+    bool ro_initialized;
     CoIncrementMTAUsage_t CoIncrementMTAUsage;
     RoGetActivationFactory_t RoGetActivationFactory;
     WindowsCreateStringReference_t WindowsCreateStringReference;
@@ -107,7 +108,7 @@ DEFINE_GUID(IID___x_ABI_CWindows_CGaming_CInput_CIRawGameControllerStatics, 0xeb
 extern bool SDL_XINPUT_Enabled(void);
 
 
-static bool SDL_IsXInputDevice(Uint16 vendor, Uint16 product)
+static bool SDL_IsXInputDevice(Uint16 vendor, Uint16 product, const char *name)
 {
 #if defined(SDL_JOYSTICK_XINPUT) || defined(SDL_JOYSTICK_RAWINPUT)
     PRAWINPUTDEVICELIST raw_devices = NULL;
@@ -121,6 +122,13 @@ static bool SDL_IsXInputDevice(Uint16 vendor, Uint16 product)
 #endif
     ) {
         return false;
+    }
+
+    // Sometimes we'll get a Windows.Gaming.Input callback before the raw input device is even in the list,
+    // so try to do some checks up front to catch these cases.
+    if (SDL_IsJoystickXboxOne(vendor, product) ||
+        (name && SDL_strncmp(name, "Xbox ", 5) == 0)) {
+        return true;
     }
 
     // Go through RAWINPUT (WinXP and later) to find HID devices.
@@ -343,13 +351,13 @@ static HRESULT STDMETHODCALLTYPE IEventHandler_CRawGameControllerVtbl_QueryInter
 static ULONG STDMETHODCALLTYPE IEventHandler_CRawGameControllerVtbl_AddRef(__FIEventHandler_1_Windows__CGaming__CInput__CRawGameController *This)
 {
     RawGameControllerDelegate *self = (RawGameControllerDelegate *)This;
-    return SDL_AtomicAdd(&self->refcount, 1) + 1UL;
+    return SDL_AddAtomicInt(&self->refcount, 1) + 1UL;
 }
 
 static ULONG STDMETHODCALLTYPE IEventHandler_CRawGameControllerVtbl_Release(__FIEventHandler_1_Windows__CGaming__CInput__CRawGameController *This)
 {
     RawGameControllerDelegate *self = (RawGameControllerDelegate *)This;
-    int rc = SDL_AtomicAdd(&self->refcount, -1) - 1;
+    int rc = SDL_AddAtomicInt(&self->refcount, -1) - 1;
     // Should never free the static delegate objects
     SDL_assert(rc > 0);
     return rc;
@@ -399,7 +407,6 @@ static HRESULT STDMETHODCALLTYPE IEventHandler_CRawGameControllerVtbl_InvokeAdde
     hr = __x_ABI_CWindows_CGaming_CInput_CIRawGameController_QueryInterface(e, &IID___x_ABI_CWindows_CGaming_CInput_CIRawGameController, (void **)&controller);
     if (SUCCEEDED(hr)) {
         char *name = NULL;
-        SDL_GUID guid = { 0 };
         Uint16 bus = SDL_HARDWARE_BUS_USB;
         Uint16 vendor = 0;
         Uint16 product = 0;
@@ -446,25 +453,17 @@ static HRESULT STDMETHODCALLTYPE IEventHandler_CRawGameControllerVtbl_InvokeAdde
             name = SDL_strdup("");
         }
 
+        if (!ignore_joystick && SDL_ShouldIgnoreJoystick(vendor, product, version, name)) {
+            ignore_joystick = true;
+        }
+
         if (!ignore_joystick && SDL_JoystickHandledByAnotherDriver(&SDL_WGI_JoystickDriver, vendor, product, version, name)) {
             ignore_joystick = true;
         }
 
-        if (!ignore_joystick && SDL_IsXInputDevice(vendor, product)) {
+        if (!ignore_joystick && SDL_IsXInputDevice(vendor, product, name)) {
             // This hasn't been detected by the RAWINPUT driver yet, but it will be picked up later.
             ignore_joystick = true;
-        }
-
-        if (!ignore_joystick) {
-            if (game_controller) {
-                type = GetGameControllerType(game_controller);
-            }
-
-            guid = SDL_CreateJoystickGUID(bus, vendor, product, version, NULL, name, 'w', (Uint8)type);
-
-            if (SDL_ShouldIgnoreJoystick(name, guid)) {
-                ignore_joystick = true;
-            }
         }
 
         if (!ignore_joystick) {
@@ -474,11 +473,15 @@ static HRESULT STDMETHODCALLTYPE IEventHandler_CRawGameControllerVtbl_InvokeAdde
                 WindowsGamingInputControllerState *state = &controllers[wgi.controller_count];
                 SDL_JoystickID joystickID = SDL_GetNextObjectID();
 
+                if (game_controller) {
+                    type = GetGameControllerType(game_controller);
+                }
+
                 SDL_zerop(state);
                 state->instance_id = joystickID;
                 state->controller = controller;
                 state->name = name;
-                state->guid = guid;
+                state->guid = SDL_CreateJoystickGUID(bus, vendor, product, version, NULL, name, 'w', (Uint8)type);
                 state->type = type;
                 state->steam_virtual_gamepad_slot = GetSteamVirtualGamepadSlot(controller, vendor, product);
 
@@ -583,13 +586,14 @@ static bool WGI_JoystickInit(void)
 {
     HRESULT hr;
 
-    if (!SDL_GetHintBoolean(SDL_HINT_JOYSTICK_WGI, true)) {
+    if (!SDL_GetHintBoolean(SDL_HINT_JOYSTICK_WGI, false)) {
         return true;
     }
 
     if (FAILED(WIN_RoInitialize())) {
         return SDL_SetError("RoInitialize() failed");
     }
+    wgi.ro_initialized = true;
 
 #define RESOLVE(x) wgi.x = (x##_t)WIN_LoadComBaseFunction(#x); if (!wgi.x) return WIN_SetError("GetProcAddress failed for " #x);
     RESOLVE(CoIncrementMTAUsage);
@@ -605,7 +609,7 @@ static bool WGI_JoystickInit(void)
          * As a workaround, we will keep a reference to the MTA to prevent COM from unloading DLLs later.
          * See https://github.com/libsdl-org/SDL/issues/5552 for more details.
          */
-        static CO_MTA_USAGE_COOKIE cookie = NULL;
+        static HANDLE cookie = NULL; // CO_MTA_USAGE_COOKIE
         if (!cookie) {
             hr = wgi.CoIncrementMTAUsage(&cookie);
             if (FAILED(hr)) {
@@ -969,9 +973,7 @@ static void WGI_JoystickQuit(void)
         while (wgi.controller_count > 0) {
             IEventHandler_CRawGameControllerVtbl_InvokeRemoved(&controller_removed.iface, NULL, wgi.controllers[wgi.controller_count - 1].controller);
         }
-        if (wgi.controllers) {
-            SDL_free(wgi.controllers);
-        }
+        SDL_free(wgi.controllers);
 
         if (wgi.arcade_stick_statics) {
             __x_ABI_CWindows_CGaming_CInput_CIArcadeStickStatics_Release(wgi.arcade_stick_statics);
@@ -1000,7 +1002,9 @@ static void WGI_JoystickQuit(void)
         __x_ABI_CWindows_CGaming_CInput_CIRawGameControllerStatics_Release(wgi.controller_statics);
     }
 
-    WIN_RoUninitialize();
+    if (wgi.ro_initialized) {
+        WIN_RoUninitialize();
+    }
 
     SDL_zero(wgi);
 }

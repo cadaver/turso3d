@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -25,7 +25,7 @@
 #include <libunwind.h>
 #ifndef unw_get_proc_name_by_ip
 #define SDLTEST_UNWIND_NO_PROC_NAME_BY_IP
-static SDL_bool s_unwind_symbol_names = SDL_TRUE;
+static bool s_unwind_symbol_names = true;
 #endif
 #endif
 
@@ -34,7 +34,7 @@ static SDL_bool s_unwind_symbol_names = SDL_TRUE;
 #include <dbghelp.h>
 
 static struct {
-    HMODULE module;
+    SDL_SharedObject *module;
     BOOL (WINAPI *pSymInitialize)(HANDLE hProcess, PCSTR UserSearchPath, BOOL fInvadeProcess);
     BOOL (WINAPI *pSymFromAddr)(HANDLE hProcess, DWORD64 Address, PDWORD64 Displacement, PSYMBOL_INFO Symbol);
     BOOL (WINAPI *pSymGetLineFromAddr64)(HANDLE hProcess, DWORD64 qwAddr, PDWORD pdwDisplacement, PIMAGEHLP_LINE64 Line);
@@ -72,18 +72,19 @@ static SDL_calloc_func SDL_calloc_orig = NULL;
 static SDL_realloc_func SDL_realloc_orig = NULL;
 static SDL_free_func SDL_free_orig = NULL;
 static int s_previous_allocations = 0;
+static int s_unknown_frees = 0;
 static SDL_tracked_allocation *s_tracked_allocations[256];
-static SDL_bool s_randfill_allocations = SDL_FALSE;
+static bool s_randfill_allocations = false;
 static SDL_AtomicInt s_lock;
 
 #define LOCK_ALLOCATOR()                               \
     do {                                               \
-        if (SDL_AtomicCompareAndSwap(&s_lock, 0, 1)) { \
+        if (SDL_CompareAndSwapAtomicInt(&s_lock, 0, 1)) { \
             break;                                     \
         }                                              \
         SDL_CPUPauseInstruction();                     \
-    } while (SDL_TRUE)
-#define UNLOCK_ALLOCATOR() do { SDL_AtomicSet(&s_lock, 0); } while (0)
+    } while (true)
+#define UNLOCK_ALLOCATOR() do { SDL_SetAtomicInt(&s_lock, 0); } while (0)
 
 static unsigned int get_allocation_bucket(void *mem)
 {
@@ -94,7 +95,7 @@ static unsigned int get_allocation_bucket(void *mem)
     return index;
 }
 
-static SDL_tracked_allocation* SDL_GetTrackedAllocation(void *mem)
+static SDL_tracked_allocation *SDL_GetTrackedAllocation(void *mem)
 {
     SDL_tracked_allocation *entry;
     LOCK_ALLOCATOR();
@@ -116,7 +117,7 @@ static size_t SDL_GetTrackedAllocationSize(void *mem)
     return entry ? entry->size : SIZE_MAX;
 }
 
-static SDL_bool SDL_IsAllocationTracked(void *mem)
+static bool SDL_IsAllocationTracked(void *mem)
 {
     return SDL_GetTrackedAllocation(mem) != NULL;
 }
@@ -211,12 +212,13 @@ static void SDL_UntrackAllocation(void *mem)
         }
         prev = entry;
     }
+    s_unknown_frees += 1;
     UNLOCK_ALLOCATOR();
 }
 
-static void rand_fill_memory(void* ptr, size_t start, size_t end)
+static void rand_fill_memory(void *ptr, size_t start, size_t end)
 {
-    Uint8* mem = (Uint8*) ptr;
+    Uint8 *mem = (Uint8 *)ptr;
     size_t i;
 
     if (!s_randfill_allocations)
@@ -227,7 +229,7 @@ static void rand_fill_memory(void* ptr, size_t start, size_t end)
     }
 }
 
-static void *SDLCALL SDLTest_TrackedMalloc(size_t size)
+static void * SDLCALL SDLTest_TrackedMalloc(size_t size)
 {
     void *mem;
 
@@ -239,7 +241,7 @@ static void *SDLCALL SDLTest_TrackedMalloc(size_t size)
     return mem;
 }
 
-static void *SDLCALL SDLTest_TrackedCalloc(size_t nmemb, size_t size)
+static void * SDLCALL SDLTest_TrackedCalloc(size_t nmemb, size_t size)
 {
     void *mem;
 
@@ -250,7 +252,7 @@ static void *SDLCALL SDLTest_TrackedCalloc(size_t nmemb, size_t size)
     return mem;
 }
 
-static void *SDLCALL SDLTest_TrackedRealloc(void *ptr, size_t size)
+static void * SDLCALL SDLTest_TrackedRealloc(void *ptr, size_t size)
 {
     void *mem;
     size_t old_size = 0;
@@ -277,7 +279,7 @@ static void SDLCALL SDLTest_TrackedFree(void *ptr)
         return;
     }
 
-    if (!s_previous_allocations) {
+    if (s_previous_allocations == 0) {
         SDL_assert(SDL_IsAllocationTracked(ptr));
     }
     SDL_UntrackAllocation(ptr);
@@ -293,18 +295,15 @@ void SDLTest_TrackAllocations(void)
     SDLTest_Crc32Init(&s_crc32_context);
 
     s_previous_allocations = SDL_GetNumAllocations();
-    if (s_previous_allocations != 0) {
-        SDL_Log("SDLTest_TrackAllocations(): There are %d previous allocations, disabling free() validation", s_previous_allocations);
-    }
 #ifdef SDLTEST_UNWIND_NO_PROC_NAME_BY_IP
     do {
         /* Don't use SDL_GetHint: SDL_malloc is off limits. */
-        const char *env_trackmem = SDL_getenv("SDL_TRACKMEM_SYMBOL_NAMES");
+        const char *env_trackmem = SDL_getenv_unsafe("SDL_TRACKMEM_SYMBOL_NAMES");
         if (env_trackmem) {
             if (SDL_strcasecmp(env_trackmem, "1") == 0 || SDL_strcasecmp(env_trackmem, "yes") == 0 || SDL_strcasecmp(env_trackmem, "true") == 0) {
-                s_unwind_symbol_names = SDL_TRUE;
+                s_unwind_symbol_names = true;
             } else if (SDL_strcasecmp(env_trackmem, "0") == 0 || SDL_strcasecmp(env_trackmem, "no") == 0 || SDL_strcasecmp(env_trackmem, "false") == 0) {
-                s_unwind_symbol_names = SDL_FALSE;
+                s_unwind_symbol_names = false;
             }
         }
     } while (0);
@@ -342,13 +341,19 @@ dbghelp_failed:
                            SDLTest_TrackedCalloc,
                            SDLTest_TrackedRealloc,
                            SDLTest_TrackedFree);
+
+    if (s_previous_allocations < 0) {
+        SDL_Log("SDL was built without allocation count support, disabling free() validation");
+    } else if (s_previous_allocations != 0) {
+        SDL_Log("SDLTest_TrackAllocations(): There are %d previous allocations, disabling free() validation", s_previous_allocations);
+    }
 }
 
 void SDLTest_RandFillAllocations(void)
 {
     SDLTest_TrackAllocations();
 
-    s_randfill_allocations = SDL_TRUE;
+    s_randfill_allocations = true;
 }
 
 void SDLTest_LogAllocations(void)
@@ -439,9 +444,16 @@ void SDLTest_LogAllocations(void)
             ++count;
         }
     }
-    (void)SDL_snprintf(line, sizeof(line), "Total: %.2f Kb in %d allocations\n", total_allocated / 1024.0, count);
+    (void)SDL_snprintf(line, sizeof(line), "Total: %.2f Kb in %d allocations", total_allocated / 1024.0, count);
+    ADD_LINE();
+    if (s_unknown_frees != 0) {
+        (void)SDL_snprintf(line, sizeof(line), ", %d unknown frees", s_unknown_frees);
+        ADD_LINE();
+    }
+    (void)SDL_snprintf(line, sizeof(line), "\n");
     ADD_LINE();
 #undef ADD_LINE
 
     SDL_Log("%s", message);
+    SDL_free_orig(message);
 }

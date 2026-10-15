@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -27,23 +27,23 @@
 
 bool SDL_DrawPoint(SDL_Surface *dst, int x, int y, Uint32 color)
 {
-    if (!SDL_SurfaceValid(dst)) {
+    CHECK_PARAM(!SDL_SurfaceValid(dst)) {
         return SDL_InvalidParamError("SDL_DrawPoint(): dst");
     }
 
     // This function doesn't work on surfaces < 8 bpp
-    if (dst->internal->format->bits_per_pixel < 8) {
+    if (dst->fmt->bits_per_pixel < 8) {
         return SDL_SetError("SDL_DrawPoint(): Unsupported surface format");
     }
 
     // Perform clipping
-    if (x < dst->internal->clip_rect.x || y < dst->internal->clip_rect.y ||
-        x >= (dst->internal->clip_rect.x + dst->internal->clip_rect.w) ||
-        y >= (dst->internal->clip_rect.y + dst->internal->clip_rect.h)) {
+    if (x < dst->clip_rect.x || y < dst->clip_rect.y ||
+        x >= (dst->clip_rect.x + dst->clip_rect.w) ||
+        y >= (dst->clip_rect.y + dst->clip_rect.h)) {
         return true;
     }
 
-    switch (dst->internal->format->bytes_per_pixel) {
+    switch (dst->fmt->bytes_per_pixel) {
     case 1:
         DRAW_FASTSETPIXELXY1(x, y);
         break;
@@ -66,19 +66,19 @@ bool SDL_DrawPoints(SDL_Surface *dst, const SDL_Point *points, int count, Uint32
     int i;
     int x, y;
 
-    if (!SDL_SurfaceValid(dst)) {
+    CHECK_PARAM(!SDL_SurfaceValid(dst)) {
         return SDL_InvalidParamError("SDL_DrawPoints(): dst");
     }
 
     // This function doesn't work on surfaces < 8 bpp
-    if (dst->internal->format->bits_per_pixel < 8) {
+    if (dst->fmt->bits_per_pixel < 8) {
         return SDL_SetError("SDL_DrawPoints(): Unsupported surface format");
     }
 
-    minx = dst->internal->clip_rect.x;
-    maxx = dst->internal->clip_rect.x + dst->internal->clip_rect.w - 1;
-    miny = dst->internal->clip_rect.y;
-    maxy = dst->internal->clip_rect.y + dst->internal->clip_rect.h - 1;
+    minx = dst->clip_rect.x;
+    maxx = dst->clip_rect.x + dst->clip_rect.w - 1;
+    miny = dst->clip_rect.y;
+    maxy = dst->clip_rect.y + dst->clip_rect.h - 1;
 
     for (i = 0; i < count; ++i) {
         x = points[i].x;
@@ -88,7 +88,7 @@ bool SDL_DrawPoints(SDL_Surface *dst, const SDL_Point *points, int count, Uint32
             continue;
         }
 
-        switch (dst->internal->format->bytes_per_pixel) {
+        switch (dst->fmt->bytes_per_pixel) {
         case 1:
             DRAW_FASTSETPIXELXY1(x, y);
             break;

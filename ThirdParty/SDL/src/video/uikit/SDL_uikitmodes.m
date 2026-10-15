@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -131,12 +131,7 @@ static void UIKit_FreeDisplayModeData(SDL_DisplayMode *mode)
 #ifndef SDL_PLATFORM_VISIONOS
 static float UIKit_GetDisplayModeRefreshRate(UIScreen *uiscreen)
 {
-#ifdef __IPHONE_10_3
-    if ([uiscreen respondsToSelector:@selector(maximumFramesPerSecond)]) {
-        return (float)uiscreen.maximumFramesPerSecond;
-    }
-#endif
-    return 0.0f;
+    return (float)uiscreen.maximumFramesPerSecond;
 }
 
 static bool UIKit_AddSingleDisplayMode(SDL_VideoDisplay *display, int w, int h,
@@ -275,7 +270,8 @@ bool UIKit_AddDisplay(UIScreen *uiscreen, bool send_event)
 #endif
 
 #ifdef SDL_PLATFORM_VISIONOS
-bool UIKit_AddDisplay(bool send_event){
+bool UIKit_AddDisplay(bool send_event)
+{
     CGSize size = CGSizeMake(SDL_XR_SCREENWIDTH, SDL_XR_SCREENHEIGHT);
     SDL_VideoDisplay display;
     SDL_DisplayMode mode;
@@ -283,9 +279,9 @@ bool UIKit_AddDisplay(bool send_event){
     SDL_zero(mode);
     mode.w = (int)size.width;
     mode.h = (int)size.height;
-    mode.pixel_density = 1;
+    mode.pixel_density = 2;
     mode.format = SDL_PIXELFORMAT_ABGR8888;
-    mode.refresh_rate = 60.0f;
+    mode.refresh_rate = 90.0f;
 
     display.natural_orientation = SDL_ORIENTATION_LANDSCAPE;
 
@@ -501,9 +497,15 @@ void SDL_OnApplicationDidChangeStatusBarOrientation(void)
          * fullscreen desktop keeps the window dimensions in the
          * correct orientation. */
         if (isLandscape != (mode->w > mode->h)) {
-            int height = mode->w;
-            mode->w = mode->h;
-            mode->h = height;
+            SDL_DisplayMode new_mode;
+            SDL_copyp(&new_mode, mode);
+            new_mode.w = mode->h;
+            new_mode.h = mode->w;
+
+            // Make sure we don't free the current display mode data
+            mode->internal = NULL;
+
+            SDL_SetDesktopDisplayMode(display, &new_mode);
         }
 
         // Same deal with the fullscreen modes

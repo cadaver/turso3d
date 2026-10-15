@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -22,6 +22,10 @@
 
 #include "SDL_hints_c.h"
 
+#ifdef SDL_PLATFORM_ANDROID
+#include "core/android/SDL_android.h"
+#endif
+
 typedef struct SDL_HintWatch
 {
     SDL_HintCallback callback;
@@ -36,20 +40,37 @@ typedef struct SDL_Hint
     SDL_HintWatch *callbacks;
 } SDL_Hint;
 
-static SDL_PropertiesID SDL_hint_props = 0;
+static SDL_AtomicU32 SDL_hint_props;
 
-static SDL_PropertiesID GetHintProperties(bool create)
-{
-    if (!SDL_hint_props && create) {
-        SDL_hint_props = SDL_CreateProperties();
-    }
-    return SDL_hint_props;
-}
 
 void SDL_InitHints(void)
 {
-    // Just make sure the hint properties are created on the main thread
-    (void)GetHintProperties(true);
+}
+
+void SDL_QuitHints(void)
+{
+    SDL_PropertiesID props;
+    do {
+        props = SDL_GetAtomicU32(&SDL_hint_props);
+    } while (!SDL_CompareAndSwapAtomicU32(&SDL_hint_props, props, 0));
+
+    if (props) {
+        SDL_DestroyProperties(props);
+    }
+}
+
+static SDL_PropertiesID GetHintProperties(bool create)
+{
+    SDL_PropertiesID props = SDL_GetAtomicU32(&SDL_hint_props);
+    if (!props && create) {
+        props = SDL_CreateProperties();
+        if (!SDL_CompareAndSwapAtomicU32(&SDL_hint_props, 0, props)) {
+            // Somebody else created hint properties before us, just use those
+            SDL_DestroyProperties(props);
+            props = SDL_GetAtomicU32(&SDL_hint_props);
+        }
+    }
+    return props;
 }
 
 static void SDLCALL CleanupHintProperty(void *userdata, void *value)
@@ -66,13 +87,28 @@ static void SDLCALL CleanupHintProperty(void *userdata, void *value)
     SDL_free(hint);
 }
 
-SDL_bool SDL_SetHintWithPriority(const char *name, const char *value, SDL_HintPriority priority)
+static const char *GetHintEnvironmentVariable(const char *name)
 {
-    if (!name || !*name) {
+    const char *result = SDL_getenv(name);
+    if (!result && name && *name) {
+        // fall back to old (SDL2) names of environment variables that
+        // are important to users (e.g. many use SDL_VIDEODRIVER=wayland)
+        if (SDL_strcmp(name, SDL_HINT_VIDEO_DRIVER) == 0) {
+            result = SDL_getenv("SDL_VIDEODRIVER");
+        } else if (SDL_strcmp(name, SDL_HINT_AUDIO_DRIVER) == 0) {
+            result = SDL_getenv("SDL_AUDIODRIVER");
+        }
+    }
+    return result;
+}
+
+bool SDL_SetHintWithPriority(const char *name, const char *value, SDL_HintPriority priority)
+{
+    CHECK_PARAM(!name || !*name) {
         return SDL_InvalidParamError("name");
     }
 
-    const char *env = SDL_getenv(name);
+    const char *env = GetHintEnvironmentVariable(name);
     if (env && (priority < SDL_HINT_OVERRIDE)) {
         return SDL_SetError("An environment variable is taking priority");
     }
@@ -115,18 +151,25 @@ SDL_bool SDL_SetHintWithPriority(const char *name, const char *value, SDL_HintPr
         }
     }
 
+#ifdef SDL_PLATFORM_ANDROID
+    if (SDL_strcmp(name, SDL_HINT_ANDROID_ALLOW_RECREATE_ACTIVITY) == 0) {
+        // Special handling for this hint, which needs to persist outside the normal application flow
+        Android_SetAllowRecreateActivity(SDL_GetStringBoolean(value, false));
+    }
+#endif // SDL_PLATFORM_ANDROID
+
     SDL_UnlockProperties(hints);
 
     return result;
 }
 
-SDL_bool SDL_ResetHint(const char *name)
+bool SDL_ResetHint(const char *name)
 {
-    if (!name || !*name) {
+    CHECK_PARAM(!name || !*name) {
         return SDL_InvalidParamError("name");
     }
 
-    const char *env = SDL_getenv(name);
+    const char *env = GetHintEnvironmentVariable(name);
 
     const SDL_PropertiesID hints = GetHintProperties(false);
     if (!hints) {
@@ -153,6 +196,17 @@ SDL_bool SDL_ResetHint(const char *name)
         result = true;
     }
 
+#ifdef SDL_PLATFORM_ANDROID
+    if (SDL_strcmp(name, SDL_HINT_ANDROID_ALLOW_RECREATE_ACTIVITY) == 0) {
+        // Special handling for this hint, which needs to persist outside the normal application flow
+        if (env) {
+            Android_SetAllowRecreateActivity(SDL_GetStringBoolean(env, false));
+        } else {
+            Android_SetAllowRecreateActivity(false);
+        }
+    }
+#endif // SDL_PLATFORM_ANDROID
+
     SDL_UnlockProperties(hints);
 
     return result;
@@ -165,7 +219,7 @@ static void SDLCALL ResetHintsCallback(void *userdata, SDL_PropertiesID hints, c
         return;  // uh...okay.
     }
 
-    const char *env = SDL_getenv(name);
+    const char *env = GetHintEnvironmentVariable(name);
     if ((!env && hint->value) || (env && !hint->value) || (env && SDL_strcmp(env, hint->value) != 0)) {
         SDL_HintWatch *entry = hint->callbacks;
         while (entry) {
@@ -178,6 +232,17 @@ static void SDLCALL ResetHintsCallback(void *userdata, SDL_PropertiesID hints, c
     SDL_free(hint->value);
     hint->value = NULL;
     hint->priority = SDL_HINT_DEFAULT;
+
+#ifdef SDL_PLATFORM_ANDROID
+    if (SDL_strcmp(name, SDL_HINT_ANDROID_ALLOW_RECREATE_ACTIVITY) == 0) {
+        // Special handling for this hint, which needs to persist outside the normal application flow
+        if (env) {
+            Android_SetAllowRecreateActivity(SDL_GetStringBoolean(env, false));
+        } else {
+            Android_SetAllowRecreateActivity(false);
+        }
+    }
+#endif // SDL_PLATFORM_ANDROID
 }
 
 void SDL_ResetHints(void)
@@ -185,7 +250,7 @@ void SDL_ResetHints(void)
     SDL_EnumerateProperties(GetHintProperties(false), ResetHintsCallback, NULL);
 }
 
-SDL_bool SDL_SetHint(const char *name, const char *value)
+bool SDL_SetHint(const char *name, const char *value)
 {
     return SDL_SetHintWithPriority(name, value, SDL_HINT_NORMAL);
 }
@@ -196,7 +261,7 @@ const char *SDL_GetHint(const char *name)
         return NULL;
     }
 
-    const char *result = SDL_getenv(name);
+    const char *result = GetHintEnvironmentVariable(name);
 
     const SDL_PropertiesID hints = GetHintProperties(false);
     if (hints) {
@@ -220,10 +285,10 @@ int SDL_GetStringInteger(const char *value, int default_value)
     if (!value || !*value) {
         return default_value;
     }
-    if (*value == '0' || SDL_strcasecmp(value, "false") == 0) {
+    if (SDL_strcasecmp(value, "false") == 0) {
         return 0;
     }
-    if (*value == '1' || SDL_strcasecmp(value, "true") == 0) {
+    if (SDL_strcasecmp(value, "true") == 0) {
         return 1;
     }
     if (*value == '-' || SDL_isdigit(*value)) {
@@ -243,17 +308,18 @@ bool SDL_GetStringBoolean(const char *value, bool default_value)
     return true;
 }
 
-SDL_bool SDL_GetHintBoolean(const char *name, SDL_bool default_value)
+bool SDL_GetHintBoolean(const char *name, bool default_value)
 {
     const char *hint = SDL_GetHint(name);
     return SDL_GetStringBoolean(hint, default_value);
 }
 
-SDL_bool SDL_AddHintCallback(const char *name, SDL_HintCallback callback, void *userdata)
+bool SDL_AddHintCallback(const char *name, SDL_HintCallback callback, void *userdata)
 {
-    if (!name || !*name) {
+    CHECK_PARAM(!name || !*name) {
         return SDL_InvalidParamError("name");
-    } else if (!callback) {
+    }
+    CHECK_PARAM(!callback) {
         return SDL_InvalidParamError("callback");
     }
 
@@ -334,11 +400,5 @@ void SDL_RemoveHintCallback(const char *name, SDL_HintCallback callback, void *u
         }
     }
     SDL_UnlockProperties(hints);
-}
-
-void SDL_QuitHints(void)
-{
-    SDL_DestroyProperties(SDL_hint_props);
-    SDL_hint_props = 0;
 }
 

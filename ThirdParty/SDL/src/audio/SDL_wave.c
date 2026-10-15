@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -24,7 +24,7 @@
 #include <limits.h>
 #endif
 #ifndef INT_MAX
-// Make a lucky guess.
+SDL_COMPILE_TIME_ASSERT(int_size, sizeof(int) == sizeof(Sint32));
 #define INT_MAX SDL_MAX_SINT32
 #endif
 #ifndef SIZE_MAX
@@ -813,7 +813,7 @@ static bool IMA_ADPCM_Init(WaveFile *file, size_t datalength)
 
     if (format->formattag == EXTENSIBLE_CODE) {
         /* There's no specification for this, but it's basically the same
-         * format because the extensible header has wSampePerBlocks too.
+         * format because the extensible header has wSamplePerBlocks too.
          */
     } else {
         // The Standards Update says there 'should' be 2 bytes for wSamplesPerBlock.
@@ -1775,6 +1775,7 @@ static bool WaveLoad(SDL_IOStream *src, WaveFile *file, SDL_AudioSpec *spec, Uin
     int result;
     Uint32 chunkcount = 0;
     Uint32 chunkcountlimit = 10000;
+    const Sint64 flen = SDL_GetIOSize(src);   // this might be -1 if the IOStream can't determine the total size.
     const char *hint;
     Sint64 RIFFstart, RIFFend, lastchunkpos;
     bool RIFFlengthknown = false;
@@ -1852,7 +1853,7 @@ static bool WaveLoad(SDL_IOStream *src, WaveFile *file, SDL_AudioSpec *spec, Uin
 
     /* Step through all chunks and save information on the fmt, data, and fact
      * chunks. Ignore the chunks we don't know as per specification. This
-     * currently also ignores cue, list, and slnt chunks.
+     * currently also ignores cue, list, and inst chunks.
      */
     while ((Uint64)RIFFend > (Uint64)chunk->position + chunk->length + (chunk->length & 1)) {
         // Abort after too many chunks or else corrupt files may waste time.
@@ -1883,6 +1884,14 @@ static bool WaveLoad(SDL_IOStream *src, WaveFile *file, SDL_AudioSpec *spec, Uin
                 fmtchunk = *chunk;
             }
         } else if (chunk->fourcc == DATA) {
+            /* If the data chunk is bigger than the file, it might be corrupt
+               or the file is truncated. Try to recover by clamping the file
+               size. This also means a malicious file can't allocate 4 gigabytes
+               for the chunks without actually supplying a 4 gigabyte file. */
+            if ((flen > 0) && ((chunk->position + chunk->length) > flen)) {
+                chunk->length = (Uint32) (flen - chunk->position);
+            }
+
             /* Only use the first data chunk. Handling the wavl list madness
              * may require a different approach.
              */
@@ -2076,7 +2085,7 @@ static bool WaveLoad(SDL_IOStream *src, WaveFile *file, SDL_AudioSpec *spec, Uin
     return true;
 }
 
-SDL_bool SDL_LoadWAV_IO(SDL_IOStream *src, SDL_bool closeio, SDL_AudioSpec *spec, Uint8 **audio_buf, Uint32 *audio_len)
+bool SDL_LoadWAV_IO(SDL_IOStream *src, bool closeio, SDL_AudioSpec *spec, Uint8 **audio_buf, Uint32 *audio_len)
 {
     bool result = false;
     WaveFile file;
@@ -2092,15 +2101,19 @@ SDL_bool SDL_LoadWAV_IO(SDL_IOStream *src, SDL_bool closeio, SDL_AudioSpec *spec
     }
 
     // Make sure we are passed a valid data source
-    if (!src) {
-        goto done;  // Error may come from SDL_IOStream.
-    } else if (!spec) {
+    CHECK_PARAM(!src) {
+        SDL_InvalidParamError("src");
+        goto done;
+    }
+    CHECK_PARAM(!spec) {
         SDL_InvalidParamError("spec");
         goto done;
-    } else if (!audio_buf) {
+    }
+    CHECK_PARAM(!audio_buf) {
         SDL_InvalidParamError("audio_buf");
         goto done;
-    } else if (!audio_len) {
+    }
+    CHECK_PARAM(!audio_len) {
         SDL_InvalidParamError("audio_len");
         goto done;
     }
@@ -2113,8 +2126,8 @@ SDL_bool SDL_LoadWAV_IO(SDL_IOStream *src, SDL_bool closeio, SDL_AudioSpec *spec
     result = WaveLoad(src, &file, spec, audio_buf, audio_len);
     if (!result) {
         SDL_free(*audio_buf);
-        audio_buf = NULL;
-        audio_len = 0;
+        *audio_buf = NULL;
+        *audio_len = 0;
     }
 
     // Cleanup
@@ -2130,8 +2143,21 @@ done:
     return result;
 }
 
-SDL_bool SDL_LoadWAV(const char *path, SDL_AudioSpec *spec, Uint8 **audio_buf, Uint32 *audio_len)
+bool SDL_LoadWAV(const char *path, SDL_AudioSpec *spec, Uint8 **audio_buf, Uint32 *audio_len)
 {
-    return SDL_LoadWAV_IO(SDL_IOFromFile(path, "rb"), 1, spec, audio_buf, audio_len);
+    SDL_IOStream *stream = SDL_IOFromFile(path, "rb");
+    if (!stream) {
+        if (spec) {
+            SDL_zerop(spec);
+        }
+        if (audio_buf) {
+            *audio_buf = NULL;
+        }
+        if (audio_len) {
+            *audio_len = 0;
+        }
+        return false;
+    }
+    return SDL_LoadWAV_IO(stream, true, spec, audio_buf, audio_len);
 }
 

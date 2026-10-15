@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -24,13 +24,11 @@
 #ifndef SDL_sysaudio_h_
 #define SDL_sysaudio_h_
 
-#include "../SDL_hashtable.h"
-
 #define DEBUG_AUDIOSTREAM 0
 #define DEBUG_AUDIO_CONVERT 0
 
 #if DEBUG_AUDIO_CONVERT
-#define LOG_DEBUG_AUDIO_CONVERT(from, to) SDL_Log("SDL_AUDIO_CONVERT: Converting %s to %s.\n", from, to);
+#define LOG_DEBUG_AUDIO_CONVERT(from, to) SDL_Log("SDL_AUDIO_CONVERT: Converting %s to %s.", from, to);
 #else
 #define LOG_DEBUG_AUDIO_CONVERT(from, to)
 #endif
@@ -93,6 +91,9 @@ extern SDL_AudioDevice *SDL_FindPhysicalAudioDeviceByCallback(bool (*callback)(S
 // Backends should call this if they change the device format, channels, freq, or sample_frames to keep other state correct.
 extern void SDL_UpdatedAudioDeviceFormat(SDL_AudioDevice *device);
 
+// Backends can call this to get a reasonable default sample frame count for a device's sample rate.
+int SDL_GetDefaultSampleFramesFromFreq(const int freq);
+
 // Backends can call this to get a standardized name for a thread to power a specific audio device.
 extern char *SDL_GetAudioThreadName(SDL_AudioDevice *device, char *buf, size_t buflen);
 
@@ -111,7 +112,7 @@ extern void SDL_AudioThreadFinalize(SDL_AudioDevice *device);
 
 extern void ConvertAudioToFloat(float *dst, const void *src, int num_samples, SDL_AudioFormat src_fmt);
 extern void ConvertAudioFromFloat(void *dst, const float *src, int num_samples, SDL_AudioFormat dst_fmt);
-extern void ConvertAudioSwapEndian(void* dst, const void* src, int num_samples, int bitsize);
+extern void ConvertAudioSwapEndian(void *dst, const void *src, int num_samples, int bitsize);
 
 extern bool SDL_ChannelMapIsDefault(const int *map, int channels);
 extern bool SDL_ChannelMapIsBogus(const int *map, int channels);
@@ -120,12 +121,16 @@ extern bool SDL_ChannelMapIsBogus(const int *map, int channels);
 extern void ConvertAudio(int num_frames,
                          const void *src, SDL_AudioFormat src_format, int src_channels, const int *src_map,
                          void *dst, SDL_AudioFormat dst_format, int dst_channels, const int *dst_map,
-                         void* scratch, float gain);
+                         void *scratch, float gain);
 
 // Compare two SDL_AudioSpecs, return true if they match exactly.
 // Using SDL_memcmp directly isn't safe, since potential padding might not be initialized.
-// either channel maps can be NULL for the default (and both should be if you don't care about them).
+// either channel map can be NULL for the default (and both should be if you don't care about them).
 extern bool SDL_AudioSpecsEqual(const SDL_AudioSpec *a, const SDL_AudioSpec *b, const int *channel_map_a, const int *channel_map_b);
+
+// See if two channel maps match
+// either channel map can be NULL for the default (and both should be if you don't care about them).
+extern bool SDL_AudioChannelMapsEqual(int channels, const int *channel_map_a, const int *channel_map_b);
 
 // allocate+copy a channel map.
 extern int *SDL_ChannelMapDup(const int *origchmap, int channels);
@@ -178,8 +183,9 @@ typedef struct SDL_AudioDriver
     const char *name;  // The name of this audio driver
     const char *desc;  // The description of this audio driver
     SDL_AudioDriverImpl impl; // the backend's interface
-    SDL_RWLock *device_hash_lock;  // A rwlock that protects `device_hash`
-    SDL_HashTable *device_hash;  // the collection of currently-available audio devices (recording, playback, logical and physical!)
+    SDL_RWLock *subsystem_rwlock;  // A rwlock that protects several things in the audio subsystem (device hashtables, etc).
+    SDL_HashTable *device_hash_physical;  // the collection of currently-available audio devices (recording and playback), for mapping SDL_AudioDeviceID to an SDL_AudioDevice*.
+    SDL_HashTable *device_hash_logical;  // the collection of currently-available audio devices (recording and playback), for mapping SDL_AudioDeviceID to an SDL_LogicalAudioDevice*.
     SDL_AudioStream *existing_streams;  // a list of all existing SDL_AudioStreams.
     SDL_AudioDeviceID default_playback_device_id;
     SDL_AudioDeviceID default_recording_device_id;
@@ -196,7 +202,7 @@ struct SDL_AudioQueue; // forward decl.
 
 struct SDL_AudioStream
 {
-    SDL_Mutex* lock;
+    SDL_Mutex *lock;
 
     SDL_PropertiesID props;
 
@@ -212,7 +218,7 @@ struct SDL_AudioStream
     float freq_ratio;
     float gain;
 
-    struct SDL_AudioQueue* queue;
+    struct SDL_AudioQueue *queue;
 
     SDL_AudioSpec input_spec; // The spec of input data currently being processed
     int *input_chmap;
@@ -300,8 +306,11 @@ struct SDL_AudioDevice
 
     // The device's current audio specification
     SDL_AudioSpec spec;
+
+    // The size, in bytes, of the device's playback/recording buffer.
     int buffer_size;
 
+    // The device's channel map, or NULL for SDL default layout.
     int *chmap;
 
     // The device's default audio specification
@@ -352,9 +361,11 @@ typedef struct AudioBootStrap
     const char *desc;
     bool (*init)(SDL_AudioDriverImpl *impl);
     bool demand_only; // if true: request explicitly, or it won't be available.
+    bool is_preferred;
 } AudioBootStrap;
 
 // Not all of these are available in a given build. Use #ifdefs, etc.
+extern AudioBootStrap PRIVATEAUDIO_bootstrap;
 extern AudioBootStrap PIPEWIRE_PREFERRED_bootstrap;
 extern AudioBootStrap PIPEWIRE_bootstrap;
 extern AudioBootStrap PULSEAUDIO_bootstrap;
@@ -376,6 +387,7 @@ extern AudioBootStrap PS2AUDIO_bootstrap;
 extern AudioBootStrap PSPAUDIO_bootstrap;
 extern AudioBootStrap VITAAUD_bootstrap;
 extern AudioBootStrap N3DSAUDIO_bootstrap;
+extern AudioBootStrap NGAGEAUDIO_bootstrap;
 extern AudioBootStrap EMSCRIPTENAUDIO_bootstrap;
 extern AudioBootStrap QSAAUDIO_bootstrap;
 

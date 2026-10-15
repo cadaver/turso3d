@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -31,6 +31,8 @@
 #ifndef STACK_SIZE_PARAM_IS_A_RESERVATION
 #define STACK_SIZE_PARAM_IS_A_RESERVATION 0x00010000
 #endif
+
+#define SDL_DEBUGGER_NAME_EXCEPTION_CODE 0x406D1388
 
 typedef void (__cdecl * SDL_EndThreadExCallback) (unsigned retval);
 typedef uintptr_t (__cdecl * SDL_BeginThreadExCallback)
@@ -75,15 +77,18 @@ bool SDL_SYS_CreateThread(SDL_Thread *thread,
         thread->handle = (SYS_ThreadHandle)((size_t)pfnBeginThread(NULL, (unsigned int)thread->stacksize,
                                                                    RunThreadViaBeginThreadEx,
                                                                    thread, flags, &threadid));
+        thread->threadid = (SDL_ThreadID) threadid;
     } else {
         DWORD threadid = 0;
         thread->handle = CreateThread(NULL, thread->stacksize,
                                       RunThreadViaCreateThread,
                                       thread, flags, &threadid);
+        thread->threadid = (SDL_ThreadID) threadid;
     }
     if (!thread->handle) {
         return SDL_SetError("Not enough resources to create thread");
     }
+
     return true;
 }
 
@@ -97,13 +102,16 @@ typedef struct tagTHREADNAME_INFO
 } THREADNAME_INFO;
 #pragma pack(pop)
 
-static LONG NTAPI EmptyVectoredExceptionHandler(EXCEPTION_POINTERS *ExceptionInfo)
+static LONG NTAPI EmptyVectoredExceptionHandler(EXCEPTION_POINTERS *info)
 {
-    (void)ExceptionInfo;
-    return EXCEPTION_CONTINUE_EXECUTION;
+    if (info != NULL && info->ExceptionRecord != NULL && info->ExceptionRecord->ExceptionCode == SDL_DEBUGGER_NAME_EXCEPTION_CODE) {
+        return EXCEPTION_CONTINUE_EXECUTION;
+    } else {
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
 }
 
-typedef HRESULT(WINAPI *pfnSetThreadDescription)(HANDLE, PCWSTR);
+typedef HRESULT (WINAPI *pfnSetThreadDescription)(HANDLE, PCWSTR);
 
 void SDL_SYS_SetupThread(const char *name)
 {
@@ -148,7 +156,7 @@ void SDL_SYS_SetupThread(const char *name)
             inf.dwFlags = 0;
 
             // The debugger catches this, renames the thread, continues on.
-            RaiseException(0x406D1388, 0, sizeof(inf) / sizeof(ULONG), (const ULONG_PTR *)&inf);
+            RaiseException(SDL_DEBUGGER_NAME_EXCEPTION_CODE, 0, sizeof(inf) / sizeof(ULONG_PTR), (const ULONG_PTR *)&inf);
             RemoveVectoredExceptionHandler(exceptionHandlerHandle);
         }
     }

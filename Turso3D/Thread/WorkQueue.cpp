@@ -26,9 +26,9 @@ WorkQueue::WorkQueue(unsigned numThreads)
     if (!numThreads)
     {
         numThreads = CPUCount();
-        // Avoid excessive core count
-        if (numThreads > 16)
-            numThreads = 16;
+        // Many of the worker thread scene operations are memory bound, so keep thread count relatively small
+        if (numThreads > 8)
+            numThreads = 8;
     }
 
     for (unsigned  i = 0; i < numThreads - 1; ++i)
@@ -197,7 +197,7 @@ void WorkQueue::CompleteTask(Task* task, unsigned threadIndex_)
         {
             Task* dependentTask = *it;
 
-            if (dependentTask->numDependencies.fetch_add(-1) == 1)
+            if (dependentTask->numDependencies.fetch_sub(1) == 1)
             {
                 if (threads.size())
                 {
@@ -220,5 +220,5 @@ void WorkQueue::CompleteTask(Task* task, unsigned threadIndex_)
     }
 
     // Decrement pending task counter last, so that WorkQueue::Complete() will also wait for the potentially added dependent tasks
-    numPendingTasks.fetch_add(-1);
+    numPendingTasks.fetch_sub(1);
 }

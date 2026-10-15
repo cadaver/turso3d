@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -24,10 +24,6 @@
 
 #include "SDL_cocoavideo.h"
 #include "../../events/SDL_events_c.h"
-
-#ifndef MAC_OS_X_VERSION_10_12
-#define NSEventTypeApplicationDefined NSApplicationDefined
-#endif
 
 static SDL_Window *FindSDLWindowForNSWindow(NSWindow *win)
 {
@@ -80,6 +76,8 @@ static void Cocoa_DispatchEvent(NSEvent *theEvent)
     case NSEventTypeOtherMouseDragged: // usually middle mouse dragged
     case NSEventTypeMouseMoved:
     case NSEventTypeScrollWheel:
+    case NSEventTypeMouseEntered:
+    case NSEventTypeMouseExited:
         Cocoa_HandleMouseEvent(_this, theEvent);
         break;
     case NSEventTypeKeyDown:
@@ -106,9 +104,12 @@ static void Cocoa_DispatchEvent(NSEvent *theEvent)
 
 + (void)registerUserDefaults
 {
+    BOOL momentumScrollSupported = (BOOL)SDL_GetHintBoolean(SDL_HINT_MAC_SCROLL_MOMENTUM, false);
+    BOOL pressAndHoldEnabled = (BOOL)SDL_GetHintBoolean(SDL_HINT_MAC_PRESS_AND_HOLD, true);
+
     NSDictionary *appDefaults = [[NSDictionary alloc] initWithObjectsAndKeys:
-                                                          [NSNumber numberWithBool:NO], @"AppleMomentumScrollSupported",
-                                                          [NSNumber numberWithBool:NO], @"ApplePressAndHoldEnabled",
+                                                          [NSNumber numberWithBool:momentumScrollSupported], @"AppleMomentumScrollSupported",
+                                                          [NSNumber numberWithBool:pressAndHoldEnabled], @"ApplePressAndHoldEnabled",
                                                           [NSNumber numberWithBool:YES], @"ApplePersistenceIgnoreState",
                                                           nil];
     [[NSUserDefaults standardUserDefaults] registerDefaults:appDefaults];
@@ -134,6 +135,7 @@ static void Cocoa_DispatchEvent(NSEvent *theEvent)
                         change:(NSDictionary *)change
                        context:(void *)context;
 - (BOOL)applicationSupportsSecureRestorableState:(NSApplication *)app;
+- (IBAction)menu:(id)sender;
 @end
 
 @implementation SDL3AppDelegate : NSObject
@@ -260,11 +262,10 @@ static void Cocoa_DispatchEvent(NSEvent *theEvent)
         return;
     }
 
+    // Restore any fullscreen window
     device = SDL_GetVideoDevice();
     if (device && device->windows) {
-        SDL_Window *window = device->windows;
-        int i;
-        for (i = 0; i < device->num_displays; ++i) {
+        for (int i = 0; i < device->num_displays; ++i) {
             SDL_Window *fullscreen_window = device->displays[i]->fullscreen_window;
             if (fullscreen_window) {
                 if (fullscreen_window->flags & SDL_WINDOW_MINIMIZED) {
@@ -272,12 +273,6 @@ static void Cocoa_DispatchEvent(NSEvent *theEvent)
                 }
                 return;
             }
-        }
-
-        if (window->flags & SDL_WINDOW_MINIMIZED) {
-            SDL_RestoreWindow(window);
-        } else {
-            SDL_RaiseWindow(window);
         }
     }
 }
@@ -310,15 +305,26 @@ static void Cocoa_DispatchEvent(NSEvent *theEvent)
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
 {
-    if (!SDL_GetHintBoolean("SDL_MAC_REGISTER_ACTIVATION_HANDLERS", true))
+    if (!SDL_GetHintBoolean("SDL_MAC_REGISTER_ACTIVATION_HANDLERS", true)) {
         return;
+    }
 
     /* The menu bar of SDL apps which don't have the typical .app bundle
      * structure fails to work the first time a window is created (until it's
      * de-focused and re-focused), if this call is in Cocoa_RegisterApp instead
-     * of here. https://bugzilla.libsdl.org/show_bug.cgi?id=3051
+     * of here. https://github.com/libsdl-org/SDL/issues/1913
      */
-    if (!SDL_GetHintBoolean(SDL_HINT_MAC_BACKGROUND_APP, false)) {
+
+    /* this apparently became unnecessary on macOS 14.0, and will addition pop up a
+       hidden dock if you're moving the mouse during launch, so change the default
+       behaviour there.  https://github.com/libsdl-org/SDL/issues/10340
+       (13.6 still needs it, presumably 13.7 does, too.) */
+    bool background_app_default = false;
+    if (@available(macOS 14.0, *)) {
+        background_app_default = true;  /* by default, don't explicitly activate the dock and then us again to force to foreground */
+    }
+
+    if (!SDL_GetHintBoolean(SDL_HINT_MAC_BACKGROUND_APP, background_app_default)) {
         // Get more aggressive for Catalina: activate the Dock first so we definitely reset all activation state.
         for (NSRunningApplication *i in [NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.apple.dock"]) {
             [i activateWithOptions:NSApplicationActivateIgnoringOtherApps];
@@ -354,6 +360,13 @@ static void Cocoa_DispatchEvent(NSEvent *theEvent)
     // More-detailed explanation:
     // https://stackoverflow.com/questions/77283578/sonoma-and-nsapplicationdelegate-applicationsupportssecurerestorablestate/77320845#77320845
     return YES;
+}
+
+- (IBAction)menu:(id)sender
+{
+    SDL_TrayEntry *entry = [[sender representedObject] pointerValue];
+
+    SDL_ClickTrayEntry(entry);
 }
 
 @end

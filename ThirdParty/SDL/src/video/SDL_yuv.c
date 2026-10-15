@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -26,7 +26,7 @@
 #include "yuv2rgb/yuv_rgb.h"
 
 
-#if SDL_HAVE_YUV
+#ifdef SDL_HAVE_YUV
 static bool IsPlanar2x2Format(SDL_PixelFormat format);
 #endif
 
@@ -36,7 +36,7 @@ static bool IsPlanar2x2Format(SDL_PixelFormat format);
  */
 bool SDL_CalculateYUVSize(SDL_PixelFormat format, int w, int h, size_t *size, size_t *pitch)
 {
-#if SDL_HAVE_YUV
+#ifdef SDL_HAVE_YUV
     int sz_plane = 0, sz_plane_chroma = 0, sz_plane_packed = 0;
 
     if (IsPlanar2x2Format(format) == true) {
@@ -155,7 +155,7 @@ bool SDL_CalculateYUVSize(SDL_PixelFormat format, int w, int h, size_t *size, si
 #endif
 }
 
-#if SDL_HAVE_YUV
+#ifdef SDL_HAVE_YUV
 
 static bool GetYUVConversionType(SDL_Colorspace colorspace, YCbCrType *yuv_type)
 {
@@ -171,8 +171,10 @@ static bool GetYUVConversionType(SDL_Colorspace colorspace, YCbCrType *yuv_type)
     if (SDL_ISCOLORSPACE_MATRIX_BT709(colorspace)) {
         if (SDL_ISCOLORSPACE_LIMITED_RANGE(colorspace)) {
             *yuv_type = YCBCR_709_LIMITED;
-            return true;
+        } else {
+            *yuv_type = YCBCR_709_FULL;
         }
+        return true;
     }
 
     if (SDL_ISCOLORSPACE_MATRIX_BT2020_NCL(colorspace)) {
@@ -593,29 +595,26 @@ bool SDL_ConvertPixels_YUV_to_RGB(int width, int height,
     const Uint8 *v = NULL;
     Uint32 y_stride = 0;
     Uint32 uv_stride = 0;
+    YCbCrType yuv_type = YCBCR_601_LIMITED;
 
     if (!GetYUVPlanes(width, height, src_format, src, src_pitch, &y, &u, &v, &y_stride, &uv_stride)) {
         return false;
     }
 
-    if (SDL_COLORSPACEPRIMARIES(src_colorspace) == SDL_COLORSPACEPRIMARIES(dst_colorspace)) {
-        YCbCrType yuv_type = YCBCR_601_LIMITED;
+    if (!GetYUVConversionType(src_colorspace, &yuv_type)) {
+        return false;
+    }
 
-        if (!GetYUVConversionType(src_colorspace, &yuv_type)) {
-            return false;
-        }
+    if (yuv_rgb_sse(src_format, dst_format, width, height, y, u, v, y_stride, uv_stride, (Uint8 *)dst, dst_pitch, yuv_type)) {
+        return true;
+    }
 
-        if (yuv_rgb_sse(src_format, dst_format, width, height, y, u, v, y_stride, uv_stride, (Uint8 *)dst, dst_pitch, yuv_type)) {
-            return true;
-        }
+    if (yuv_rgb_lsx(src_format, dst_format, width, height, y, u, v, y_stride, uv_stride, (Uint8 *)dst, dst_pitch, yuv_type)) {
+        return true;
+    }
 
-        if (yuv_rgb_lsx(src_format, dst_format, width, height, y, u, v, y_stride, uv_stride, (Uint8 *)dst, dst_pitch, yuv_type)) {
-            return true;
-        }
-
-        if (yuv_rgb_std(src_format, dst_format, width, height, y, u, v, y_stride, uv_stride, (Uint8 *)dst, dst_pitch, yuv_type)) {
-            return true;
-        }
+    if (yuv_rgb_std(src_format, dst_format, width, height, y, u, v, y_stride, uv_stride, (Uint8 *)dst, dst_pitch, yuv_type)) {
+        return true;
     }
 
     // No fast path for the RGB format, instead convert using an intermediate buffer
@@ -691,6 +690,13 @@ static struct RGB2YUVFactors RGB2YUVFactorTables[] = {
         { -0.1482f, -0.2910f, 0.4392f },
         { 0.4392f, -0.3678f, -0.0714f },
     },
+    // ITU-R BT.709-6 full range
+    {
+        0,
+        { 0.2126f, 0.7152f, 0.0722f },
+        { -0.1141f, -0.3839f, 0.498f },
+        { 0.498f, -0.4524f, -0.0457f },
+    },
     // ITU-R BT.709-6
     {
         16,
@@ -707,7 +713,7 @@ static struct RGB2YUVFactors RGB2YUVFactorTables[] = {
     },
 };
 
-static bool SDL_ConvertPixels_ARGB8888_to_YUV(int width, int height, const void *src, int src_pitch, SDL_PixelFormat dst_format, void *dst, int dst_pitch, YCbCrType yuv_type)
+static bool SDL_ConvertPixels_XRGB8888_to_YUV(int width, int height, const void *src, int src_pitch, SDL_PixelFormat dst_format, void *dst, int dst_pitch, YCbCrType yuv_type)
 {
     const int src_pitch_x_2 = src_pitch * 2;
     const int height_half = height / 2;
@@ -718,9 +724,9 @@ static bool SDL_ConvertPixels_ARGB8888_to_YUV(int width, int height, const void 
 
     const struct RGB2YUVFactors *cvt = &RGB2YUVFactorTables[yuv_type];
 
-#define MAKE_Y(r, g, b) (Uint8)((int)(cvt->y[0] * (r) + cvt->y[1] * (g) + cvt->y[2] * (b) + 0.5f) + cvt->y_offset)
-#define MAKE_U(r, g, b) (Uint8)((int)(cvt->u[0] * (r) + cvt->u[1] * (g) + cvt->u[2] * (b) + 0.5f) + 128)
-#define MAKE_V(r, g, b) (Uint8)((int)(cvt->v[0] * (r) + cvt->v[1] * (g) + cvt->v[2] * (b) + 0.5f) + 128)
+#define MAKE_Y(r, g, b) (Uint8)SDL_clamp(((int)(cvt->y[0] * (r) + cvt->y[1] * (g) + cvt->y[2] * (b) + 0.5f) + cvt->y_offset), 0, 255)
+#define MAKE_U(r, g, b) (Uint8)SDL_clamp(((int)(cvt->u[0] * (r) + cvt->u[1] * (g) + cvt->u[2] * (b) + 0.5f) + 128), 0, 255)
+#define MAKE_V(r, g, b) (Uint8)SDL_clamp(((int)(cvt->v[0] * (r) + cvt->v[1] * (g) + cvt->v[2] * (b) + 0.5f) + 128), 0, 255)
 
 #define READ_2x2_PIXELS                                                                                     \
     const Uint32 p1 = ((const Uint32 *)curr_row)[2 * i];                                                    \
@@ -912,7 +918,7 @@ static bool SDL_ConvertPixels_ARGB8888_to_YUV(int width, int height, const void 
         int plane_skip;
 
         if (dst_pitch < row_size) {
-            return SDL_SetError("Destination pitch is too small, expected at least %d\n", row_size);
+            return SDL_SetError("Destination pitch is too small, expected at least %d", row_size);
         }
         plane_skip = (dst_pitch - row_size);
 
@@ -1149,14 +1155,12 @@ bool SDL_ConvertPixels_RGB_to_YUV(int width, int height,
 #endif
 
     // ARGB8888 to FOURCC
-    if (src_format == SDL_PIXELFORMAT_ARGB8888 &&
-        SDL_COLORSPACEPRIMARIES(src_colorspace) == SDL_COLORSPACEPRIMARIES(dst_colorspace)) {
-        return SDL_ConvertPixels_ARGB8888_to_YUV(width, height, src, src_pitch, dst_format, dst, dst_pitch, yuv_type);
+    if (src_format == SDL_PIXELFORMAT_ARGB8888 || src_format == SDL_PIXELFORMAT_XRGB8888) {
+        return SDL_ConvertPixels_XRGB8888_to_YUV(width, height, src, src_pitch, dst_format, dst, dst_pitch, yuv_type);
     }
 
     if (dst_format == SDL_PIXELFORMAT_P010) {
-        if (src_format == SDL_PIXELFORMAT_XBGR2101010 &&
-            SDL_COLORSPACEPRIMARIES(src_colorspace) == SDL_COLORSPACEPRIMARIES(dst_colorspace)) {
+        if (src_format == SDL_PIXELFORMAT_XBGR2101010) {
             return SDL_ConvertPixels_XBGR2101010_to_P010(width, height, src, src_pitch, dst_format, dst, dst_pitch, yuv_type);
         }
 
@@ -1194,15 +1198,15 @@ bool SDL_ConvertPixels_RGB_to_YUV(int width, int height,
             return false;
         }
 
-        // convert src/src_format to tmp/ARGB8888
-        result = SDL_ConvertPixelsAndColorspace(width, height, src_format, src_colorspace, src_properties, src, src_pitch, SDL_PIXELFORMAT_ARGB8888, dst_colorspace, dst_properties, tmp, tmp_pitch);
+        // convert src/src_format to tmp/XRGB8888
+        result = SDL_ConvertPixelsAndColorspace(width, height, src_format, src_colorspace, src_properties, src, src_pitch, SDL_PIXELFORMAT_XRGB8888, SDL_COLORSPACE_SRGB, 0, tmp, tmp_pitch);
         if (!result) {
             SDL_free(tmp);
             return false;
         }
 
-        // convert tmp/ARGB8888 to dst/FOURCC
-        result = SDL_ConvertPixels_ARGB8888_to_YUV(width, height, tmp, tmp_pitch, dst_format, dst, dst_pitch, yuv_type);
+        // convert tmp/XRGB8888 to dst/FOURCC
+        result = SDL_ConvertPixels_XRGB8888_to_YUV(width, height, tmp, tmp_pitch, dst_format, dst, dst_pitch, yuv_type);
         SDL_free(tmp);
         return result;
     }
@@ -1553,9 +1557,7 @@ static bool SDL_ConvertPixels_PackUVPlanes_to_NV_std(int width, int height, cons
         dstUV += dstUVPitchLeft;
     }
 
-    if (tmp) {
-        SDL_free(tmp);
-    }
+    SDL_free(tmp);
     return true;
 }
 
@@ -1607,9 +1609,7 @@ static bool SDL_ConvertPixels_SplitNV_to_UVPlanes_std(int width, int height, con
         dst2 += dstUVPitchLeft;
     }
 
-    if (tmp) {
-        SDL_free(tmp);
-    }
+    SDL_free(tmp);
     return true;
 }
 
@@ -1619,26 +1619,44 @@ static bool SDL_ConvertPixels_SwapNV_std(int width, int height, const void *src,
     const int UVwidth = (width + 1) / 2;
     const int UVheight = (height + 1) / 2;
     const int srcUVPitch = ((src_pitch + 1) / 2) * 2;
-    const int srcUVPitchLeft = (srcUVPitch - UVwidth * 2) / sizeof(Uint16);
     const int dstUVPitch = ((dst_pitch + 1) / 2) * 2;
-    const int dstUVPitchLeft = (dstUVPitch - UVwidth * 2) / sizeof(Uint16);
-    const Uint16 *srcUV;
-    Uint16 *dstUV;
 
     // Skip the Y plane
     src = (const Uint8 *)src + height * src_pitch;
     dst = (Uint8 *)dst + height * dst_pitch;
 
-    srcUV = (const Uint16 *)src;
-    dstUV = (Uint16 *)dst;
-    y = UVheight;
-    while (y--) {
-        x = UVwidth;
-        while (x--) {
-            *dstUV++ = SDL_Swap16(*srcUV++);
+    bool aligned = (((uintptr_t)src | (uintptr_t)dst) & 1) == 0;
+    if (aligned) {
+        const int srcUVPitchLeft = (srcUVPitch - UVwidth * 2) / sizeof(Uint16);
+        const int dstUVPitchLeft = (dstUVPitch - UVwidth * 2) / sizeof(Uint16);
+        const Uint16 *srcUV = (const Uint16 *)src;
+        Uint16 *dstUV = (Uint16 *)dst;
+        y = UVheight;
+        while (y--) {
+            x = UVwidth;
+            while (x--) {
+                *dstUV++ = SDL_Swap16(*srcUV++);
+            }
+            srcUV += srcUVPitchLeft;
+            dstUV += dstUVPitchLeft;
         }
-        srcUV += srcUVPitchLeft;
-        dstUV += dstUVPitchLeft;
+    } else {
+        const int srcUVPitchLeft = (srcUVPitch - UVwidth * 2);
+        const int dstUVPitchLeft = (dstUVPitch - UVwidth * 2);
+        const Uint8 *srcUV = (const Uint8 *)src;
+        Uint8 *dstUV = (Uint8 *)dst;
+        y = UVheight;
+        while (y--) {
+            x = UVwidth;
+            while (x--) {
+                Uint8 u = *srcUV++;
+                Uint8 v = *srcUV++;
+                *dstUV++ = v;
+                *dstUV++ = u;
+            }
+            srcUV += srcUVPitchLeft;
+            dstUV += dstUVPitchLeft;
+        }
     }
     return true;
 }
@@ -2552,7 +2570,7 @@ bool SDL_ConvertPixels_YUV_to_YUV(int width, int height,
                                   SDL_PixelFormat src_format, SDL_Colorspace src_colorspace, SDL_PropertiesID src_properties, const void *src, int src_pitch,
                                   SDL_PixelFormat dst_format, SDL_Colorspace dst_colorspace, SDL_PropertiesID dst_properties, void *dst, int dst_pitch)
 {
-#if SDL_HAVE_YUV
+#ifdef SDL_HAVE_YUV
     if (src_colorspace != dst_colorspace) {
         return SDL_SetError("SDL_ConvertPixels_YUV_to_YUV: colorspace conversion not supported");
     }

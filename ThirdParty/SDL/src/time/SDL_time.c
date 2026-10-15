@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -32,7 +32,6 @@
  */
 Sint64 SDL_CivilToDays(int year, int month, int day, int *day_of_week, int *day_of_year)
 {
-
     year -= month <= 2;
     const int era = (year >= 0 ? year : year - 399) / 400;
     const unsigned yoe = (unsigned)(year - era * 400);                                  // [0, 399]
@@ -57,7 +56,7 @@ Sint64 SDL_CivilToDays(int year, int month, int day, int *day_of_week, int *day_
     return z;
 }
 
-SDL_bool SDL_GetDateTimeLocalePreferences(SDL_DateFormat *dateFormat, SDL_TimeFormat *timeFormat)
+bool SDL_GetDateTimeLocalePreferences(SDL_DateFormat *dateFormat, SDL_TimeFormat *timeFormat)
 {
     // Default to ISO 8061 date format, as it is unambiguous, and 24 hour time.
     if (dateFormat) {
@@ -162,19 +161,19 @@ static bool SDL_DateTimeIsValid(const SDL_DateTime *dt)
     return true;
 }
 
-SDL_bool SDL_DateTimeToTime(const SDL_DateTime *dt, SDL_Time *ticks)
+bool SDL_DateTimeToTime(const SDL_DateTime *dt, SDL_Time *ticks)
 {
     static const Sint64 max_seconds = SDL_NS_TO_SECONDS(SDL_MAX_TIME) - 1;
     static const Sint64 min_seconds = SDL_NS_TO_SECONDS(SDL_MIN_TIME) + 1;
     bool result = true;
 
-    if (!dt) {
+    CHECK_PARAM(!dt) {
         return SDL_InvalidParamError("dt");
     }
-    if (!ticks) {
+    CHECK_PARAM(!ticks) {
         return SDL_InvalidParamError("ticks");
     }
-    if (!SDL_DateTimeIsValid(dt)) {
+    CHECK_PARAM(!SDL_DateTimeIsValid(dt)) {
         // The validation function sets the error string.
         return false;
     }
@@ -195,7 +194,7 @@ SDL_bool SDL_DateTimeToTime(const SDL_DateTime *dt, SDL_Time *ticks)
 void SDL_TimeToWindows(SDL_Time ticks, Uint32 *dwLowDateTime, Uint32 *dwHighDateTime)
 {
     /* Convert nanoseconds to Win32 ticks.
-     * SDL_Time has a range of roughly 292 years, so even SDL_MIN_TIME can't underflow thw Win32 epoch.
+     * SDL_Time has a range of roughly 292 years, so even SDL_MIN_TIME can't underflow the Win32 epoch.
      */
     const Uint64 wtime = (Uint64)((ticks / 100) + DELTA_EPOCH_1601_100NS);
 

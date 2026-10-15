@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -31,6 +31,23 @@
 #include <psp2/ime_dialog.h>
 #include <psp2/sysmodule.h>
 
+#ifdef SDL_VIDEO_VITA_PIB
+#include <psp2/gxm.h>
+#include <psp2/display.h>
+#include <pib.h>
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+typedef struct SDL_GLDriverData
+{
+    EGLDisplay display;
+    EGLContext context;
+    EGLSurface surface;
+    uint32_t swapinterval;
+} SDL_GLDriverData;
+#endif
+
 struct SDL_VideoData
 {
     bool egl_initialized; // OpenGL device initialization status
@@ -60,8 +77,6 @@ extern SDL_Window *Vita_Window;
 // Display and window functions
 extern bool VITA_VideoInit(SDL_VideoDevice *_this);
 extern void VITA_VideoQuit(SDL_VideoDevice *_this);
-extern bool VITA_GetDisplayModes(SDL_VideoDevice *_this, SDL_VideoDisplay *display);
-extern bool VITA_SetDisplayMode(SDL_VideoDevice *_this, SDL_VideoDisplay *display, SDL_DisplayMode *mode);
 extern bool VITA_CreateWindow(SDL_VideoDevice *_this, SDL_Window *window, SDL_PropertiesID create_props);
 extern void VITA_SetWindowTitle(SDL_VideoDevice *_this, SDL_Window *window);
 extern bool VITA_SetWindowPosition(SDL_VideoDevice *_this, SDL_Window *window);
@@ -99,8 +114,7 @@ extern bool VITA_GLES_DestroyContext(SDL_VideoDevice *_this, SDL_GLContext conte
 extern bool VITA_HasScreenKeyboardSupport(SDL_VideoDevice *_this);
 extern void VITA_ShowScreenKeyboard(SDL_VideoDevice *_this, SDL_Window *window, SDL_PropertiesID props);
 extern void VITA_HideScreenKeyboard(SDL_VideoDevice *_this, SDL_Window *window);
-extern bool VITA_IsScreenKeyboardShown(SDL_VideoDevice *_this, SDL_Window *window);
 
 extern void VITA_PumpEvents(SDL_VideoDevice *_this);
 
-#endif // SDL_pspvideo_h
+#endif // SDL_vitavideo_h

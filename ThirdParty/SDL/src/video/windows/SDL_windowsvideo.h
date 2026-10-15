@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -28,8 +28,10 @@
 #include "../SDL_sysvideo.h"
 
 #ifdef HAVE_DXGI_H
+#ifndef __cplusplus
 #define CINTERFACE
 #define COBJMACROS
+#endif
 #include <dxgi.h>
 #endif
 
@@ -64,7 +66,7 @@
 #define USER_DEFAULT_SCREEN_DPI 96
 #endif
 
-#if WINVER < 0x0601
+#if WINVER < _WIN32_WINNT_WIN7
 // Touch input definitions
 #define TWF_FINETOUCH 1
 #define TWF_WANTPALM  2
@@ -285,7 +287,100 @@ typedef struct DISPLAYCONFIG_TARGET_DEVICE_NAME
 
 #define QDC_ONLY_ACTIVE_PATHS 0x00000002
 
-#endif // WINVER < 0x0601
+#endif // WINVER < _WIN32_WINNT_WIN7
+
+#if WINVER < _WIN32_WINNT_WIN8
+// Pen input definitions
+#define POINTER_MESSAGE_FLAG_NEW 0x00000001
+#define POINTER_MESSAGE_FLAG_INRANGE 0x00000002
+#define POINTER_MESSAGE_FLAG_INCONTACT 0x00000004
+#define POINTER_MESSAGE_FLAG_FIRSTBUTTON 0x00000010
+#define POINTER_MESSAGE_FLAG_SECONDBUTTON 0x00000020
+#define POINTER_MESSAGE_FLAG_THIRDBUTTON 0x00000040
+#define POINTER_MESSAGE_FLAG_FOURTHBUTTON 0x00000080
+#define POINTER_MESSAGE_FLAG_FIFTHBUTTON 0x00000100
+#define POINTER_MESSAGE_FLAG_PRIMARY 0x00002000
+#define POINTER_MESSAGE_FLAG_CONFIDENCE 0x00004000
+#define POINTER_MESSAGE_FLAG_CANCELED 0x00008000
+
+#define GET_POINTERID_WPARAM(wParam) (LOWORD(wParam))
+#define IS_POINTER_FLAG_SET_WPARAM(wParam, flag) (((DWORD)HIWORD(wParam) & (flag)) == (flag))
+#define IS_POINTER_INCONTACT_WPARAM(wParam) IS_POINTER_FLAG_SET_WPARAM(wParam, POINTER_MESSAGE_FLAG_INCONTACT)
+#define IS_POINTER_FIRSTBUTTON_WPARAM(wParam) IS_POINTER_FLAG_SET_WPARAM(wParam, POINTER_MESSAGE_FLAG_FIRSTBUTTON)
+
+typedef DWORD POINTER_INPUT_TYPE;
+
+enum tagPOINTER_INPUT_TYPE
+{
+    PT_POINTER = 1,
+    PT_TOUCH,
+    PT_PEN,
+    PT_MOUSE,
+    PT_TOUCHPAD
+};
+
+typedef UINT32 POINTER_FLAGS;
+
+typedef UINT32 PEN_FLAGS;
+#define PEN_FLAG_NONE 0x00000000
+#define PEN_FLAG_BARREL 0x00000001
+#define PEN_FLAG_INVERTED 0x00000002
+#define PEN_FLAG_ERASER 0x00000004
+
+typedef UINT32 PEN_MASK;
+#define PEN_MASK_NONE 0x00000000
+#define PEN_MASK_PRESSURE 0x00000001
+#define PEN_MASK_ROTATION 0x00000002
+#define PEN_MASK_TILT_X 0x00000004
+#define PEN_MASK_TILT_Y 0x00000008
+
+typedef enum tagPOINTER_BUTTON_CHANGE_TYPE
+{
+    POINTER_CHANGE_NONE,
+    POINTER_CHANGE_FIRSTBUTTON_DOWN,
+    POINTER_CHANGE_FIRSTBUTTON_UP,
+    POINTER_CHANGE_SECONDBUTTON_DOWN,
+    POINTER_CHANGE_SECONDBUTTON_UP,
+    POINTER_CHANGE_THIRDBUTTON_DOWN,
+    POINTER_CHANGE_THIRDBUTTON_UP,
+    POINTER_CHANGE_FOURTHBUTTON_DOWN,
+    POINTER_CHANGE_FOURTHBUTTON_UP,
+    POINTER_CHANGE_FIFTHBUTTON_DOWN,
+    POINTER_CHANGE_FIFTHBUTTON_UP
+} POINTER_BUTTON_CHANGE_TYPE;
+
+typedef struct tagPOINTER_INFO
+{
+    POINTER_INPUT_TYPE pointerType;
+    UINT32 pointerId;
+    UINT32 frameId;
+    POINTER_FLAGS pointerFlags;
+    HANDLE sourceDevice;
+    HWND hwndTarget;
+    POINT ptPixelLocation;
+    POINT ptHimetricLocation;
+    POINT ptPixelLocationRaw;
+    POINT ptHimetricLocationRaw;
+    DWORD dwTime;
+    UINT32 historyCount;
+    INT32 InputData;
+    DWORD dwKeyStates;
+    UINT64 PerformanceCount;
+    POINTER_BUTTON_CHANGE_TYPE ButtonChangeType;
+} POINTER_INFO;
+
+typedef struct tagPOINTER_PEN_INFO
+{
+    POINTER_INFO pointerInfo;
+    PEN_FLAGS penFlags;
+    PEN_MASK penMask;
+    UINT32 pressure;
+    UINT32 rotation;
+    INT32 tiltX;
+    INT32 tiltY;
+} POINTER_PEN_INFO;
+
+#endif // WINVER < _WIN32_WINNT_WIN8
 
 #ifndef HAVE_SHELLSCALINGAPI_H
 
@@ -307,6 +402,8 @@ typedef enum PROCESS_DPI_AWARENESS
 #else
 #include <shellscalingapi.h>
 #endif
+
+typedef struct ITaskbarList3 ITaskbarList3;
 
 #ifndef _DPI_AWARENESS_CONTEXTS_
 
@@ -374,6 +471,45 @@ typedef struct tagINPUTCONTEXT2
 } INPUTCONTEXT2, *PINPUTCONTEXT2, NEAR *NPINPUTCONTEXT2, FAR *LPINPUTCONTEXT2;
 #endif
 
+// Corner rounding support  (Win 11+)
+#ifndef DWMWA_WINDOW_CORNER_PREFERENCE
+#define DWMWA_WINDOW_CORNER_PREFERENCE 33
+#endif
+typedef enum {
+    DWMWCP_DEFAULT = 0,
+    DWMWCP_DONOTROUND = 1,
+    DWMWCP_ROUND = 2,
+    DWMWCP_ROUNDSMALL = 3
+} DWM_WINDOW_CORNER_PREFERENCE;
+
+// Border Color support (Win 11+)
+#ifndef DWMWA_BORDER_COLOR
+#define DWMWA_BORDER_COLOR 34
+#endif
+
+#ifndef DWMWA_COLOR_DEFAULT
+#define DWMWA_COLOR_DEFAULT 0xFFFFFFFF
+#endif
+
+#ifndef DWMWA_COLOR_NONE
+#define DWMWA_COLOR_NONE 0xFFFFFFFE
+#endif
+
+// Transparent window support
+#ifndef DWM_BB_ENABLE
+#define DWM_BB_ENABLE 0x00000001
+#endif
+#ifndef DWM_BB_BLURREGION
+#define DWM_BB_BLURREGION 0x00000002
+#endif
+typedef struct
+{
+    DWORD flags;
+    BOOL enable;
+    HRGN blur_region;
+    BOOL transition_on_maxed;
+} DWM_BLURBEHIND;
+
 // Private display data
 
 struct SDL_VideoData
@@ -388,12 +524,40 @@ struct SDL_VideoData
     DWORD clipboard_count;
 
 #if !defined(SDL_PLATFORM_XBOXONE) && !defined(SDL_PLATFORM_XBOXSERIES) // Xbox doesn't support user32/shcore
+    SDL_SharedObject *userDLL;
+
+    // DisplayConfig functions
+    /* *INDENT-OFF* */ // clang-format off
+    LONG (WINAPI *GetDisplayConfigBufferSizes)( UINT32, UINT32 *, UINT32 *);
+    LONG (WINAPI *QueryDisplayConfig)( UINT32, UINT32 *, DISPLAYCONFIG_PATH_INFO*, UINT32 *, DISPLAYCONFIG_MODE_INFO*, DISPLAYCONFIG_TOPOLOGY_ID*);
+    LONG (WINAPI *DisplayConfigGetDeviceInfo)( DISPLAYCONFIG_DEVICE_INFO_HEADER*);
+    /* *INDENT-ON* */ // clang-format on
+
     // Touch input functions
-    void *userDLL;
     /* *INDENT-OFF* */ // clang-format off
     BOOL (WINAPI *CloseTouchInputHandle)( HTOUCHINPUT );
     BOOL (WINAPI *GetTouchInputInfo)( HTOUCHINPUT, UINT, PTOUCHINPUT, int );
     BOOL (WINAPI *RegisterTouchWindow)( HWND, ULONG );
+    /* *INDENT-ON* */ // clang-format on
+
+    // DWM functions
+    SDL_SharedObject *dwmapiDLL;
+    /* *INDENT-OFF* */ // clang-format off
+    HRESULT (WINAPI *DwmFlush)(void);
+    HRESULT (WINAPI *DwmEnableBlurBehindWindow)(HWND hwnd, const DWM_BLURBEHIND *pBlurBehind);
+    HRESULT (WINAPI *DwmSetWindowAttribute)(HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute);
+    /* *INDENT-ON* */ // clang-format on
+
+    // Pen input functions
+    /* *INDENT-OFF* */ // clang-format off
+    BOOL (WINAPI *GetPointerType)(UINT32 pointerId, POINTER_INPUT_TYPE *pointerType);
+    BOOL (WINAPI *GetPointerPenInfo)(UINT32 pointerId, POINTER_PEN_INFO *penInfo);
+    BOOL (WINAPI *GetPointerDeviceRects)(HANDLE device, RECT *pointerDeviceRect, RECT *displayRect);
+    /* *INDENT-ON* */ // clang-format on
+
+    // DPI functions
+    SDL_SharedObject *shcoreDLL;
+    /* *INDENT-OFF* */ // clang-format off
     BOOL (WINAPI *SetProcessDPIAware)( void );
     BOOL (WINAPI *SetProcessDpiAwarenessContext)( DPI_AWARENESS_CONTEXT );
     DPI_AWARENESS_CONTEXT (WINAPI *SetThreadDpiAwarenessContext)( DPI_AWARENESS_CONTEXT );
@@ -404,14 +568,6 @@ struct SDL_VideoData
     UINT (WINAPI *GetDpiForWindow)( HWND );
     BOOL (WINAPI *AreDpiAwarenessContextsEqual)(DPI_AWARENESS_CONTEXT, DPI_AWARENESS_CONTEXT);
     BOOL (WINAPI *IsValidDpiAwarenessContext)(DPI_AWARENESS_CONTEXT);
-    // DisplayConfig functions
-    LONG (WINAPI *GetDisplayConfigBufferSizes)( UINT32, UINT32*, UINT32* );
-    LONG (WINAPI *QueryDisplayConfig)( UINT32, UINT32*, DISPLAYCONFIG_PATH_INFO*, UINT32*, DISPLAYCONFIG_MODE_INFO*, DISPLAYCONFIG_TOPOLOGY_ID*);
-    LONG (WINAPI *DisplayConfigGetDeviceInfo)( DISPLAYCONFIG_DEVICE_INFO_HEADER*);
-    /* *INDENT-ON* */ // clang-format on
-
-    void *shcoreDLL;
-    /* *INDENT-OFF* */ // clang-format off
     HRESULT (WINAPI *GetDpiForMonitor)( HMONITOR         hmonitor,
                                         MONITOR_DPI_TYPE dpiType,
                                         UINT             *dpiX,
@@ -421,11 +577,13 @@ struct SDL_VideoData
 #endif                // !defined(SDL_PLATFORM_XBOXONE) && !defined(SDL_PLATFORM_XBOXSERIES)
 
 #ifdef HAVE_DXGI_H
-    void *dxgiDLL;
+    SDL_SharedObject *dxgiDLL;
     IDXGIFactory *pDXGIFactory;
 #endif
 
     bool cleared;
+
+    bool detect_device_hotplug;
 
     BYTE *rawinput;
     UINT rawinput_offset;
@@ -435,8 +593,11 @@ struct SDL_VideoData
     SDL_Point last_raw_mouse_position;
     bool raw_mouse_enabled;
     bool raw_keyboard_enabled;
+    bool raw_keyboard_flag_nohotkeys;
+    bool raw_keyboard_flag_inputsink;
     bool pending_E1_key_sequence;
     Uint32 raw_input_enabled;
+    SDL_PenID raw_input_fake_pen_id;
 
     WIN_GameInputData *gameinput_context;
 
@@ -475,7 +636,7 @@ struct SDL_VideoData
 
 #ifndef SDL_DISABLE_WINDOWS_IME
     HKL ime_hkl;
-    void *ime_himm32;
+    SDL_SharedObject *ime_himm32;
     /* *INDENT-OFF* */ // clang-format off
     UINT (WINAPI *GetReadingString)(HIMC himc, UINT uReadingBufLen, LPWSTR lpwReadingBuf, PINT pnErrorIndex, BOOL *pfIsVertical, PUINT puMaxReadingLen);
     BOOL (WINAPI *ShowReadingWindow)(HIMC himc, BOOL bShow);
@@ -489,6 +650,11 @@ struct SDL_VideoData
 
     BYTE pre_hook_key_state[256];
     UINT _SDL_WAKEUP;
+
+#if !defined(SDL_PLATFORM_XBOXONE) && !defined(SDL_PLATFORM_XBOXSERIES)
+    UINT WM_TASKBAR_BUTTON_CREATED;
+    ITaskbarList3 *taskbar_list;
+#endif
 };
 
 extern bool g_WindowsEnableMessageLoop;

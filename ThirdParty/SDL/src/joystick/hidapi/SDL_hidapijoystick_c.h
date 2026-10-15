@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -32,13 +32,24 @@
 #define SDL_JOYSTICK_HIDAPI_PS4
 #define SDL_JOYSTICK_HIDAPI_PS5
 #define SDL_JOYSTICK_HIDAPI_STADIA
-#define SDL_JOYSTICK_HIDAPI_STEAM // Simple support for BLE Steam Controller, hint is disabled by default
+#define SDL_JOYSTICK_HIDAPI_STEAM
 #define SDL_JOYSTICK_HIDAPI_STEAMDECK
 #define SDL_JOYSTICK_HIDAPI_SWITCH
+#ifdef HAVE_LIBUSB
+#define SDL_JOYSTICK_HIDAPI_SWITCH2
+#endif
 #define SDL_JOYSTICK_HIDAPI_WII
 #define SDL_JOYSTICK_HIDAPI_XBOX360
 #define SDL_JOYSTICK_HIDAPI_XBOXONE
 #define SDL_JOYSTICK_HIDAPI_SHIELD
+#define SDL_JOYSTICK_HIDAPI_STEAM_HORI
+#define SDL_JOYSTICK_HIDAPI_STEAM_TRITON
+#define SDL_JOYSTICK_HIDAPI_LG4FF
+#define SDL_JOYSTICK_HIDAPI_8BITDO
+#define SDL_JOYSTICK_HIDAPI_FLYDIGI
+#define SDL_JOYSTICK_HIDAPI_GIP
+#define SDL_JOYSTICK_HIDAPI_SINPUT
+#define SDL_JOYSTICK_HIDAPI_ZUIKI
 
 // Joystick capability definitions
 #define SDL_JOYSTICK_CAP_MONO_LED       0x00000001
@@ -84,6 +95,7 @@ typedef struct SDL_HIDAPI_Device
     bool is_bluetooth;
     SDL_JoystickType joystick_type;
     SDL_GamepadType type;
+    int steam_virtual_gamepad_slot;
 
     struct SDL_HIDAPI_DeviceDriver *driver;
     void *context;
@@ -98,6 +110,10 @@ typedef struct SDL_HIDAPI_Device
 
     // Used to flag that the device is being updated
     bool updating;
+
+    // Used to flag devices that failed open
+    // This can happen on Windows with Bluetooth devices that have turned off
+    bool broken;
 
     struct SDL_HIDAPI_Device *parent;
     int num_children;
@@ -133,6 +149,7 @@ typedef struct SDL_HIDAPI_DeviceDriver
 // HIDAPI device support
 extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverCombined;
 extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverGameCube;
+extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverGIP;
 extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverJoyCons;
 extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverLuna;
 extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverNintendoClassic;
@@ -146,16 +163,36 @@ extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverStadia;
 extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverSteam;
 extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverSteamDeck;
 extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverSwitch;
+extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverSwitch2;
 extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverWii;
 extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverXbox360;
 extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverXbox360W;
 extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverXboxOne;
+extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverSteamHori;
+extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverSteamTriton;
+extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverLg4ff;
+extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_Driver8BitDo;
+extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverFlydigi;
+extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverSInput;
+extern SDL_HIDAPI_DeviceDriver SDL_HIDAPI_DriverZUIKI;
+
+#define LOAD16(A, B)       (Sint16)((Uint16)(A) | (((Uint16)(B)) << 8))
+#define LOAD32(A, B, C, D) ((((Uint32)(A)) << 0) |  \
+                            (((Uint32)(B)) << 8) |  \
+                            (((Uint32)(C)) << 16) | \
+                            (((Uint32)(D)) << 24))
 
 // Return true if a HID device is present and supported as a joystick of the given type
 extern bool HIDAPI_IsDeviceTypePresent(SDL_GamepadType type);
 
 // Return true if a HID device is present and supported as a joystick
 extern bool HIDAPI_IsDevicePresent(Uint16 vendor_id, Uint16 product_id, Uint16 version, const char *name);
+
+// Return the name of a connected device, which should be freed with SDL_free(), or NULL if it's not available
+extern char *HIDAPI_GetDeviceProductName(Uint16 vendor_id, Uint16 product_id);
+
+// Return the manufacturer of a connected device, which should be freed with SDL_free(), or NULL if it's not available
+extern char *HIDAPI_GetDeviceManufacturerName(Uint16 vendor_id, Uint16 product_id);
 
 // Return the type of a joystick if it's present and supported
 extern SDL_JoystickType HIDAPI_GetJoystickTypeFromGUID(SDL_GUID guid);

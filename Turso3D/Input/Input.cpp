@@ -17,7 +17,7 @@ Input::Input(SDL_Window* window_) :
 
 Input::~Input()
 {
-    SDL_SetWindowRelativeMouseMode(window, SDL_FALSE);
+    SDL_SetWindowRelativeMouseMode(window, false);
 }
 
 void Input::Update()
@@ -48,14 +48,14 @@ void Input::Update()
     if (focusFlags && !focus)
     {
         focus = true;
-        SDL_SetWindowRelativeMouseMode(window, SDL_TRUE);
+        SDL_SetWindowRelativeMouseMode(window, true);
         SendEvent(focusGainedEvent);
     }
     if (!focusFlags && focus)
     {
         focus = false;
         keyStates.clear();
-        SDL_SetWindowRelativeMouseMode(window, SDL_FALSE);
+        SDL_SetWindowRelativeMouseMode(window, false);
         SendEvent(focusLostEvent);
     }
 

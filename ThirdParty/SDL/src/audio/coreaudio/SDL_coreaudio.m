@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -31,7 +31,7 @@
 #if DEBUG_COREAUDIO
     #define CHECK_RESULT(msg) \
         if (result != noErr) { \
-            SDL_Log("COREAUDIO: Got error %d from '%s'!\n", (int)result, msg); \
+            SDL_Log("COREAUDIO: Got error %d from '%s'!", (int)result, msg); \
             return SDL_SetError("CoreAudio error (%s): %d", msg, (int)result); \
         }
 #else
@@ -224,7 +224,7 @@ static void RefreshPhysicalDevices(void)
                 name[len] = '\0';
 
                 #if DEBUG_COREAUDIO
-                SDL_Log("COREAUDIO: Found %s device #%d: '%s' (devid %d)\n", ((recording) ? "recording" : "playback"), (int)i, name, (int)dev);
+                SDL_Log("COREAUDIO: Found %s device #%d: '%s' (devid %d)", ((recording) ? "recording" : "playback"), (int)i, name, (int)dev);
                 #endif
                 SDLCoreAudioHandle *newhandle = (SDLCoreAudioHandle *) SDL_calloc(1, sizeof (*newhandle));
                 if (newhandle) {
@@ -341,7 +341,7 @@ static void ResumeAudioDevices(void)
 
 static void InterruptionBegin(SDL_AudioDevice *device)
 {
-    if (device != NULL && device->hidden->audioQueue != NULL) {
+    if (device != NULL && device->hidden != NULL && device->hidden->audioQueue != NULL) {
         device->hidden->interrupted = true;
         AudioQueuePause(device->hidden->audioQueue);
     }
@@ -366,7 +366,7 @@ static void InterruptionEnd(SDL_AudioDevice *device)
 {
     @synchronized(self) {
         NSNumber *type = note.userInfo[AVAudioSessionInterruptionTypeKey];
-        if (type.unsignedIntegerValue == AVAudioSessionInterruptionTypeBegan) {
+        if (type && (type.unsignedIntegerValue == AVAudioSessionInterruptionTypeBegan)) {
             InterruptionBegin(self.device);
         } else {
             InterruptionEnd(self.device);
@@ -420,7 +420,8 @@ static bool UpdateAudioSession(SDL_AudioDevice *device, bool open, bool allow_pl
 
         hint = SDL_GetHint(SDL_HINT_AUDIO_CATEGORY);
         if (hint) {
-            if (SDL_strcasecmp(hint, "AVAudioSessionCategoryAmbient") == 0) {
+            if (SDL_strcasecmp(hint, "AVAudioSessionCategoryAmbient") == 0 ||
+                SDL_strcasecmp(hint, "ambient") == 0) {
                 category = AVAudioSessionCategoryAmbient;
             } else if (SDL_strcasecmp(hint, "AVAudioSessionCategorySoloAmbient") == 0) {
                 category = AVAudioSessionCategorySoloAmbient;
@@ -436,7 +437,12 @@ static bool UpdateAudioSession(SDL_AudioDevice *device, bool open, bool allow_pl
                 }
             }
         } else if (data.playback && data.recording) {
-            category = AVAudioSessionCategoryPlayAndRecord;
+            if (allow_playandrecord) {
+                category = AVAudioSessionCategoryPlayAndRecord;
+            } else {
+                // We already failed play and record with AVAudioSessionErrorCodeResourceNotAvailable
+                return false;
+            }
         } else if (data.recording) {
             category = AVAudioSessionCategoryRecord;
         }
@@ -462,31 +468,16 @@ static bool UpdateAudioSession(SDL_AudioDevice *device, bool open, bool allow_pl
             options |= AVAudioSessionCategoryOptionDuckOthers;
         }
 
-        if ([session respondsToSelector:@selector(setCategory:mode:options:error:)]) {
-            if (![session.category isEqualToString:category] || session.categoryOptions != options) {
-                // Stop the current session so we don't interrupt other application audio
-                PauseAudioDevices();
-                [session setActive:NO error:nil];
-                session_active = false;
+        if (![session.category isEqualToString:category] || session.categoryOptions != options) {
+            // Stop the current session so we don't interrupt other application audio
+            PauseAudioDevices();
+            [session setActive:NO error:nil];
+            session_active = false;
 
-                if (![session setCategory:category mode:mode options:options error:&err]) {
-                    NSString *desc = err.description;
-                    SDL_SetError("Could not set Audio Session category: %s", desc.UTF8String);
-                    return false;
-                }
-            }
-        } else {
-            if (![session.category isEqualToString:category]) {
-                // Stop the current session so we don't interrupt other application audio
-                PauseAudioDevices();
-                [session setActive:NO error:nil];
-                session_active = false;
-
-                if (![session setCategory:category error:&err]) {
-                    NSString *desc = err.description;
-                    SDL_SetError("Could not set Audio Session category: %s", desc.UTF8String);
-                    return false;
-                }
+            if (![session setCategory:category mode:mode options:options error:&err]) {
+                NSString *desc = err.description;
+                SDL_SetError("Could not set Audio Session category: %s", desc.UTF8String);
+                return false;
             }
         }
 
@@ -494,12 +485,15 @@ static bool UpdateAudioSession(SDL_AudioDevice *device, bool open, bool allow_pl
             if (![session setActive:YES error:&err]) {
                 if ([err code] == AVAudioSessionErrorCodeResourceNotAvailable &&
                     category == AVAudioSessionCategoryPlayAndRecord) {
-                    return UpdateAudioSession(device, open, false);
+                    if (UpdateAudioSession(device, open, false)) {
+                        return true;
+                    } else {
+                        return SDL_SetError("Could not activate Audio Session: Resource not available");
+                    }
                 }
 
                 NSString *desc = err.description;
-                SDL_SetError("Could not activate Audio Session: %s", desc.UTF8String);
-                return false;
+                return SDL_SetError("Could not activate Audio Session: %s", desc.UTF8String);
             }
             session_active = true;
             ResumeAudioDevices();
@@ -622,7 +616,7 @@ static void RecordingBufferReadyCallback(void *inUserData, AudioQueueRef inAQ, A
 
     // buffer is unexpectedly here? We're probably dying, but try to requeue this buffer anyhow.
     if (device->hidden->current_buffer != NULL) {
-        SDL_assert(SDL_AtomicGet(&device->shutdown) != 0);
+        SDL_assert(SDL_GetAtomicInt(&device->shutdown) != 0);
         COREAUDIO_FlushRecording(device);  // just flush it manually, which will requeue it.
     }
 }
@@ -641,7 +635,7 @@ static void COREAUDIO_CloseDevice(SDL_AudioDevice *device)
     }
 
     if (device->hidden->thread) {
-        SDL_assert(SDL_AtomicGet(&device->shutdown) != 0); // should have been set by SDL_audio.c
+        SDL_assert(SDL_GetAtomicInt(&device->shutdown) != 0); // should have been set by SDL_audio.c
         SDL_WaitThread(device->hidden->thread, NULL);
     }
 
@@ -748,30 +742,67 @@ static bool PrepareAudioQueue(SDL_AudioDevice *device)
     SDL_zero(layout);
     switch (device->spec.channels) {
     case 1:
+        // a standard mono stream
         layout.mChannelLayoutTag = kAudioChannelLayoutTag_Mono;
         break;
     case 2:
+        // a standard stereo stream (L R) - implied playback
         layout.mChannelLayoutTag = kAudioChannelLayoutTag_Stereo;
         break;
     case 3:
+        // L R LFE
         layout.mChannelLayoutTag = kAudioChannelLayoutTag_DVD_4;
         break;
     case 4:
+        // front left, front right, back left, back right
         layout.mChannelLayoutTag = kAudioChannelLayoutTag_Quadraphonic;
         break;
     case 5:
-        layout.mChannelLayoutTag = kAudioChannelLayoutTag_MPEG_5_0_A;
+        // L R LFE Ls Rs
+        layout.mChannelLayoutTag = kAudioChannelLayoutTag_DVD_6;
         break;
     case 6:
-        layout.mChannelLayoutTag = kAudioChannelLayoutTag_MPEG_5_1_A;
+        //  L R C LFE Ls Rs
+        layout.mChannelLayoutTag = kAudioChannelLayoutTag_DVD_12;
         break;
     case 7:
-        // FIXME: Need to move channel[4] (BC) to channel[6]
-        layout.mChannelLayoutTag = kAudioChannelLayoutTag_MPEG_6_1_A;
+        if (@available(macOS 10.15, iOS 13.0, tvOS 13.0, *)) {
+            // L R C LFE Cs Ls Rs
+            layout.mChannelLayoutTag = kAudioChannelLayoutTag_WAVE_6_1;
+        } else {
+            // L R C LFE Ls Rs Cs
+            layout.mChannelLayoutTag = kAudioChannelLayoutTag_MPEG_6_1_A;
+
+            // Convert from SDL channel layout to kAudioChannelLayoutTag_MPEG_6_1_A
+            static const int swizzle_map[7] = {
+                0, 1, 2, 3, 6, 4, 5
+            };
+            device->chmap = SDL_ChannelMapDup(swizzle_map, SDL_arraysize(swizzle_map));
+            if (!device->chmap) {
+                return false;
+            }
+        }
         break;
     case 8:
-        layout.mChannelLayoutTag = kAudioChannelLayoutTag_MPEG_7_1_A;
+        if (@available(macOS 10.15, iOS 13.0, tvOS 13.0, *)) {
+            // L R C LFE Rls Rrs Ls Rs
+            layout.mChannelLayoutTag = kAudioChannelLayoutTag_WAVE_7_1;
+        } else {
+            // L R C LFE Ls Rs Rls Rrs
+            layout.mChannelLayoutTag = kAudioChannelLayoutTag_MPEG_7_1_C;
+
+            // Convert from SDL channel layout to kAudioChannelLayoutTag_MPEG_7_1_C
+            static const int swizzle_map[8] = {
+                0, 1, 2, 3, 6, 7, 4, 5
+            };
+            device->chmap = SDL_ChannelMapDup(swizzle_map, SDL_arraysize(swizzle_map));
+            if (!device->chmap) {
+                return false;
+            }
+        }
         break;
+    default:
+        return SDL_SetError("Unsupported audio channels");
     }
     if (layout.mChannelLayoutTag != 0) {
         result = AudioQueueSetProperty(device->hidden->audioQueue, kAudioQueueProperty_ChannelLayout, &layout, sizeof(layout));
@@ -787,7 +818,11 @@ static bool PrepareAudioQueue(SDL_AudioDevice *device)
     }
     #endif
 
-    int numAudioBuffers = 2;
+    // we use THREE audio buffers by default, unlike most things that would
+    // choose two alternating buffers, because it helps with issues on
+    // Bluetooth headsets when recording and playing at the same time.
+    // See conversation in #8192 for details.
+    int numAudioBuffers = 3;
     const double msecs = (device->sample_frames / ((double)device->spec.freq)) * 1000.0;
     if (msecs < MINIMUM_AUDIO_BUFFER_TIME_MS) { // use more buffers if we have a VERY small sample set.
         numAudioBuffers = ((int)SDL_ceil(MINIMUM_AUDIO_BUFFER_TIME_MS / msecs) * 2);
@@ -800,7 +835,7 @@ static bool PrepareAudioQueue(SDL_AudioDevice *device)
     }
 
     #if DEBUG_COREAUDIO
-    SDL_Log("COREAUDIO: numAudioBuffers == %d\n", numAudioBuffers);
+    SDL_Log("COREAUDIO: numAudioBuffers == %d", numAudioBuffers);
     #endif
 
     for (int i = 0; i < numAudioBuffers; i++) {
@@ -839,7 +874,7 @@ static int AudioQueueThreadEntry(void *arg)
     SDL_SignalSemaphore(device->hidden->ready_semaphore);
 
     // This would be WaitDevice/WaitRecordingDevice in the normal SDL audio thread, but we get *BufferReadyCallback calls here to know when to iterate.
-    while (!SDL_AtomicGet(&device->shutdown)) {
+    while (!SDL_GetAtomicInt(&device->shutdown)) {
         CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.10, 1);
     }
 
@@ -1000,7 +1035,7 @@ static bool COREAUDIO_Init(SDL_AudioDriverImpl *impl)
 }
 
 AudioBootStrap COREAUDIO_bootstrap = {
-    "coreaudio", "CoreAudio", COREAUDIO_Init, false
+    "coreaudio", "CoreAudio", COREAUDIO_Init, false, false
 };
 
 #endif // SDL_AUDIO_DRIVER_COREAUDIO

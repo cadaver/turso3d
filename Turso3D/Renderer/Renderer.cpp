@@ -1232,7 +1232,7 @@ void Renderer::CollectOctantsWork(Task* task_, unsigned)
         workQueue->QueueTask(batchTask);
     }
 
-    if (numPendingBatchTasks.fetch_add(-1) == 1)
+    if (numPendingBatchTasks.fetch_sub(1) == 1)
         SortMainBatches();
 }
 
@@ -1518,7 +1518,7 @@ void Renderer::CollectBatchesWork(Task* task_, unsigned threadIndex)
         }
     }
 
-    if (numPendingBatchTasks.fetch_add(-1) == 1)
+    if (numPendingBatchTasks.fetch_sub(1) == 1)
         SortMainBatches();
 }
 
@@ -1851,7 +1851,7 @@ void Renderer::CollectShadowBatchesWork(Task* task_, unsigned)
     }
 
     // Sort shadow batches if was the last task
-    if (numPendingShadowViewTasks[task->shadowMapIdx].fetch_add(-1) == 1)
+    if (numPendingShadowViewTasks[task->shadowMapIdx].fetch_sub(1) == 1)
         SortShadowBatches(shadowMap);
 }
 

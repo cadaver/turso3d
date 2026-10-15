@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -175,8 +175,10 @@ static bool HIDAPI_DriverXbox360W_OpenJoystick(SDL_HIDAPI_Device *device, SDL_Jo
                         SDL_PlayerLEDHintChanged, ctx);
 
     // Initialize the joystick capabilities
-    joystick->nbuttons = 15;
+    joystick->nbuttons = 11;
     joystick->naxes = SDL_GAMEPAD_AXIS_COUNT;
+    joystick->nhats = 1;
+    joystick->connection_state = SDL_JOYSTICK_CONNECTION_WIRELESS;
 
     return true;
 }
@@ -304,7 +306,7 @@ static bool HIDAPI_DriverXbox360W_UpdateDevice(SDL_HIDAPI_Device *device)
         if (size == 2 && data[0] == 0x08) {
             bool connected = (data[1] & 0x80) ? true : false;
 #ifdef DEBUG_JOYSTICK
-            SDL_Log("Connected = %s\n", connected ? "TRUE" : "FALSE");
+            SDL_Log("Connected = %s", connected ? "TRUE" : "FALSE");
 #endif
             if (connected != ctx->connected) {
                 ctx->connected = connected;
@@ -321,14 +323,14 @@ static bool HIDAPI_DriverXbox360W_UpdateDevice(SDL_HIDAPI_Device *device)
         } else if (size == 29 && data[0] == 0x00 && data[1] == 0x0f && data[2] == 0x00 && data[3] == 0xf0) {
             // Serial number is data[7-13]
 #ifdef DEBUG_JOYSTICK
-            SDL_Log("Battery status (initial): %d\n", data[17]);
+            SDL_Log("Battery status (initial): %d", data[17]);
 #endif
             if (joystick) {
                 UpdatePowerLevel(joystick, data[17]);
             }
         } else if (size == 29 && data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x00 && data[3] == 0x13) {
 #ifdef DEBUG_JOYSTICK
-            SDL_Log("Battery status: %d\n", data[4]);
+            SDL_Log("Battery status: %d", data[4]);
 #endif
             if (joystick) {
                 UpdatePowerLevel(joystick, data[4]);

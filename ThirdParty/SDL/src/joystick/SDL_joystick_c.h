@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -126,11 +126,26 @@ extern bool SDL_IsJoystickGoogleStadiaController(Uint16 vendor_id, Uint16 produc
 // Function to return whether a joystick is an NVIDIA SHIELD controller
 extern bool SDL_IsJoystickNVIDIASHIELDController(Uint16 vendor_id, Uint16 product_id);
 
+// Function to return whether a joystick is a Steam Virtual Gamepad
+extern bool SDL_IsJoystickSteamVirtualGamepad(Uint16 vendor_id, Uint16 product_id, Uint16 version);
+
 // Function to return whether a joystick is a Steam Controller
 extern bool SDL_IsJoystickSteamController(Uint16 vendor_id, Uint16 product_id);
 
+// Function to return whether a joystick is a HORI Steam controller
+extern bool SDL_IsJoystickHoriSteamController(Uint16 vendor_id, Uint16 product_id);
+
+// Function to return whether a joystick is an SInput (Open Format) controller
+extern bool SDL_IsJoystickSInputController(Uint16 vendor_id, Uint16 product_id);
+
+// Function to return whether a joystick is a Flydigi controller
+extern bool SDL_IsJoystickFlydigiController(Uint16 vendor_id, Uint16 product_id);
+
 // Function to return whether a joystick is a Steam Deck
 extern bool SDL_IsJoystickSteamDeck(Uint16 vendor_id, Uint16 product_id);
+
+// Function to return whether a joystick is a Steam Triton
+extern bool SDL_IsJoystickSteamTriton(Uint16 vendor_id, Uint16 product_id);
 
 // Function to return whether a joystick guid comes from the XInput driver
 extern bool SDL_IsJoystickXInput(SDL_GUID guid);
@@ -150,8 +165,11 @@ extern bool SDL_IsJoystickRAWINPUT(SDL_GUID guid);
 // Function to return whether a joystick guid comes from the Virtual driver
 extern bool SDL_IsJoystickVIRTUAL(SDL_GUID guid);
 
+// Function to return whether a joystick is a wheel
+bool SDL_IsJoystickWheel(Uint16 vendor_id, Uint16 product_id);
+
 // Function to return whether a joystick should be ignored
-extern bool SDL_ShouldIgnoreJoystick(const char *name, SDL_GUID guid);
+extern bool SDL_ShouldIgnoreJoystick(Uint16 vendor_id, Uint16 product_id, Uint16 version, const char *name);
 
 // Internal event queueing functions
 extern void SDL_PrivateJoystickAddTouchpad(SDL_Joystick *joystick, int nfingers);

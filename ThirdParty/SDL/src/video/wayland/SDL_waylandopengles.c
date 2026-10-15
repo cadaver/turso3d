@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -32,6 +32,10 @@
 
 #include "xdg-shell-client-protocol.h"
 
+#ifndef EGL_PLATFORM_WAYLAND_KHR
+#define EGL_PLATFORM_WAYLAND_KHR 0x31D8
+#endif
+
 // EGL implementation of SDL OpenGL ES support
 
 bool Wayland_GLES_LoadLibrary(SDL_VideoDevice *_this, const char *path)
@@ -39,6 +43,9 @@ bool Wayland_GLES_LoadLibrary(SDL_VideoDevice *_this, const char *path)
     bool result;
     SDL_VideoData *data = _this->internal;
 
+    if (!_this->gl_config.egl_platform) {
+        _this->gl_config.egl_platform = EGL_PLATFORM_WAYLAND_KHR;
+    }
     result = SDL_EGL_LoadLibrary(_this, path, (NativeDisplayType)data->display, _this->gl_config.egl_platform);
 
     Wayland_PumpEvents(_this);
@@ -115,8 +122,8 @@ bool Wayland_GLES_SwapWindow(SDL_VideoDevice *_this, SDL_Window *window)
      * FIXME: Request EGL_WAYLAND_swap_buffers_with_timeout.
      * -flibit
      */
-    if (data->surface_status != WAYLAND_SURFACE_STATUS_SHOWN &&
-        data->surface_status != WAYLAND_SURFACE_STATUS_WAITING_FOR_FRAME) {
+    if (data->shell_surface_status != WAYLAND_SHELL_SURFACE_STATUS_SHOWN &&
+        data->shell_surface_status != WAYLAND_SHELL_SURFACE_STATUS_WAITING_FOR_FRAME) {
         return true;
     }
 
@@ -134,12 +141,12 @@ bool Wayland_GLES_SwapWindow(SDL_VideoDevice *_this, SDL_Window *window)
     }
 
     // Control swap interval ourselves. See comments on Wayland_GLES_SetSwapInterval
-    if (swap_interval != 0 && data->surface_status == WAYLAND_SURFACE_STATUS_SHOWN) {
+    if (swap_interval != 0 && data->shell_surface_status == WAYLAND_SHELL_SURFACE_STATUS_SHOWN) {
         SDL_VideoData *videodata = _this->internal;
         struct wl_display *display = videodata->display;
         // 20hz, so we'll progress even if throttled to zero.
         const Uint64 max_wait = SDL_GetTicksNS() + (SDL_NS_PER_SECOND / 20);
-        while (SDL_AtomicGet(&data->swap_interval_ready) == 0) {
+        while (SDL_GetAtomicInt(&data->swap_interval_ready) == 0) {
             Uint64 now;
 
             WAYLAND_wl_display_flush(display);
@@ -171,7 +178,7 @@ bool Wayland_GLES_SwapWindow(SDL_VideoDevice *_this, SDL_Window *window)
             WAYLAND_wl_display_read_events(display);
             WAYLAND_wl_display_dispatch_queue_pending(display, data->gles_swap_frame_event_queue);
         }
-        SDL_AtomicSet(&data->swap_interval_ready, 0);
+        SDL_SetAtomicInt(&data->swap_interval_ready, 0);
     }
 
     if (!data->double_buffer) {

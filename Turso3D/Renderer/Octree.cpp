@@ -14,7 +14,7 @@
 static const float DEFAULT_OCTREE_SIZE = 1000.0f;
 static const int DEFAULT_OCTREE_LEVELS = 8;
 static const int MAX_OCTREE_LEVELS = 255;
-static const size_t MIN_THREADED_UPDATE = 16;
+static const int DRAWABLE_TASK_LIMIT = 16;
 
 static std::vector<unsigned> freeQueries;
 
@@ -38,19 +38,17 @@ static inline bool CompareDrawables(Drawable* lhs, Drawable* rhs)
         return lhs < rhs;
 }
 
-/// %Task for octree drawables reinsertion.
-struct ReinsertDrawablesTask : public MemberFunctionTask<Octree>
+/// %Task for octant update.
+struct UpdateOctantTask : public MemberFunctionTask<Octree>
 {
     /// Construct.
-    ReinsertDrawablesTask(Octree* object_, MemberWorkFunctionPtr function_) :
+    UpdateOctantTask(Octree* object_, MemberWorkFunctionPtr function_) :
         MemberFunctionTask<Octree>(object_, function_)
     {
     }
 
-    /// Start pointer.
-    Drawable** start;
-    /// End pointer.
-    Drawable** end;
+    /// Octant.
+    Octant* octant;
 };
 
 Octant::Octant() :
@@ -171,8 +169,8 @@ const BoundingBox& Octant::CullingBox() const
 }
 
 Octree::Octree() :
-    inUpdate(false),
     frameNumber(0),
+    inUpdate(false),
     workQueue(Subsystem<WorkQueue>())
 {
     assert(workQueue);
@@ -180,34 +178,11 @@ Octree::Octree() :
     root.Initialize(nullptr, BoundingBox(-DEFAULT_OCTREE_SIZE, DEFAULT_OCTREE_SIZE), DEFAULT_OCTREE_LEVELS, 0);
 
     size_t numQueues = workQueue->NumThreads();
-    updateQueues = new std::vector<Drawable*>[numQueues];
     reinsertQueues = new std::vector<Drawable*>[numQueues];
-
-    // Have at least 1 task for reinsert processing
-    reinsertTasks.push_back(new ReinsertDrawablesTask(this, &Octree::CheckReinsertWork));
 }
 
 Octree::~Octree()
 {
-    // Clear octree association from nodes that were never inserted
-    // Note: the threaded queues cannot have nodes that were never inserted, only nodes that should be moved
-    size_t numQueues = workQueue->NumThreads();
-
-    for (size_t i = 0; i < numQueues; ++i)
-    {
-        std::vector<Drawable*>& updateQueue = updateQueues[i];
-
-        for (auto it = updateQueue.begin(); it != updateQueue.end(); ++it)
-        {
-            Drawable* drawable = *it;
-            if (drawable)
-            {
-                drawable->octant = nullptr;
-                drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
-            }
-        }
-    }
-
     DeleteChildOctants(&root, true);
 }
 
@@ -228,68 +203,33 @@ void Octree::Update(unsigned short frameNumber_)
     frameNumber = frameNumber_;
     inUpdate = true;
 
-    size_t numQueues = workQueue->NumThreads();
-    size_t taskIdx = 0;
+    nextOctantTaskIdx = 0;
+    numPendingOctantTasks.store(0);
 
-    // Count first how many drawables in all update queues
-    size_t totalDrawables = 0;
-    for (size_t i = 0; i < numQueues; ++i)
-        totalDrawables += updateQueues[i].size();
-
-    for (size_t i = 0; i < numQueues; ++i)
-    {
-        std::vector<Drawable*>& updateQueue = updateQueues[i];
-        if (updateQueue.empty())
-            continue;
-
-        // Aim for at least 4 tasks per thread to allow for work stealing in case some drawables are slower to update
-        size_t drawablesPerTask = Max(MIN_THREADED_UPDATE, totalDrawables / workQueue->NumThreads() / 4);
-
-        for (size_t start = 0; start < updateQueue.size(); start += drawablesPerTask)
-        {
-            size_t end = start + drawablesPerTask;
-            if (end > updateQueue.size())
-                end = updateQueue.size();
-
-            if (reinsertTasks.size() <= taskIdx)
-                reinsertTasks.push_back(new ReinsertDrawablesTask(this, &Octree::CheckReinsertWork));
-            reinsertTasks[taskIdx]->start = &updateQueue[0] + start;
-            reinsertTasks[taskIdx]->end = &updateQueue[0] + end;
-            ++taskIdx;
-        }
-    }
-
-    numPendingReinsertionTasks.store((int)taskIdx);
-    workQueue->QueueTasks(taskIdx, reinterpret_cast<Task**>(&reinsertTasks[0]));
+    // Start with root octant in the main thread. Create tasks only for octants with significant amount of drawables
+    UpdateOctant(&root, true, WorkQueue::ThreadIndex());
 }
 
 void Octree::FinishUpdate()
 {
     ZoneScoped;
 
-    // Complete tasks until reinsertions done. There may other tasks going on at the same time
-    while (numPendingReinsertionTasks.load() > 0)
-        workQueue->TryComplete();
+    workQueue->Complete();
+    inUpdate = false;
 
     // Now reinsert drawables that actually need reinsertion into a different octant, and clear the update queues for next frame
     size_t numQueues = workQueue->NumThreads();
-
     for (size_t i = 0; i < numQueues; ++i)
-    {
         ReinsertDrawables(reinsertQueues[i]);
-        updateQueues[i].clear();
-    }
 
-    // Sort octants' drawables by address and put lights first
+    // For octants whose drawable list changed, sort drawables by address and put lights first
     for (auto it = sortDirtyOctants.begin(); it != sortDirtyOctants.end(); ++it)
     {
         Octant* octant = *it;
         std::sort(octant->drawables.begin(), octant->drawables.end(), CompareDrawables);
         octant->SetFlag(OF_DRAWABLES_SORT_DIRTY, false);
     }
-
     sortDirtyOctants.clear();
-    inUpdate = false;
 }
 
 void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
@@ -303,8 +243,8 @@ void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
 
     if (hasChildOctants)
     { 
-        updateQueues[0].clear();
-        CollectDrawables(updateQueues[0], &root);
+        reinsertQueues[0].clear();
+        CollectDrawables(reinsertQueues[0], &root);
         DeleteChildOctants(&root, false);
         allocator.Reset();
     }
@@ -378,26 +318,21 @@ void Octree::QueueUpdate(Drawable* drawable)
 {
     assert(drawable);
 
-    if (drawable->octant)
-        drawable->octant->MarkCullingBoxDirty();
-
     if (!inUpdate)
     {
-        updateQueues[WorkQueue::ThreadIndex()].push_back(drawable);
+        if (drawable->octant)
+            drawable->octant->MarkCullingBoxDirty();
+        else
+            reinsertQueues[0].push_back(drawable);
+
         drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, true);
     }
     else
     {
-        drawable->lastUpdateFrameNumber = frameNumber;
-
-        // Do nothing if still fits the current octant
+        // Already in update, put directly to reinsert queue if necessary
         const BoundingBox& box = drawable->WorldBoundingBox();
-        Octant* oldOctant = drawable->GetOctant();
-        if (!oldOctant || oldOctant->fittingBox.IsInside(box) != INSIDE)
-        {
+        if (drawable->octant && drawable->octant->fittingBox.IsInside(box) != INSIDE)
             reinsertQueues[WorkQueue::ThreadIndex()].push_back(drawable);
-            drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, true);
-        }
     }
 }
 
@@ -407,20 +342,66 @@ void Octree::RemoveDrawable(Drawable* drawable)
         return;
 
     RemoveDrawable(drawable, drawable->GetOctant());
+
+    // Remove from the first reinsertion queue where an initial insert may have been pending
     if (drawable->TestFlag(DF_OCTREE_REINSERT_QUEUED))
     {
-        size_t numQueues = workQueue->NumThreads();
-
-        for (size_t i = 0; i < numQueues; ++i)
-        {
-            RemoveDrawableFromQueue(drawable, updateQueues[i]);
-            RemoveDrawableFromQueue(drawable, reinsertQueues[i]);
-        }
-
+        RemoveDrawableFromQueue(drawable, reinsertQueues[0]);
         drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
     }
 
     drawable->octant = nullptr;
+}
+
+void Octree::UpdateOctant(Octant* octant, bool recursive, unsigned threadIndex)
+{
+    // If octant has a substantial amount of drawables, update as a separate non-recursive task instead of recursing here
+    if (recursive && octant->drawables.size() >= DRAWABLE_TASK_LIMIT)
+    {
+        if (numPendingOctantTasks.load() == 0)
+            nextOctantTaskIdx = 0;
+
+        unsigned freeIdx = nextOctantTaskIdx++;
+
+        if (freeIdx >= updateOctantTasks.size())
+            updateOctantTasks.push_back(new UpdateOctantTask(this, &Octree::UpdateOctantWork));
+
+        updateOctantTasks[freeIdx]->octant = octant;
+        numPendingOctantTasks.fetch_add(1);
+        workQueue->QueueTask(updateOctantTasks[freeIdx]);
+    }
+    else
+    {
+        for (auto it = octant->drawables.begin(); it != octant->drawables.end(); ++it)
+        {
+            Drawable* drawable = *it;
+
+            if (drawable->TestFlag(DF_OCTREE_REINSERT_QUEUED))
+            {
+                if (drawable->TestFlag(DF_OCTREE_UPDATE_CALL))
+                    drawable->OnOctreeUpdate(frameNumber);
+
+                drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
+                drawable->lastUpdateFrameNumber = frameNumber;
+
+                // No reinsert if still fits the current octant
+                const BoundingBox& box = drawable->WorldBoundingBox();
+                if (octant->fittingBox.IsInside(box) != INSIDE)
+                    reinsertQueues[threadIndex].push_back(drawable);
+            }
+        }
+    }
+
+    if (recursive && octant->numChildren)
+    {
+        for (size_t i = 0; i < NUM_OCTANTS; ++i)
+        {
+            Octant* child = octant->children[i];
+
+            if (child && child->TestFlag(OF_CULLING_BOX_DIRTY))
+                UpdateOctant(child, true, threadIndex);
+        }
+    }
 }
 
 void Octree::SetBoundingBoxAttr(const BoundingBox& value)
@@ -651,35 +632,11 @@ void Octree::CollectDrawables(std::vector<std::pair<Drawable*, float> >& result,
     }
 }
 
-void Octree::CheckReinsertWork(Task* task_, unsigned threadIndex_)
+void Octree::UpdateOctantWork(Task* task_, unsigned threadIndex)
 {
     ZoneScoped;
 
-    ReinsertDrawablesTask* task = static_cast<ReinsertDrawablesTask*>(task_);
-    Drawable** start = task->start;
-    Drawable** end = task->end;
-    std::vector<Drawable*>& reinsertQueue = reinsertQueues[threadIndex_];
-
-    for (; start != end; ++start)
-    {
-        // If drawable was removed before reinsertion could happen, a null pointer will be in its place
-        Drawable* drawable = *start;
-        if (!drawable)
-            continue;
-
-        if (drawable->TestFlag(DF_OCTREE_UPDATE_CALL))
-            drawable->OnOctreeUpdate(frameNumber);
-
-        drawable->lastUpdateFrameNumber = frameNumber;
-
-        // Do nothing if still fits the current octant
-        const BoundingBox& box = drawable->WorldBoundingBox();
-        Octant* oldOctant = drawable->GetOctant();
-        if (!oldOctant || oldOctant->fittingBox.IsInside(box) != INSIDE)
-            reinsertQueue.push_back(drawable);
-        else
-            drawable->SetFlag(DF_OCTREE_REINSERT_QUEUED, false);
-    }
-
-    numPendingReinsertionTasks.fetch_add(-1);
+    UpdateOctantTask* task = static_cast<UpdateOctantTask*>(task_);
+    UpdateOctant(task->octant, false, threadIndex);
+    numPendingOctantTasks.fetch_sub(1);
 }

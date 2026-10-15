@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -38,5 +38,9 @@ extern bool SDL_HasInternalClipboardData(SDL_VideoDevice *_this, const char *mim
 
 // General purpose clipboard text callback
 const void * SDLCALL SDL_ClipboardTextCallback(void *userdata, const char *mime_type, size_t *size);
+
+bool SDL_SaveClipboardMimeTypes(const char *const *mime_types, size_t num_mime_types);
+void SDL_FreeClipboardMimeTypes(SDL_VideoDevice *_this);
+char **SDL_CopyClipboardMimeTypes(const char *const *clipboard_mime_types, size_t num_mime_types, bool temporary);
 
 #endif // SDL_clipboard_c_h_

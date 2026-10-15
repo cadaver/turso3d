@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -27,6 +27,8 @@
 #include "edid.h"
 #include "../../events/SDL_displayevents_c.h"
 
+#include "../../core/unix/SDL_gtk.h"
+
 // #define X11MODES_DEBUG
 
 /* Timeout and revert mode switches if the timespan has elapsed without the window becoming fullscreen.
@@ -46,221 +48,100 @@
  */
 // #define XRANDR_DISABLED_BY_DEFAULT
 
-#ifdef SDL_USE_LIBDBUS
-
-#define SCALE_FACTOR_NODE "org.freedesktop.portal.Desktop"
-#define SCALE_FACTOR_PATH "/org/freedesktop/portal/desktop"
-#define SCALE_FACTOR_INTERFACE "org.freedesktop.portal.Settings"
-#define SCALE_FACTOR_NAMESPACE "org.gnome.desktop.interface"
-#define SCALE_FACTOR_SIGNAL_NAME "SettingChanged"
-#define SCALE_FACTOR_KEY "text-scaling-factor"
-
-static DBusMessage *ReadDBusSetting(SDL_DBusContext *dbus, const char *key)
+float X11_GetGlobalContentScale(Display *display, XSettingsClient *client)
 {
-    static const char *iface = SCALE_FACTOR_NAMESPACE;
+    double scale_factor = 0.0;
 
-    DBusMessage *reply = NULL;
-    DBusMessage *msg = dbus->message_new_method_call(SCALE_FACTOR_NODE,
-                                                     SCALE_FACTOR_PATH,
-                                                     SCALE_FACTOR_INTERFACE,
-                                                     "Read"); // Method
-
-    if (msg) {
-        if (dbus->message_append_args(msg, DBUS_TYPE_STRING, &iface, DBUS_TYPE_STRING, &key, DBUS_TYPE_INVALID)) {
-            reply = dbus->connection_send_with_reply_and_block(dbus->session_conn, msg, DBUS_TIMEOUT_USE_DEFAULT, NULL);
-        }
-        dbus->message_unref(msg);
-    }
-
-    return reply;
-}
-
-static bool ParseDBusReply(SDL_DBusContext *dbus, DBusMessage *reply, int type, void *value)
-{
-    DBusMessageIter iter[3];
-
-    dbus->message_iter_init(reply, &iter[0]);
-    if (dbus->message_iter_get_arg_type(&iter[0]) != DBUS_TYPE_VARIANT) {
-        return false;
-    }
-
-    dbus->message_iter_recurse(&iter[0], &iter[1]);
-    if (dbus->message_iter_get_arg_type(&iter[1]) != DBUS_TYPE_VARIANT) {
-        return false;
-    }
-
-    dbus->message_iter_recurse(&iter[1], &iter[2]);
-    if (dbus->message_iter_get_arg_type(&iter[2]) != type) {
-        return false;
-    }
-
-    dbus->message_iter_get_basic(&iter[2], value);
-
-    return true;
-}
-
-static void UpdateDisplayContentScale(float scale)
-{
-    SDL_VideoDevice *viddevice = SDL_GetVideoDevice();
-    int i;
-
-    if (viddevice) {
-        for (i = 0; i < viddevice->num_displays; ++i) {
-            SDL_SetDisplayContentScale(viddevice->displays[i], scale);
+    // First use the forced scaling factor specified by the app/user
+    const char *hint = SDL_GetHint(SDL_HINT_VIDEO_X11_SCALING_FACTOR);
+    if (hint && *hint) {
+        double value = SDL_atof(hint);
+        if (value >= 1.0f && value <= 10.0f) {
+            scale_factor = value;
         }
     }
-}
 
-static DBusHandlerResult DBus_MessageFilter(DBusConnection *conn, DBusMessage *msg, void *data)
-{
-    SDL_DBusContext *dbus = SDL_DBus_GetContext();
-    double *scale_factor = (double *)data;
-    double new_scale = 0.0;
-
-    if (dbus->message_is_signal(msg, SCALE_FACTOR_INTERFACE, SCALE_FACTOR_SIGNAL_NAME)) {
-        DBusMessageIter signal_iter, variant_iter;
-        const char *namespace, *key;
-
-        dbus->message_iter_init(msg, &signal_iter);
-        // Check if the parameters are what we expect
-        if (dbus->message_iter_get_arg_type(&signal_iter) != DBUS_TYPE_STRING) {
-            goto not_our_signal;
-        }
-        dbus->message_iter_get_basic(&signal_iter, &namespace);
-        if (SDL_strcmp(SCALE_FACTOR_NAMESPACE, namespace) != 0) {
-            goto not_our_signal;
-        }
-        if (!dbus->message_iter_next(&signal_iter)) {
-            goto not_our_signal;
-        }
-        if (dbus->message_iter_get_arg_type(&signal_iter) != DBUS_TYPE_STRING) {
-            goto not_our_signal;
-        }
-        dbus->message_iter_get_basic(&signal_iter, &key);
-        if (SDL_strcmp(SCALE_FACTOR_KEY, key) != 0) {
-            goto not_our_signal;
-        }
-        if (!dbus->message_iter_next(&signal_iter)) {
-            goto not_our_signal;
-        }
-        if (dbus->message_iter_get_arg_type(&signal_iter) != DBUS_TYPE_VARIANT) {
-            goto not_our_signal;
-        }
-        dbus->message_iter_recurse(&signal_iter, &variant_iter);
-        if (dbus->message_iter_get_arg_type(&variant_iter) != DBUS_TYPE_DOUBLE) {
-            goto not_our_signal;
-        }
-        dbus->message_iter_get_basic(&variant_iter, &new_scale);
-
-        if (new_scale > 0.0) {
-            *scale_factor = new_scale;
-            UpdateDisplayContentScale((float)new_scale);
-        }
-
-        return DBUS_HANDLER_RESULT_HANDLED;
-    }
-
-not_our_signal:
-    return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
-}
-
-#endif
-
-static float GetGlobalContentScale(SDL_VideoDevice *_this)
-{
-    static double scale_factor = 0.0;
-
+    // If that failed, try "Xft.dpi" from the XResourcesDatabase...
+    // We attempt to read this directly to get the live value, XResourceManagerString
+    // is cached per display connection.
     if (scale_factor <= 0.0) {
+        int status, real_format;
+        Atom real_type;
+        Atom res_mgr;
+        unsigned long items_read, items_left;
+        char *resource_manager;
+        bool owns_resource_manager = false;
 
-        // First use the forced scaling factor specified by the app/user
-        const char *hint = SDL_GetHint(SDL_HINT_VIDEO_X11_SCALING_FACTOR);
-        if (hint && *hint) {
-            double value = SDL_atof(hint);
-            if (value >= 1.0f && value <= 10.0f) {
-                scale_factor = value;
-            }
+        X11_XrmInitialize();
+        res_mgr = X11_XInternAtom(display, "RESOURCE_MANAGER", False);
+        status = X11_XGetWindowProperty(display, RootWindow(display, DefaultScreen(display)),
+                                        res_mgr, 0L, 8192L, False, XA_STRING,
+                                        &real_type, &real_format, &items_read, &items_left,
+                                        (unsigned char **)&resource_manager);
+
+        if (status == Success && resource_manager) {
+            owns_resource_manager = true;
+        } else {
+            // Fall back to XResourceManagerString. This will not be updated if the
+            // dpi value is later changed but should allow getting the initial value.
+            resource_manager = X11_XResourceManagerString(display);
         }
 
-        // Next try the settings portal via D-Bus for the text scaling factor (aka 'Global Scale' on KDE)
-#ifdef SDL_USE_LIBDBUS
-        if (scale_factor <= 0.0)
-        {
-            DBusMessage *reply;
-            SDL_DBusContext *dbus = SDL_DBus_GetContext();
-
-            if (dbus) {
-                if ((reply = ReadDBusSetting(dbus, SCALE_FACTOR_KEY))) {
-                    if (ParseDBusReply(dbus, reply, DBUS_TYPE_DOUBLE, &scale_factor)) {
-                        // If the setting exists, register a listener for scale changes.
-                        dbus->bus_add_match(dbus->session_conn,
-                                            "type='signal', interface='"SCALE_FACTOR_INTERFACE"',"
-                                            "member='"SCALE_FACTOR_SIGNAL_NAME"', arg0='"SCALE_FACTOR_NAMESPACE"',"
-                                            "arg1='"SCALE_FACTOR_KEY"'", NULL);
-                        dbus->connection_add_filter(dbus->session_conn, &DBus_MessageFilter, &scale_factor, NULL);
-                        dbus->connection_flush(dbus->session_conn);
-                    }
-                    dbus->message_unref(reply);
-                }
-            }
-        }
-#endif
-
-        // If that failed, try "Xft.dpi" from the XResourcesDatabase...
-        if (scale_factor <= 0.0)
-        {
-            SDL_VideoData *data = _this->internal;
-            Display *display = data->display;
-            char *resource_manager;
+        if (resource_manager) {
             XrmDatabase db;
             XrmValue value;
             char *type;
 
-            X11_XrmInitialize();
+            db = X11_XrmGetStringDatabase(resource_manager);
 
-            resource_manager = X11_XResourceManagerString(display);
-            if (resource_manager) {
-                db = X11_XrmGetStringDatabase(resource_manager);
-
-                // Get the value of Xft.dpi from the Database
-                if (X11_XrmGetResource(db, "Xft.dpi", "String", &type, &value)) {
-                    if (value.addr && type && SDL_strcmp(type, "String") == 0) {
-                        int dpi = SDL_atoi(value.addr);
-                        scale_factor  = dpi / 96.0;
-                    }
-                }
-                X11_XrmDestroyDatabase(db);
-            }
-        }
-
-        // If that failed, try the XSETTINGS keys...
-        if (scale_factor <= 0.0) {
-            scale_factor = X11_GetXsettingsIntKey(_this, "Gdk/WindowScalingFactor", -1);
-
-            // The Xft/DPI key is stored in increments of 1024th
-            if (scale_factor <= 0.0) {
-                int dpi = X11_GetXsettingsIntKey(_this, "Xft/DPI", -1);
-                if (dpi > 0) {
-                    scale_factor = (double) dpi / 1024.0;
-                    scale_factor /= 96.0;
+            // Get the value of Xft.dpi from the Database
+            if (X11_XrmGetResource(db, "Xft.dpi", "String", &type, &value)) {
+                if (value.addr && type && SDL_strcmp(type, "String") == 0) {
+                    int dpi = SDL_atoi(value.addr);
+                    scale_factor  = dpi / 96.0;
                 }
             }
-        }
+            X11_XrmDestroyDatabase(db);
 
-        // If that failed, try the GDK_SCALE envvar...
-        if (scale_factor <= 0.0) {
-            const char *scale_str = SDL_getenv("GDK_SCALE");
-            if (scale_str) {
-                scale_factor = SDL_atoi(scale_str);
+            if (owns_resource_manager) {
+                X11_XFree(resource_manager);
             }
-        }
-
-        // Nothing or a bad value, just fall back to 1.0
-        if (scale_factor <= 0.0) {
-            scale_factor = 1.0;
         }
     }
 
+    // If that failed, try the XSETTINGS keys...
+    if (scale_factor <= 0.0) {
+        scale_factor = X11_GetXsettingsClientIntKey(client, "Gdk/WindowScalingFactor", -1);
+
+        // The Xft/DPI key is stored in increments of 1024th
+        if (scale_factor <= 0.0) {
+            int dpi = X11_GetXsettingsClientIntKey(client, "Xft/DPI", -1);
+            if (dpi > 0) {
+                scale_factor = (double) dpi / 1024.0;
+                scale_factor /= 96.0;
+            }
+        }
+    }
+
+    // If that failed, try the GDK_SCALE envvar...
+    if (scale_factor <= 0.0) {
+        const char *scale_str = SDL_getenv("GDK_SCALE");
+        if (scale_str) {
+            scale_factor = SDL_atoi(scale_str);
+        }
+    }
+
+    // Nothing or a bad value, just fall back to 1.0
+    if (scale_factor <= 0.0) {
+        scale_factor = 1.0;
+    }
+
     return (float)scale_factor;
+}
+
+float X11_GetGlobalContentScaleForDevice(SDL_VideoDevice *_this)
+{
+    return X11_GetGlobalContentScale(_this->internal->display, _this->internal->xsettings_data.xsettings);
 }
 
 static bool get_visualinfo(Display *display, int screen, XVisualInfo *vinfo)
@@ -366,7 +247,96 @@ SDL_PixelFormat X11_GetPixelFormatFromVisualInfo(Display *display, XVisualInfo *
     return SDL_PIXELFORMAT_UNKNOWN;
 }
 
+static SDL_DisplayID X11_AddGenericDisplay(SDL_VideoDevice *_this, bool send_event)
+{
+    // !!! FIXME: a lot of copy/paste from X11_InitModes_XRandR in this function.
+    SDL_VideoData *data = _this->internal;
+    Display *dpy = data->display;
+    const int default_screen = DefaultScreen(dpy);
+    Screen *screen = ScreenOfDisplay(dpy, default_screen);
+    int scanline_pad, n, i;
+    SDL_DisplayModeData *modedata;
+    SDL_DisplayData *displaydata;
+    SDL_DisplayMode mode;
+    XPixmapFormatValues *pixmapformats;
+    Uint32 pixelformat;
+    XVisualInfo vinfo;
+    SDL_VideoDisplay display;
+
+    // note that generally even if you have a multiple physical monitors, ScreenCount(dpy) still only reports ONE screen.
+
+    if (!get_visualinfo(dpy, default_screen, &vinfo)) {
+        return SDL_SetError("Failed to find an X11 visual for the primary display");
+    }
+
+    pixelformat = X11_GetPixelFormatFromVisualInfo(dpy, &vinfo);
+    if (SDL_ISPIXELFORMAT_INDEXED(pixelformat)) {
+        return SDL_SetError("Palettized video modes are no longer supported");
+    }
+
+    SDL_zero(mode);
+    mode.w = WidthOfScreen(screen);
+    mode.h = HeightOfScreen(screen);
+    mode.format = pixelformat;
+
+    displaydata = (SDL_DisplayData *)SDL_calloc(1, sizeof(*displaydata));
+    if (!displaydata) {
+        return false;
+    }
+
+    modedata = (SDL_DisplayModeData *)SDL_calloc(1, sizeof(SDL_DisplayModeData));
+    if (!modedata) {
+        SDL_free(displaydata);
+        return false;
+    }
+    mode.internal = modedata;
+
+    displaydata->screen = default_screen;
+    displaydata->visual = vinfo.visual;
+    displaydata->depth = vinfo.depth;
+
+    scanline_pad = SDL_BYTESPERPIXEL(pixelformat) * 8;
+    pixmapformats = X11_XListPixmapFormats(dpy, &n);
+    if (pixmapformats) {
+        for (i = 0; i < n; ++i) {
+            if (pixmapformats[i].depth == vinfo.depth) {
+                scanline_pad = pixmapformats[i].scanline_pad;
+                break;
+            }
+        }
+        X11_XFree(pixmapformats);
+    }
+
+    displaydata->scanline_pad = scanline_pad;
+    displaydata->x = 0;
+    displaydata->y = 0;
+    displaydata->use_xrandr = false;
+
+    SDL_zero(display);
+    display.name = (char *)"Generic X11 Display"; /* this is just copied and thrown away, it's safe to cast to char* here. */
+    display.desktop_mode = mode;
+    display.internal = displaydata;
+    display.content_scale = X11_GetGlobalContentScaleForDevice(_this);
+    return SDL_AddVideoDisplay(&display, send_event);
+}
+
 #ifdef SDL_VIDEO_DRIVER_X11_XRANDR
+
+static void X11_RemoveGenericDisplay(SDL_VideoDevice *_this)
+{
+    SDL_DisplayID *displays = SDL_GetDisplays(NULL);
+    if (displays) {
+        for (int i = 0; displays[i]; ++i) {
+            SDL_VideoDisplay *display = SDL_GetVideoDisplay(displays[i]);
+            const SDL_DisplayData *displaydata = display->internal;
+            if (!displaydata->xrandr_output) {
+                SDL_DelVideoDisplay(displays[i], true);
+            }
+        }
+        SDL_free(displays);
+    }
+}
+
 static bool CheckXRandR(Display *display, int *major, int *minor)
 {
     // Default the extension not available
@@ -623,6 +593,7 @@ static bool X11_FillXRandRDisplayInfo(SDL_VideoDevice *_this, Display *dpy, int 
     displaydata->y = display_y;
     displaydata->use_xrandr = true;
     displaydata->xrandr_output = outputid;
+    SDL_strlcpy(displaydata->connector_name, display_name, sizeof(displaydata->connector_name));
 
     SetXRandRModeInfo(dpy, res, output_crtc, modeID, &mode);
     SetXRandRDisplayName(dpy, EDID, display_name, display_name_size, outputid, display_mm_width, display_mm_height);
@@ -632,7 +603,7 @@ static bool X11_FillXRandRDisplayInfo(SDL_VideoDevice *_this, Display *dpy, int 
         display->name = display_name;
     }
     display->desktop_mode = mode;
-    display->content_scale = GetGlobalContentScale(_this);
+    display->content_scale = X11_GetGlobalContentScaleForDevice(_this);
     display->internal = displaydata;
 
     return true;
@@ -647,10 +618,17 @@ static bool X11_AddXRandRDisplay(SDL_VideoDevice *_this, Display *dpy, int scree
         return true; // failed to query data, skip this display
     }
 
-    if (SDL_AddVideoDisplay(&display, send_event) == 0) {
+    SDL_DisplayID displayID = SDL_AddVideoDisplay(&display, false);
+    if (displayID == 0) {
         return false;
     }
 
+    // We added an XRandR display, remove the generic display, if any
+    X11_RemoveGenericDisplay(_this);
+
+    if (send_event) {
+        SDL_SendDisplayEvent(SDL_GetVideoDisplay(displayID), SDL_EVENT_DISPLAY_ADDED, 0, 0);
+    }
     return true;
 }
 
@@ -684,6 +662,93 @@ static bool X11_UpdateXRandRDisplay(SDL_VideoDevice *_this, Display *dpy, int sc
     return true;
 }
 
+static XRRScreenResources *X11_GetScreenResources(Display *dpy, int screen)
+{
+    XRRScreenResources *res = X11_XRRGetScreenResourcesCurrent(dpy, RootWindow(dpy, screen));
+    if (!res || res->noutput == 0) {
+        if (res) {
+            X11_XRRFreeScreenResources(res);
+        }
+        res = X11_XRRGetScreenResources(dpy, RootWindow(dpy, screen));
+    }
+    return res;
+}
+
+static void X11_CheckDisplaysMoved(SDL_VideoDevice *_this, Display *dpy)
+{
+    const int screencount = ScreenCount(dpy);
+
+    SDL_DisplayID *displays = SDL_GetDisplays(NULL);
+    if (!displays) {
+        return;
+    }
+
+    for (int screen = 0; screen < screencount; ++screen) {
+        XRRScreenResources *res = X11_GetScreenResources(dpy, screen);
+        if (!res) {
+            continue;
+        }
+
+        for (int i = 0; displays[i]; ++i) {
+            SDL_VideoDisplay *display = SDL_GetVideoDisplay(displays[i]);
+            const SDL_DisplayData *displaydata = display->internal;
+            if (displaydata->xrandr_output && displaydata->screen == screen) {
+                X11_UpdateXRandRDisplay(_this, dpy, screen, displaydata->xrandr_output, res, display);
+            }
+        }
+        X11_XRRFreeScreenResources(res);
+    }
+    SDL_free(displays);
+}
+
+static void X11_CheckDisplaysRemoved(SDL_VideoDevice *_this, Display *dpy)
+{
+    const int screencount = ScreenCount(dpy);
+    int num_displays = 0;
+
+    SDL_DisplayID *displays = SDL_GetDisplays(&num_displays);
+    if (!displays) {
+        return;
+    }
+
+    for (int screen = 0; screen < screencount; ++screen) {
+        XRRScreenResources *res = X11_GetScreenResources(dpy, screen);
+        if (!res) {
+            continue;
+        }
+
+        for (int output = 0; output < res->noutput; output++) {
+            for (int i = 0; i < num_displays; ++i) {
+                if (!displays[i]) {
+                    // We already removed this display from the list
+                    continue;
+                }
+
+                SDL_VideoDisplay *display = SDL_GetVideoDisplay(displays[i]);
+                const SDL_DisplayData *displaydata = display->internal;
+                if (displaydata->xrandr_output == res->outputs[output]) {
+                    // This display is active, remove it from the list
+                    displays[i] = 0;
+                    break;
+                }
+            }
+        }
+        X11_XRRFreeScreenResources(res);
+    }
+
+    for (int i = 0; i < num_displays; ++i) {
+        if (displays[i]) {
+            SDL_VideoDisplay *display = SDL_GetVideoDisplay(displays[i]);
+            const SDL_DisplayData *displaydata = display->internal;
+            if (displaydata->xrandr_output) {
+                // This display wasn't in the XRandR list
+                SDL_DelVideoDisplay(displays[i], true);
+            }
+        }
+    }
+    SDL_free(displays);
+}
+
 static void X11_HandleXRandROutputChange(SDL_VideoDevice *_this, const XRROutputChangeNotifyEvent *ev)
 {
     SDL_DisplayID *displays;
@@ -691,8 +756,11 @@ static void X11_HandleXRandROutputChange(SDL_VideoDevice *_this, const XRROutput
     int i;
 
 #if 0
-    printf("XRROutputChangeNotifyEvent! [output=%u, crtc=%u, mode=%u, rotation=%u, connection=%u]", (unsigned int) ev->output, (unsigned int) ev->crtc, (unsigned int) ev->mode, (unsigned int) ev->rotation, (unsigned int) ev->connection);
+    printf("XRROutputChangeNotifyEvent! [output=%u, crtc=%u, mode=%u, rotation=%u, connection=%u]\n", (unsigned int) ev->output, (unsigned int) ev->crtc, (unsigned int) ev->mode, (unsigned int) ev->rotation, (unsigned int) ev->connection);
 #endif
+
+    // XWayland doesn't always send output disconnected events
+    X11_CheckDisplaysRemoved(_this, ev->display);
 
     displays = SDL_GetDisplays(NULL);
     if (displays) {
@@ -709,31 +777,31 @@ static void X11_HandleXRandROutputChange(SDL_VideoDevice *_this, const XRROutput
 
     if (ev->connection == RR_Disconnected) { // output is going away
         if (display) {
-            SDL_DelVideoDisplay(display->id, true);
-        }
-    } else if (ev->connection == RR_Connected) { // output is coming online
-        Display *dpy = ev->display;
-        const int screen = DefaultScreen(dpy);
-        XVisualInfo vinfo;
-        if (get_visualinfo(dpy, screen, &vinfo)) {
-            XRRScreenResources *res = X11_XRRGetScreenResourcesCurrent(dpy, RootWindow(dpy, screen));
-            if (!res || res->noutput == 0) {
-                if (res) {
-                    X11_XRRFreeScreenResources(res);
-                }
-                res = X11_XRRGetScreenResources(dpy, RootWindow(dpy, screen));
+            // Add the generic display if we're about to remove the last XRandR display
+            SDL_DisplayID generic_display = 0;
+            if (_this->num_displays == 1) {
+                generic_display = X11_AddGenericDisplay(_this, false);
             }
 
-            if (res) {
-                if (display) {
-                    X11_UpdateXRandRDisplay(_this, dpy, screen, ev->output, res, display);
-                } else {
-                    X11_AddXRandRDisplay(_this, dpy, screen, ev->output, res, true);
-                }
+            SDL_DelVideoDisplay(display->id, true);
 
+            if (generic_display) {
+                SDL_SendDisplayEvent(SDL_GetVideoDisplay(generic_display), SDL_EVENT_DISPLAY_ADDED, 0, 0);
+            }
+        }
+        X11_CheckDisplaysMoved(_this, ev->display);
+
+    } else if (ev->connection == RR_Connected) { // output is coming online
+        if (!display) {
+            Display *dpy = ev->display;
+            const int screen = DefaultScreen(dpy);
+            XRRScreenResources *res = X11_GetScreenResources(dpy, screen);
+            if (res) {
+                X11_AddXRandRDisplay(_this, dpy, screen, ev->output, res, true);
                 X11_XRRFreeScreenResources(res);
             }
         }
+        X11_CheckDisplaysMoved(_this, ev->display);
     }
 }
 
@@ -751,6 +819,52 @@ void X11_HandleXRandREvent(SDL_VideoDevice *_this, const XEvent *xevent)
     }
 }
 
+static void X11_SortOutputsByPriorityHint(SDL_VideoDevice *_this)
+{
+    const char *name_hint = SDL_GetHint(SDL_HINT_VIDEO_DISPLAY_PRIORITY);
+
+    if (name_hint) {
+        char *saveptr;
+        char *str = SDL_strdup(name_hint);
+        SDL_VideoDisplay **sorted_list = SDL_malloc(sizeof(SDL_VideoDisplay *) * _this->num_displays);
+
+        if (str && sorted_list) {
+            int sorted_index = 0;
+
+            // Sort the requested displays to the front of the list.
+            const char *token = SDL_strtok_r(str, ",", &saveptr);
+            while (token) {
+                for (int i = 0; i < _this->num_displays; ++i) {
+                    SDL_VideoDisplay *d = _this->displays[i];
+                    if (d) {
+                        SDL_DisplayData *data = d->internal;
+                        if (SDL_strcmp(token, data->connector_name) == 0) {
+                            sorted_list[sorted_index++] = d;
+                            _this->displays[i] = NULL;
+                            break;
+                        }
+                    }
+                }
+
+                token = SDL_strtok_r(NULL, ",", &saveptr);
+            }
+
+            // Append the remaining displays to the end of the list.
+            for (int i = 0; i < _this->num_displays; ++i) {
+                if (_this->displays[i]) {
+                    sorted_list[sorted_index++] = _this->displays[i];
+                }
+            }
+
+            // Copy the sorted list back to the display list.
+            SDL_memcpy(_this->displays, sorted_list, sizeof(SDL_VideoDisplay *) * _this->num_displays);
+        }
+
+        SDL_free(str);
+        SDL_free(sorted_list);
+    }
+}
+
 static bool X11_InitModes_XRandR(SDL_VideoDevice *_this)
 {
     SDL_VideoData *data = _this->internal;
@@ -758,7 +872,6 @@ static bool X11_InitModes_XRandR(SDL_VideoDevice *_this)
     const int screencount = ScreenCount(dpy);
     const int default_screen = DefaultScreen(dpy);
     RROutput primary = X11_XRRGetOutputPrimary(dpy, RootWindow(dpy, default_screen));
-    XRRScreenResources *res = NULL;
     int xrandr_error_base = 0;
     int looking_for_primary;
     int output;
@@ -776,16 +889,9 @@ static bool X11_InitModes_XRandR(SDL_VideoDevice *_this)
                 continue;
             }
 
-            res = X11_XRRGetScreenResourcesCurrent(dpy, RootWindow(dpy, screen));
-            if (!res || res->noutput == 0) {
-                if (res) {
-                    X11_XRRFreeScreenResources(res);
-                }
-
-                res = X11_XRRGetScreenResources(dpy, RootWindow(dpy, screen));
-                if (!res) {
-                    continue;
-                }
+            XRRScreenResources *res = X11_GetScreenResources(dpy, screen);
+            if (!res) {
+                continue;
             }
 
             for (output = 0; output < res->noutput; output++) {
@@ -810,6 +916,8 @@ static bool X11_InitModes_XRandR(SDL_VideoDevice *_this)
         return SDL_SetError("No available displays");
     }
 
+    X11_SortOutputsByPriorityHint(_this);
+
     return true;
 }
 #endif // SDL_VIDEO_DRIVER_X11_XRANDR
@@ -819,75 +927,7 @@ static bool X11_InitModes_XRandR(SDL_VideoDevice *_this)
    enumerate the current displays and their current sizes. */
 static bool X11_InitModes_StdXlib(SDL_VideoDevice *_this)
 {
-    // !!! FIXME: a lot of copy/paste from X11_InitModes_XRandR in this function.
-    SDL_VideoData *data = _this->internal;
-    Display *dpy = data->display;
-    const int default_screen = DefaultScreen(dpy);
-    Screen *screen = ScreenOfDisplay(dpy, default_screen);
-    int scanline_pad, n, i;
-    SDL_DisplayModeData *modedata;
-    SDL_DisplayData *displaydata;
-    SDL_DisplayMode mode;
-    XPixmapFormatValues *pixmapformats;
-    Uint32 pixelformat;
-    XVisualInfo vinfo;
-    SDL_VideoDisplay display;
-
-    // note that generally even if you have a multiple physical monitors, ScreenCount(dpy) still only reports ONE screen.
-
-    if (!get_visualinfo(dpy, default_screen, &vinfo)) {
-        return SDL_SetError("Failed to find an X11 visual for the primary display");
-    }
-
-    pixelformat = X11_GetPixelFormatFromVisualInfo(dpy, &vinfo);
-    if (SDL_ISPIXELFORMAT_INDEXED(pixelformat)) {
-        return SDL_SetError("Palettized video modes are no longer supported");
-    }
-
-    SDL_zero(mode);
-    mode.w = WidthOfScreen(screen);
-    mode.h = HeightOfScreen(screen);
-    mode.format = pixelformat;
-
-    displaydata = (SDL_DisplayData *)SDL_calloc(1, sizeof(*displaydata));
-    if (!displaydata) {
-        return false;
-    }
-
-    modedata = (SDL_DisplayModeData *)SDL_calloc(1, sizeof(SDL_DisplayModeData));
-    if (!modedata) {
-        SDL_free(displaydata);
-        return false;
-    }
-    mode.internal = modedata;
-
-    displaydata->screen = default_screen;
-    displaydata->visual = vinfo.visual;
-    displaydata->depth = vinfo.depth;
-
-    scanline_pad = SDL_BYTESPERPIXEL(pixelformat) * 8;
-    pixmapformats = X11_XListPixmapFormats(dpy, &n);
-    if (pixmapformats) {
-        for (i = 0; i < n; ++i) {
-            if (pixmapformats[i].depth == vinfo.depth) {
-                scanline_pad = pixmapformats[i].scanline_pad;
-                break;
-            }
-        }
-        X11_XFree(pixmapformats);
-    }
-
-    displaydata->scanline_pad = scanline_pad;
-    displaydata->x = 0;
-    displaydata->y = 0;
-    displaydata->use_xrandr = false;
-
-    SDL_zero(display);
-    display.name = (char *)"Generic X11 Display"; /* this is just copied and thrown away, it's safe to cast to char* here. */
-    display.desktop_mode = mode;
-    display.internal = displaydata;
-    display.content_scale = GetGlobalContentScale(_this);
-    if (SDL_AddVideoDisplay(&display, true) == 0) {
+    if (X11_AddGenericDisplay(_this, true) == 0) {
         return false;
     }
     return true;

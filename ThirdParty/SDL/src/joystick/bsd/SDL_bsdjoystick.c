@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -77,7 +77,7 @@
 #include "../SDL_joystick_c.h"
 #include "../hidapi/SDL_hidapijoystick_c.h"
 
-#if defined(SDL_PLATFORM_FREEBSD) || SDL_HAVE_MACHINE_JOYSTICK_H || defined(__FreeBSD_kernel__) || defined(__DragonFly_)
+#if defined(SDL_PLATFORM_FREEBSD) || defined(SDL_HAVE_MACHINE_JOYSTICK_H) || defined(__FreeBSD_kernel__) || defined(__DragonFly_)
 #define SUPPORT_JOY_GAMEPORT
 #endif
 
@@ -426,7 +426,7 @@ static bool MaybeAddDevice(const char *path)
             name = SDL_CreateJoystickName(di.udi_vendorNo, di.udi_productNo, di.udi_vendor, di.udi_product);
             guid = SDL_CreateJoystickGUID(SDL_HARDWARE_BUS_USB, di.udi_vendorNo, di.udi_productNo, di.udi_releaseNo, di.udi_vendor, di.udi_product, 0, 0);
 
-            if (SDL_ShouldIgnoreJoystick(name, guid) ||
+            if (SDL_ShouldIgnoreJoystick(di.udi_vendorNo, di.udi_productNo, di.udi_releaseNo, name) ||
                 SDL_JoystickHandledByAnotherDriver(&SDL_BSD_JoystickDriver, di.udi_vendorNo, di.udi_productNo, di.udi_releaseNo, name)) {
                 SDL_free(name);
                 FreeHwData(hw);
@@ -710,10 +710,10 @@ static void BSD_JoystickUpdate(SDL_Joystick *joy)
                     //default:
                         // no-op
                     }
-                    SDL_PrivateJoystickHat(joy, 0, (dpad[0] * HAT_UP) |
-                                                   (dpad[1] * HAT_DOWN) |
-                                                   (dpad[2] * HAT_RIGHT) |
-                                                   (dpad[3] * HAT_LEFT) );
+                    SDL_SendJoystickHat(timestamp, joy, 0, (dpad[0] * HAT_UP) |
+                                                           (dpad[1] * HAT_DOWN) |
+                                                           (dpad[2] * HAT_RIGHT) |
+                                                           (dpad[3] * HAT_LEFT) );
 #endif
                     break;
                 }

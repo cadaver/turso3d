@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -46,8 +46,8 @@ static bool ShouldDispatchImmediately(SDL_Event *event)
 
 static void SDL_DispatchMainCallbackEvent(SDL_Event *event)
 {
-    if (SDL_AtomicGet(&apprc) == SDL_APP_CONTINUE) { // if already quitting, don't send the event to the app.
-        SDL_AtomicCompareAndSwap(&apprc, SDL_APP_CONTINUE, SDL_main_event_callback(SDL_main_appstate, event));
+    if (SDL_GetAtomicInt(&apprc) == SDL_APP_CONTINUE) { // if already quitting, don't send the event to the app.
+        SDL_CompareAndSwapAtomicInt(&apprc, SDL_APP_CONTINUE, SDL_main_event_callback(SDL_main_appstate, event));
     }
 }
 
@@ -69,12 +69,17 @@ static void SDL_DispatchMainCallbackEvents(void)
     }
 }
 
-static SDL_bool SDLCALL SDL_MainCallbackEventWatcher(void *userdata, SDL_Event *event)
+static bool SDLCALL SDL_MainCallbackEventWatcher(void *userdata, SDL_Event *event)
 {
     if (ShouldDispatchImmediately(event)) {
         // Make sure any currently queued events are processed then dispatch this before continuing
         SDL_DispatchMainCallbackEvents();
         SDL_DispatchMainCallbackEvent(event);
+
+        // Make sure that we quit if we get a terminating event
+        if (event->type == SDL_EVENT_TERMINATING) {
+            SDL_CompareAndSwapAtomicInt(&apprc, SDL_APP_CONTINUE, SDL_APP_SUCCESS);
+        }
     } else {
         // We'll process this event later from the main event queue
     }
@@ -89,28 +94,28 @@ bool SDL_HasMainCallbacks(void)
     return false;
 }
 
-SDL_AppResult SDL_InitMainCallbacks(int argc, char* argv[], SDL_AppInit_func appinit, SDL_AppIterate_func appiter, SDL_AppEvent_func appevent, SDL_AppQuit_func appquit)
+SDL_AppResult SDL_InitMainCallbacks(int argc, char *argv[], SDL_AppInit_func appinit, SDL_AppIterate_func appiter, SDL_AppEvent_func appevent, SDL_AppQuit_func appquit)
 {
     SDL_main_iteration_callback = appiter;
     SDL_main_event_callback = appevent;
     SDL_main_quit_callback = appquit;
-    SDL_AtomicSet(&apprc, SDL_APP_CONTINUE);
+    SDL_SetAtomicInt(&apprc, SDL_APP_CONTINUE);
 
     const SDL_AppResult rc = appinit(&SDL_main_appstate, argc, argv);
-    if (SDL_AtomicCompareAndSwap(&apprc, SDL_APP_CONTINUE, rc) && (rc == SDL_APP_CONTINUE)) { // bounce if SDL_AppInit already said abort, otherwise...
+    if (SDL_CompareAndSwapAtomicInt(&apprc, SDL_APP_CONTINUE, rc) && (rc == SDL_APP_CONTINUE)) { // bounce if SDL_AppInit already said abort, otherwise...
         // make sure we definitely have events initialized, even if the app didn't do it.
         if (!SDL_InitSubSystem(SDL_INIT_EVENTS)) {
-            SDL_AtomicSet(&apprc, SDL_APP_FAILURE);
+            SDL_SetAtomicInt(&apprc, SDL_APP_FAILURE);
             return SDL_APP_FAILURE;
         }
 
         if (!SDL_AddEventWatch(SDL_MainCallbackEventWatcher, NULL)) {
-            SDL_AtomicSet(&apprc, SDL_APP_FAILURE);
+            SDL_SetAtomicInt(&apprc, SDL_APP_FAILURE);
             return SDL_APP_FAILURE;
         }
     }
 
-    return (SDL_AppResult)SDL_AtomicGet(&apprc);
+    return (SDL_AppResult)SDL_GetAtomicInt(&apprc);
 }
 
 SDL_AppResult SDL_IterateMainCallbacks(bool pump_events)
@@ -120,20 +125,20 @@ SDL_AppResult SDL_IterateMainCallbacks(bool pump_events)
     }
     SDL_DispatchMainCallbackEvents();
 
-    SDL_AppResult rc = (SDL_AppResult)SDL_AtomicGet(&apprc);
+    SDL_AppResult rc = (SDL_AppResult)SDL_GetAtomicInt(&apprc);
     if (rc == SDL_APP_CONTINUE) {
         rc = SDL_main_iteration_callback(SDL_main_appstate);
-        if (!SDL_AtomicCompareAndSwap(&apprc, SDL_APP_CONTINUE, rc)) {
-            rc = (SDL_AppResult)SDL_AtomicGet(&apprc); // something else already set a quit result, keep that.
+        if (!SDL_CompareAndSwapAtomicInt(&apprc, SDL_APP_CONTINUE, rc)) {
+            rc = (SDL_AppResult)SDL_GetAtomicInt(&apprc); // something else already set a quit result, keep that.
         }
     }
     return rc;
 }
 
-void SDL_QuitMainCallbacks(void)
+void SDL_QuitMainCallbacks(SDL_AppResult result)
 {
     SDL_RemoveEventWatch(SDL_MainCallbackEventWatcher, NULL);
-    SDL_main_quit_callback(SDL_main_appstate);
+    SDL_main_quit_callback(SDL_main_appstate, result);
     SDL_main_appstate = NULL;  // just in case.
 
     // for symmetry, you should explicitly Quit what you Init, but we might come through here uninitialized and SDL_Quit() will clear everything anyhow.
@@ -142,3 +147,19 @@ void SDL_QuitMainCallbacks(void)
     SDL_Quit();
 }
 
+static void SDL_CheckDefaultArgcArgv(int *argc, char ***argv)
+{
+    if (!*argv) {
+        static char dummyargv0[] = { 'S', 'D', 'L', '_', 'a', 'p', 'p', '\0' };
+        static char *argvdummy[2] = { dummyargv0, NULL };
+        *argc = 1;
+        *argv = argvdummy;
+    }
+}
+
+int SDL_CallMainFunction(int argc, char *argv[], SDL_main_func mainFunction)
+{
+    SDL_CheckDefaultArgcArgv(&argc, &argv);
+    SDL_SetMainReady();
+    return mainFunction(argc, argv);
+}

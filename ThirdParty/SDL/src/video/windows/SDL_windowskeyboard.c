@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -54,36 +54,59 @@ static void IME_SetTextInputArea(SDL_VideoData *videodata, HWND hwnd, const SDL_
 #define MAPVK_VSC_TO_VK 1
 #endif
 
-// Alphabetic scancodes for PC keyboards
-void WIN_InitKeyboard(SDL_VideoDevice *_this)
+/* Building keymaps is expensive, so keep a reasonably-sized LRU cache to
+ * enable fast switching between commonly used ones.
+ */
+static struct WIN_KeymapCache
 {
-#ifndef SDL_DISABLE_WINDOWS_IME
-    SDL_VideoData *data = _this->internal;
+    HKL keyboard_layout;
+    SDL_Keymap *keymap;
+} keymap_cache[4];
 
-    data->ime_candlistindexbase = 1;
-    data->ime_composition_length = 32 * sizeof(WCHAR);
-    data->ime_composition = (WCHAR *)SDL_calloc(data->ime_composition_length, sizeof(WCHAR));
-#endif // !SDL_DISABLE_WINDOWS_IME
+static int keymap_cache_size;
 
-    WIN_UpdateKeymap(false);
+static SDL_Keymap *WIN_GetCachedKeymap(HKL layout)
+{
+    SDL_Keymap *keymap = NULL;
+    for (int i = 0; i < keymap_cache_size; ++i) {
+        if (keymap_cache[i].keyboard_layout == layout) {
+            keymap = keymap_cache[i].keymap;
 
-    SDL_SetScancodeName(SDL_SCANCODE_APPLICATION, "Menu");
-    SDL_SetScancodeName(SDL_SCANCODE_LGUI, "Left Windows");
-    SDL_SetScancodeName(SDL_SCANCODE_RGUI, "Right Windows");
-
-    // Are system caps/num/scroll lock active? Set our state to match.
-    SDL_ToggleModState(SDL_KMOD_CAPS, (GetKeyState(VK_CAPITAL) & 0x0001) ? true : false);
-    SDL_ToggleModState(SDL_KMOD_NUM, (GetKeyState(VK_NUMLOCK) & 0x0001) ? true : false);
-    SDL_ToggleModState(SDL_KMOD_SCROLL, (GetKeyState(VK_SCROLL) & 0x0001) ? true : false);
+            // Move the map to the front of the list.
+            if (i) {
+                SDL_memmove(keymap_cache + 1, keymap_cache, sizeof(struct WIN_KeymapCache) * i);
+                keymap_cache[0].keyboard_layout = layout;
+                keymap_cache[0].keymap = keymap;
+            }
+            break;
+        }
+    }
+    return keymap;
 }
 
-void WIN_UpdateKeymap(bool send_event)
+static void WIN_CacheKeymap(HKL layout, SDL_Keymap *keymap)
+{
+    // If the cache is full, evict the last keymap.
+    if (keymap_cache_size == SDL_arraysize(keymap_cache)) {
+        SDL_DestroyKeymap(keymap_cache[--keymap_cache_size].keymap);
+    }
+
+    // Move all elements down by one.
+    if (keymap_cache_size) {
+        SDL_memmove(keymap_cache + 1, keymap_cache, sizeof(struct WIN_KeymapCache) * keymap_cache_size);
+    }
+
+    keymap_cache[0].keyboard_layout = layout;
+    keymap_cache[0].keymap = keymap;
+    ++keymap_cache_size;
+}
+
+static SDL_Keymap *WIN_BuildKeymap(void)
 {
     SDL_Scancode scancode;
-    SDL_Keymap *keymap;
     BYTE keyboardState[256] = { 0 };
     WCHAR buffer[16];
-    SDL_Keymod mods[] = {
+    const SDL_Keymod mods[] = {
         SDL_KMOD_NONE,
         SDL_KMOD_SHIFT,
         SDL_KMOD_CAPS,
@@ -96,7 +119,10 @@ void WIN_UpdateKeymap(bool send_event)
 
     WIN_ResetDeadKeys();
 
-    keymap = SDL_CreateKeymap();
+    SDL_Keymap *keymap = SDL_CreateKeymap(false);
+    if (!keymap) {
+        return NULL;
+    }
 
     for (int m = 0; m < SDL_arraysize(mods); ++m) {
         for (int i = 0; i < SDL_arraysize(windows_scancode_table); i++) {
@@ -160,7 +186,45 @@ void WIN_UpdateKeymap(bool send_event)
         }
     }
 
+    return keymap;
+}
+
+void WIN_UpdateKeymap(bool send_event)
+{
+    HKL layout = GetKeyboardLayout(0);
+    SDL_Keymap *keymap = WIN_GetCachedKeymap(layout);
+    if (!keymap) {
+        keymap = WIN_BuildKeymap();
+        if (keymap) {
+            WIN_CacheKeymap(layout, keymap);
+        }
+    }
+
     SDL_SetKeymap(keymap, send_event);
+}
+
+// Alphabetic scancodes for PC keyboards
+void WIN_InitKeyboard(SDL_VideoDevice *_this)
+{
+#ifndef SDL_DISABLE_WINDOWS_IME
+    SDL_VideoData *data = _this->internal;
+
+    data->ime_candlistindexbase = 1;
+    data->ime_composition_length = 32 * sizeof(WCHAR);
+    data->ime_composition = (WCHAR *)SDL_calloc(data->ime_composition_length, sizeof(WCHAR));
+#endif // !SDL_DISABLE_WINDOWS_IME
+
+    // Build and bind the current keymap.
+    WIN_UpdateKeymap(false);
+
+    SDL_SetScancodeName(SDL_SCANCODE_APPLICATION, "Menu");
+    SDL_SetScancodeName(SDL_SCANCODE_LGUI, "Left Windows");
+    SDL_SetScancodeName(SDL_SCANCODE_RGUI, "Right Windows");
+
+    // Are system caps/num/scroll lock active? Set our state to match.
+    SDL_ToggleModState(SDL_KMOD_CAPS, (GetKeyState(VK_CAPITAL) & 0x0001) ? true : false);
+    SDL_ToggleModState(SDL_KMOD_NUM, (GetKeyState(VK_NUMLOCK) & 0x0001) ? true : false);
+    SDL_ToggleModState(SDL_KMOD_SCROLL, (GetKeyState(VK_SCROLL) & 0x0001) ? true : false);
 }
 
 void WIN_QuitKeyboard(SDL_VideoDevice *_this)
@@ -175,6 +239,12 @@ void WIN_QuitKeyboard(SDL_VideoDevice *_this)
         data->ime_composition = NULL;
     }
 #endif // !SDL_DISABLE_WINDOWS_IME
+
+    for (int i = 0; i < keymap_cache_size; ++i) {
+        SDL_DestroyKeymap(keymap_cache[i].keymap);
+    }
+    SDL_zeroa(keymap_cache);
+    keymap_cache_size = 0;
 }
 
 void WIN_ResetDeadKeys(void)
@@ -529,14 +599,13 @@ static DWORD IME_GetId(SDL_VideoData *videodata, UINT uIndex)
     static HKL hklprev = 0;
     static DWORD dwRet[2] = { 0 };
     DWORD dwVerSize = 0;
-    DWORD dwVerHandle = 0;
     LPVOID lpVerBuffer = 0;
     LPVOID lpVerData = 0;
     UINT cbVerData = 0;
     char szTemp[256];
     HKL hkl = 0;
     DWORD dwLang = 0;
-    SDL_assert(uIndex < sizeof(dwRet) / sizeof(dwRet[0]));
+    SDL_assert(uIndex < SDL_arraysize(dwRet));
 
     hkl = videodata->ime_hkl;
     if (hklprev == hkl) {
@@ -567,11 +636,11 @@ static DWORD IME_GetId(SDL_VideoData *videodata, UINT uIndex)
             return dwRet[0];
         }
 #undef LCID_INVARIANT
-        dwVerSize = GetFileVersionInfoSizeA(szTemp, &dwVerHandle);
+        dwVerSize = GetFileVersionInfoSizeA(szTemp, NULL);
         if (dwVerSize) {
             lpVerBuffer = SDL_malloc(dwVerSize);
             if (lpVerBuffer) {
-                if (GetFileVersionInfoA(szTemp, dwVerHandle, dwVerSize, lpVerBuffer)) {
+                if (GetFileVersionInfoA(szTemp, 0, dwVerSize, lpVerBuffer)) {
                     if (VerQueryValueA(lpVerBuffer, "\\", &lpVerData, &cbVerData)) {
 #define pVerFixedInfo ((VS_FIXEDFILEINFO FAR *)lpVerData)
                         DWORD dwVer = pVerFixedInfo->dwFileVersionMS;
@@ -606,7 +675,7 @@ static DWORD IME_GetId(SDL_VideoData *videodata, UINT uIndex)
 static void IME_SetupAPI(SDL_VideoData *videodata)
 {
     char ime_file[MAX_PATH + 1];
-    void *hime = 0;
+    SDL_SharedObject *hime = 0;
     HKL hkl = 0;
     videodata->GetReadingString = NULL;
     videodata->ShowReadingWindow = NULL;
@@ -733,21 +802,21 @@ static void IME_ClearComposition(SDL_VideoData *videodata)
     IME_SendClearComposition(videodata);
 }
 
-static void IME_GetCompositionString(SDL_VideoData *videodata, HIMC himc, DWORD string)
+static void IME_GetCompositionString(SDL_VideoData *videodata, HIMC himc, LPARAM *lParam, DWORD string)
 {
     LONG length;
     DWORD dwLang = ((DWORD_PTR)videodata->ime_hkl & 0xffff);
 
-    videodata->ime_cursor = LOWORD(ImmGetCompositionStringW(himc, GCS_CURSORPOS, 0, 0));
+    if (*lParam & GCS_CURSORPOS) {
+        videodata->ime_cursor = LOWORD(ImmGetCompositionStringW(himc, GCS_CURSORPOS, 0, 0));
+    }
     videodata->ime_selected_start = 0;
     videodata->ime_selected_length = 0;
-    SDL_DebugIMELog("Cursor = %d\n", videodata->ime_cursor);
+    SDL_DebugIMELog("Cursor = %d", videodata->ime_cursor);
 
     length = ImmGetCompositionStringW(himc, string, NULL, 0);
     if (length > 0 && videodata->ime_composition_length < length) {
-        if (videodata->ime_composition) {
-            SDL_free(videodata->ime_composition);
-        }
+        SDL_free(videodata->ime_composition);
 
         videodata->ime_composition = (WCHAR *)SDL_malloc(length + sizeof(WCHAR));
         videodata->ime_composition_length = length;
@@ -758,6 +827,11 @@ static void IME_GetCompositionString(SDL_VideoData *videodata, HIMC himc, DWORD 
         length = 0;
     }
     length /= sizeof(WCHAR);
+
+    if (!(*lParam & GCS_CURSORPOS)) {
+        // If the IME doesn't support GCS_CURSORPOS, default the cursor to the end of the composition.
+        videodata->ime_cursor = length;
+    }
 
     if ((dwLang == LANG_CHT || dwLang == LANG_CHS) &&
         videodata->ime_cursor > 0 &&
@@ -786,7 +860,7 @@ static void IME_GetCompositionString(SDL_VideoData *videodata, HIMC himc, DWORD 
             }
 
             for (LONG i = 0; i < length; ++i) {
-                SDL_DebugIMELog("attrib[%d] = %d\n", i, attributes[i]);
+                SDL_DebugIMELog("attrib[%d] = %d", i, attributes[i]);
             }
 
             for (start = 0; start < length; ++start) {
@@ -987,23 +1061,28 @@ bool WIN_HandleIMEMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM *lParam, SD
     HIMC himc = 0;
 
     if (msg == WM_IME_SETCONTEXT) {
-        SDL_DebugIMELog("WM_IME_SETCONTEXT\n");
+        SDL_DebugIMELog("WM_IME_SETCONTEXT");
 
         LPARAM element_mask;
-        if (videodata->ime_internal_composition && videodata->ime_internal_candidates) {
-            element_mask = 0;
-        } else {
-            element_mask = ISC_SHOWUIALL;
-            if (videodata->ime_internal_composition) {
-                element_mask &= ~ISC_SHOWUICOMPOSITIONWINDOW;
-            }
-            if (videodata->ime_internal_candidates) {
-                element_mask &= ~ISC_SHOWUIALLCANDIDATEWINDOW;
-            }
+        element_mask = ISC_SHOWUIALL;
+        if (videodata->ime_internal_composition) {
+            element_mask &= ~ISC_SHOWUICOMPOSITIONWINDOW;
+        }
+        if (videodata->ime_internal_candidates) {
+            element_mask &= ~ISC_SHOWUIALLCANDIDATEWINDOW;
         }
         *lParam &= element_mask;
 
         return false;
+    } else if (msg == WM_IME_STARTCOMPOSITION) {
+        SDL_DebugIMELog("WM_IME_STARTCOMPOSITION");
+        if (videodata->ime_internal_composition) {
+            videodata->ime_cursor = 0;
+            // Windows may still display a composition dialog even with
+            // ISC_SHOWUICOMPOSITIONWINDOW cleared, so trap the message
+            // here to prevent that (even when the IME is disabled).
+            return true;
+        }
     }
 
     if (!videodata->ime_initialized || !videodata->ime_available || !videodata->ime_enabled) {
@@ -1013,44 +1092,46 @@ bool WIN_HandleIMEMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM *lParam, SD
     switch (msg) {
     case WM_KEYDOWN:
         if (wParam == VK_PROCESSKEY) {
-            SDL_DebugIMELog("WM_KEYDOWN VK_PROCESSKEY\n");
+            SDL_DebugIMELog("WM_KEYDOWN VK_PROCESSKEY");
             trap = true;
         } else {
-            SDL_DebugIMELog("WM_KEYDOWN normal\n");
+            SDL_DebugIMELog("WM_KEYDOWN normal");
+        }
+        break;
+    case WM_SYSKEYDOWN:
+        if (wParam == VK_PROCESSKEY) {
+            SDL_DebugIMELog("WM_SYSKEYDOWN VK_PROCESSKEY");
+            trap = true;
+        } else {
+            SDL_DebugIMELog("WM_SYSKEYDOWN normal");
         }
         break;
     case WM_INPUTLANGCHANGE:
-        SDL_DebugIMELog("WM_INPUTLANGCHANGE\n");
+        SDL_DebugIMELog("WM_INPUTLANGCHANGE");
         IME_InputLangChanged(videodata);
         break;
-    case WM_IME_STARTCOMPOSITION:
-        SDL_DebugIMELog("WM_IME_STARTCOMPOSITION\n");
-        if (videodata->ime_internal_composition) {
-            trap = true;
-        }
-        break;
     case WM_IME_COMPOSITION:
-        SDL_DebugIMELog("WM_IME_COMPOSITION %x\n", lParam);
+        SDL_DebugIMELog("WM_IME_COMPOSITION %x", lParam);
         if (videodata->ime_internal_composition) {
             trap = true;
             himc = ImmGetContext(hwnd);
             if (*lParam & GCS_RESULTSTR) {
-                SDL_DebugIMELog("GCS_RESULTSTR\n");
-                IME_GetCompositionString(videodata, himc, GCS_RESULTSTR);
+                SDL_DebugIMELog("GCS_RESULTSTR");
+                IME_GetCompositionString(videodata, himc, lParam, GCS_RESULTSTR);
                 IME_SendClearComposition(videodata);
                 IME_SendInputEvent(videodata);
             }
             if (*lParam & GCS_COMPSTR) {
-                SDL_DebugIMELog("GCS_COMPSTR\n");
+                SDL_DebugIMELog("GCS_COMPSTR");
                 videodata->ime_readingstring[0] = 0;
-                IME_GetCompositionString(videodata, himc, GCS_COMPSTR);
+                IME_GetCompositionString(videodata, himc, lParam, GCS_COMPSTR);
                 IME_SendEditingEvent(videodata);
             }
             ImmReleaseContext(hwnd, himc);
         }
         break;
     case WM_IME_ENDCOMPOSITION:
-        SDL_DebugIMELog("WM_IME_ENDCOMPOSITION\n");
+        SDL_DebugIMELog("WM_IME_ENDCOMPOSITION");
         if (videodata->ime_internal_composition) {
             trap = true;
             videodata->ime_composition[0] = 0;
@@ -1062,32 +1143,32 @@ bool WIN_HandleIMEMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM *lParam, SD
         }
         break;
     case WM_IME_NOTIFY:
-        SDL_DebugIMELog("WM_IME_NOTIFY %x\n", wParam);
+        SDL_DebugIMELog("WM_IME_NOTIFY %x", wParam);
         switch (wParam) {
         case IMN_SETCOMPOSITIONWINDOW:
-            SDL_DebugIMELog("IMN_SETCOMPOSITIONWINDOW\n");
+            SDL_DebugIMELog("IMN_SETCOMPOSITIONWINDOW");
             break;
         case IMN_SETCOMPOSITIONFONT:
-            SDL_DebugIMELog("IMN_SETCOMPOSITIONFONT\n");
+            SDL_DebugIMELog("IMN_SETCOMPOSITIONFONT");
             break;
         case IMN_SETCANDIDATEPOS:
-            SDL_DebugIMELog("IMN_SETCANDIDATEPOS\n");
+            SDL_DebugIMELog("IMN_SETCANDIDATEPOS");
             break;
         case IMN_SETCONVERSIONMODE:
         case IMN_SETOPENSTATUS:
-            SDL_DebugIMELog("%s\n", wParam == IMN_SETCONVERSIONMODE ? "IMN_SETCONVERSIONMODE" : "IMN_SETOPENSTATUS");
+            SDL_DebugIMELog("%s", wParam == IMN_SETCONVERSIONMODE ? "IMN_SETCONVERSIONMODE" : "IMN_SETOPENSTATUS");
             IME_UpdateInputLocale(videodata);
             break;
         case IMN_OPENCANDIDATE:
         case IMN_CHANGECANDIDATE:
-            SDL_DebugIMELog("%s\n", wParam == IMN_OPENCANDIDATE ? "IMN_OPENCANDIDATE" : "IMN_CHANGECANDIDATE");
+            SDL_DebugIMELog("%s", wParam == IMN_OPENCANDIDATE ? "IMN_OPENCANDIDATE" : "IMN_CHANGECANDIDATE");
             if (videodata->ime_internal_candidates) {
                 trap = true;
                 videodata->ime_update_candidates = true;
             }
             break;
         case IMN_CLOSECANDIDATE:
-            SDL_DebugIMELog("IMN_CLOSECANDIDATE\n");
+            SDL_DebugIMELog("IMN_CLOSECANDIDATE");
             if (videodata->ime_internal_candidates) {
                 trap = true;
                 videodata->ime_update_candidates = false;
@@ -1097,7 +1178,7 @@ bool WIN_HandleIMEMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM *lParam, SD
         case IMN_PRIVATE:
         {
             DWORD dwId = IME_GetId(videodata, 0);
-            SDL_DebugIMELog("IMN_PRIVATE %u\n", dwId);
+            SDL_DebugIMELog("IMN_PRIVATE %u", dwId);
             IME_GetReadingString(videodata, hwnd);
             switch (dwId) {
             case IMEID_CHT_VER42:

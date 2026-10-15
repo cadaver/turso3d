@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -25,6 +25,7 @@
 #include <unistd.h> // For getpid() and readlink()
 
 #include "../../core/linux/SDL_system_theme.h"
+#include "../../core/linux/SDL_progressbar.h"
 #include "../../events/SDL_keyboard_c.h"
 #include "../../events/SDL_mouse_c.h"
 #include "../SDL_pixels_c.h"
@@ -38,6 +39,8 @@
 #include "SDL_x11xinput2.h"
 #include "SDL_x11messagebox.h"
 #include "SDL_x11shape.h"
+#include "SDL_x11xsync.h"
+#include "SDL_x11xtest.h"
 
 #ifdef SDL_VIDEO_OPENGL_EGL
 #include "SDL_x11opengles.h"
@@ -49,8 +52,6 @@ static void X11_VideoQuit(SDL_VideoDevice *_this);
 
 // X11 driver bootstrap functions
 
-static int (*orig_x11_errhandler)(Display *, XErrorEvent *) = NULL;
-
 static void X11_DeleteDevice(SDL_VideoDevice *device)
 {
     SDL_VideoData *data = device->internal;
@@ -58,47 +59,16 @@ static void X11_DeleteDevice(SDL_VideoDevice *device)
         device->Vulkan_UnloadLibrary(device);
     }
     if (data->display) {
-        X11_XSetErrorHandler(orig_x11_errhandler);
         X11_XCloseDisplay(data->display);
     }
     if (data->request_display) {
         X11_XCloseDisplay(data->request_display);
     }
     SDL_free(data->windowlist);
-    if (device->wakeup_lock) {
-        SDL_DestroyMutex(device->wakeup_lock);
-    }
     SDL_free(device->internal);
     SDL_free(device);
 
     SDL_X11_UnloadSymbols();
-}
-
-// An error handler to reset the vidmode and then call the default handler.
-static bool safety_net_triggered = false;
-static int X11_SafetyNetErrHandler(Display *d, XErrorEvent *e)
-{
-    SDL_VideoDevice *device = NULL;
-    // if we trigger an error in our error handler, don't try again.
-    if (!safety_net_triggered) {
-        safety_net_triggered = true;
-        device = SDL_GetVideoDevice();
-        if (device) {
-            int i;
-            for (i = 0; i < device->num_displays; i++) {
-                SDL_VideoDisplay *display = device->displays[i];
-                if (SDL_GetCurrentDisplayMode(display->id) != SDL_GetDesktopDisplayMode(display->id)) {
-                    X11_SetDisplayMode(device, display, &display->desktop_mode);
-                }
-            }
-        }
-    }
-
-    if (orig_x11_errhandler) {
-        return orig_x11_errhandler(d, e); // probably terminate.
-    }
-
-    return 0;
 }
 
 static bool X11_IsXWayland(Display *d)
@@ -127,6 +97,14 @@ static SDL_VideoDevice *X11_CreateDevice(void)
 
     if (!x11_display) {
         SDL_X11_UnloadSymbols();
+
+        const char *session = SDL_getenv("XDG_SESSION_TYPE");
+        if (session && SDL_strcasecmp(session, "wayland") == 0) {
+            SDL_LogDebug(SDL_LOG_CATEGORY_VIDEO, "Failed to connect to the X11 (XWayland) display server");
+        } else {
+            SDL_LogDebug(SDL_LOG_CATEGORY_VIDEO, "Failed to connect to the X11 display server");
+        }
+
         return NULL;
     }
 
@@ -158,20 +136,14 @@ static SDL_VideoDevice *X11_CreateDevice(void)
         return NULL;
     }
 
-    device->wakeup_lock = SDL_CreateMutex();
-
 #ifdef X11_DEBUG
     X11_XSynchronize(data->display, True);
 #endif
 
-    // Hook up an X11 error handler to recover the desktop resolution.
-    safety_net_triggered = false;
-    orig_x11_errhandler = X11_XSetErrorHandler(X11_SafetyNetErrHandler);
-
     /* Steam Deck will have an on-screen keyboard, so check their environment
      * variable so we can make use of SDL_StartTextInput.
      */
-    data->is_steam_deck = SDL_GetHintBoolean("SteamDeck", false);
+    data->use_steam_screen_keyboard = SDL_GetHintBoolean(SDL_HINT_ENABLE_STEAM_SCREEN_KEYBOARD, false);
 
     // Set the function pointers
     device->VideoInit = X11_VideoInit;
@@ -219,6 +191,9 @@ static SDL_VideoDevice *X11_CreateDevice(void)
     device->AcceptDragAndDrop = X11_AcceptDragAndDrop;
     device->UpdateWindowShape = X11_UpdateWindowShape;
     device->FlashWindow = X11_FlashWindow;
+#ifdef SDL_USE_LIBDBUS
+    device->ApplyWindowProgress = DBUS_ApplyWindowProgress;
+#endif // SDL_USE_LIBDBUS
     device->ShowWindowSystemMenu = X11_ShowWindowSystemMenu;
     device->SetWindowFocusable = X11_SetWindowFocusable;
     device->SyncWindow = X11_SyncWindow;
@@ -271,7 +246,6 @@ static SDL_VideoDevice *X11_CreateDevice(void)
     device->HasScreenKeyboardSupport = X11_HasScreenKeyboardSupport;
     device->ShowScreenKeyboard = X11_ShowScreenKeyboard;
     device->HideScreenKeyboard = X11_HideScreenKeyboard;
-    device->IsScreenKeyboardShown = X11_IsScreenKeyboardShown;
 
     device->free = X11_DeleteDevice;
 
@@ -289,13 +263,14 @@ static SDL_VideoDevice *X11_CreateDevice(void)
         device->system_theme = SDL_SystemTheme_Get();
 #endif
 
-    device->device_caps = VIDEO_DEVICE_CAPS_HAS_POPUP_WINDOW_SUPPORT |
-                          VIDEO_DEVICE_CAPS_SENDS_FULLSCREEN_DIMENSIONS;
+    device->device_caps = VIDEO_DEVICE_CAPS_HAS_POPUP_WINDOW_SUPPORT;
 
     data->is_xwayland = X11_IsXWayland(x11_display);
     if (data->is_xwayland) {
+        SDL_LogInfo(SDL_LOG_CATEGORY_VIDEO, "Detected XWayland");
+
         device->device_caps |= VIDEO_DEVICE_CAPS_MODE_SWITCHING_EMULATED |
-                               VIDEO_DEVICE_CAPS_DISABLE_MOUSE_WARP_ON_FULLSCREEN_TRANSITIONS;
+                               VIDEO_DEVICE_CAPS_SENDS_FULLSCREEN_DIMENSIONS;
     }
 
     return device;
@@ -304,7 +279,8 @@ static SDL_VideoDevice *X11_CreateDevice(void)
 VideoBootStrap X11_bootstrap = {
     "x11", "SDL X11 video driver",
     X11_CreateDevice,
-    X11_ShowMessageBox
+    X11_ShowMessageBox,
+    false
 };
 
 static int (*handler)(Display *, XErrorEvent *) = NULL;
@@ -388,10 +364,9 @@ static bool X11_VideoInit(SDL_VideoDevice *_this)
     data->window_group = (XID)(((size_t)data->pid) ^ ((size_t)_this));
 
     // Look up some useful Atoms
-#define GET_ATOM(X) data->X = X11_XInternAtom(data->display, #X, False)
+#define GET_ATOM(X) data->atoms.X = X11_XInternAtom(data->display, #X, False)
     GET_ATOM(WM_PROTOCOLS);
     GET_ATOM(WM_DELETE_WINDOW);
-    GET_ATOM(WM_TAKE_FOCUS);
     GET_ATOM(WM_NAME);
     GET_ATOM(WM_TRANSIENT_FOR);
     GET_ATOM(_NET_WM_STATE);
@@ -403,6 +378,7 @@ static bool X11_VideoInit(SDL_VideoDevice *_this)
     GET_ATOM(_NET_WM_STATE_ABOVE);
     GET_ATOM(_NET_WM_STATE_SKIP_TASKBAR);
     GET_ATOM(_NET_WM_STATE_SKIP_PAGER);
+    GET_ATOM(_NET_WM_MOVERESIZE);
     GET_ATOM(_NET_WM_STATE_MODAL);
     GET_ATOM(_NET_WM_ALLOWED_ACTIONS);
     GET_ATOM(_NET_WM_ACTION_FULLSCREEN);
@@ -410,6 +386,8 @@ static bool X11_VideoInit(SDL_VideoDevice *_this)
     GET_ATOM(_NET_WM_ICON_NAME);
     GET_ATOM(_NET_WM_ICON);
     GET_ATOM(_NET_WM_PING);
+    GET_ATOM(_NET_WM_SYNC_REQUEST);
+    GET_ATOM(_NET_WM_SYNC_REQUEST_COUNTER);
     GET_ATOM(_NET_WM_WINDOW_OPACITY);
     GET_ATOM(_NET_WM_USER_TIME);
     GET_ATOM(_NET_ACTIVE_WINDOW);
@@ -417,7 +395,15 @@ static bool X11_VideoInit(SDL_VideoDevice *_this)
     GET_ATOM(_SDL_WAKEUP);
     GET_ATOM(UTF8_STRING);
     GET_ATOM(PRIMARY);
+    GET_ATOM(CLIPBOARD);
+    GET_ATOM(INCR);
+    GET_ATOM(SDL_SELECTION);
+    GET_ATOM(TARGETS);
+    GET_ATOM(SDL_FORMATS);
+    GET_ATOM(RESOURCE_MANAGER);
+    GET_ATOM(XdndAware);
     GET_ATOM(XdndEnter);
+    GET_ATOM(XdndLeave);
     GET_ATOM(XdndPosition);
     GET_ATOM(XdndStatus);
     GET_ATOM(XdndTypeList);
@@ -436,15 +422,23 @@ static bool X11_VideoInit(SDL_VideoDevice *_this)
 
     if (!X11_InitXinput2(_this)) {
         // Assume a mouse and keyboard are attached
-        SDL_AddKeyboard(SDL_DEFAULT_KEYBOARD_ID, NULL, false);
-        SDL_AddMouse(SDL_DEFAULT_MOUSE_ID, NULL, false);
+        SDL_AddKeyboard(SDL_DEFAULT_KEYBOARD_ID, NULL);
+        SDL_AddMouse(SDL_DEFAULT_MOUSE_ID, NULL);
     }
 
 #ifdef SDL_VIDEO_DRIVER_X11_XFIXES
     X11_InitXfixes(_this);
-#endif // SDL_VIDEO_DRIVER_X11_XFIXES
+#endif
 
     X11_InitXsettings(_this);
+
+#ifdef SDL_VIDEO_DRIVER_X11_XSYNC
+    X11_InitXsync(_this);
+#endif
+
+#ifdef SDL_VIDEO_DRIVER_X11_XTEST
+    X11_InitXTest(_this);
+#endif
 
 #ifndef X_HAVE_UTF8_STRING
 #warning X server does not support UTF8_STRING, a feature introduced in 2000! This is likely to become a hard error in a future libSDL3.
@@ -458,6 +452,10 @@ static bool X11_VideoInit(SDL_VideoDevice *_this)
     X11_InitTouch(_this);
 
     X11_InitPen(_this);
+
+    // Request currently available mime-types in the clipboard.
+    X11_XConvertSelection(data->display, data->atoms.CLIPBOARD, data->atoms.TARGETS,
+            data->atoms.SDL_FORMATS, GetWindow(_this), CurrentTime);
 
     return true;
 }
@@ -480,6 +478,7 @@ void X11_VideoQuit(SDL_VideoDevice *_this)
     }
 #endif
 
+    X11_QuitXinput2(_this);
     X11_QuitModes(_this);
     X11_QuitKeyboard(_this);
     X11_QuitMouse(_this);

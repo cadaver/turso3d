@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -26,11 +26,13 @@
  */
 #include "SDL_internal.h"
 
+#include "../../events/SDL_windowevents_c.h"
+
 #import "SDL_cocoametalview.h"
 
 #if defined(SDL_VIDEO_DRIVER_COCOA) && (defined(SDL_VIDEO_VULKAN) || defined(SDL_VIDEO_METAL))
 
-static SDL_bool SDLCALL SDL_MetalViewEventWatch(void *userdata, SDL_Event *event)
+static bool SDLCALL SDL_MetalViewEventWatch(void *userdata, SDL_Event *event)
 {
     /* Update the drawable size when SDL receives a size changed event for
      * the window that contains the metal view. It would be nice to use
@@ -88,7 +90,9 @@ static SDL_bool SDLCALL SDL_MetalViewEventWatch(void *userdata, SDL_Event *event
 
         self.layer.opaque = opaque;
 
-        SDL_AddEventWatch(SDL_MetalViewEventWatch, (__bridge void *)(self));
+        if (SDL_GetHintBoolean(SDL_HINT_VIDEO_METAL_AUTO_RESIZE_DRAWABLE, true)) {
+            SDL_AddWindowEventWatch(SDL_WINDOW_EVENT_WATCH_EARLY, SDL_MetalViewEventWatch, (__bridge void *)(self));
+        }
 
         [self updateDrawableSize];
     }
@@ -98,7 +102,7 @@ static SDL_bool SDLCALL SDL_MetalViewEventWatch(void *userdata, SDL_Event *event
 
 - (void)dealloc
 {
-    SDL_RemoveEventWatch(SDL_MetalViewEventWatch, (__bridge void *)(self));
+    SDL_RemoveWindowEventWatch(SDL_WINDOW_EVENT_WATCH_EARLY, SDL_MetalViewEventWatch, (__bridge void *)(self));
 }
 
 - (NSInteger)tag

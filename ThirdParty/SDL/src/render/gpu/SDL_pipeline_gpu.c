@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -27,67 +27,29 @@
 
 #include "../SDL_sysrender.h"
 
-struct GPU_PipelineCacheKeyStruct
+static Uint32 SDLCALL HashPipelineCacheKey(void *userdata, const void *key)
 {
-    Uint64 blend_mode : 28;
-    Uint64 frag_shader : 4;
-    Uint64 vert_shader : 4;
-    Uint64 attachment_format : 6;
-    Uint64 primitive_type : 3;
-};
-
-typedef union GPU_PipelineCacheKey
-{
-    struct GPU_PipelineCacheKeyStruct as_struct;
-    Uint64 as_uint64;
-} GPU_PipelineCacheKey;
-
-SDL_COMPILE_TIME_ASSERT(GPU_PipelineCacheKey_Size, sizeof(GPU_PipelineCacheKey) <= sizeof(Uint64));
-
-typedef struct GPU_PipelineCacheEntry
-{
-    GPU_PipelineCacheKey key;
-    SDL_GPUGraphicsPipeline *pipeline;
-} GPU_PipelineCacheEntry;
-
-static Uint32 HashPipelineCacheKey(const GPU_PipelineCacheKey *key)
-{
-    Uint64 x = key->as_uint64;
-    // 64-bit uint hash function stolen from taisei (which stole it from somewhere else)
-    x = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
-    x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);
-    x = x ^ (x >> 31);
-    return (Uint32)(x & 0xffffffff);
+    const GPU_PipelineParameters *params = (const GPU_PipelineParameters *) key;
+    return SDL_murmur3_32(params, sizeof(*params), 0);
 }
 
-static Uint32 HashPassthrough(const void *key, void *data)
+static bool SDLCALL MatchPipelineCacheKey(void *userdata, const void *a, const void *b)
 {
-    // double-cast to silence a clang warning
-    return (Uint32)(uintptr_t)key;
+    return (SDL_memcmp(a, b, sizeof (GPU_PipelineParameters)) == 0);
 }
 
-static bool MatchPipelineCacheKey(const void *a, const void *b, void *data)
+static void SDLCALL DestroyPipelineCacheHashItem(void *userdata, const void *key, const void *value)
 {
-    return a == b;
-}
-
-static void NukePipelineCacheEntry(const void *key, const void *value, void *data)
-{
-    GPU_PipelineCacheEntry *entry = (GPU_PipelineCacheEntry *)value;
-    SDL_GPUDevice *device = data;
-
-    SDL_ReleaseGPUGraphicsPipeline(device, entry->pipeline);
-    SDL_free(entry);
+    SDL_GPUGraphicsPipeline *pipeline = (SDL_GPUGraphicsPipeline *) value;
+    SDL_GPUDevice *device = (SDL_GPUDevice *) userdata;
+    SDL_ReleaseGPUGraphicsPipeline(device, pipeline);
+    SDL_free((GPU_PipelineParameters *) key);
 }
 
 bool GPU_InitPipelineCache(GPU_PipelineCache *cache, SDL_GPUDevice *device)
 {
-    // FIXME how many buckets do we need?
-    cache->table = SDL_CreateHashTable(device, 32, HashPassthrough, MatchPipelineCacheKey, NukePipelineCacheEntry, true);
-    if (!cache->table) {
-        return false;
-    }
-    return true;
+    cache->table = SDL_CreateHashTable(0, false, HashPipelineCacheKey, MatchPipelineCacheKey, DestroyPipelineCacheHashItem, device);
+    return (cache->table != NULL);
 }
 
 void GPU_DestroyPipelineCache(GPU_PipelineCache *cache)
@@ -119,30 +81,27 @@ static SDL_GPUGraphicsPipeline *MakePipeline(SDL_GPUDevice *device, GPU_Shaders 
     pci.vertex_shader = GPU_GetVertexShader(shaders, params->vert_shader);
     pci.fragment_shader = GPU_GetFragmentShader(shaders, params->frag_shader);
     pci.multisample_state.sample_count = SDL_GPU_SAMPLECOUNT_1;
-    pci.multisample_state.enable_mask = SDL_FALSE;
+    pci.multisample_state.enable_mask = false;
     pci.primitive_type = params->primitive_type;
 
     pci.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
     pci.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
     pci.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
+    pci.rasterizer_state.enable_depth_clip = true;
 
-    SDL_GPUVertexBinding bind;
-    SDL_zero(bind);
+    SDL_GPUVertexBufferDescription vertex_buffer_desc;
+    SDL_zero(vertex_buffer_desc);
 
     Uint32 num_attribs = 0;
     SDL_GPUVertexAttribute attribs[4];
     SDL_zero(attribs);
 
-    bool have_attr_color = false;
     bool have_attr_uv = false;
 
     switch (params->vert_shader) {
     case VERT_SHADER_TRI_TEXTURE:
         have_attr_uv = true;
-        SDL_FALLTHROUGH;
-    case VERT_SHADER_TRI_COLOR:
-        have_attr_color = true;
-        SDL_FALLTHROUGH;
+        break;
     default:
         break;
     }
@@ -150,74 +109,57 @@ static SDL_GPUGraphicsPipeline *MakePipeline(SDL_GPUDevice *device, GPU_Shaders 
     // Position
     attribs[num_attribs].location = num_attribs;
     attribs[num_attribs].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
-    attribs[num_attribs].offset = bind.pitch;
-    bind.pitch += 2 * sizeof(float);
+    attribs[num_attribs].offset = vertex_buffer_desc.pitch;
+    vertex_buffer_desc.pitch += 2 * sizeof(float);
     num_attribs++;
 
-    if (have_attr_color) {
-        // Color
-        attribs[num_attribs].location = num_attribs;
-        attribs[num_attribs].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
-        attribs[num_attribs].offset = bind.pitch;
-        bind.pitch += 4 * sizeof(float);
-        num_attribs++;
-    }
+    // Color
+    attribs[num_attribs].location = num_attribs;
+    attribs[num_attribs].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
+    attribs[num_attribs].offset = vertex_buffer_desc.pitch;
+    vertex_buffer_desc.pitch += 4 * sizeof(float);
+    num_attribs++;
 
     if (have_attr_uv) {
         // UVs
         attribs[num_attribs].location = num_attribs;
         attribs[num_attribs].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
-        attribs[num_attribs].offset = bind.pitch;
-        bind.pitch += 2 * sizeof(float);
+        attribs[num_attribs].offset = vertex_buffer_desc.pitch;
+        vertex_buffer_desc.pitch += 2 * sizeof(float);
         num_attribs++;
     }
 
     pci.vertex_input_state.num_vertex_attributes = num_attribs;
     pci.vertex_input_state.vertex_attributes = attribs;
-    pci.vertex_input_state.num_vertex_bindings = 1;
-    pci.vertex_input_state.vertex_bindings = &bind;
+    pci.vertex_input_state.num_vertex_buffers = 1;
+    pci.vertex_input_state.vertex_buffer_descriptions = &vertex_buffer_desc;
 
     return SDL_CreateGPUGraphicsPipeline(device, &pci);
 }
 
-static GPU_PipelineCacheKey MakePipelineCacheKey(const GPU_PipelineParameters *params)
-{
-    GPU_PipelineCacheKey key;
-    SDL_zero(key);
-    key.as_struct.blend_mode = params->blend_mode;
-    key.as_struct.frag_shader = params->frag_shader;
-    key.as_struct.vert_shader = params->vert_shader;
-    key.as_struct.attachment_format = params->attachment_format;
-    key.as_struct.primitive_type = params->primitive_type;
-    return key;
-}
-
 SDL_GPUGraphicsPipeline *GPU_GetPipeline(GPU_PipelineCache *cache, GPU_Shaders *shaders, SDL_GPUDevice *device, const GPU_PipelineParameters *params)
 {
-    GPU_PipelineCacheKey key = MakePipelineCacheKey(params);
-    void *keyval = (void *)(uintptr_t)HashPipelineCacheKey(&key);
     SDL_GPUGraphicsPipeline *pipeline = NULL;
+    if (!SDL_FindInHashTable(cache->table, params, (const void **) &pipeline)) {
+        bool inserted = false;
+        // !!! FIXME: why don't we have an SDL_alloc_copy function/macro?
+        GPU_PipelineParameters *paramscpy = (GPU_PipelineParameters *) SDL_malloc(sizeof (*paramscpy));
+        if (paramscpy) {
+            SDL_copyp(paramscpy, params);
+            pipeline = MakePipeline(device, shaders, params);
+            if (pipeline) {
+                inserted = SDL_InsertIntoHashTable(cache->table, paramscpy, pipeline, false);
+            }
+        }
 
-    void *iter = NULL;
-    GPU_PipelineCacheEntry *entry = NULL;
-
-    while (SDL_IterateHashTableKey(cache->table, keyval, (const void **)&entry, &iter)) {
-        if (entry->key.as_uint64 == key.as_uint64) {
-            return entry->pipeline;
+        if (!inserted) {
+            SDL_free(paramscpy);
+            if (pipeline) {
+                SDL_ReleaseGPUGraphicsPipeline(device, pipeline);
+                pipeline = NULL;
+            }
         }
     }
-
-    pipeline = MakePipeline(device, shaders, params);
-
-    if (pipeline == NULL) {
-        return NULL;
-    }
-
-    entry = SDL_malloc(sizeof(*entry));
-    entry->key = key;
-    entry->pipeline = pipeline;
-
-    SDL_InsertIntoHashTable(cache->table, keyval, entry);
 
     return pipeline;
 }

@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -26,7 +26,7 @@
 // just a few special pieces right now.
 
 // this expects `from` to be a Unicode codepoint, and `to` to point to AT LEAST THREE Uint32s.
-int SDL_CaseFoldUnicode(const Uint32 from, Uint32 *to);
+int SDL_CaseFoldUnicode(Uint32 from, Uint32 *to);
 
 #endif
 

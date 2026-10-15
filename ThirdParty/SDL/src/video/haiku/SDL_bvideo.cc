@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -113,7 +113,8 @@ static SDL_VideoDevice * HAIKU_CreateDevice(void)
 VideoBootStrap HAIKU_bootstrap = {
     "haiku", "Haiku graphics",
     HAIKU_CreateDevice,
-    HAIKU_ShowMessageBox
+    HAIKU_ShowMessageBox,
+    false
 };
 
 void HAIKU_DeleteDevice(SDL_VideoDevice * device)
@@ -180,7 +181,8 @@ static SDL_Cursor * HAIKU_CreateSystemCursor(SDL_SystemCursor id)
 
 static SDL_Cursor * HAIKU_CreateDefaultCursor()
 {
-    return HAIKU_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
+    SDL_SystemCursor id = SDL_GetDefaultSystemCursor();
+    return HAIKU_CreateSystemCursor(id);
 }
 
 static void HAIKU_FreeCursor(SDL_Cursor * cursor)
@@ -238,13 +240,18 @@ static bool HAIKU_SetRelativeMouseMode(bool enabled)
     }
 
 	SDL_BWin *bewin = _ToBeWin(window);
-	BGLView *_SDL_GLView = bewin->GetGLView();
+	BView *_SDL_View = bewin->GetGLView();
+	if (!_SDL_View) {
+		_SDL_View = bewin->GetView();
+		if (!_SDL_View)
+			return false;
+	}
 
 	bewin->Lock();
 	if (enabled)
-		_SDL_GLView->SetEventMask(B_POINTER_EVENTS, B_NO_POINTER_HISTORY);
+		_SDL_View->SetEventMask(B_POINTER_EVENTS, B_NO_POINTER_HISTORY);
 	else
-		_SDL_GLView->SetEventMask(0, 0);
+		_SDL_View->SetEventMask(0, 0);
 	bewin->Unlock();
 
     return true;
@@ -281,8 +288,8 @@ bool HAIKU_VideoInit(SDL_VideoDevice *_this)
     HAIKU_MouseInit(_this);
 
     // Assume we have a mouse and keyboard
-    SDL_AddKeyboard(SDL_DEFAULT_KEYBOARD_ID, NULL, false);
-    SDL_AddMouse(SDL_DEFAULT_MOUSE_ID, NULL, false);
+    SDL_AddKeyboard(SDL_DEFAULT_KEYBOARD_ID, NULL);
+    SDL_AddMouse(SDL_DEFAULT_MOUSE_ID, NULL);
 
 #ifdef SDL_VIDEO_OPENGL
         // testgl application doesn't load library, just tries to load symbols
@@ -306,7 +313,11 @@ void HAIKU_VideoQuit(SDL_VideoDevice *_this)
 extern "C"
 bool HAIKU_OpenURL(const char *url)
 {
+#if B_HAIKU_VERSION <= B_HAIKU_VERSION_1_BETA_5
     BUrl burl(url);
+#else
+    BUrl burl(url, true);
+#endif
     const status_t rc = burl.OpenWithPreferredApplication(false);
     if (rc != B_NO_ERROR) {
         return SDL_SetError("URL open failed (err=%d)", (int)rc);

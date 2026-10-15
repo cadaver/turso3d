@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -35,7 +35,7 @@ PAPPCONSTRAIN_REGISTRATION hCPLM = {};
 HANDLE plmSuspendComplete = nullptr;
 
 extern "C"
-SDL_bool SDL_GetGDKTaskQueue(XTaskQueueHandle *outTaskQueue)
+bool SDL_GetGDKTaskQueue(XTaskQueueHandle *outTaskQueue)
 {
     // If this is the first call, first create the global task queue.
     if (!GDK_GlobalTaskQueue) {
@@ -105,7 +105,7 @@ bool GDK_RegisterChangeNotifications(void)
         SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "[GDK] in RegisterAppConstrainedChangeNotification handler");
         SDL_VideoDevice *_this = SDL_GetVideoDevice();
         if (_this) {
-            if (constrained) {
+            if (constrained && !((_this->windows) && _this->windows->text_input_active)) {
                 SDL_SetKeyboardFocus(NULL);
             } else {
                 SDL_SetKeyboardFocus(_this->windows);
@@ -139,7 +139,7 @@ void SDL_GDKSuspendComplete()
 }
 
 extern "C"
-SDL_bool SDL_GetGDKDefaultUser(XUserHandle *outUserHandle)
+bool SDL_GetGDKDefaultUser(XUserHandle *outUserHandle)
 {
     XAsyncBlock block = { 0 };
     HRESULT result;

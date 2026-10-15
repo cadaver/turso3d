@@ -96,7 +96,7 @@ public:
     void OnBoneTransformChanged()
     {
         SetFlag(DF_BOUNDING_BOX_DIRTY, true);
-        if (octree && octant && !TestFlag(DF_OCTREE_REINSERT_QUEUED))
+        if (octree && !TestFlag(DF_OCTREE_REINSERT_QUEUED))
             octree->QueueUpdate(this);
 
         animatedModelFlags |= AMF_SKINNING_DIRTY | AMF_BONE_BOUNDING_BOX_DIRTY;
@@ -105,7 +105,7 @@ public:
     /// Set animation order dirty when animation state changes layer order and queue octree reinsertion. Note: bounding box will only be dirtied once animation actually updates.
     void OnAnimationOrderChanged()
     {
-        if (octree && octant && !TestFlag(DF_OCTREE_REINSERT_QUEUED))
+        if (octree && !TestFlag(DF_OCTREE_REINSERT_QUEUED))
             octree->QueueUpdate(this);
 
         animatedModelFlags |= AMF_ANIMATION_DIRTY | AMF_ANIMATION_ORDER_DIRTY;
@@ -114,7 +114,7 @@ public:
     /// Set animation dirty when animation state changes time position or weight and queue octree reinsertion. Note: bounding box will only be dirtied once animation actually updates.
     void OnAnimationChanged()
     {
-        if (octree && octant && !TestFlag(DF_OCTREE_REINSERT_QUEUED))
+        if (octree && !TestFlag(DF_OCTREE_REINSERT_QUEUED))
             octree->QueueUpdate(this);
 
         animatedModelFlags |= AMF_ANIMATION_DIRTY;

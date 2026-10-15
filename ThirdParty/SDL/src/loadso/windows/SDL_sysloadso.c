@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -27,40 +27,38 @@
 
 #include "../../core/windows/SDL_windows.h"
 
-void *SDL_LoadObject(const char *sofile)
+SDL_SharedObject *SDL_LoadObject(const char *sofile)
 {
-    if (!sofile) {
+    CHECK_PARAM(!sofile) {
         SDL_InvalidParamError("sofile");
         return NULL;
     }
 
     LPWSTR wstr = WIN_UTF8ToStringW(sofile);
-    void *handle = (void *)LoadLibrary(wstr);
+    HMODULE handle = LoadLibraryW(wstr);
     SDL_free(wstr);
 
     // Generate an error message if all loads failed
     if (!handle) {
         char errbuf[512];
-        SDL_strlcpy(errbuf, "Failed loading ", SDL_arraysize(errbuf));
-        SDL_strlcat(errbuf, sofile, SDL_arraysize(errbuf));
+        SDL_snprintf(errbuf, sizeof (errbuf), "Failed loading %s", sofile);
         WIN_SetError(errbuf);
     }
-    return handle;
+    return (SDL_SharedObject *) handle;
 }
 
-SDL_FunctionPointer SDL_LoadFunction(void *handle, const char *name)
+SDL_FunctionPointer SDL_LoadFunction(SDL_SharedObject *handle, const char *name)
 {
     SDL_FunctionPointer symbol = (SDL_FunctionPointer)GetProcAddress((HMODULE)handle, name);
     if (!symbol) {
         char errbuf[512];
-        SDL_strlcpy(errbuf, "Failed loading ", SDL_arraysize(errbuf));
-        SDL_strlcat(errbuf, name, SDL_arraysize(errbuf));
+        SDL_snprintf(errbuf, sizeof (errbuf), "Failed loading %s", name);
         WIN_SetError(errbuf);
     }
     return symbol;
 }
 
-void SDL_UnloadObject(void *handle)
+void SDL_UnloadObject(SDL_SharedObject *handle)
 {
     if (handle) {
         FreeLibrary((HMODULE)handle);

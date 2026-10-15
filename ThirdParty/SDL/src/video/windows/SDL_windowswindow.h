@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -38,7 +38,8 @@ typedef enum SDL_WindowRect
 {
     SDL_WINDOWRECT_CURRENT,
     SDL_WINDOWRECT_WINDOWED,
-    SDL_WINDOWRECT_FLOATING
+    SDL_WINDOWRECT_FLOATING,
+    SDL_WINDOWRECT_PENDING
 } SDL_WindowRect;
 
 typedef enum SDL_WindowEraseBackgroundMode
@@ -67,6 +68,7 @@ struct SDL_WindowData
     HDC mdc;
     HINSTANCE hinstance;
     HBITMAP hbm;
+    HICON hicon;
     WNDPROC wndproc;
     HHOOK keyboard_hook;
     WPARAM mouse_button_flags;
@@ -76,22 +78,25 @@ struct SDL_WindowData
     bool expected_resize;
     bool in_border_change;
     bool in_title_click;
-    bool floating_rect_pending;
     Uint8 focus_click_pending;
-    bool skip_update_clipcursor;
-    Uint64 last_updated_clipcursor;
-    bool mouse_relative_mode_center;
+    bool postpone_clipcursor;
+    bool clipcursor_queued;
     bool windowed_mode_was_maximized;
     bool in_window_deactivation;
-    RECT cursor_clipped_rect;
-    UINT windowed_mode_corner_rounding;
-    COLORREF dwma_border_color;
+    bool force_ws_maximizebox;
+    bool disable_move_size_events;
+    bool showing_window;
+    int in_modal_loop;
+    int last_modal_width;
+    int last_modal_height;
+    RECT initial_size_rect;
+    RECT cursor_clipped_rect; // last successfully committed clipping rect for this window
+    RECT cursor_ctrlock_rect; // this is Windows-specific, but probably does not need to be per-window
     bool mouse_tracked;
     bool destroy_parent_with_window;
-    SDL_DisplayID last_displayID;
     WCHAR *ICMFileName;
-    SDL_Window *keyboard_focus;
     SDL_WindowEraseBackgroundMode hint_erase_background_mode;
+    bool taskbar_button_created;
     struct SDL_VideoData *videodata;
 #ifdef SDL_VIDEO_OPENGL_EGL
     EGLSurface egl_surface;
@@ -128,10 +133,11 @@ extern bool WIN_SetWindowKeyboardGrab(SDL_VideoDevice *_this, SDL_Window *window
 extern void WIN_DestroyWindow(SDL_VideoDevice *_this, SDL_Window *window);
 extern void WIN_OnWindowEnter(SDL_VideoDevice *_this, SDL_Window *window);
 extern void WIN_UpdateClipCursor(SDL_Window *window);
+extern void WIN_UnclipCursorForWindow(SDL_Window *window);
 extern bool WIN_SetWindowHitTest(SDL_Window *window, bool enabled);
 extern void WIN_AcceptDragAndDrop(SDL_Window *window, bool accept);
 extern bool WIN_FlashWindow(SDL_VideoDevice *_this, SDL_Window *window, SDL_FlashOperation operation);
-extern void WIN_UpdateDarkModeForHWND(HWND hwnd);
+extern bool WIN_ApplyWindowProgress(SDL_VideoDevice *_this, SDL_Window *window);
 extern bool WIN_SetWindowPositionInternal(SDL_Window *window, UINT flags, SDL_WindowRect rect_type);
 extern void WIN_ShowWindowSystemMenu(SDL_Window *window, int x, int y);
 extern bool WIN_SetWindowFocusable(SDL_VideoDevice *_this, SDL_Window *window, bool focusable);

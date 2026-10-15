@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -30,8 +30,6 @@
 #include "SDL_waylandvideo.h"
 #include "SDL_waylandshmbuffer.h"
 
-struct SDL_WaylandInput;
-
 struct SDL_WindowData
 {
     SDL_Window *sdlwindow;
@@ -48,7 +46,6 @@ struct SDL_WindowData
         struct
         {
             struct libdecor_frame *frame;
-            bool initial_configure_seen;
         } libdecor;
 #endif
         struct
@@ -56,42 +53,61 @@ struct SDL_WindowData
             struct xdg_surface *surface;
             union
             {
-                struct xdg_toplevel *toplevel;
                 struct
                 {
-                    struct xdg_popup *popup;
-                    struct xdg_positioner *positioner;
+                    struct xdg_toplevel *xdg_toplevel;
+                } toplevel;
+                struct
+                {
+                    struct xdg_popup *xdg_popup;
+                    struct xdg_positioner *xdg_positioner;
                 } popup;
-            } roleobj;
-            bool initial_configure_seen;
+            };
+
+            Uint32 serial;
         } xdg;
     } shell_surface;
     enum
     {
-        WAYLAND_SURFACE_UNKNOWN = 0,
-        WAYLAND_SURFACE_XDG_TOPLEVEL,
-        WAYLAND_SURFACE_XDG_POPUP,
-        WAYLAND_SURFACE_LIBDECOR,
-        WAYLAND_SURFACE_CUSTOM
+        WAYLAND_SHELL_SURFACE_TYPE_UNKNOWN = 0,
+        WAYLAND_SHELL_SURFACE_TYPE_XDG_TOPLEVEL,
+        WAYLAND_SHELL_SURFACE_TYPE_XDG_POPUP,
+        WAYLAND_SHELL_SURFACE_TYPE_LIBDECOR,
+        WAYLAND_SHELL_SURFACE_TYPE_CUSTOM
     } shell_surface_type;
     enum
     {
-        WAYLAND_SURFACE_STATUS_HIDDEN = 0,
-        WAYLAND_SURFACE_STATUS_WAITING_FOR_CONFIGURE,
-        WAYLAND_SURFACE_STATUS_WAITING_FOR_FRAME,
-        WAYLAND_SURFACE_STATUS_SHOW_PENDING,
-        WAYLAND_SURFACE_STATUS_SHOWN
-    } surface_status;
+        WAYLAND_SHELL_SURFACE_STATUS_HIDDEN = 0,
+        WAYLAND_SHELL_SURFACE_STATUS_WAITING_FOR_CONFIGURE,
+        WAYLAND_SHELL_SURFACE_STATUS_WAITING_FOR_FRAME,
+        WAYLAND_SHELL_SURFACE_STATUS_SHOW_PENDING,
+        WAYLAND_SHELL_SURFACE_STATUS_SHOWN
+    } shell_surface_status;
+    enum
+    {
+        WAYLAND_WM_CAPS_WINDOW_MENU = 0x01,
+        WAYLAND_WM_CAPS_MAXIMIZE = 0x02,
+        WAYLAND_WM_CAPS_FULLSCREEN = 0x04,
+        WAYLAND_WM_CAPS_MINIMIZE = 0x08,
+
+        WAYLAND_WM_CAPS_ALL = WAYLAND_WM_CAPS_WINDOW_MENU |
+                              WAYLAND_WM_CAPS_MAXIMIZE |
+                              WAYLAND_WM_CAPS_FULLSCREEN |
+                              WAYLAND_WM_CAPS_MINIMIZE
+    } wm_caps;
+    enum
+    {
+        WAYLAND_TOPLEVEL_CONSTRAINED_LEFT = 0x01,
+        WAYLAND_TOPLEVEL_CONSTRAINED_RIGHT = 0x02,
+        WAYLAND_TOPLEVEL_CONSTRAINED_TOP = 0x04,
+        WAYLAND_TOPLEVEL_CONSTRAINED_BOTTOM = 0x08
+    } toplevel_constraints;
 
     struct wl_egl_window *egl_window;
-    struct SDL_WaylandInput *keyboard_device;
 #ifdef SDL_VIDEO_OPENGL_EGL
     EGLSurface egl_surface;
 #endif
-    struct zwp_locked_pointer_v1 *locked_pointer;
-    struct zwp_confined_pointer_v1 *confined_pointer;
     struct zxdg_toplevel_decoration_v1 *server_decoration;
-    struct zwp_keyboard_shortcuts_inhibitor_v1 *key_inhibitor;
     struct zwp_idle_inhibitor_v1 *idle_inhibitor;
     struct xdg_activation_token_v1 *activation_token;
     struct wp_viewport *viewport;
@@ -101,23 +117,30 @@ struct SDL_WindowData
     struct wp_alpha_modifier_surface_v1 *wp_alpha_modifier_surface_v1;
     struct xdg_toplevel_icon_v1 *xdg_toplevel_icon_v1;
     struct frog_color_managed_surface *frog_color_managed_surface;
+    struct wp_color_management_surface_feedback_v1 *wp_color_management_surface_feedback;
+
+    struct Wayland_ColorInfoState *color_info_state;
 
     SDL_AtomicInt swap_interval_ready;
 
     SDL_DisplayData **outputs;
     int num_outputs;
 
-    SDL_Window *keyboard_focus;
-
     char *app_id;
-    float windowed_scale_factor;
+    double scale_factor;
 
-    struct Wayland_SHMBuffer icon;
+    struct wl_buffer **icon_buffers;
+    int icon_buffer_count;
+
+    // Keyboard, pointer, and touch focus refcount.
+    int keyboard_focus_count;
+    int pointer_focus_count;
+    int active_touch_count;
 
     struct
     {
-        float x;
-        float y;
+        double x;
+        double y;
     } pointer_scale;
 
     // The in-flight window size request.
@@ -159,22 +182,40 @@ struct SDL_WindowData
         int min_height;
     } system_limits;
 
+    struct
+    {
+        int width;
+        int height;
+    } toplevel_bounds;
+
+    struct
+    {
+        int hint;
+        int purpose;
+        bool active;
+    } text_input_props;
+
     SDL_DisplayID last_displayID;
     int fullscreen_deadline_count;
-    int maximized_deadline_count;
+    int maximized_restored_deadline_count;
     Uint64 last_focus_event_time_ns;
+    int icc_fd;
+    Uint32 icc_size;
     bool floating;
     bool suspended;
+    bool resizing;
     bool active;
+    bool pending_config_ack;
     bool is_fullscreen;
     bool fullscreen_exclusive;
     bool drop_fullscreen_requests;
+    bool showing_window;
     bool fullscreen_was_positioned;
     bool show_hide_sync_required;
     bool scale_to_display;
     bool reparenting_required;
-    bool pending_restored_size;
     bool double_buffer;
+    bool accepts_drag_and_drop;
 
     SDL_HitTestResult hit_test_result;
 
@@ -208,10 +249,15 @@ extern void Wayland_ShowWindowSystemMenu(SDL_Window *window, int x, int y);
 extern void Wayland_DestroyWindow(SDL_VideoDevice *_this, SDL_Window *window);
 extern bool Wayland_SuspendScreenSaver(SDL_VideoDevice *_this);
 extern bool Wayland_SetWindowIcon(SDL_VideoDevice *_this, SDL_Window *window, SDL_Surface *icon);
+extern bool Wayland_SetWindowFocusable(SDL_VideoDevice *_this, SDL_Window *window, bool focusable);
+extern float Wayland_GetWindowContentScale(SDL_VideoDevice *_this, SDL_Window *window);
+extern void *Wayland_GetWindowICCProfile(SDL_VideoDevice *_this, SDL_Window *window, size_t *size);
+extern void Wayland_AcceptDragAndDrop(SDL_Window *window, bool accept);
 
 extern bool Wayland_SetWindowHitTest(SDL_Window *window, bool enabled);
 extern bool Wayland_FlashWindow(SDL_VideoDevice *_this, SDL_Window *window, SDL_FlashOperation operation);
 extern bool Wayland_SyncWindow(SDL_VideoDevice *_this, SDL_Window *window);
+extern bool Wayland_ReconfigureWindow(SDL_VideoDevice *_this, SDL_Window *window, SDL_WindowFlags flags);
 
 extern void Wayland_RemoveOutputFromWindow(SDL_WindowData *window, SDL_DisplayData *display_data);
 

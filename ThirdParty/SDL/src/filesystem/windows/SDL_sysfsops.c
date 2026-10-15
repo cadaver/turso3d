@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -29,42 +29,55 @@
 #include "../../core/windows/SDL_windows.h"
 #include "../SDL_sysfilesystem.h"
 
-int SDL_SYS_EnumerateDirectory(const char *path, const char *dirname, SDL_EnumerateDirectoryCallback cb, void *userdata)
+#ifndef COPY_FILE_NO_BUFFERING
+#define COPY_FILE_NO_BUFFERING 0x00001000
+#endif
+
+bool SDL_SYS_EnumerateDirectory(const char *path, SDL_EnumerateDirectoryCallback cb, void *userdata)
 {
-    int result = 1;
+    SDL_EnumerationResult result = SDL_ENUM_CONTINUE;
     if (*path == '\0') {  // if empty (completely at the root), we need to enumerate drive letters.
         const DWORD drives = GetLogicalDrives();
-        char name[3] = { 0, ':', '\0' };
-        for (int i = 'A'; (result == 1) && (i <= 'Z'); i++) {
+        char name[] = { 0, ':', '\\', '\0' };
+        for (int i = 'A'; (result == SDL_ENUM_CONTINUE) && (i <= 'Z'); i++) {
             if (drives & (1 << (i - 'A'))) {
                 name[0] = (char) i;
-                result = cb(userdata, dirname, name);
+                result = cb(userdata, "", name);
             }
         }
     } else {
-        const size_t patternlen = SDL_strlen(path) + 3;
-        char *pattern = (char *) SDL_malloc(patternlen);
-        if (!pattern) {
-            return -1;
-        }
-
         // you need a wildcard to enumerate through FindFirstFileEx(), but the wildcard is only checked in the
         // filename element at the end of the path string, so always tack on a "\\*" to get everything, and
         // also prevent any wildcards inserted by the app from being respected.
-        SDL_snprintf(pattern, patternlen, "%s\\*", path);
+        char *pattern = NULL;
+        int patternlen = SDL_asprintf(&pattern, "%s\\\\", path);  // we'll replace that second '\\' in the trimdown.
+        if ((patternlen == -1) || (!pattern)) {
+            return false;
+        }
+
+        // trim down to a single path separator at the end, in case the caller added one or more.
+        patternlen--;
+        while ((patternlen > 0) && ((pattern[patternlen] == '\\') || (pattern[patternlen] == '/'))) {
+            pattern[patternlen--] ='\0';
+        }
+        pattern[++patternlen] = '\\';
+        pattern[++patternlen] = '*';
+        pattern[++patternlen] = '\0';
 
         WCHAR *wpattern = WIN_UTF8ToStringW(pattern);
-        SDL_free(pattern);
         if (!wpattern) {
-            return -1;
+            SDL_free(pattern);
+            return false;
         }
+
+        pattern[--patternlen] = '\0';  // chop off the '*' so we just have the dirname with a path separator.
 
         WIN32_FIND_DATAW entw;
         HANDLE dir = FindFirstFileExW(wpattern, FindExInfoStandard, &entw, FindExSearchNameMatch, NULL, 0);
         SDL_free(wpattern);
         if (dir == INVALID_HANDLE_VALUE) {
-            WIN_SetError("Failed to enumerate directory");
-            return -1;
+            SDL_free(pattern);
+            return WIN_SetError("Failed to enumerate directory");
         }
 
         do {
@@ -78,17 +91,18 @@ int SDL_SYS_EnumerateDirectory(const char *path, const char *dirname, SDL_Enumer
 
             char *utf8fn = WIN_StringToUTF8W(fn);
             if (!utf8fn) {
-                result = -1;
+                result = SDL_ENUM_FAILURE;
             } else {
-                result = cb(userdata, dirname, utf8fn);
+                result = cb(userdata, pattern, utf8fn);
                 SDL_free(utf8fn);
             }
-        } while ((result == 1) && (FindNextFileW(dir, &entw) != 0));
+        } while ((result == SDL_ENUM_CONTINUE) && (FindNextFileW(dir, &entw) != 0));
 
         FindClose(dir);
+        SDL_free(pattern);
     }
 
-    return result;
+    return (result != SDL_ENUM_FAILURE);
 }
 
 bool SDL_SYS_RemovePath(const char *path)
@@ -100,6 +114,7 @@ bool SDL_SYS_RemovePath(const char *path)
 
     WIN32_FILE_ATTRIBUTE_DATA info;
     if (!GetFileAttributesExW(wpath, GetFileExInfoStandard, &info)) {
+        SDL_free(wpath);
         if (GetLastError() == ERROR_FILE_NOT_FOUND) {
             // Note that ERROR_PATH_NOT_FOUND means a parent dir is missing, and we consider that an error.
             return true;  // thing is already gone, call it a success.
@@ -151,7 +166,7 @@ bool SDL_SYS_CopyFile(const char *oldpath, const char *newpath)
         return false;
     }
 
-    const BOOL rc = CopyFileW(woldpath, wnewpath, TRUE);
+    const BOOL rc = CopyFileExW(woldpath, wnewpath, NULL, NULL, NULL, COPY_FILE_ALLOW_DECRYPTED_DESTINATION|COPY_FILE_NO_BUFFERING);
     SDL_free(wnewpath);
     SDL_free(woldpath);
     if (!rc) {
@@ -167,7 +182,16 @@ bool SDL_SYS_CreateDirectory(const char *path)
         return false;
     }
 
-    const DWORD rc = CreateDirectoryW(wpath, NULL);
+    DWORD rc = CreateDirectoryW(wpath, NULL);
+    if (!rc && (GetLastError() == ERROR_ALREADY_EXISTS)) {
+        WIN32_FILE_ATTRIBUTE_DATA winstat;
+        if (GetFileAttributesExW(wpath, GetFileExInfoStandard, &winstat)) {
+            if (winstat.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                rc = 1;  // exists and is already a directory: cool.
+            }
+        }
+    }
+
     SDL_free(wpath);
     if (!rc) {
         return WIN_SetError("Couldn't create directory");

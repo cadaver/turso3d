@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -33,6 +33,8 @@
 
 #ifndef SDL_test_crc32_h_
 #define SDL_test_crc32_h_
+
+#include <SDL3/SDL_stdinc.h>
 
 #include <SDL3/SDL_begin_code.h>
 /* Set up for C function definitions, even when using C++ */
@@ -73,10 +75,11 @@ extern "C" {
  *
  * \param crcContext        pointer to context variable
  *
- * \returns 0 for OK, -1 on error
+ * \returns true on success or false on failure; call SDL_GetError()
+ *          for more information.
  *
  */
-int SDLCALL SDLTest_Crc32Init(SDLTest_Crc32Context *crcContext);
+bool SDLCALL SDLTest_Crc32Init(SDLTest_Crc32Context *crcContext);
 
 /*
  * calculate a crc32 from a data block
@@ -86,26 +89,28 @@ int SDLCALL SDLTest_Crc32Init(SDLTest_Crc32Context *crcContext);
  * \param inLen              length of input buffer
  * \param crc32              pointer to Uint32 to store the final CRC into
  *
- * \returns 0 for OK, -1 on error
+ * \returns true on success or false on failure; call SDL_GetError()
+ *          for more information.
  *
  */
-int SDLCALL SDLTest_Crc32Calc(SDLTest_Crc32Context *crcContext, CrcUint8 *inBuf, CrcUint32 inLen, CrcUint32 *crc32);
+bool SDLCALL SDLTest_Crc32Calc(SDLTest_Crc32Context *crcContext, CrcUint8 *inBuf, CrcUint32 inLen, CrcUint32 *crc32);
 
 /* Same routine broken down into three steps */
-int SDLCALL SDLTest_Crc32CalcStart(SDLTest_Crc32Context *crcContext, CrcUint32 *crc32);
-int SDLCALL SDLTest_Crc32CalcEnd(SDLTest_Crc32Context *crcContext, CrcUint32 *crc32);
-int SDLCALL SDLTest_Crc32CalcBuffer(SDLTest_Crc32Context *crcContext, CrcUint8 *inBuf, CrcUint32 inLen, CrcUint32 *crc32);
+bool SDLCALL SDLTest_Crc32CalcStart(SDLTest_Crc32Context *crcContext, CrcUint32 *crc32);
+bool SDLCALL SDLTest_Crc32CalcEnd(SDLTest_Crc32Context *crcContext, CrcUint32 *crc32);
+bool SDLCALL SDLTest_Crc32CalcBuffer(SDLTest_Crc32Context *crcContext, CrcUint8 *inBuf, CrcUint32 inLen, CrcUint32 *crc32);
 
 /*
  * clean up CRC context
  *
  * \param crcContext        pointer to context variable
  *
- * \returns 0 for OK, -1 on error
+ * \returns true on success or false on failure; call SDL_GetError()
+ *          for more information.
  *
 */
 
-int SDLCALL SDLTest_Crc32Done(SDLTest_Crc32Context *crcContext);
+bool SDLCALL SDLTest_Crc32Done(SDLTest_Crc32Context *crcContext);
 
 /* Ends C function definitions when using C++ */
 #ifdef __cplusplus

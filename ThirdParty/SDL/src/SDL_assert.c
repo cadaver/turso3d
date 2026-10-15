@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -34,15 +34,7 @@
 #endif
 
 #ifdef SDL_PLATFORM_EMSCRIPTEN
-    #include <emscripten.h>
-    // older Emscriptens don't have this, but we need to for wasm64 compatibility.
-    #ifndef MAIN_THREAD_EM_ASM_PTR
-        #ifdef __wasm64__
-            #error You need to upgrade your Emscripten compiler to support wasm64
-        #else
-            #define MAIN_THREAD_EM_ASM_PTR MAIN_THREAD_EM_ASM_INT
-        #endif
-    #endif
+#include <emscripten.h>
 #endif
 
 // The size of the stack buffer to use for rendering assert messages.
@@ -128,23 +120,10 @@ static void SDL_GenerateAssertionReport(void)
     }
 }
 
-/* This is not declared in any header, although it is shared between some
-    parts of SDL, because we don't want anything calling it without an
-    extremely good reason. */
-#ifdef __WATCOMC__
-extern void SDL_ExitProcess(int exitcode);
-#pragma aux SDL_ExitProcess aborts;
-#endif
-extern SDL_NORETURN void SDL_ExitProcess(int exitcode);
-
-#ifdef __WATCOMC__
-static void SDL_AbortAssertion(void);
-#pragma aux SDL_AbortAssertion aborts;
-#endif
 static SDL_NORETURN void SDL_AbortAssertion(void)
 {
     SDL_Quit();
-    SDL_ExitProcess(42);
+    SDL_abort();
 }
 
 static SDL_AssertState SDLCALL SDL_PromptAssertion(const SDL_AssertData *data, void *userdata)
@@ -245,12 +224,14 @@ static SDL_AssertState SDLCALL SDL_PromptAssertion(const SDL_AssertData *data, v
             state = (SDL_AssertState)selected;
         }
     } else {
-#ifdef SDL_PLATFORM_EMSCRIPTEN
+#ifdef SDL_PLATFORM_PRIVATE_ASSERT
+        SDL_PRIVATE_PROMPTASSERTION();
+#elif defined(SDL_PLATFORM_EMSCRIPTEN)
         // This is nasty, but we can't block on a custom UI.
         for (;;) {
             bool okay = true;
             /* *INDENT-OFF* */ // clang-format off
-            char *buf = (char *) MAIN_THREAD_EM_ASM_PTR({
+            int reply = MAIN_THREAD_EM_ASM_INT({
                 var str =
                     UTF8ToString($0) + '\n\n' +
                     'Abort/Retry/Ignore/AlwaysIgnore? [ariA] :';
@@ -258,32 +239,38 @@ static SDL_AssertState SDLCALL SDL_PromptAssertion(const SDL_AssertData *data, v
                 if (reply === null) {
                     reply = "i";
                 }
-                return allocate(intArrayFromString(reply), 'i8', ALLOC_NORMAL);
+                return reply.length === 1 ? reply.charCodeAt(0) : -1;
             }, message);
             /* *INDENT-ON* */ // clang-format on
 
-            if (SDL_strcmp(buf, "a") == 0) {
+            switch (reply) {
+            case 'a':
                 state = SDL_ASSERTION_ABORT;
+                break;
 #if 0 // (currently) no break functionality on Emscripten
-            } else if (SDL_strcmp(buf, "b") == 0) {
+            case 'b':
                 state = SDL_ASSERTION_BREAK;
+                break;
 #endif
-            } else if (SDL_strcmp(buf, "r") == 0) {
+            case 'r':
                 state = SDL_ASSERTION_RETRY;
-            } else if (SDL_strcmp(buf, "i") == 0) {
+                break;
+            case 'i':
                 state = SDL_ASSERTION_IGNORE;
-            } else if (SDL_strcmp(buf, "A") == 0) {
+                break;
+            case 'A':
                 state = SDL_ASSERTION_ALWAYS_IGNORE;
-            } else {
+                break;
+            default:
                 okay = false;
+                break;
             }
-            free(buf);  // This should NOT be SDL_free()
 
             if (okay) {
                 break;
             }
         }
-#elif defined(HAVE_STDIO_H)
+#elif defined(HAVE_STDIO_H) && !defined(SDL_PLATFORM_3DS)
         // this is a little hacky.
         for (;;) {
             char buf[32];
@@ -310,7 +297,9 @@ static SDL_AssertState SDLCALL SDL_PromptAssertion(const SDL_AssertData *data, v
                 break;
             }
         }
-#endif // HAVE_STDIO_H
+#else
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Assertion Failed", message, window);
+#endif // SDL_PLATFORM_PRIVATE_ASSERT
     }
 
     // Re-enter fullscreen mode
@@ -359,7 +348,7 @@ SDL_AssertState SDL_ReportAssertion(SDL_AssertData *data, const char *func, cons
         if (assertion_running == 2) {
             SDL_AbortAssertion();
         } else if (assertion_running == 3) { // Abort asserted!
-            SDL_ExitProcess(42);
+            SDL_abort();
         } else {
             while (1) { // do nothing but spin; what else can you do?!
             }

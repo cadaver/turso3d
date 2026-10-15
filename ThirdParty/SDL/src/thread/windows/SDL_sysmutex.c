@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -39,10 +39,10 @@ SDL_mutex_impl_t SDL_mutex_impl_active = { 0 };
  * Implementation based on Slim Reader/Writer (SRW) Locks for Win 7 and newer.
  */
 
-typedef VOID(WINAPI *pfnInitializeSRWLock)(PSRWLOCK);
-typedef VOID(WINAPI *pfnReleaseSRWLockExclusive)(PSRWLOCK);
-typedef VOID(WINAPI *pfnAcquireSRWLockExclusive)(PSRWLOCK);
-typedef BOOLEAN(WINAPI *pfnTryAcquireSRWLockExclusive)(PSRWLOCK);
+typedef VOID (WINAPI *pfnInitializeSRWLock)(PSRWLOCK);
+typedef VOID (WINAPI *pfnReleaseSRWLockExclusive)(PSRWLOCK);
+typedef VOID (WINAPI *pfnAcquireSRWLockExclusive)(PSRWLOCK);
+typedef BOOLEAN (WINAPI *pfnTryAcquireSRWLockExclusive)(PSRWLOCK);
 static pfnInitializeSRWLock pInitializeSRWLock = NULL;
 static pfnReleaseSRWLockExclusive pReleaseSRWLockExclusive = NULL;
 static pfnAcquireSRWLockExclusive pAcquireSRWLockExclusive = NULL;
@@ -157,7 +157,7 @@ static void SDL_LockMutex_cs(SDL_Mutex *mutex_) SDL_NO_THREAD_SAFETY_ANALYSIS  /
 static bool SDL_TryLockMutex_cs(SDL_Mutex *mutex_)
 {
     SDL_mutex_cs *mutex = (SDL_mutex_cs *)mutex_;
-    return TryEnterCriticalSection(&mutex->cs);
+    return (TryEnterCriticalSection(&mutex->cs) == TRUE);
 }
 
 static void SDL_UnlockMutex_cs(SDL_Mutex *mutex_) SDL_NO_THREAD_SAFETY_ANALYSIS  // clang doesn't know about NULL mutexes
@@ -218,7 +218,7 @@ void SDL_LockMutex(SDL_Mutex *mutex)
     }
 }
 
-SDL_bool SDL_TryLockMutex(SDL_Mutex *mutex)
+bool SDL_TryLockMutex(SDL_Mutex *mutex)
 {
     bool result = true;
 

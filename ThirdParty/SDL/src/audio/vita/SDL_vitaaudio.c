@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -130,14 +130,15 @@ static bool VITAAUD_OpenDevice(SDL_AudioDevice *device)
 
 static bool VITAAUD_PlayDevice(SDL_AudioDevice *device, const Uint8 *buffer, int buffer_size)
 {
-    return (sceAudioOutOutput(device->hidden->port, buffer) == 0);
+    // sceAudioOutOutput returns amount of samples queued or < 0 on error
+    return (sceAudioOutOutput(device->hidden->port, buffer) >= 0);
 }
 
 // This function waits until it is possible to write a full sound buffer
 static bool VITAAUD_WaitDevice(SDL_AudioDevice *device)
 {
     // !!! FIXME: we might just need to sleep roughly as long as playback buffers take to process, based on sample rate, etc.
-    while (!SDL_AtomicGet(&device->shutdown) && (sceAudioOutGetRestSample(device->hidden->port) >= device->buffer_size)) {
+    while (!SDL_GetAtomicInt(&device->shutdown) && (sceAudioOutGetRestSample(device->hidden->port) >= device->buffer_size)) {
         SDL_Delay(1);
     }
     return true;
@@ -176,7 +177,7 @@ static bool VITAAUD_WaitRecordingDevice(SDL_AudioDevice *device)
     // there's only a blocking call to obtain more data, so we'll just sleep as
     //  long as a buffer would run.
     const Uint64 endticks = SDL_GetTicks() + ((device->sample_frames * 1000) / device->spec.freq);
-    while (!SDL_AtomicGet(&device->shutdown) && (SDL_GetTicks() < endticks)) {
+    while (!SDL_GetAtomicInt(&device->shutdown) && (SDL_GetTicks() < endticks)) {
         SDL_Delay(1);
     }
     return true;
@@ -232,7 +233,7 @@ static bool VITAAUD_Init(SDL_AudioDriverImpl *impl)
 }
 
 AudioBootStrap VITAAUD_bootstrap = {
-    "vita", "VITA audio driver", VITAAUD_Init, false
+    "vita", "VITA audio driver", VITAAUD_Init, false, false
 };
 
 #endif // SDL_AUDIO_DRIVER_VITA

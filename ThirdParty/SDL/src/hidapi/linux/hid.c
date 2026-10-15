@@ -134,7 +134,6 @@ static wchar_t *utf8_to_wchar_t(const char *utf8)
  * Use register_error_str(NULL) to free the error message completely. */
 static void register_error_str(wchar_t **error_str, const char *msg)
 {
-	free(*error_str);
 #ifdef HIDAPI_USING_SDL_RUNTIME
 	/* Thread-safe error handling */
 	if (msg) {
@@ -143,11 +142,12 @@ static void register_error_str(wchar_t **error_str, const char *msg)
 		SDL_ClearError();
 	}
 #else
+	free(*error_str);
 	*error_str = utf8_to_wchar_t(msg);
 #endif
 }
 
-/* Semilar to register_error_str, but allows passing a format string with va_list args into this function. */
+/* Similar to register_error_str, but allows passing a format string with va_list args into this function. */
 static void register_error_str_vformat(wchar_t **error_str, const char *format, va_list args)
 {
 	char msg[256];
@@ -252,7 +252,7 @@ static int get_hid_item_size(const __u8 *report_descriptor, __u32 size, unsigned
 		*data_len = 0;
 		*key_size = 0;
 		break;
-	};
+	}
 
 	/* malformed report */
 	return 0;
@@ -900,6 +900,32 @@ static struct hid_device_info * create_device_info_for_device(struct udev_device
 		}
 	}
 
+#ifdef HIDAPI_IGNORE_DEVICE
+	{
+		struct hid_device_info *prev_dev = NULL;
+
+		cur_dev = root;
+		while (cur_dev) {
+			if (HIDAPI_IGNORE_DEVICE(cur_dev->bus_type, cur_dev->vendor_id, cur_dev->product_id, cur_dev->usage_page, cur_dev->usage, false, false)) {
+				struct hid_device_info *tmp = cur_dev;
+
+				cur_dev = tmp->next;
+				if (prev_dev) {
+					prev_dev->next = cur_dev;
+				} else {
+					root = cur_dev;
+				}
+				tmp->next = NULL;
+			
+				hid_free_enumeration(tmp);
+			} else {
+				prev_dev = cur_dev;
+				cur_dev = cur_dev->next;
+			}
+		}
+	}
+#endif
+
 end:
 	free(serial_number_utf8);
 	free(product_name_utf8);
@@ -1029,23 +1055,6 @@ struct hid_device_info  HID_API_EXPORT *hid_enumerate(unsigned short vendor_id, 
 			if (product_id != 0 && product_id != dev_pid)
 				continue;
 		}
-
-#ifdef HIDAPI_IGNORE_DEVICE
-		/* See if there are any devices we should skip in enumeration */
-		if (!parse_hid_vid_pid_from_sysfs(sysfs_path, &bus_type, &dev_vid, &dev_pid))
-			continue;
-
-		struct hidraw_report_descriptor report_desc;
-		unsigned short page = 0, usage = 0;
-		if (get_hid_report_descriptor_from_sysfs(sysfs_path, &report_desc) >= 0) {
-			struct hid_usage_iterator usage_iterator;
-			memset(&usage_iterator, 0, sizeof(usage_iterator));
-			get_next_hid_usage(report_desc.value, report_desc.size, &usage_iterator, &page, &usage);
-		}
-		if (HIDAPI_IGNORE_DEVICE(bus_type, dev_vid, dev_pid, page, usage)) {
-			continue;
-		}
-#endif
 
 		raw_dev = udev_device_new_from_syspath(udev, sysfs_path);
 		if (!raw_dev)

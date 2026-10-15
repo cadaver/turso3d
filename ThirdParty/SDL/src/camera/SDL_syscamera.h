@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -23,11 +23,9 @@
 #ifndef SDL_syscamera_h_
 #define SDL_syscamera_h_
 
-#include "../SDL_hashtable.h"
+#include "../video/SDL_surface_c.h"
 
 #define DEBUG_CAMERA 0
-
-typedef struct SDL_Camera SDL_Camera;
 
 /* Backends should call this as devices are added to the system (such as
    a USB camera being plugged in), and should also be called for
@@ -55,6 +53,10 @@ extern void UnrefPhysicalCamera(SDL_Camera *device);
 extern void SDL_CameraThreadSetup(SDL_Camera *device);
 extern bool SDL_CameraThreadIterate(SDL_Camera *device);
 extern void SDL_CameraThreadShutdown(SDL_Camera *device);
+
+// Backends can call this if they have to finish initializing later, like Emscripten. Most backends should _not_ call this directly!
+extern bool SDL_PrepareCameraSurfaces(SDL_Camera *device);
+
 
 // common utility functionality to gather up camera specs. Not required!
 typedef struct CameraFormatAddData
@@ -97,7 +99,7 @@ struct SDL_Camera
 
     // These are, initially, set from camera_driver, but we might swap them out with Zombie versions on disconnect/failure.
     bool (*WaitDevice)(SDL_Camera *device);
-    SDL_CameraFrameResult (*AcquireFrame)(SDL_Camera *device, SDL_Surface *frame, Uint64 *timestampNS);
+    SDL_CameraFrameResult (*AcquireFrame)(SDL_Camera *device, SDL_Surface *frame, Uint64 *timestampNS, float *rotation);
     void (*ReleaseFrame)(SDL_Camera *device, SDL_Surface *frame);
 
     // All supported formats/dimensions for this device.
@@ -158,12 +160,17 @@ struct SDL_Camera
     // Optional properties.
     SDL_PropertiesID props;
 
-    // -1: user denied permission, 0: waiting for user response, 1: user approved permission.
-    int permission;
+    // Current state of user permission check.
+    SDL_CameraPermissionState permission;
 
     // Data private to this driver, used when device is opened and running.
     struct SDL_PrivateCameraData *hidden;
 };
+
+
+// Note that for AcquireFrame, `rotation` is degrees, with positive values rotating clockwise. This is the amount to rotate an image so it would be right-side up.
+// Rotations should be in 90 degree increments at this time (landscape to portrait, or upside down to right side up, etc).
+// Most platforms won't care about this, but mobile devices might need to deal with the device itself being physically rotated, causing the fixed-orientation camera to be presenting sideways images.
 
 typedef struct SDL_CameraDriverImpl
 {
@@ -171,7 +178,7 @@ typedef struct SDL_CameraDriverImpl
     bool (*OpenDevice)(SDL_Camera *device, const SDL_CameraSpec *spec);
     void (*CloseDevice)(SDL_Camera *device);
     bool (*WaitDevice)(SDL_Camera *device);
-    SDL_CameraFrameResult (*AcquireFrame)(SDL_Camera *device, SDL_Surface *frame, Uint64 *timestampNS); // set frame->pixels, frame->pitch, and *timestampNS!
+    SDL_CameraFrameResult (*AcquireFrame)(SDL_Camera *device, SDL_Surface *frame, Uint64 *timestampNS, float *rotation); // set frame->pixels, frame->pitch, *timestampNS, and *rotation!
     void (*ReleaseFrame)(SDL_Camera *device, SDL_Surface *frame); // Reclaim frame->pixels and frame->pitch!
     void (*FreeDeviceHandle)(SDL_Camera *device); // SDL is done with this device; free the handle from SDL_AddCamera()
     void (*Deinitialize)(void);
@@ -192,7 +199,7 @@ typedef struct SDL_CameraDriver
     const char *desc;  // The description of this camera driver
     SDL_CameraDriverImpl impl; // the backend's interface
 
-    SDL_RWLock *device_hash_lock;  // A rwlock that protects `device_hash`
+    SDL_RWLock *device_hash_lock;  // A rwlock that protects `device_hash`   // !!! FIXME: device_hash _also_ has a rwlock, see if we still need this one.
     SDL_HashTable *device_hash;  // the collection of currently-available camera devices
     SDL_PendingCameraEvent pending_events;
     SDL_PendingCameraEvent *pending_events_tail;
@@ -217,5 +224,6 @@ extern CameraBootStrap COREMEDIA_bootstrap;
 extern CameraBootStrap ANDROIDCAMERA_bootstrap;
 extern CameraBootStrap EMSCRIPTENCAMERA_bootstrap;
 extern CameraBootStrap MEDIAFOUNDATION_bootstrap;
+extern CameraBootStrap VITACAMERA_bootstrap;
 
 #endif // SDL_syscamera_h_

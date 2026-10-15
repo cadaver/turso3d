@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -27,6 +27,7 @@
 #include <langinfo.h>
 #include <sys/time.h>
 #include <time.h>
+#include <unistd.h>
 
 #if !defined(HAVE_CLOCK_GETTIME) && defined(SDL_PLATFORM_APPLE)
 #include <mach/clock.h>
@@ -98,9 +99,9 @@ found_date:
 #endif
 }
 
-SDL_bool SDL_GetCurrentTime(SDL_Time *ticks)
+bool SDL_GetCurrentTime(SDL_Time *ticks)
 {
-    if (!ticks) {
+    CHECK_PARAM(!ticks) {
         return SDL_InvalidParamError("ticks");
     }
 #ifdef HAVE_CLOCK_GETTIME
@@ -150,14 +151,14 @@ SDL_bool SDL_GetCurrentTime(SDL_Time *ticks)
     return false;
 }
 
-SDL_bool SDL_TimeToDateTime(SDL_Time ticks, SDL_DateTime *dt, SDL_bool localTime)
+bool SDL_TimeToDateTime(SDL_Time ticks, SDL_DateTime *dt, bool localTime)
 {
 #if defined (HAVE_GMTIME_R) || defined(HAVE_LOCALTIME_R)
     struct tm tm_storage;
 #endif
     struct tm *tm = NULL;
 
-    if (!dt) {
+    CHECK_PARAM(!dt) {
         return SDL_InvalidParamError("dt");
     }
 
@@ -186,7 +187,23 @@ SDL_bool SDL_TimeToDateTime(SDL_Time ticks, SDL_DateTime *dt, SDL_bool localTime
         dt->second = tm->tm_sec;
         dt->nanosecond = ticks % SDL_NS_PER_SECOND;
         dt->day_of_week = tm->tm_wday;
+
+        /* tm_gmtoff wasn't formally standardized until POSIX.1-2024, but practically it has been available on desktop
+         * *nix platforms such as Linux/glibc, FreeBSD, OpenBSD, NetBSD, OSX/macOS, and others since the 1990s.
+         *
+         * The notable exception is Solaris, where the timezone offset must still be retrieved in the strictly POSIX.1-2008
+         * compliant way.
+         */
+#if (_POSIX_VERSION >= 202405L) || (!defined(sun) && !defined(__sun))
         dt->utc_offset = (int)tm->tm_gmtoff;
+#else
+        if (localTime) {
+            tzset();
+            dt->utc_offset = (int)timezone;
+        } else {
+            dt->utc_offset = 0;
+        }
+#endif
 
         return true;
     }

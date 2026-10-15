@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -20,9 +20,7 @@
 */
 
 /*
-
  Used by the test framework and test cases.
-
 */
 
 /* quiet windows compiler warnings */
@@ -75,21 +73,46 @@ static const char *SDLTest_TimestampToString(const time_t timestamp)
 }
 
 /*
- * Prints given message with a timestamp in the TEST category and INFO priority.
+ * Prints given message with a timestamp in the TEST category and given priority.
  */
-void SDLTest_Log(SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+static void SDLTest_LogMessageV(SDL_LogPriority priority, SDL_PRINTF_FORMAT_STRING const char *fmt, va_list ap)
 {
-    va_list list;
     char logMessage[SDLTEST_MAX_LOGMESSAGE_LENGTH];
 
     /* Print log message into a buffer */
     SDL_memset(logMessage, 0, SDLTEST_MAX_LOGMESSAGE_LENGTH);
-    va_start(list, fmt);
-    (void)SDL_vsnprintf(logMessage, SDLTEST_MAX_LOGMESSAGE_LENGTH - 1, fmt, list);
-    va_end(list);
+    (void)SDL_vsnprintf(logMessage, SDLTEST_MAX_LOGMESSAGE_LENGTH - 1, fmt, ap);
 
-    /* Log with timestamp and newline */
-    SDL_LogMessage(SDL_LOG_CATEGORY_TEST, SDL_LOG_PRIORITY_INFO, " %s: %s", SDLTest_TimestampToString(time(0)), logMessage);
+    /* Log with timestamp and newline. Messages with lower priority are slightly indented. */
+    if (priority > SDL_LOG_PRIORITY_INFO) {
+        SDL_LogMessage(SDL_LOG_CATEGORY_TEST, priority, "%s: %s", SDLTest_TimestampToString(time(NULL)), logMessage);
+    } else {
+        SDL_LogMessage(SDL_LOG_CATEGORY_TEST, priority, " %s: %s", SDLTest_TimestampToString(time(NULL)), logMessage);
+    }
+}
+
+/*
+ * Prints given message with a timestamp in the TEST category and given priority.
+ */
+void SDLTest_LogMessage(SDL_LogPriority priority, SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    SDLTest_LogMessageV(priority, fmt, ap);
+    va_end(ap);
+}
+
+/*
+ * Prints given message with a timestamp in the TEST category and INFO priority.
+ */
+void SDLTest_Log(SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    SDLTest_LogMessageV(SDL_LOG_PRIORITY_INFO, fmt, ap);
+    va_end(ap);
 }
 
 /*
@@ -97,15 +120,109 @@ void SDLTest_Log(SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
  */
 void SDLTest_LogError(SDL_PRINTF_FORMAT_STRING const char *fmt, ...)
 {
-    va_list list;
+    va_list ap;
+
+    va_start(ap, fmt);
+    SDLTest_LogMessageV(SDL_LOG_PRIORITY_ERROR, fmt, ap);
+    va_end(ap);
+}
+
+static char nibble_to_char(Uint8 nibble)
+{
+    if (nibble < 0xa) {
+        return '0' + nibble;
+    } else {
+        return 'a' + nibble - 10;
+    }
+}
+
+void SDLTest_LogEscapedString(const char *prefix, const void *buffer, size_t size)
+{
+    const Uint8 *data = buffer;
     char logMessage[SDLTEST_MAX_LOGMESSAGE_LENGTH];
 
-    /* Print log message into a buffer */
-    SDL_memset(logMessage, 0, SDLTEST_MAX_LOGMESSAGE_LENGTH);
-    va_start(list, fmt);
-    (void)SDL_vsnprintf(logMessage, SDLTEST_MAX_LOGMESSAGE_LENGTH - 1, fmt, list);
-    va_end(list);
+    if (data) {
+        size_t i;
+        size_t pos = 0;
+        #define NEED_X_CHARS(N) \
+            if (pos + (N) > sizeof(logMessage) - 2) { \
+                break;                                \
+            }
 
-    /* Log with timestamp and newline */
-    SDL_LogMessage(SDL_LOG_CATEGORY_TEST, SDL_LOG_PRIORITY_ERROR, "%s: %s", SDLTest_TimestampToString(time(0)), logMessage);
+        logMessage[pos++] = '"';
+        for (i = 0; i < size; i++) {
+            Uint8 c = data[i];
+            size_t pos_start = pos;
+            switch (c) {
+            case '\0':
+                NEED_X_CHARS(2);
+                logMessage[pos++] = '\\';
+                logMessage[pos++] = '0';
+                break;
+            case '"':
+                NEED_X_CHARS(2);
+                logMessage[pos++] = '\\';
+                logMessage[pos++] = '"';
+                break;
+            case '\n':
+                NEED_X_CHARS(2);
+                logMessage[pos++] = '\\';
+                logMessage[pos++] = 'n';
+                break;
+            case '\r':
+                NEED_X_CHARS(2);
+                logMessage[pos++] = '\\';
+                logMessage[pos++] = 'r';
+                break;
+            case '\t':
+                NEED_X_CHARS(2);
+                logMessage[pos++] = '\\';
+                logMessage[pos++] = 't';
+                break;
+            case '\f':
+                NEED_X_CHARS(2);
+                logMessage[pos++] = '\\';
+                logMessage[pos++] = 'f';
+                break;
+            case '\b':
+                NEED_X_CHARS(2);
+                logMessage[pos++] = '\\';
+                logMessage[pos++] = 'b';
+                break;
+            case '\\':
+                NEED_X_CHARS(2);
+                logMessage[pos++] = '\\';
+                logMessage[pos++] = '\\';
+                break;
+            default:
+                if (SDL_isprint(c)) {
+                    NEED_X_CHARS(1);
+                    logMessage[pos++] = c;
+                } else {
+                    NEED_X_CHARS(4);
+                    logMessage[pos++] = '\\';
+                    logMessage[pos++] = 'x';
+                    logMessage[pos++] = nibble_to_char(c >> 4);
+                    logMessage[pos++] = nibble_to_char(c & 0xf);
+                }
+                break;
+            }
+            if (pos == pos_start) {
+                break;
+            }
+        }
+        if (i < size) {
+            logMessage[sizeof(logMessage) - 4] = '.';
+            logMessage[sizeof(logMessage) - 3] = '.';
+            logMessage[sizeof(logMessage) - 2] = '.';
+            logMessage[sizeof(logMessage) - 1] = '\0';
+        } else {
+            logMessage[pos++] = '"';
+            logMessage[pos] = '\0';
+        }
+    } else {
+        SDL_strlcpy(logMessage, "(nil)", sizeof(logMessage));
+    }
+
+    SDLTest_Log("%s%s", prefix, logMessage);
 }

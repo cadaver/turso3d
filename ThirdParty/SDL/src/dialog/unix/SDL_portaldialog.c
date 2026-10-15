@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -26,6 +26,8 @@
 #ifdef SDL_USE_LIBDBUS
 
 #include <errno.h>
+#include <libgen.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -84,9 +86,24 @@ static void DBus_AppendFilter(SDL_DBusContext *dbus, DBusMessageIter *parent, co
     dbus->message_iter_append_basic(&filter_entry, DBUS_TYPE_STRING, &filter.name);
     dbus->message_iter_open_container(&filter_entry, DBUS_TYPE_ARRAY, "(us)", &filter_array);
 
-    patterns = SDL_strdup(filter.pattern);
+    /* Copy the filter string, converting to a case-insensitive version.
+     * For example, for case-insensitive matching of '*.png', the pattern '*.[pP][nN][gG]' is used.
+     */
+    const size_t len = SDL_strlen(filter.pattern) + 1;
+    patterns = SDL_malloc(len * 4); // Single characters may be expanded to 4 characters.
     if (!patterns) {
         goto cleanup;
+    }
+    for (size_t i = 0, p = 0; i < len; ++i) {
+        if ((filter.pattern[i] >= 'a' && filter.pattern[i] <= 'z') ||
+            (filter.pattern[i] >= 'A' && filter.pattern[i] <= 'Z')) {
+            patterns[p++] = '[';
+            patterns[p++] = SDL_tolower(filter.pattern[i]);
+            patterns[p++] = SDL_toupper(filter.pattern[i]);
+            patterns[p++] = ']';
+        } else {
+            patterns[p++] = filter.pattern[i];
+        }
     }
 
     pattern = SDL_strtok_r(patterns, ";", &state);
@@ -153,49 +170,54 @@ static void DBus_AppendByteArray(SDL_DBusContext *dbus, DBusMessageIter *options
     dbus->message_iter_close_container(options, &options_pair);
 }
 
-static DBusHandlerResult DBus_MessageFilter(DBusConnection *conn, DBusMessage *msg, void *data) {
+static DBusHandlerResult DBus_MessageFilter(DBusConnection *conn, DBusMessage *msg, void *data)
+{
     SDL_DBusContext *dbus = SDL_DBus_GetContext();
     SignalCallback *signal_data = (SignalCallback *)data;
 
-    if (dbus->message_is_signal(msg, SIGNAL_INTERFACE, SIGNAL_NAME)
-            && dbus->message_has_path(msg, signal_data->path)) {
+    if (dbus->message_is_signal(msg, SIGNAL_INTERFACE, SIGNAL_NAME) &&
+        dbus->message_has_path(msg, signal_data->path)) {
         DBusMessageIter signal_iter, result_array, array_entry, value_entry, uri_entry;
         uint32_t result;
         size_t length = 2, current = 0;
-        const char **path;
+        const char **path = NULL;
 
         dbus->message_iter_init(msg, &signal_iter);
         // Check if the parameters are what we expect
-        if (dbus->message_iter_get_arg_type(&signal_iter) != DBUS_TYPE_UINT32)
+        if (dbus->message_iter_get_arg_type(&signal_iter) != DBUS_TYPE_UINT32) {
             goto not_our_signal;
+        }
         dbus->message_iter_get_basic(&signal_iter, &result);
 
         if (result == 1 || result == 2) {
             // cancelled
             const char *result_data[] = { NULL };
             signal_data->callback(signal_data->userdata, result_data, -1); // TODO: Set this to the last selected filter
-            goto handled;
-        }
-        else if (result) {
+            goto done;
+
+        } else if (result) {
             // some error occurred
             signal_data->callback(signal_data->userdata, NULL, -1);
-            goto handled;
+            goto done;
         }
 
-        if (!dbus->message_iter_next(&signal_iter))
+        if (!dbus->message_iter_next(&signal_iter)) {
             goto not_our_signal;
+        }
 
-        if (dbus->message_iter_get_arg_type(&signal_iter) != DBUS_TYPE_ARRAY)
+        if (dbus->message_iter_get_arg_type(&signal_iter) != DBUS_TYPE_ARRAY) {
             goto not_our_signal;
+        }
+
         dbus->message_iter_recurse(&signal_iter, &result_array);
 
-        while (dbus->message_iter_get_arg_type(&result_array) == DBUS_TYPE_DICT_ENTRY)
-        {
+        while (dbus->message_iter_get_arg_type(&result_array) == DBUS_TYPE_DICT_ENTRY) {
             const char *method;
 
             dbus->message_iter_recurse(&result_array, &array_entry);
-            if (dbus->message_iter_get_arg_type(&array_entry) != DBUS_TYPE_STRING)
+            if (dbus->message_iter_get_arg_type(&array_entry) != DBUS_TYPE_STRING) {
                 goto not_our_signal;
+            }
 
             dbus->message_iter_get_basic(&array_entry, &method);
             if (!SDL_strcmp(method, "uris")) {
@@ -203,38 +225,42 @@ static DBusHandlerResult DBus_MessageFilter(DBusConnection *conn, DBusMessage *m
                 break;
             }
 
-            if (!dbus->message_iter_next(&result_array))
+            if (!dbus->message_iter_next(&result_array)) {
                 goto not_our_signal;
+            }
         }
 
-        if (!dbus->message_iter_next(&array_entry))
+        if (!dbus->message_iter_next(&array_entry)) {
             goto not_our_signal;
+        }
 
-        if (dbus->message_iter_get_arg_type(&array_entry) != DBUS_TYPE_VARIANT)
+        if (dbus->message_iter_get_arg_type(&array_entry) != DBUS_TYPE_VARIANT) {
             goto not_our_signal;
+        }
         dbus->message_iter_recurse(&array_entry, &value_entry);
 
-        if (dbus->message_iter_get_arg_type(&value_entry) != DBUS_TYPE_ARRAY)
+        if (dbus->message_iter_get_arg_type(&value_entry) != DBUS_TYPE_ARRAY) {
             goto not_our_signal;
+        }
         dbus->message_iter_recurse(&value_entry, &uri_entry);
 
-        path = SDL_malloc(sizeof(const char *) * length);
+        path = SDL_malloc(length * sizeof(const char *));
         if (!path) {
             signal_data->callback(signal_data->userdata, NULL, -1);
-            goto cleanup;
+            goto done;
         }
 
-        while (dbus->message_iter_get_arg_type(&uri_entry) == DBUS_TYPE_STRING)
-        {
+        while (dbus->message_iter_get_arg_type(&uri_entry) == DBUS_TYPE_STRING) {
             const char *uri = NULL;
 
             if (current >= length - 1) {
                 ++length;
-                path = SDL_realloc(path, sizeof(const char *) * length);
-                if (!path) {
+                const char **newpath = SDL_realloc(path, length * sizeof(const char *));
+                if (!newpath) {
                     signal_data->callback(signal_data->userdata, NULL, -1);
-                    goto cleanup;
+                    goto done;
                 }
+                path = newpath;
             }
 
             dbus->message_iter_get_basic(&uri_entry, &uri);
@@ -248,36 +274,98 @@ static DBusHandlerResult DBus_MessageFilter(DBusConnection *conn, DBusMessage *m
                 SDL_free(decoded_uri);
                 SDL_SetError("Portal dialogs: Unsupported protocol: %s", uri);
                 signal_data->callback(signal_data->userdata, NULL, -1);
-                goto cleanup;
+                goto done;
             }
 
             dbus->message_iter_next(&uri_entry);
             ++current;
         }
-        path[length - 1] = NULL;
+        path[current] = NULL;
         signal_data->callback(signal_data->userdata, path, -1); // TODO: Fetch the index of the filter that was used
-cleanup:
+done:
         dbus->connection_remove_filter(conn, &DBus_MessageFilter, signal_data);
 
         if (path) {
             for (size_t i = 0; i < current; ++i) {
                 SDL_free((char *)path[i]);
             }
+            SDL_free(path);
         }
-
-        SDL_free(path);
         SDL_free((void *)signal_data->path);
         SDL_free(signal_data);
-handled:
         return DBUS_HANDLER_RESULT_HANDLED;
     }
+
 not_our_signal:
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
-static void DBus_OpenDialog(const char *method, const char *method_title, SDL_DialogFileCallback callback, void* userdata, SDL_Window* window, const SDL_DialogFileFilter *filters, int nfilters, const char* default_location, bool allow_many, int open_folders)
+void SDL_Portal_ShowFileDialogWithProperties(SDL_FileDialogType type, SDL_DialogFileCallback callback, void *userdata, SDL_PropertiesID props)
 {
+    const char *method;
+    const char *method_title;
+
+    SDL_Window *window = SDL_GetPointerProperty(props, SDL_PROP_FILE_DIALOG_WINDOW_POINTER, NULL);
+    SDL_DialogFileFilter *filters = SDL_GetPointerProperty(props, SDL_PROP_FILE_DIALOG_FILTERS_POINTER, NULL);
+    int nfilters = (int) SDL_GetNumberProperty(props, SDL_PROP_FILE_DIALOG_NFILTERS_NUMBER, 0);
+    bool allow_many = SDL_GetBooleanProperty(props, SDL_PROP_FILE_DIALOG_MANY_BOOLEAN, false);
+    const char *default_location = SDL_GetStringProperty(props, SDL_PROP_FILE_DIALOG_LOCATION_STRING, NULL);
+    const char *accept = SDL_GetStringProperty(props, SDL_PROP_FILE_DIALOG_ACCEPT_STRING, NULL);
+    char *location_name = NULL;
+    char *location_folder = NULL;
+    struct stat statbuf;
+    bool open_folders = false;
+    bool save_file_existing = false;
+    bool save_file_new_named = false;
+
+    switch (type) {
+    case SDL_FILEDIALOG_OPENFILE:
+        method = "OpenFile";
+        method_title = SDL_GetStringProperty(props, SDL_PROP_FILE_DIALOG_TITLE_STRING, "Open File");
+        break;
+
+    case SDL_FILEDIALOG_SAVEFILE:
+        method = "SaveFile";
+        method_title = SDL_GetStringProperty(props, SDL_PROP_FILE_DIALOG_TITLE_STRING, "Save File");
+        if (default_location) {
+            if (stat(default_location, &statbuf) == 0) {
+                save_file_existing = S_ISREG(statbuf.st_mode);
+            } else if (errno == ENOENT) {
+                char *dirc = SDL_strdup(default_location);
+                if (dirc) {
+                    location_folder = SDL_strdup(dirname(dirc));
+                    SDL_free(dirc);
+                    if (location_folder) {
+                        save_file_new_named = (stat(location_folder, &statbuf) == 0) && S_ISDIR(statbuf.st_mode);
+                    }
+                }
+            }
+
+            if (save_file_existing || save_file_new_named) {
+                char *basec = SDL_strdup(default_location);
+                if (basec) {
+                    location_name = SDL_strdup(basename(basec));
+                    SDL_free(basec);
+                }
+            }
+        }
+        break;
+
+    case SDL_FILEDIALOG_OPENFOLDER:
+        method = "OpenFile";
+        method_title = SDL_GetStringProperty(props, SDL_PROP_FILE_DIALOG_TITLE_STRING, "Open Folder");
+        open_folders = true;
+        break;
+
+    default:
+        /* This is already checked in ../SDL_dialog.c; this silences compiler warnings */
+        SDL_SetError("Invalid file dialog type: %d", type);
+        callback(userdata, NULL, -1);
+        goto cleanup;
+    }
+
     SDL_DBusContext *dbus = SDL_DBus_GetContext();
+    DBusError error;
     DBusMessage *msg;
     DBusMessageIter params, options;
     const char *signal_id = NULL;
@@ -285,52 +373,54 @@ static void DBus_OpenDialog(const char *method, const char *method_title, SDL_Di
     int filter_len;
     static uint32_t handle_id = 0;
     static char *default_parent_window = "";
-    SDL_PropertiesID props = SDL_GetWindowProperties(window);
+    SDL_PropertiesID window_props = SDL_GetWindowProperties(window);
 
     const char *err_msg = validate_filters(filters, nfilters);
+
+    dbus->error_init(&error);
 
     if (err_msg) {
         SDL_SetError("%s", err_msg);
         callback(userdata, NULL, -1);
-        return;
+        goto cleanup;
     }
 
     if (dbus == NULL) {
         SDL_SetError("Failed to connect to DBus");
         callback(userdata, NULL, -1);
-        return;
+        goto cleanup;
     }
 
     msg = dbus->message_new_method_call(PORTAL_DESTINATION, PORTAL_PATH, PORTAL_INTERFACE, method);
     if (msg == NULL) {
         SDL_SetError("Failed to send message to portal");
         callback(userdata, NULL, -1);
-        return;
+        goto cleanup;
     }
 
     dbus->message_iter_init_append(msg, &params);
 
     handle_str = default_parent_window;
-    if (props) {
-        const char *parent_handle = SDL_GetStringProperty(props, SDL_PROP_WINDOW_WAYLAND_XDG_TOPLEVEL_EXPORT_HANDLE_STRING, NULL);
+    if (window_props) {
+        const char *parent_handle = SDL_GetStringProperty(window_props, SDL_PROP_WINDOW_WAYLAND_XDG_TOPLEVEL_EXPORT_HANDLE_STRING, NULL);
         if (parent_handle) {
             size_t len = SDL_strlen(parent_handle);
             len += sizeof(WAYLAND_HANDLE_PREFIX) + 1;
             handle_str = SDL_malloc(len * sizeof(char));
             if (!handle_str) {
                 callback(userdata, NULL, -1);
-                return;
+                goto cleanup;
             }
 
             SDL_snprintf(handle_str, len, "%s%s", WAYLAND_HANDLE_PREFIX, parent_handle);
         } else {
-            const Uint64 xid = (Uint64)SDL_GetNumberProperty(props, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
+            const Uint64 xid = (Uint64)SDL_GetNumberProperty(window_props, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
             if (xid) {
                 const size_t len = sizeof(X11_HANDLE_PREFIX) + 24; // A 64-bit number can be 20 characters max.
                 handle_str = SDL_malloc(len * sizeof(char));
                 if (!handle_str) {
                     callback(userdata, NULL, -1);
-                    return;
+                    goto cleanup;
                 }
 
                 // The portal wants X11 window ID numbers in hex.
@@ -350,14 +440,14 @@ static void DBus_OpenDialog(const char *method, const char *method_title, SDL_Di
     handle_str = SDL_malloc(sizeof(char) * (HANDLE_LEN + 1));
     if (!handle_str) {
         callback(userdata, NULL, -1);
-        return;
+        goto cleanup;
     }
     SDL_snprintf(handle_str, HANDLE_LEN, "%u", ++handle_id);
     DBus_AppendStringOption(dbus, &options, "handle_token", handle_str);
     SDL_free(handle_str);
 
     DBus_AppendBoolOption(dbus, &options, "modal", !!window);
-    if (allow_many == true) {
+    if (allow_many) {
         DBus_AppendBoolOption(dbus, &options, "multiple", 1);
     }
     if (open_folders) {
@@ -367,11 +457,34 @@ static void DBus_OpenDialog(const char *method, const char *method_title, SDL_Di
         DBus_AppendFilters(dbus, &options, filters, nfilters);
     }
     if (default_location) {
-        DBus_AppendByteArray(dbus, &options, "current_folder", default_location);
+        if (save_file_existing && location_name) {
+            /* Open a save dialog at an existing file */
+            DBus_AppendByteArray(dbus, &options, "current_file", default_location);
+            /* Setting "current_name" should not be necessary however the kde-desktop-portal sets the filename without an extension.
+             * An alternative would be to match the extension to a filter and set "current_filter".
+             */
+            DBus_AppendStringOption(dbus, &options, "current_name", location_name);
+        } else if (save_file_new_named && location_folder && location_name) {
+            /* Open a save dialog at a location with a suggested name */
+            DBus_AppendByteArray(dbus, &options, "current_folder", location_folder);
+            DBus_AppendStringOption(dbus, &options, "current_name", location_name);
+        } else {
+            DBus_AppendByteArray(dbus, &options, "current_folder", default_location);
+        }
+    }
+    if (accept) {
+        DBus_AppendStringOption(dbus, &options, "accept_label", accept);
     }
     dbus->message_iter_close_container(&params, &options);
 
-    DBusMessage *reply = dbus->connection_send_with_reply_and_block(dbus->session_conn, msg, DBUS_TIMEOUT_INFINITE, NULL);
+    DBusMessage *reply = dbus->connection_send_with_reply_and_block(dbus->session_conn, msg, DBUS_TIMEOUT_INFINITE, &error);
+    if (dbus->error_is_set(&error)) {
+        SDL_SetError("Failed to open dialog via DBus, %s: %s", error.name, error.message);
+        dbus->error_free(&error);
+        callback(userdata, NULL, -1);
+        goto cleanup;
+    }
+
     if (reply) {
         DBusMessageIter reply_iter;
         dbus->message_iter_init(reply, &reply_iter);
@@ -397,8 +510,15 @@ static void DBus_OpenDialog(const char *method, const char *method_title, SDL_Di
     }
 
     SDL_snprintf(filter, filter_len, SIGNAL_FILTER"%s'", signal_id);
-    dbus->bus_add_match(dbus->session_conn, filter, NULL);
+    dbus->bus_add_match(dbus->session_conn, filter, &error);
     SDL_free(filter);
+
+    if (dbus->error_is_set(&error)) {
+        SDL_SetError("Failed to set up DBus listener for dialog, %s: %s", error.name, error.message);
+        dbus->error_free(&error);
+        callback(userdata, NULL, -1);
+        goto cleanup;
+    }
 
     SignalCallback *data = SDL_malloc(sizeof(SignalCallback));
     if (!data) {
@@ -423,21 +543,10 @@ static void DBus_OpenDialog(const char *method, const char *method_title, SDL_Di
 
 incorrect_type:
     dbus->message_unref(reply);
-}
 
-void SDL_Portal_ShowOpenFileDialog(SDL_DialogFileCallback callback, void* userdata, SDL_Window* window, const SDL_DialogFileFilter *filters, int nfilters, const char* default_location, bool allow_many)
-{
-    DBus_OpenDialog("OpenFile", "Open File", callback, userdata, window, filters, nfilters, default_location, allow_many, 0);
-}
-
-void SDL_Portal_ShowSaveFileDialog(SDL_DialogFileCallback callback, void* userdata, SDL_Window* window, const SDL_DialogFileFilter *filters, int nfilters, const char* default_location)
-{
-    DBus_OpenDialog("SaveFile", "Save File", callback, userdata, window, filters, nfilters, default_location, 0, 0);
-}
-
-void SDL_Portal_ShowOpenFolderDialog(SDL_DialogFileCallback callback, void* userdata, SDL_Window* window, const char* default_location, bool allow_many)
-{
-    DBus_OpenDialog("OpenFile", "Open Folder", callback, userdata, window, NULL, 0, default_location, allow_many, 1);
+cleanup:
+    SDL_free(location_name);
+    SDL_free(location_folder);
 }
 
 bool SDL_Portal_detect(void)
@@ -466,7 +575,7 @@ bool SDL_Portal_detect(void)
         goto done;
     }
 
-    reply = dbus->connection_send_with_reply_and_block(dbus->session_conn, msg, DBUS_TIMEOUT_INFINITE, NULL);
+    reply = dbus->connection_send_with_reply_and_block(dbus->session_conn, msg, DBUS_TIMEOUT_USE_DEFAULT, NULL);
     dbus->message_unref(msg);
     if (!reply) {
         goto done;
@@ -500,19 +609,7 @@ done:
 
 // Dummy implementation to avoid compilation problems
 
-void SDL_Portal_ShowOpenFileDialog(SDL_DialogFileCallback callback, void* userdata, SDL_Window* window, const SDL_DialogFileFilter *filters, int nfilters, const char* default_location, bool allow_many)
-{
-    SDL_Unsupported();
-    callback(userdata, NULL, -1);
-}
-
-void SDL_Portal_ShowSaveFileDialog(SDL_DialogFileCallback callback, void* userdata, SDL_Window* window, const SDL_DialogFileFilter *filters, int nfilters, const char* default_location)
-{
-    SDL_Unsupported();
-    callback(userdata, NULL, -1);
-}
-
-void SDL_Portal_ShowOpenFolderDialog(SDL_DialogFileCallback callback, void* userdata, SDL_Window* window, const char* default_location, bool allow_many)
+void SDL_Portal_ShowFileDialogWithProperties(SDL_FileDialogType type, SDL_DialogFileCallback callback, void *userdata, SDL_PropertiesID props)
 {
     SDL_Unsupported();
     callback(userdata, NULL, -1);

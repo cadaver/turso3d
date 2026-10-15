@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -31,19 +31,19 @@ static void SDL_DrawLine1(SDL_Surface *dst, int x1, int y1, int x2, int y2, Uint
 {
     if (y1 == y2) {
         int length;
-        int pitch = (dst->pitch / dst->internal->format->bytes_per_pixel);
-        Uint8 *pixel;
+        int pitch = (dst->pitch / dst->fmt->bytes_per_pixel);
+        Uint8 *pixels;
         if (x1 <= x2) {
-            pixel = (Uint8 *)dst->pixels + y1 * pitch + x1;
+            pixels = (Uint8 *)dst->pixels + y1 * pitch + x1;
             length = draw_end ? (x2 - x1 + 1) : (x2 - x1);
         } else {
-            pixel = (Uint8 *)dst->pixels + y1 * pitch + x2;
+            pixels = (Uint8 *)dst->pixels + y1 * pitch + x2;
             if (!draw_end) {
-                ++pixel;
+                ++pixels;
             }
             length = draw_end ? (x1 - x2 + 1) : (x1 - x2);
         }
-        SDL_memset(pixel, color, length);
+        SDL_memset(pixels, color, length);
     } else if (x1 == x2) {
         VLINE(Uint8, DRAW_FASTSETPIXEL1, draw_end);
     } else if (ABS(x1 - x2) == ABS(y1 - y2)) {
@@ -64,8 +64,8 @@ static void SDL_DrawLine2(SDL_Surface *dst, int x1, int y1, int x2, int y2, Uint
         DLINE(Uint16, DRAW_FASTSETPIXEL2, draw_end);
     } else {
         Uint8 _r, _g, _b, _a;
-        const SDL_PixelFormatDetails *fmt = dst->internal->format;
-        SDL_GetRGBA(color, fmt, dst->internal->palette, &_r, &_g, &_b, &_a);
+        const SDL_PixelFormatDetails *fmt = dst->fmt;
+        SDL_GetRGBA(color, fmt, dst->palette, &_r, &_g, &_b, &_a);
         if (fmt->Rmask == 0x7C00) {
             AALINE(x1, y1, x2, y2,
                    DRAW_FASTSETPIXELXY2, DRAW_SETPIXELXY_BLEND_RGB555,
@@ -93,8 +93,8 @@ static void SDL_DrawLine4(SDL_Surface *dst, int x1, int y1, int x2, int y2, Uint
         DLINE(Uint32, DRAW_FASTSETPIXEL4, draw_end);
     } else {
         Uint8 _r, _g, _b, _a;
-        const SDL_PixelFormatDetails *fmt = dst->internal->format;
-        SDL_GetRGBA(color, fmt, dst->internal->palette, &_r, &_g, &_b, &_a);
+        const SDL_PixelFormatDetails *fmt = dst->fmt;
+        SDL_GetRGBA(color, fmt, dst->palette, &_r, &_g, &_b, &_a);
         if (fmt->Rmask == 0x00FF0000) {
             if (!fmt->Amask) {
                 AALINE(x1, y1, x2, y2,
@@ -137,18 +137,18 @@ bool SDL_DrawLine(SDL_Surface *dst, int x1, int y1, int x2, int y2, Uint32 color
 {
     DrawLineFunc func;
 
-    if (!SDL_SurfaceValid(dst)) {
+    CHECK_PARAM(!SDL_SurfaceValid(dst)) {
         return SDL_InvalidParamError("SDL_DrawLine(): dst");
     }
 
-    func = SDL_CalculateDrawLineFunc(dst->internal->format);
+    func = SDL_CalculateDrawLineFunc(dst->fmt);
     if (!func) {
         return SDL_SetError("SDL_DrawLine(): Unsupported surface format");
     }
 
     // Perform clipping
     // FIXME: We don't actually want to clip, as it may change line slope
-    if (!SDL_GetRectAndLineIntersection(&dst->internal->clip_rect, &x1, &y1, &x2, &y2)) {
+    if (!SDL_GetRectAndLineIntersection(&dst->clip_rect, &x1, &y1, &x2, &y2)) {
         return true;
     }
 
@@ -164,11 +164,11 @@ bool SDL_DrawLines(SDL_Surface *dst, const SDL_Point *points, int count, Uint32 
     bool draw_end;
     DrawLineFunc func;
 
-    if (!SDL_SurfaceValid(dst)) {
+    CHECK_PARAM(!SDL_SurfaceValid(dst)) {
         return SDL_InvalidParamError("SDL_DrawLines(): dst");
     }
 
-    func = SDL_CalculateDrawLineFunc(dst->internal->format);
+    func = SDL_CalculateDrawLineFunc(dst->fmt);
     if (!func) {
         return SDL_SetError("SDL_DrawLines(): Unsupported surface format");
     }
@@ -181,7 +181,7 @@ bool SDL_DrawLines(SDL_Surface *dst, const SDL_Point *points, int count, Uint32 
 
         // Perform clipping
         // FIXME: We don't actually want to clip, as it may change line slope
-        if (!SDL_GetRectAndLineIntersection(&dst->internal->clip_rect, &x1, &y1, &x2, &y2)) {
+        if (!SDL_GetRectAndLineIntersection(&dst->clip_rect, &x1, &y1, &x2, &y2)) {
             continue;
         }
 

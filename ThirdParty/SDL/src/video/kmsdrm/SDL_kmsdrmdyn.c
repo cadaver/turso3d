@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -28,6 +28,13 @@
 #include "SDL_kmsdrmdyn.h"
 
 #ifdef SDL_VIDEO_DRIVER_KMSDRM_DYNAMIC
+
+SDL_ELF_NOTE_DLOPEN(
+    "video-kmsdrm",
+    "Support for KMSDRM",
+    SDL_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+    SDL_VIDEO_DRIVER_KMSDRM_DYNAMIC
+)
 
 typedef struct
 {
@@ -59,9 +66,9 @@ static void *KMSDRM_GetSym(const char *fnname, int *pHasModule, bool required)
 
 #if DEBUG_DYNAMIC_KMSDRM
     if (fn)
-        SDL_Log("KMSDRM: Found '%s' in %s (%p)\n", fnname, kmsdrmlibs[i].libname, fn);
+        SDL_Log("KMSDRM: Found '%s' in %s (%p)", fnname, kmsdrmlibs[i].libname, fn);
     else
-        SDL_Log("KMSDRM: Symbol '%s' NOT FOUND!\n", fnname);
+        SDL_Log("KMSDRM: Symbol '%s' NOT FOUND!", fnname);
 #endif
 
     if (!fn && required) {

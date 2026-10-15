@@ -15,7 +15,7 @@ static const float OCCLUSION_QUERY_INTERVAL = 0.133333f; // About 8 frame stagge
 
 class Ray;
 class WorkQueue;
-struct ReinsertDrawablesTask;
+struct UpdateOctantTask;
 
 /// %Octant occlusion query visibility states.
 enum OctantVisibility
@@ -203,9 +203,9 @@ public:
     /// Register factory and attributes.
     static void RegisterObject();
     
-    /// Process the queue of nodes to be reinserted. This will utilize worker threads.
+    /// Process the octree hierarchy for drawable reinsertions and animation. This will utilize worker threads.
     void Update(unsigned short frameNumber);
-    /// Finish the octree update.
+    /// Wait until threaded octree update work is finished.
     void FinishUpdate();
     /// Resize the octree.
     void Resize(const BoundingBox& boundingBox, int numLevels);
@@ -228,6 +228,8 @@ public:
     Octant* Root() const { return const_cast<Octant*>(&root); }
 
 private:
+    /// Check octant for drawables that need update or reinsertion, and recurse into child octants.
+    void UpdateOctant(Octant* octant, bool recursive, unsigned threadIndex = 0);
     /// Set bounding box. Used in serialization.
     void SetBoundingBoxAttr(const BoundingBox& value);
     /// Return bounding box. Used in serialization.
@@ -296,8 +298,8 @@ private:
     void CollectDrawables(std::vector<RaycastResult>& result, Octant* octant, const Ray& ray, unsigned short drawableFlags, float maxDistance, unsigned layerMask) const;
     /// Return all visible drawables matching flags that could be potential raycast hits.
     void CollectDrawables(std::vector<std::pair<Drawable*, float> >& result, Octant* octant, const Ray& ray, unsigned short drawableFlags, float maxDistance, unsigned layerMask) const;
-    /// Work function to check reinsertion of nodes.
-    void CheckReinsertWork(Task* task, unsigned threadIndex);
+    /// Work function to update an octree branch.
+    void UpdateOctantWork(Task* task, unsigned threadIndex);
 
     /// Collect nodes matching flags using a volume such as frustum or sphere.
     template <class T> void CollectDrawables(std::vector<Drawable*>& result, Octant* octant, const T& volume, unsigned short drawableFlags, unsigned layerMask) const
@@ -361,12 +363,14 @@ private:
         }
     }
 
-    /// In-update flag. During update moved drawables go directly to thread-specific reinsert queues.
-    bool inUpdate;
     /// Current framenumber.
     unsigned short frameNumber;
-    /// Queue of drawables to be reinserted, per-thread to allow node update outside the main thread.
-    AutoArrayPtr<std::vector<Drawable*> > updateQueues;
+    /// In update-flag.
+    bool inUpdate;
+    /// Next octant task that can be used.
+    unsigned nextOctantTaskIdx;
+    /// Number of octant tasks in execution. When zero, all tasks can be reused.
+    std::atomic<int> numPendingOctantTasks;
     /// Intermediate reinsert queues during update.
     AutoArrayPtr<std::vector<Drawable*> > reinsertQueues;
     /// Octants which need to have their drawables sorted.
@@ -379,12 +383,10 @@ private:
     Allocator<Octant> allocator;
     /// Cached %WorkQueue subsystem.
     WorkQueue* workQueue;
-    /// Tasks for threaded reinsert execution.
-    std::vector<AutoPtr<ReinsertDrawablesTask> > reinsertTasks;
+    /// Tasks for threaded octree branch update.
+    std::vector<AutoPtr<UpdateOctantTask> > updateOctantTasks;
     /// RaycastSingle initial coarse result.
     mutable std::vector<std::pair<Drawable*, float> > initialRayResult;
     /// RaycastSingle final result.
     mutable std::vector<RaycastResult> finalRayResult;
-    /// Remaining drawable reinsertion tasks.
-    std::atomic<int> numPendingReinsertionTasks;
 };

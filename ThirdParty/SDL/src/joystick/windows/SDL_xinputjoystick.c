@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -185,13 +185,18 @@ static void AddXInputDevice(Uint8 userid, BYTE SubType, JoyStick_DeviceData **pC
         pNewJoystick = pNewJoystick->pNext;
     }
 
+    name = GetXInputName(userid, SubType);
+    GetXInputDeviceInfo(userid, &vendor, &product, &version);
+    if (SDL_ShouldIgnoreJoystick(vendor, product, version, name) ||
+        SDL_JoystickHandledByAnotherDriver(&SDL_WINDOWS_JoystickDriver, vendor, product, version, name)) {
+        return;
+    }
+
     pNewJoystick = (JoyStick_DeviceData *)SDL_calloc(1, sizeof(JoyStick_DeviceData));
     if (!pNewJoystick) {
         return; // better luck next time?
     }
 
-    name = GetXInputName(userid, SubType);
-    GetXInputDeviceInfo(userid, &vendor, &product, &version);
     pNewJoystick->bXInputDevice = true;
     pNewJoystick->joystickname = SDL_CreateJoystickName(vendor, product, NULL, name);
     if (!pNewJoystick->joystickname) {
@@ -202,16 +207,6 @@ static void AddXInputDevice(Uint8 userid, BYTE SubType, JoyStick_DeviceData **pC
     pNewJoystick->guid = SDL_CreateJoystickGUID(SDL_HARDWARE_BUS_USB, vendor, product, version, NULL, name, 'x', SubType);
     pNewJoystick->SubType = SubType;
     pNewJoystick->XInputUserId = userid;
-
-    if (SDL_ShouldIgnoreJoystick(pNewJoystick->joystickname, pNewJoystick->guid)) {
-        SDL_free(pNewJoystick);
-        return;
-    }
-
-    if (SDL_JoystickHandledByAnotherDriver(&SDL_WINDOWS_JoystickDriver, vendor, product, version, pNewJoystick->joystickname)) {
-        SDL_free(pNewJoystick);
-        return;
-    }
 
     WINDOWS_AddJoystickDevice(pNewJoystick);
 }
@@ -305,20 +300,24 @@ static void UpdateXInputJoystickBatteryInformation(SDL_Joystick *joystick, XINPU
         state = SDL_POWERSTATE_ON_BATTERY;
         break;
     }
-    switch (pBatteryInformation->BatteryLevel) {
-    case BATTERY_LEVEL_EMPTY:
-        percent = 10;
-        break;
-    case BATTERY_LEVEL_LOW:
-        percent = 40;
-        break;
-    case BATTERY_LEVEL_MEDIUM:
-        percent = 70;
-        break;
-    default:
-    case BATTERY_LEVEL_FULL:
-        percent = 100;
-        break;
+    if (state == SDL_POWERSTATE_ON_BATTERY || state == SDL_POWERSTATE_CHARGING) {
+        switch (pBatteryInformation->BatteryLevel) {
+        case BATTERY_LEVEL_EMPTY:
+            percent = 10;
+            break;
+        case BATTERY_LEVEL_LOW:
+            percent = 40;
+            break;
+        case BATTERY_LEVEL_MEDIUM:
+            percent = 70;
+            break;
+        default:
+        case BATTERY_LEVEL_FULL:
+            percent = 100;
+            break;
+        }
+    } else {
+        percent = -1;
     }
     SDL_SendJoystickPowerInfo(joystick, state, percent);
 }
@@ -396,6 +395,7 @@ void SDL_XINPUT_JoystickUpdate(SDL_Joystick *joystick)
         return;
     }
 
+    // FIXME: This does end up making a device ioctl() to query data, we shouldn't do this every update.
     SDL_zero(XBatteryInformation);
     if (XINPUTGETBATTERYINFORMATION) {
         result = XINPUTGETBATTERYINFORMATION(joystick->hwdata->userid, BATTERY_DEVTYPE_GAMEPAD, &XBatteryInformation);

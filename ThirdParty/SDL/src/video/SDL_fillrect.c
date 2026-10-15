@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -20,7 +20,7 @@
 */
 #include "SDL_internal.h"
 
-#include "SDL_blit.h"
+#include "SDL_surface_c.h"
 
 #ifdef SDL_SSE_INTRINSICS
 /* *INDENT-OFF* */ // clang-format off
@@ -59,6 +59,13 @@ static void SDL_TARGETING("sse") SDL_FillSurfaceRect##bpp##SSE(Uint8 *pixels, in
 { \
     int i, n; \
     Uint8 *p = NULL; \
+  \
+    /* If the number of bytes per row is equal to the pitch, treat */ \
+    /* all rows as one long continuous row (for better performance) */ \
+    if ((w) * (bpp) == pitch) { \
+        w = w * h; \
+        h = 1; \
+    } \
  \
     SSE_BEGIN; \
  \
@@ -124,7 +131,70 @@ DEFINE_SSE_FILLRECT(2, Uint16)
 DEFINE_SSE_FILLRECT(4, Uint32)
 
 /* *INDENT-ON* */ // clang-format on
-#endif            // __SSE__
+#endif            // SDL_SSE_INTRINSICS
+
+#ifdef SDL_LSX_INTRINSICS
+/* *INDENT-OFF* */ // clang-format off
+
+#define LSX_BEGIN __m128i c128 = __lsx_vreplgr2vr_w(color);
+
+#define LSX_WORK \
+    for (i = n / 64; i--;) { \
+        __lsx_vst(c128, p, 0); \
+        __lsx_vst(c128, p, 16); \
+        __lsx_vst(c128, p, 32); \
+        __lsx_vst(c128, p, 48); \
+        p += 64; \
+    }
+
+#define DEFINE_LSX_FILLRECT(bpp, type) \
+static void SDL_TARGETING("lsx") SDL_FillSurfaceRect##bpp##LSX(Uint8 *pixels, int pitch, Uint32 color, int w, int h) \
+{ \
+    int i, n; \
+    Uint8 *p = NULL; \
+  \
+    /* If the number of bytes per row is equal to the pitch, treat */ \
+    /* all rows as one long continuous row (for better performance) */ \
+    if ((w) * (bpp) == pitch) { \
+        w = w * h; \
+        h = 1; \
+    } \
+ \
+    LSX_BEGIN; \
+ \
+    while (h--) { \
+        n = (w) * (bpp); \
+        p = pixels; \
+ \
+        if (n > 63) { \
+            int adjust = 16 - ((uintptr_t)p & 15); \
+            if (adjust < 16) { \
+                n -= adjust; \
+                adjust /= (bpp); \
+                while (adjust--) { \
+                    *((type *)p) = (type)color; \
+                    p += (bpp); \
+                } \
+            } \
+            LSX_WORK; \
+        } \
+        if (n & 63) { \
+            int remainder = (n & 63); \
+            remainder /= (bpp); \
+            while (remainder--) { \
+                *((type *)p) = (type)color; \
+                p += (bpp); \
+            } \
+        } \
+        pixels += pitch; \
+    } \
+ \
+}
+
+DEFINE_LSX_FILLRECT(4, Uint32)
+
+/* *INDENT-ON* */ // clang-format on
+#endif // SDL_LSX_INTRINSICS
 
 static void SDL_FillSurfaceRect1(Uint8 *pixels, int pitch, Uint32 color, int w, int h)
 {
@@ -229,15 +299,15 @@ static void SDL_FillSurfaceRect4(Uint8 *pixels, int pitch, Uint32 color, int w, 
 /*
  * This function performs a fast fill of the given rectangle with 'color'
  */
-SDL_bool SDL_FillSurfaceRect(SDL_Surface *dst, const SDL_Rect *rect, Uint32 color)
+bool SDL_FillSurfaceRect(SDL_Surface *dst, const SDL_Rect *rect, Uint32 color)
 {
-    if (!SDL_SurfaceValid(dst)) {
+    CHECK_PARAM(!SDL_SurfaceValid(dst)) {
         return SDL_InvalidParamError("SDL_FillSurfaceRect(): dst");
     }
 
     // If 'rect' == NULL, then fill the whole surface
     if (!rect) {
-        rect = &dst->internal->clip_rect;
+        rect = &dst->clip_rect;
         // Don't attempt to fill if the surface's clip_rect is empty
         if (SDL_RectEmpty(rect)) {
             return true;
@@ -247,7 +317,7 @@ SDL_bool SDL_FillSurfaceRect(SDL_Surface *dst, const SDL_Rect *rect, Uint32 colo
     return SDL_FillSurfaceRects(dst, rect, 1, color);
 }
 
-SDL_bool SDL_FillSurfaceRects(SDL_Surface *dst, const SDL_Rect *rects, int count, Uint32 color)
+bool SDL_FillSurfaceRects(SDL_Surface *dst, const SDL_Rect *rects, int count, Uint32 color)
 {
     SDL_Rect clipped;
     Uint8 *pixels;
@@ -255,22 +325,21 @@ SDL_bool SDL_FillSurfaceRects(SDL_Surface *dst, const SDL_Rect *rects, int count
     void (*fill_function)(Uint8 * pixels, int pitch, Uint32 color, int w, int h) = NULL;
     int i;
 
-    if (!SDL_SurfaceValid(dst)) {
+    CHECK_PARAM(!SDL_SurfaceValid(dst)) {
         return SDL_InvalidParamError("SDL_FillSurfaceRects(): dst");
     }
 
-    // Nothing to do
-    if (dst->w == 0 || dst->h == 0) {
-        return true;
+    CHECK_PARAM(!rects) {
+        return SDL_InvalidParamError("SDL_FillSurfaceRects(): rects");
     }
 
-    // Perform software fill
-    if (!dst->pixels) {
+    if (!dst->pixels && SDL_MUSTLOCK(dst)) {
         return SDL_SetError("SDL_FillSurfaceRects(): You must lock the surface");
     }
 
-    if (!rects) {
-        return SDL_InvalidParamError("SDL_FillSurfaceRects(): rects");
+    // Nothing to do
+    if (dst->w == 0 || dst->h == 0 || !dst->pixels) {
+        return true;
     }
 
     /* This function doesn't usually work on surfaces < 8 bpp
@@ -334,6 +403,12 @@ SDL_bool SDL_FillSurfaceRects(SDL_Surface *dst, const SDL_Rect *rects, int count
                 break;
             }
 #endif
+#ifdef SDL_LSX_INTRINSICS
+            if (SDL_HasLSX()) {
+                fill_function = SDL_FillSurfaceRect4LSX;
+                break;
+            }
+#endif
             fill_function = SDL_FillSurfaceRect4;
             break;
         }
@@ -346,7 +421,7 @@ SDL_bool SDL_FillSurfaceRects(SDL_Surface *dst, const SDL_Rect *rects, int count
     for (i = 0; i < count; ++i) {
         rect = &rects[i];
         // Perform clipping
-        if (!SDL_GetRectIntersection(rect, &dst->internal->clip_rect, &clipped)) {
+        if (!SDL_GetRectIntersection(rect, &dst->clip_rect, &clipped)) {
             continue;
         }
         rect = &clipped;

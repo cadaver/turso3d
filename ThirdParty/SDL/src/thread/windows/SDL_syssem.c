@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -60,8 +60,8 @@ static SDL_sem_impl_t SDL_sem_impl_active = { 0 };
 // APIs not available on WinPhone 8.1
 // https://www.microsoft.com/en-us/download/details.aspx?id=47328
 
-typedef BOOL(WINAPI *pfnWaitOnAddress)(volatile VOID *, PVOID, SIZE_T, DWORD);
-typedef VOID(WINAPI *pfnWakeByAddressSingle)(PVOID);
+typedef BOOL (WINAPI *pfnWaitOnAddress)(volatile VOID *, PVOID, SIZE_T, DWORD);
+typedef VOID (WINAPI *pfnWakeByAddressSingle)(PVOID);
 
 static pfnWaitOnAddress pWaitOnAddress = NULL;
 static pfnWakeByAddressSingle pWakeByAddressSingle = NULL;
@@ -333,7 +333,7 @@ void SDL_DestroySemaphore(SDL_Semaphore *sem)
     SDL_sem_impl_active.Destroy(sem);
 }
 
-SDL_bool SDL_WaitSemaphoreTimeoutNS(SDL_Semaphore *sem, Sint64 timeoutNS)
+bool SDL_WaitSemaphoreTimeoutNS(SDL_Semaphore *sem, Sint64 timeoutNS)
 {
     return SDL_sem_impl_active.WaitTimeoutNS(sem, timeoutNS);
 }

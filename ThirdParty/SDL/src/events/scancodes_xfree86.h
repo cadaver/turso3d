@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -371,10 +371,10 @@ static const SDL_Scancode xfree86_scancode_table2[] = {
     /* 188, 0x0bc */   SDL_SCANCODE_F18,                // XF86Launch9
     /* 189, 0x0bd */   SDL_SCANCODE_F19,                // NoSymbol
     /* 190, 0x0be */   SDL_SCANCODE_F20,                // XF86AudioMicMute
-    /* 191, 0x0bf */   SDL_SCANCODE_UNKNOWN,            // XF86TouchpadToggle
-    /* 192, 0x0c0 */   SDL_SCANCODE_UNKNOWN,            // XF86TouchpadOn
-    /* 193, 0x0c1 */   SDL_SCANCODE_UNKNOWN,            // XF86TouchpadOff
-    /* 194, 0x0c2 */   SDL_SCANCODE_UNKNOWN,            // NoSymbol
+    /* 191, 0x0bf */   SDL_SCANCODE_F21,                // XF86TouchpadToggle
+    /* 192, 0x0c0 */   SDL_SCANCODE_F22,                // XF86TouchpadOn
+    /* 193, 0x0c1 */   SDL_SCANCODE_F23,                // XF86TouchpadOff
+    /* 194, 0x0c2 */   SDL_SCANCODE_F24,                // NoSymbol
     /* 195, 0x0c3 */   SDL_SCANCODE_MODE,               // Mode_switch
     /* 196, 0x0c4 */   SDL_SCANCODE_UNKNOWN,            // NoSymbol
     /* 197, 0x0c5 */   SDL_SCANCODE_UNKNOWN,            // NoSymbol

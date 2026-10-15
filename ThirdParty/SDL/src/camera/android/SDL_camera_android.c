@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -23,6 +23,7 @@
 #include "../SDL_syscamera.h"
 #include "../SDL_camera_c.h"
 #include "../../video/SDL_pixels_c.h"
+#include "../../video/SDL_surface_c.h"
 #include "../../thread/SDL_systhread.h"
 
 #ifdef SDL_CAMERA_DRIVER_ANDROID
@@ -148,6 +149,7 @@ struct SDL_PrivateCameraData
     ACaptureRequest *request;
     ACameraCaptureSession *session;
     SDL_CameraSpec requested_spec;
+    int rotation;  // degrees to rotate clockwise to get from camera's static orientation to device's native orientation. Apply this plus current phone rotation to get upright image!
 };
 
 static bool SetErrorStr(const char *what, const char *errstr, const int rc)
@@ -194,7 +196,7 @@ static const char *MediaStatusStr(const media_status_t rc)
 {
     switch (rc) {
         case AMEDIA_OK: return "no error";
-        case AMEDIACODEC_ERROR_INSUFFICIENT_RESOURCE: return "insuffient resources";
+        case AMEDIACODEC_ERROR_INSUFFICIENT_RESOURCE: return "insufficient resources";
         case AMEDIACODEC_ERROR_RECLAIMED: return "reclaimed";
         case AMEDIA_ERROR_UNKNOWN: return "unknown error";
         case AMEDIA_ERROR_MALFORMED: return "malformed";
@@ -294,7 +296,7 @@ static bool ANDROIDCAMERA_WaitDevice(SDL_Camera *device)
     return true;  // this isn't used atm, since we run our own thread via onImageAvailable callbacks.
 }
 
-static SDL_CameraFrameResult ANDROIDCAMERA_AcquireFrame(SDL_Camera *device, SDL_Surface *frame, Uint64 *timestampNS)
+static SDL_CameraFrameResult ANDROIDCAMERA_AcquireFrame(SDL_Camera *device, SDL_Surface *frame, Uint64 *timestampNS, float *rotation)
 {
     SDL_CameraFrameResult result = SDL_CAMERA_FRAME_READY;
     media_status_t res;
@@ -326,35 +328,59 @@ static SDL_CameraFrameResult ANDROIDCAMERA_AcquireFrame(SDL_Camera *device, SDL_
         num_planes--;   // treat the interleaved planes as one.
     }
 
-    // !!! FIXME: we have an open issue in SDL3 to allow SDL_Surface to support non-contiguous planar data, but we don't have it yet.
     size_t buflen = 0;
+    pAImage_getPlaneRowStride(image, 0, &frame->pitch);
     for (int i = 0; (i < num_planes) && (i < 3); i++) {
-        uint8_t *data = NULL;
-        int32_t datalen = 0;
-        pAImage_getPlaneData(image, i, &data, &datalen);
-        buflen += (int) datalen;
+        int32_t expected;
+        if (i == 0) {
+            expected = frame->pitch * frame->h;
+        } else {
+            expected = frame->pitch * (frame->h + 1) / 2;
+        }
+        buflen += expected;
     }
 
     frame->pixels = SDL_aligned_alloc(SDL_GetSIMDAlignment(), buflen);
     if (frame->pixels == NULL) {
         result = SDL_CAMERA_FRAME_ERROR;
     } else {
-        int32_t row_stride = 0;
         Uint8 *dst = frame->pixels;
-        pAImage_getPlaneRowStride(image, 0, &row_stride);
-        frame->pitch = (int) row_stride;  // this is what SDL3 currently expects, probably incorrectly.
 
         for (int i = 0; (i < num_planes) && (i < 3); i++) {
             uint8_t *data = NULL;
             int32_t datalen = 0;
+            int32_t expected;
+            if (i == 0) {
+                expected = frame->pitch * frame->h;
+            } else {
+                expected = frame->pitch * (frame->h + 1) / 2;
+            }
             pAImage_getPlaneData(image, i, &data, &datalen);
-            const void *src = data;
-            SDL_memcpy(dst, src, datalen);
-            dst += datalen;
+
+            int32_t row_stride = 0;
+            pAImage_getPlaneRowStride(image, i, &row_stride);
+            SDL_assert(row_stride == frame->pitch);
+            SDL_memcpy(dst, data, SDL_min(expected, datalen));
+            dst += expected;
         }
     }
 
     pAImage_delete(image);
+
+    int dev_rotation = 0;
+    switch (Android_JNI_GetDisplayCurrentOrientation()) {
+        case SDL_ORIENTATION_PORTRAIT: dev_rotation = 0; break;
+        case SDL_ORIENTATION_LANDSCAPE: dev_rotation = 90; break;
+        case SDL_ORIENTATION_PORTRAIT_FLIPPED: dev_rotation = 180; break;
+        case SDL_ORIENTATION_LANDSCAPE_FLIPPED: dev_rotation = 270; break;
+        default: SDL_assert(!"Unexpected device rotation!"); dev_rotation = 0; break;
+    }
+
+    if (device->position == SDL_CAMERA_POSITION_BACK_FACING) {
+        dev_rotation = -dev_rotation;  // we want to subtract this value, instead of add, if back-facing.
+    }
+
+    *rotation = (float) (dev_rotation + device->hidden->rotation);   // current phone orientation, static camera orientation in relation to phone.
 
     return result;
 }
@@ -484,10 +510,23 @@ static bool PrepareCamera(SDL_Camera *device)
     imglistener.context = device;
     imglistener.onImageAvailable = onImageAvailable;
 
+
+    const char *devid = (const char *) device->handle;
+
+    device->hidden->rotation = 0;
+    ACameraMetadata *metadata = NULL;
+    ACameraMetadata_const_entry orientationentry;
+    if (pACameraManager_getCameraCharacteristics(cameraMgr, devid, &metadata) == ACAMERA_OK) {
+        if (pACameraMetadata_getConstEntry(metadata, ACAMERA_SENSOR_ORIENTATION, &orientationentry) == ACAMERA_OK) {
+            device->hidden->rotation = (int) (*orientationentry.data.i32 % 360);
+        }
+        pACameraMetadata_free(metadata);
+    }
+
     // just in case SDL_OpenCamera is overwriting device->spec as CameraPermissionCallback runs, we work from a different copy.
     const SDL_CameraSpec *spec = &device->hidden->requested_spec;
 
-    if ((res = pACameraManager_openCamera(cameraMgr, (const char *) device->handle, &dev_callbacks, &device->hidden->device)) != ACAMERA_OK) {
+    if ((res = pACameraManager_openCamera(cameraMgr, devid, &dev_callbacks, &device->hidden->device)) != ACAMERA_OK) {
         return SetCameraError("Failed to open camera", res);
     } else if ((res2 = pAImageReader_new(spec->width, spec->height, format_sdl_to_android(spec->format), 10 /* nb buffers */, &device->hidden->reader)) != AMEDIA_OK) {
         return SetMediaError("Error AImageReader_new", res2);
@@ -516,7 +555,7 @@ static bool PrepareCamera(SDL_Camera *device)
     return true;
 }
 
-static void SDLCALL CameraPermissionCallback(void *userdata, const char *permission, SDL_bool granted)
+static void SDLCALL CameraPermissionCallback(void *userdata, const char *permission, bool granted)
 {
     SDL_Camera *device = (SDL_Camera *) userdata;
     if (device->hidden != NULL) {   // if device was already closed, don't send an event.
@@ -630,8 +669,8 @@ static void GatherCameraSpecs(const char *devid, CameraFormatAddData *add_data, 
     const int32_t *i32ptr = cfgentry.data.i32;
     for (int i = 0; i < cfgentry.count; i++, i32ptr += 4) {
         const int32_t fmt = i32ptr[0];
-        const int w = (int) i32ptr[1];
-        const int h = (int) i32ptr[2];
+        const int w = i32ptr[1];
+        const int h = i32ptr[2];
         const int32_t type = i32ptr[3];
         SDL_PixelFormat sdlfmt = SDL_PIXELFORMAT_UNKNOWN;
         SDL_Colorspace colorspace = SDL_COLORSPACE_UNKNOWN;
@@ -719,7 +758,7 @@ static void onCameraAvailable(void *context, const char *cameraId)
 static void onCameraUnavailable(void *context, const char *cameraId)
 {
     #if DEBUG_CAMERA
-    SDL_Log("CAMERA: CB onCameraUnvailable('%s')", cameraId);
+    SDL_Log("CAMERA: CB onCameraUnavailable('%s')", cameraId);
     #endif
 
     SDL_assert(cameraId != NULL);
@@ -804,7 +843,7 @@ static void ANDROIDCAMERA_Deinitialize(void)
 static bool ANDROIDCAMERA_Init(SDL_CameraDriverImpl *impl)
 {
     // !!! FIXME: slide this off into a subroutine
-    // system libraries are in android-24 and later; we currently target android-16 and later, so check if they exist at runtime.
+    // system libraries are in android-24 and later; we currently target android-21 and later, so check if they exist at runtime.
     void *libcamera2 = dlopen("libcamera2ndk.so", RTLD_NOW | RTLD_LOCAL);
     if (!libcamera2) {
         SDL_Log("CAMERA: libcamera2ndk.so can't be loaded: %s", dlerror());

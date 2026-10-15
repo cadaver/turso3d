@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -30,8 +30,11 @@
 
 #include <Carbon/Carbon.h>
 
-// #define DEBUG_IME NSLog
+#if 0
+#define DEBUG_IME NSLog
+#else
 #define DEBUG_IME(...)
+#endif
 
 @interface SDL3TranslatorResponder : NSView <NSTextInputClient>
 {
@@ -59,11 +62,10 @@
 
 - (void)insertText:(id)aString replacementRange:(NSRange)replacementRange
 {
-    // TODO: Make use of replacementRange?
-
     const char *str;
 
-    DEBUG_IME(@"insertText: %@", aString);
+    DEBUG_IME(@"insertText: %@ replacementRange: (%d, %d)", aString,
+              (int)replacementRange.location, (int)replacementRange.length);
 
     /* Could be NSString or NSAttributedString, so we have
      * to test and convert it before return as SDL event */
@@ -80,6 +82,12 @@
 
     // Deliver the raw key event that generated this text
     [self sendPendingKey];
+
+    if ((int)replacementRange.location != -1) {
+        // We're replacing the last character
+        SDL_SendKeyboardKey(0, SDL_GLOBAL_KEYBOARD_ID, 0, SDL_SCANCODE_BACKSPACE, true);
+        SDL_SendKeyboardKey(0, SDL_GLOBAL_KEYBOARD_ID, 0, SDL_SCANCODE_BACKSPACE, false);
+    }
 
     SDL_SendKeyboardText(str);
 }
@@ -128,11 +136,16 @@
     // This key event was consumed by the IME
     [self clearPendingKey];
 
-    SDL_SendEditingText([aString UTF8String],
-                        (int)selectedRange.location, (int)selectedRange.length);
+    NSUInteger utf32SelectedRangeLocation = [[aString substringToIndex:selectedRange.location] lengthOfBytesUsingEncoding:NSUTF32StringEncoding] / 4;
+    NSUInteger utf32SelectionRangeEnd = [[aString substringToIndex:(selectedRange.location + selectedRange.length)] lengthOfBytesUsingEncoding:NSUTF32StringEncoding] / 4;
+    NSUInteger utf32SelectionRangeLength = utf32SelectionRangeEnd - utf32SelectedRangeLocation;
 
-    DEBUG_IME(@"setMarkedText: %@, (%d, %d)", _markedText,
-              selectedRange.location, selectedRange.length);
+    SDL_SendEditingText([aString UTF8String],
+                        (int)utf32SelectedRangeLocation, (int)utf32SelectionRangeLength);
+
+    DEBUG_IME(@"setMarkedText: %@, (%d, %d) replacement range (%d, %d)", _markedText,
+              (int)selectedRange.location, (int)selectedRange.length,
+              (int)replacementRange.location, (int)replacementRange.length);
 }
 
 - (void)unmarkText
@@ -158,7 +171,7 @@
     }
 
     DEBUG_IME(@"firstRectForCharacterRange: (%d, %d): windowHeight = %g, rect = %@",
-              aRange.location, aRange.length, windowHeight,
+              (int)aRange.location, (int)aRange.length, windowHeight,
               NSStringFromRect(rect));
 
     rect = [window convertRectToScreen:rect];
@@ -168,7 +181,7 @@
 
 - (NSAttributedString *)attributedSubstringForProposedRange:(NSRange)aRange actualRange:(NSRangePointer)actualRange
 {
-    DEBUG_IME(@"attributedSubstringFromRange: (%d, %d)", aRange.location, aRange.length);
+    DEBUG_IME(@"attributedSubstringFromRange: (%d, %d)", (int)aRange.location, (int)aRange.length);
     return nil;
 }
 
@@ -314,7 +327,7 @@ static void UpdateKeymap(SDL_CocoaVideoData *data, bool send_event)
 
     UInt32 keyboard_type = LMGetKbdType();
 
-    SDL_Keymap *keymap = SDL_CreateKeymap();
+    SDL_Keymap *keymap = SDL_CreateKeymap(true);
     for (int m = 0; m < SDL_arraysize(mods); ++m) {
         for (int i = 0; i < SDL_arraysize(darwin_scancode_table); i++) {
             OSStatus err;
@@ -363,6 +376,26 @@ static void UpdateKeymap(SDL_CocoaVideoData *data, bool send_event)
     SDL_SetKeymap(keymap, send_event);
 }
 
+static void SDLCALL SDL_MacOptionAsAltChanged(void *userdata, const char *name, const char *oldValue, const char *hint)
+{
+    SDL_VideoDevice *_this = (SDL_VideoDevice *)userdata;
+    SDL_CocoaVideoData *data = (__bridge SDL_CocoaVideoData *)_this->internal;
+
+    if (hint && *hint) {
+        if (SDL_strcmp(hint, "none") == 0) {
+            data.option_as_alt = OptionAsAltNone;
+        } else if (SDL_strcmp(hint, "only_left") == 0) {
+            data.option_as_alt = OptionAsAltOnlyLeft;
+        } else if (SDL_strcmp(hint, "only_right") == 0) {
+            data.option_as_alt = OptionAsAltOnlyRight;
+        } else if (SDL_strcmp(hint, "both") == 0) {
+            data.option_as_alt = OptionAsAltBoth;
+        }
+    } else {
+        data.option_as_alt = OptionAsAltNone;
+    }
+}
+
 void Cocoa_InitKeyboard(SDL_VideoDevice *_this)
 {
     SDL_CocoaVideoData *data = (__bridge SDL_CocoaVideoData *)_this->internal;
@@ -379,6 +412,8 @@ void Cocoa_InitKeyboard(SDL_VideoDevice *_this)
 
     data.modifierFlags = (unsigned int)[NSEvent modifierFlags];
     SDL_ToggleModState(SDL_KMOD_CAPS, (data.modifierFlags & NSEventModifierFlagCapsLock) ? true : false);
+
+    SDL_AddHintCallback(SDL_HINT_MAC_OPTION_AS_ALT, SDL_MacOptionAsAltChanged, _this);
 }
 
 bool Cocoa_StartTextInput(SDL_VideoDevice *_this, SDL_Window *window, SDL_PropertiesID props)
@@ -431,6 +466,51 @@ bool Cocoa_UpdateTextInputArea(SDL_VideoDevice *_this, SDL_Window *window)
     return true;
 }
 
+static NSEvent *ReplaceEvent(NSEvent *event, OptionAsAlt option_as_alt)
+{
+    if (option_as_alt == OptionAsAltNone) {
+        return event;
+    }
+
+    const unsigned int modflags = (unsigned int)[event modifierFlags];
+
+    bool ignore_alt_characters = false;
+
+    bool lalt_pressed = IsModifierKeyPressed(modflags, NX_DEVICELALTKEYMASK,
+                                             NX_DEVICERALTKEYMASK, NX_ALTERNATEMASK);
+    bool ralt_pressed = IsModifierKeyPressed(modflags, NX_DEVICERALTKEYMASK,
+                                             NX_DEVICELALTKEYMASK, NX_ALTERNATEMASK);
+
+    if (option_as_alt == OptionAsAltOnlyLeft && lalt_pressed) {
+        ignore_alt_characters = true;
+    } else if (option_as_alt == OptionAsAltOnlyRight && ralt_pressed) {
+        ignore_alt_characters = true;
+    } else if (option_as_alt == OptionAsAltBoth && (lalt_pressed || ralt_pressed)) {
+        ignore_alt_characters = true;
+    }
+
+    bool cmd_pressed = modflags & NX_COMMANDMASK;
+    bool ctrl_pressed = modflags & NX_CONTROLMASK;
+
+    ignore_alt_characters = ignore_alt_characters && !cmd_pressed && !ctrl_pressed;
+
+    if (ignore_alt_characters) {
+        NSString *charactersIgnoringModifiers = [event charactersIgnoringModifiers];
+        return [NSEvent keyEventWithType:[event type]
+                                location:[event locationInWindow]
+                           modifierFlags:modflags
+                               timestamp:[event timestamp]
+                            windowNumber:[event windowNumber]
+                                 context:nil
+                              characters:charactersIgnoringModifiers
+             charactersIgnoringModifiers:charactersIgnoringModifiers
+                               isARepeat:[event isARepeat]
+                                 keyCode:[event keyCode]];
+    }
+
+    return event;
+}
+
 void Cocoa_HandleKeyEvent(SDL_VideoDevice *_this, NSEvent *event)
 {
     unsigned short scancode;
@@ -438,6 +518,10 @@ void Cocoa_HandleKeyEvent(SDL_VideoDevice *_this, NSEvent *event)
     SDL_CocoaVideoData *data = _this ? ((__bridge SDL_CocoaVideoData *)_this->internal) : nil;
     if (!data) {
         return; // can happen when returning from fullscreen Space on shutdown
+    }
+
+    if ([event type] == NSEventTypeKeyDown || [event type] == NSEventTypeKeyUp) {
+        event = ReplaceEvent(event, data.option_as_alt);
     }
 
     scancode = [event keyCode];
@@ -463,14 +547,14 @@ void Cocoa_HandleKeyEvent(SDL_VideoDevice *_this, NSEvent *event)
 
 #ifdef DEBUG_SCANCODES
         if (code == SDL_SCANCODE_UNKNOWN) {
-            SDL_Log("The key you just pressed is not recognized by SDL. To help get this fixed, report this to the SDL forums/mailing list <https://discourse.libsdl.org/> or to Christian Walther <cwalther@gmx.ch>. Mac virtual key code is %d.\n", scancode);
+            SDL_Log("The key you just pressed is not recognized by SDL. To help get this fixed, report this to the SDL forums/mailing list <https://discourse.libsdl.org/> or to Christian Walther <cwalther@gmx.ch>. Mac virtual key code is %d.", scancode);
         }
 #endif
         if (SDL_TextInputActive(SDL_GetKeyboardFocus())) {
             [data.fieldEdit setPendingKey:scancode scancode:code timestamp:Cocoa_GetEventTimestamp([event timestamp])];
             [data.fieldEdit interpretKeyEvents:[NSArray arrayWithObject:event]];
             [data.fieldEdit sendPendingKey];
-        } else {
+        } else if (SDL_GetKeyboardFocus()) {
             SDL_SendKeyboardKey(Cocoa_GetEventTimestamp([event timestamp]), SDL_DEFAULT_KEYBOARD_ID, scancode, code, true);
         }
         break;

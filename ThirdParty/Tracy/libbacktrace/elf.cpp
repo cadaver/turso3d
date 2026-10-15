@@ -38,6 +38,7 @@ POSSIBILITY OF SUCH DAMAGE.  */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <algorithm>
 
 #ifdef HAVE_DL_ITERATE_PHDR
 #include <link.h>
@@ -74,7 +75,7 @@ namespace tracy
 {
 
 #ifdef TRACY_DEBUGINFOD
-int GetDebugInfoDescriptor( const char* buildid_data, size_t buildid_size );
+int GetDebugInfoDescriptor( const char* buildid_data, size_t buildid_size, const char* filename );
 #endif
 
 #if !defined(HAVE_DECL_STRNLEN) || !HAVE_DECL_STRNLEN
@@ -169,10 +170,10 @@ dl_iterate_phdr (int (*callback) (struct dl_phdr_info *,
 #undef EI_CLASS
 #undef EI_DATA
 #undef EI_VERSION
-#undef ELF_MAG0
-#undef ELF_MAG1
-#undef ELF_MAG2
-#undef ELF_MAG3
+#undef ELFMAG0
+#undef ELFMAG1
+#undef ELFMAG2
+#undef ELFMAG3
 #undef ELFCLASS32
 #undef ELFCLASS64
 #undef ELFDATA2LSB
@@ -642,7 +643,7 @@ elf_symbol_search (const void *vkey, const void *ventry)
 
 static int
 elf_initialize_syminfo (struct backtrace_state *state,
-			uintptr_t base_address,
+			struct libbacktrace_base_address base_address,
 			const unsigned char *symtab_data, size_t symtab_size,
 			const unsigned char *strtab, size_t strtab_size,
 			backtrace_error_callback error_callback,
@@ -708,7 +709,8 @@ elf_initialize_syminfo (struct backtrace_state *state,
 	  = *(const b_elf_addr *) (opd->data + (sym->st_value - opd->addr));
       else
 	elf_symbols[j].address = sym->st_value;
-      elf_symbols[j].address += base_address;
+      elf_symbols[j].address =
+	libbacktrace_add_base (elf_symbols[j].address, base_address);
       elf_symbols[j].size = sym->st_size;
       ++j;
     }
@@ -1163,7 +1165,10 @@ elf_fetch_bits (const unsigned char **ppin, const unsigned char *pinend,
   next = __builtin_bswap32 (next);
 #endif
 #else
-  next = pin[0] | (pin[1] << 8) | (pin[2] << 16) | (pin[3] << 24);
+  next = ((uint32_t)pin[0]
+	  | ((uint32_t)pin[1] << 8)
+	  | ((uint32_t)pin[2] << 16)
+	  | ((uint32_t)pin[3] << 24));
 #endif
 
   val |= (uint64_t)next << bits;
@@ -1199,14 +1204,7 @@ elf_fetch_bits_backward (const unsigned char **ppin,
   val = *pval;
 
   if (unlikely (pin <= pinend))
-    {
-      if (bits == 0)
-	{
-	  elf_uncompress_failed ();
-	  return 0;
-	}
-      return 1;
-    }
+    return 1;
 
   pin -= 4;
 
@@ -1221,7 +1219,10 @@ elf_fetch_bits_backward (const unsigned char **ppin,
   next = __builtin_bswap32 (next);
 #endif
 #else
-  next = pin[0] | (pin[1] << 8) | (pin[2] << 16) | (pin[3] << 24);
+  next = ((uint32_t)pin[0]
+	  | ((uint32_t)pin[1] << 8)
+	  | ((uint32_t)pin[2] << 16)
+	  | ((uint32_t)pin[3] << 24));
 #endif
 
   val <<= 32;
@@ -4319,6 +4320,7 @@ elf_zstd_unpack_seq_decode (int mode,
 	decode->table_bits = 0;
 	if (!conv (&entry, 0, table))
 	  return 0;
+	decode->table = table;
       }
       break;
 
@@ -4355,15 +4357,17 @@ elf_zstd_unpack_seq_decode (int mode,
   return 1;
 }
 
-/* Decompress a zstd stream from PIN/SIN to POUT/SOUT.  Code based on RFC 8878.
+/* Decompress a single zstd frame from *PPIN, ending at PINEND, to *PPOUT/SOUT.
    Return 1 on success, 0 on error.  */
 
 static int
-elf_zstd_decompress (const unsigned char *pin, size_t sin,
-		     unsigned char *zdebug_table, unsigned char *pout,
-		     size_t sout)
+elf_zstd_decompress_frame (const unsigned char **ppin,
+			   const unsigned char *pinend,
+			   unsigned char *zdebug_table, unsigned char **ppout,
+			   size_t sout)
 {
-  const unsigned char *pinend;
+  const unsigned char *pin;
+  unsigned char *pout;
   unsigned char *poutstart;
   unsigned char *poutend;
   struct elf_zstd_seq_decode literal_decode;
@@ -4379,13 +4383,14 @@ elf_zstd_decompress (const unsigned char *pin, size_t sin,
   uint32_t repeated_offset3;
   uint16_t *scratch;
   unsigned char hdr;
+  int single_segment;
   int has_checksum;
   uint64_t content_size;
   int last_block;
 
-  pinend = pin + sin;
+  pin = *ppin;
+  pout = *ppout;
   poutstart = pout;
-  poutend = pout + sout;
 
   literal_decode.table = NULL;
   literal_decode.table_bits = -1;
@@ -4411,7 +4416,7 @@ elf_zstd_decompress (const unsigned char *pin, size_t sin,
   repeated_offset2 = 4;
   repeated_offset3 = 8;
 
-  if (unlikely (sin < 4))
+  if (unlikely (pinend - pin < 4))
     {
       elf_uncompress_failed ();
       return 0;
@@ -4437,12 +4442,18 @@ elf_zstd_decompress (const unsigned char *pin, size_t sin,
 
   hdr = *pin++;
 
-  /* We expect a single frame.  */
-  if (unlikely ((hdr & (1 << 5)) == 0))
+  single_segment = (hdr & (1 << 5)) != 0;
+  if (!single_segment)
     {
-      elf_uncompress_failed ();
-      return 0;
+      if (unlikely (pin >= pinend))
+        {
+          elf_uncompress_failed ();
+          return 0;
+        }
+      /* skip Window_Descriptor */
+      pin++;
     }
+
   /* Reserved bit must be zero.  */
   if (unlikely ((hdr & (1 << 3)) != 0))
     {
@@ -4459,13 +4470,22 @@ elf_zstd_decompress (const unsigned char *pin, size_t sin,
   switch (hdr >> 6)
     {
     case 0:
-      if (unlikely (pin >= pinend))
-	{
-	  elf_uncompress_failed ();
-	  return 0;
-	}
-      content_size = (uint64_t) *pin++;
-      break;
+      if (single_segment)
+        {
+          if (unlikely (pin >= pinend))
+	    {
+	      elf_uncompress_failed ();
+	      return 0;
+	    }
+          content_size = (uint64_t) *pin++;
+          break;
+        }
+      else
+        {
+          /* no Frame_Content_Size; use the remaining size as the upper bound */
+          content_size = (uint64_t) sout;
+          break;
+        }
     case 1:
       if (unlikely (pin + 1 >= pinend))
 	{
@@ -4509,11 +4529,13 @@ elf_zstd_decompress (const unsigned char *pin, size_t sin,
     }
 
   if (unlikely (content_size != (size_t) content_size
-		|| (size_t) content_size != sout))
+		|| (size_t) content_size > sout))
     {
       elf_uncompress_failed ();
       return 0;
     }
+
+  poutend = pout + content_size;
 
   last_block = 0;
   while (!last_block)
@@ -4633,6 +4655,11 @@ elf_zstd_decompress (const unsigned char *pin, size_t sin,
 		pin += 2;
 	      }
 
+	    pback = NULL;
+	    bits = 0;
+	    literal_state = 0;
+	    offset_state = 0;
+	    match_state = 0;
 	    if (seq_count > 0)
 	      {
 		int (*pfn)(const struct elf_zstd_fse_entry *,
@@ -4672,27 +4699,27 @@ elf_zstd_decompress (const unsigned char *pin, size_t sin,
 						 match_fse_table, 9, pfn,
 						 &match_decode))
 		  return 0;
+
+		pback = pblockend - 1;
+		if (!elf_fetch_backward_init (&pback, pin, &val, &bits))
+		  return 0;
+
+		bits -= literal_decode.table_bits;
+		literal_state = ((val >> bits)
+				 & ((1U << literal_decode.table_bits) - 1));
+
+		if (!elf_fetch_bits_backward (&pback, pin, &val, &bits))
+		  return 0;
+		bits -= offset_decode.table_bits;
+		offset_state = ((val >> bits)
+				& ((1U << offset_decode.table_bits) - 1));
+
+		if (!elf_fetch_bits_backward (&pback, pin, &val, &bits))
+		  return 0;
+		bits -= match_decode.table_bits;
+		match_state = ((val >> bits)
+			       & ((1U << match_decode.table_bits) - 1));
 	      }
-
-	    pback = pblockend - 1;
-	    if (!elf_fetch_backward_init (&pback, pin, &val, &bits))
-	      return 0;
-
-	    bits -= literal_decode.table_bits;
-	    literal_state = ((val >> bits)
-			     & ((1U << literal_decode.table_bits) - 1));
-
-	    if (!elf_fetch_bits_backward (&pback, pin, &val, &bits))
-	      return 0;
-	    bits -= offset_decode.table_bits;
-	    offset_state = ((val >> bits)
-			    & ((1U << offset_decode.table_bits) - 1));
-
-	    if (!elf_fetch_bits_backward (&pback, pin, &val, &bits))
-	      return 0;
-	    bits -= match_decode.table_bits;
-	    match_state = ((val >> bits)
-			   & ((1U << match_decode.table_bits) - 1));
 
 	    seq = 0;
 	    while (1)
@@ -4713,6 +4740,40 @@ elf_zstd_decompress (const unsigned char *pin, size_t sin,
 		uint32_t literal;
 		uint32_t need;
 		uint32_t add;
+
+		if (unlikely (seq >= seq_count))
+		  {
+		    /* Copy remaining literals.  */
+		    if (literal_count > 0 && plit != pout)
+		      {
+			if (unlikely ((size_t)(poutend - pout)
+				      < literal_count))
+			  {
+			    elf_uncompress_failed ();
+			    return 0;
+			  }
+
+			if ((size_t)(plit - pout) < literal_count)
+			  {
+			    uint32_t move;
+
+			    move = plit - pout;
+			    while (literal_count > move)
+			      {
+				memcpy (pout, plit, move);
+				pout += move;
+				plit += move;
+				literal_count -= move;
+			      }
+			  }
+
+			memcpy (pout, plit, literal_count);
+		      }
+
+		    pout += literal_count;
+
+		    break;
+		  }
 
 		pt = &offset_decode.table[offset_state];
 		offset_basebits = pt->basebits;
@@ -4951,40 +5012,6 @@ elf_zstd_decompress (const unsigned char *pin, size_t sin,
 			  }
 		      }
 		  }
-
-		if (unlikely (seq >= seq_count))
-		  {
-		    /* Copy remaining literals.  */
-		    if (literal_count > 0 && plit != pout)
-		      {
-			if (unlikely ((size_t)(poutend - pout)
-				      < literal_count))
-			  {
-			    elf_uncompress_failed ();
-			    return 0;
-			  }
-
-			if ((size_t)(plit - pout) < literal_count)
-			  {
-			    uint32_t move;
-
-			    move = plit - pout;
-			    while (literal_count > move)
-			      {
-				memcpy (pout, plit, move);
-				pout += move;
-				plit += move;
-				literal_count -= move;
-			      }
-			  }
-
-			memcpy (pout, plit, literal_count);
-		      }
-
-		    pout += literal_count;
-
-		    break;
-		  }
 	      }
 
 	    pin = pblockend;
@@ -5013,7 +5040,42 @@ elf_zstd_decompress (const unsigned char *pin, size_t sin,
       pin += 4;
     }
 
-  if (pin != pinend)
+  *ppin = pin;
+  *ppout = pout;
+
+  return 1;
+}
+
+/* Decompress a zstd stream from PIN/SIN to POUT/SOUT.  Code based on RFC 8878.
+   Return 1 on success, 0 on error.  */
+
+static int
+elf_zstd_decompress (const unsigned char *pin, size_t sin,
+		     unsigned char *zdebug_table, unsigned char *pout,
+		     size_t sout)
+{
+  const unsigned char *pinend;
+
+  pinend = pin + sin;
+
+  while (sin > 0)
+    {
+      const unsigned char *pin_frame;
+      unsigned char *pout_frame;
+
+      pin_frame = pin;
+      pout_frame = pout;
+      if (!elf_zstd_decompress_frame (&pin_frame, pinend, zdebug_table,
+				      &pout_frame, sout))
+	return 0;
+
+      sin -= pin_frame - pin;
+      pin = pin_frame;
+      sout -= pout_frame - pout;
+      pout = pout_frame;
+    }
+
+  if (sout > 0)
     {
       elf_uncompress_failed ();
       return 0;
@@ -5093,7 +5155,7 @@ elf_uncompress_chdr (struct backtrace_state *state,
 		     backtrace_error_callback error_callback, void *data,
 		     unsigned char **uncompressed, size_t *uncompressed_size)
 {
-  const b_elf_chdr *chdr;
+  b_elf_chdr chdr;
   char *alc;
   size_t alc_len;
   unsigned char *po;
@@ -5105,27 +5167,30 @@ elf_uncompress_chdr (struct backtrace_state *state,
   if (compressed_size < sizeof (b_elf_chdr))
     return 1;
 
-  chdr = (const b_elf_chdr *) compressed;
+  /* The lld linker can misalign a compressed section, so we can't safely read
+     the fields directly as we can for other ELF sections.  See
+     https://github.com/ianlancetaylor/libbacktrace/pull/120.  */
+  memcpy (&chdr, compressed, sizeof (b_elf_chdr));
 
   alc = NULL;
   alc_len = 0;
-  if (*uncompressed != NULL && *uncompressed_size >= chdr->ch_size)
+  if (*uncompressed != NULL && *uncompressed_size >= chdr.ch_size)
     po = *uncompressed;
   else
     {
-      alc_len = chdr->ch_size;
+      alc_len = chdr.ch_size;
       alc = (char*)backtrace_alloc (state, alc_len, error_callback, data);
       if (alc == NULL)
 	return 0;
       po = (unsigned char *) alc;
     }
 
-  switch (chdr->ch_type)
+  switch (chdr.ch_type)
     {
     case ELFCOMPRESS_ZLIB:
       if (!elf_zlib_inflate_and_verify (compressed + sizeof (b_elf_chdr),
 					compressed_size - sizeof (b_elf_chdr),
-					zdebug_table, po, chdr->ch_size))
+					zdebug_table, po, chdr.ch_size))
 	goto skip;
       break;
 
@@ -5133,7 +5198,7 @@ elf_uncompress_chdr (struct backtrace_state *state,
       if (!elf_zstd_decompress (compressed + sizeof (b_elf_chdr),
 				compressed_size - sizeof (b_elf_chdr),
 				(unsigned char *)zdebug_table, po,
-				chdr->ch_size))
+				chdr.ch_size))
 	goto skip;
       break;
 
@@ -5143,7 +5208,7 @@ elf_uncompress_chdr (struct backtrace_state *state,
     }
 
   *uncompressed = po;
-  *uncompressed_size = chdr->ch_size;
+  *uncompressed_size = chdr.ch_size;
 
   return 1;
 
@@ -5585,6 +5650,7 @@ elf_uncompress_lzma_block (const unsigned char *compressed,
   uint64_t header_compressed_size;
   uint64_t header_uncompressed_size;
   unsigned char lzma2_properties;
+  size_t crc_offset;
   uint32_t computed_crc;
   uint32_t stream_crc;
   size_t uncompressed_offset;
@@ -5688,28 +5754,29 @@ elf_uncompress_lzma_block (const unsigned char *compressed,
   /* The properties describe the dictionary size, but we don't care
      what that is.  */
 
-  /* Block header padding.  */
-  if (unlikely (off + 4 > compressed_size))
+  /* Skip to just before CRC, verifying zero bytes in between.  */
+  crc_offset = block_header_offset + block_header_size - 4;
+  if (unlikely (crc_offset + 4 > compressed_size))
     {
       elf_uncompress_failed ();
       return 0;
     }
-
-  off = (off + 3) &~ (size_t) 3;
-
-  if (unlikely (off + 4 > compressed_size))
+  for (; off < crc_offset; off++)
     {
-      elf_uncompress_failed ();
-      return 0;
+      if (compressed[off] != 0)
+	{
+	  elf_uncompress_failed ();
+	  return 0;
+	}
     }
 
   /* Block header CRC.  */
   computed_crc = elf_crc32 (0, compressed + block_header_offset,
 			    block_header_size - 4);
-  stream_crc = (compressed[off]
-		| (compressed[off + 1] << 8)
-		| (compressed[off + 2] << 16)
-		| (compressed[off + 3] << 24));
+  stream_crc = ((uint32_t)compressed[off]
+		| ((uint32_t)compressed[off + 1] << 8)
+		| ((uint32_t)compressed[off + 2] << 16)
+		| ((uint32_t)compressed[off + 3] << 24));
   if (unlikely (computed_crc != stream_crc))
     {
       elf_uncompress_failed ();
@@ -5890,10 +5957,10 @@ elf_uncompress_lzma_block (const unsigned char *compressed,
 	  /* The byte at compressed[off] is ignored for some
 	     reason.  */
 
-	  code = ((compressed[off + 1] << 24)
-		  + (compressed[off + 2] << 16)
-		  + (compressed[off + 3] << 8)
-		  + compressed[off + 4]);
+	  code = (((uint32_t)compressed[off + 1] << 24)
+		  + ((uint32_t)compressed[off + 2] << 16)
+		  + ((uint32_t)compressed[off + 3] << 8)
+		  + (uint32_t)compressed[off + 4]);
 	  off += 5;
 
 	  /* This is the main LZMA decode loop.  */
@@ -6216,10 +6283,10 @@ elf_uncompress_lzma_block (const unsigned char *compressed,
 	  return 0;
 	}
       computed_crc = elf_crc32 (0, uncompressed, uncompressed_offset);
-      stream_crc = (compressed[off]
-		    | (compressed[off + 1] << 8)
-		    | (compressed[off + 2] << 16)
-		    | (compressed[off + 3] << 24));
+      stream_crc = ((uint32_t)compressed[off]
+		    | ((uint32_t)compressed[off + 1] << 8)
+		    | ((uint32_t)compressed[off + 2] << 16)
+		    | ((uint32_t)compressed[off + 3] << 24));
       if (computed_crc != stream_crc)
 	{
 	  elf_uncompress_failed ();
@@ -6319,10 +6386,10 @@ elf_uncompress_lzma (struct backtrace_state *state,
 
   /* Next comes a CRC of the stream flags.  */
   computed_crc = elf_crc32 (0, compressed + 6, 2);
-  stream_crc = (compressed[8]
-		| (compressed[9] << 8)
-		| (compressed[10] << 16)
-		| (compressed[11] << 24));
+  stream_crc = ((uint32_t)compressed[8]
+		| ((uint32_t)compressed[9] << 8)
+		| ((uint32_t)compressed[10] << 16)
+		| ((uint32_t)compressed[11] << 24));
   if (unlikely (computed_crc != stream_crc))
     {
       elf_uncompress_failed ();
@@ -6354,19 +6421,19 @@ elf_uncompress_lzma (struct backtrace_state *state,
 
   /* Before that is the size of the index field, which precedes the
      footer.  */
-  index_size = (compressed[offset - 4]
-		| (compressed[offset - 3] << 8)
-		| (compressed[offset - 2] << 16)
-		| (compressed[offset - 1] << 24));
+  index_size = ((size_t)compressed[offset - 4]
+		| ((size_t)compressed[offset - 3] << 8)
+		| ((size_t)compressed[offset - 2] << 16)
+		| ((size_t)compressed[offset - 1] << 24));
   index_size = (index_size + 1) * 4;
   offset -= 4;
 
   /* Before that is a footer CRC.  */
   computed_crc = elf_crc32 (0, compressed + offset, 6);
-  stream_crc = (compressed[offset - 4]
-		| (compressed[offset - 3] << 8)
-		| (compressed[offset - 2] << 16)
-		| (compressed[offset - 1] << 24));
+  stream_crc = ((uint32_t)compressed[offset - 4]
+		| ((uint32_t)compressed[offset - 3] << 8)
+		| ((uint32_t)compressed[offset - 2] << 16)
+		| ((uint32_t)compressed[offset - 1] << 24));
   if (unlikely (computed_crc != stream_crc))
     {
       elf_uncompress_failed ();
@@ -6422,10 +6489,10 @@ elf_uncompress_lzma (struct backtrace_state *state,
   /* Next is a CRC of the index.  */
   computed_crc = elf_crc32 (0, compressed + index_offset,
 			    offset - index_offset);
-  stream_crc = (compressed[offset]
-		| (compressed[offset + 1] << 8)
-		| (compressed[offset + 2] << 16)
-		| (compressed[offset + 3] << 24));
+  stream_crc = ((uint32_t)compressed[offset]
+		| ((uint32_t)compressed[offset + 1] << 8)
+		| ((uint32_t)compressed[offset + 2] << 16)
+		| ((uint32_t)compressed[offset + 3] << 24));
   if (unlikely (computed_crc != stream_crc))
     {
       elf_uncompress_failed ();
@@ -6518,8 +6585,10 @@ backtrace_uncompress_lzma (struct backtrace_state *state,
 static int
 elf_add (struct backtrace_state *state, const char *filename, int descriptor,
 	 const unsigned char *memory, size_t memory_size,
-	 uintptr_t base_address, backtrace_error_callback error_callback,
-	 void *data, fileline *fileline_fn, int *found_sym, int *found_dwarf,
+	 struct libbacktrace_base_address base_address,
+	 struct elf_ppc64_opd_data *caller_opd,
+	 backtrace_error_callback error_callback, void *data,
+	 fileline *fileline_fn, int *found_sym, int *found_dwarf,
 	 struct dwarf_data **fileline_entry, int exe, int debuginfo,
 	 const char *with_buildid_data, uint32_t with_buildid_size)
 {
@@ -6574,6 +6643,7 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
   struct elf_view split_debug_view[DEBUG_MAX];
   unsigned char split_debug_view_valid[DEBUG_MAX];
   struct elf_ppc64_opd_data opd_data, *opd;
+  int opd_view_valid;
   struct dwarf_sections dwarf_sections;
   struct dwarf_data *fileline_altlink = NULL;
 
@@ -6602,6 +6672,7 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
   debug_view_valid = 0;
   memset (&split_debug_view_valid[0], 0, sizeof split_debug_view_valid);
   opd = NULL;
+  opd_view_valid = 0;
 
   if (!elf_get_view (state, descriptor, memory, memory_size, 0, sizeof ehdr,
 		     error_callback, data, &ehdr_view))
@@ -6858,7 +6929,8 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
 	    }
 	}
 
-      if (!gnu_debugdata_view_valid
+      if (!debuginfo
+	  && !gnu_debugdata_view_valid
 	  && strcmp (name, ".gnu_debugdata") == 0)
 	{
 	  if (!elf_get_view (state, descriptor, memory, memory_size,
@@ -6885,12 +6957,18 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
 	  opd->addr = shdr->sh_addr;
 	  opd->data = (const char *) opd_data.view.view.data;
 	  opd->size = shdr->sh_size;
+	  opd_view_valid = 1;
 	}
     }
 
+  /* A debuginfo file may not have a useful .opd section, but we can use the
+     one from the original executable.  */
+  if (opd == NULL)
+    opd = caller_opd;
+
   if (symtab_shndx == 0)
     symtab_shndx = dynsym_shndx;
-  if (symtab_shndx != 0 && !debuginfo)
+  if (symtab_shndx != 0)
     {
       const b_elf_shdr *symtab_shdr;
       unsigned int strtab_shndx;
@@ -6966,9 +7044,9 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
 	    elf_release_view (state, &debuglink_view, error_callback, data);
 	  if (debugaltlink_view_valid)
 	    elf_release_view (state, &debugaltlink_view, error_callback, data);
-	  ret = elf_add (state, "", d, NULL, 0, base_address, error_callback,
-			 data, fileline_fn, found_sym, found_dwarf, NULL, 0,
-			 1, NULL, 0);
+	  ret = elf_add (state, "", d, NULL, 0, base_address, opd,
+			 error_callback, data, fileline_fn, found_sym,
+			 found_dwarf, NULL, 0, 1, NULL, 0);
 	  if (ret < 0)
 	    backtrace_close (d, error_callback, data);
 	  else if (descriptor >= 0)
@@ -6981,12 +7059,6 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
     {
       elf_release_view (state, &buildid_view, error_callback, data);
       buildid_view_valid = 0;
-    }
-
-  if (opd)
-    {
-      elf_release_view (state, &opd->view, error_callback, data);
-      opd = NULL;
     }
 
   if (debuglink_name != NULL)
@@ -7003,9 +7075,9 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
 	  elf_release_view (state, &debuglink_view, error_callback, data);
 	  if (debugaltlink_view_valid)
 	    elf_release_view (state, &debugaltlink_view, error_callback, data);
-	  ret = elf_add (state, "", d, NULL, 0, base_address, error_callback,
-			 data, fileline_fn, found_sym, found_dwarf, NULL, 0,
-			 1, NULL, 0);
+	  ret = elf_add (state, "", d, NULL, 0, base_address, opd,
+			 error_callback, data, fileline_fn, found_sym,
+			 found_dwarf, NULL, 0, 1, NULL, 0);
 	  if (ret < 0)
 	    backtrace_close (d, error_callback, data);
 	  else if (descriptor >= 0)
@@ -7030,7 +7102,7 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
 	{
 	  int ret;
 
-	  ret = elf_add (state, filename, d, NULL, 0, base_address,
+	  ret = elf_add (state, filename, d, NULL, 0, base_address, opd,
 			 error_callback, data, fileline_fn, found_sym,
 			 found_dwarf, &fileline_altlink, 0, 1,
 			 debugaltlink_buildid_data, debugaltlink_buildid_size);
@@ -7067,13 +7139,20 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
       if (ret)
 	{
 	  ret = elf_add (state, filename, -1, gnu_debugdata_uncompressed,
-			 gnu_debugdata_uncompressed_size, base_address,
+			 gnu_debugdata_uncompressed_size, base_address, opd,
 			 error_callback, data, fileline_fn, found_sym,
 			 found_dwarf, NULL, 0, 0, NULL, 0);
 	  if (ret >= 0 && descriptor >= 0)
 	    backtrace_close(descriptor, error_callback, data);
 	  return ret;
 	}
+    }
+
+  if (opd_view_valid)
+    {
+      elf_release_view (state, &opd->view, error_callback, data);
+      opd_view_valid = 0;
+      opd = NULL;
     }
 
   /* Read all the debug sections in a single view, since they are
@@ -7322,7 +7401,7 @@ elf_add (struct backtrace_state *state, const char *filename, int descriptor,
       if (split_debug_view_valid[i])
 	elf_release_view (state, &split_debug_view[i], error_callback, data);
     }
-  if (opd)
+  if (opd_view_valid)
     elf_release_view (state, &opd->view, error_callback, data);
   if (descriptor >= 0)
     backtrace_close (descriptor, error_callback, data);
@@ -7350,13 +7429,37 @@ struct PhdrIterate
 {
   char* dlpi_name;
   ElfW(Addr) dlpi_addr;
+  ElfW(Addr) dlpi_end_addr;
 };
 FastVector<PhdrIterate> s_phdrData(16);
+
+struct ElfAddrRange
+{
+  ElfW(Addr) dlpi_addr;
+  ElfW(Addr) dlpi_end_addr;
+};
+FastVector<ElfAddrRange> s_sortedKnownElfRanges(16);
+
+static int address_in_known_elf_ranges(uintptr_t pc)
+{
+    auto it = std::lower_bound( s_sortedKnownElfRanges.begin(), s_sortedKnownElfRanges.end(), pc, 
+            []( const ElfAddrRange& lhs, const uintptr_t rhs ) { return uintptr_t(lhs.dlpi_addr) > rhs; } );
+	if( it != s_sortedKnownElfRanges.end() && pc <= it->dlpi_end_addr )
+	{
+		return true;
+	}
+	return false;
+}
 
 static int
 phdr_callback_mock (struct dl_phdr_info *info, size_t size ATTRIBUTE_UNUSED,
   void *pdata)
 {
+  if( address_in_known_elf_ranges(info->dlpi_addr) )
+  {
+	return 0;
+  }
+
   auto ptr = s_phdrData.push_next();
   if (info->dlpi_name)
   {
@@ -7366,6 +7469,20 @@ phdr_callback_mock (struct dl_phdr_info *info, size_t size ATTRIBUTE_UNUSED,
   }
   else ptr->dlpi_name = nullptr;
   ptr->dlpi_addr = info->dlpi_addr;
+
+  // calculate the end address as well, so we can quickly determine if a PC is within the range of this image
+  // headers aren't guaranteed to be in address order; find the max
+  ptr->dlpi_end_addr = ElfW(Addr)(info->dlpi_addr);
+  for (uint32_t i = 0; i < info->dlpi_phnum; i++)
+    {
+      const auto &phdr = info->dlpi_phdr[i];
+      if (phdr.p_type != PT_LOAD)
+        continue;
+
+      const auto phdr_end = ElfW(Addr)(info->dlpi_addr + phdr.p_vaddr + phdr.p_memsz);
+      ptr->dlpi_end_addr = std::max(phdr_end, ptr->dlpi_end_addr);
+    }
+
   return 0;
 }
 
@@ -7379,6 +7496,7 @@ phdr_callback (struct PhdrIterate *info, void *pdata)
   const char *filename;
   int descriptor;
   int does_not_exist;
+  struct libbacktrace_base_address base_address;
   fileline elf_fileline_fn;
   int found_dwarf;
 
@@ -7408,7 +7526,8 @@ phdr_callback (struct PhdrIterate *info, void *pdata)
 	return 0;
     }
 
-  if (elf_add (pd->state, filename, descriptor, NULL, 0, info->dlpi_addr,
+  base_address.m = info->dlpi_addr;
+  if (elf_add (pd->state, filename, descriptor, NULL, 0, base_address, NULL,
 	       pd->error_callback, pd->data, &elf_fileline_fn, pd->found_sym,
 	       &found_dwarf, NULL, 0, 0, NULL, 0))
     {
@@ -7421,6 +7540,66 @@ phdr_callback (struct PhdrIterate *info, void *pdata)
 
   return 0;
 }
+
+static int elf_iterate_phdr_and_add_new_files(phdr_data *pd)
+{
+	assert(s_phdrData.empty());
+	// dl_iterate_phdr, will only add entries for elf files loaded in a previously unseen range
+	dl_iterate_phdr(phdr_callback_mock, nullptr);
+
+	if(s_phdrData.size() == 0)
+	{
+		return 0;
+	}
+
+	uint32_t headersAdded = 0;
+	for (auto &v : s_phdrData)
+	{
+		phdr_callback(&v, (void *)pd);
+
+		auto newEntry = s_sortedKnownElfRanges.push_next();
+		newEntry->dlpi_addr = v.dlpi_addr;
+		newEntry->dlpi_end_addr = v.dlpi_end_addr;
+
+		tracy_free(v.dlpi_name);
+
+		headersAdded++;
+	}
+
+	s_phdrData.clear();
+
+   	std::sort( s_sortedKnownElfRanges.begin(), s_sortedKnownElfRanges.end(), 
+		[]( const ElfAddrRange& lhs, const ElfAddrRange& rhs ) { return lhs.dlpi_addr > rhs.dlpi_addr; } );
+
+	return headersAdded;
+}
+
+#ifdef TRACY_LIBBACKTRACE_ELF_DYNLOAD_SUPPORT
+/* Request an elf entry update if the pc passed in is not in any of the known elf ranges. 
+This could mean that new images were dlopened and we need to add those new elf entries */
+static int elf_refresh_address_ranges_if_needed(struct backtrace_state *state, uintptr_t pc)
+{
+	if ( address_in_known_elf_ranges(pc) )
+	{
+		return 0;
+	}
+
+	struct phdr_data pd;
+	int found_sym = 0;
+	int found_dwarf = 0;
+	fileline fileline_fn = nullptr;
+	pd.state = state;
+	pd.error_callback = nullptr;
+	pd.data = nullptr;
+	pd.fileline_fn = &fileline_fn;
+	pd.found_sym = &found_sym;
+	pd.found_dwarf = &found_dwarf;
+	pd.exe_filename = nullptr;
+	pd.exe_descriptor = -1;
+
+	return elf_iterate_phdr_and_add_new_files(&pd);
+}
+#endif //#ifdef TRACY_LIBBACKTRACE_ELF_DYNLOAD_SUPPORT
 
 /* Initialize the backtrace data we need from an ELF executable.  At
    the ELF level, all we need to do is find the debug info
@@ -7437,29 +7616,47 @@ backtrace_initialize (struct backtrace_state *state, const char *filename,
   fileline elf_fileline_fn = elf_nodebug;
   struct phdr_data pd;
 
-  ret = elf_add (state, filename, descriptor, NULL, 0, 0, error_callback, data,
-		 &elf_fileline_fn, &found_sym, &found_dwarf, NULL, 1, 0, NULL,
-		 0);
-  if (!ret)
-    return 0;
 
-  pd.state = state;
-  pd.error_callback = error_callback;
-  pd.data = data;
-  pd.fileline_fn = &elf_fileline_fn;
-  pd.found_sym = &found_sym;
-  pd.found_dwarf = &found_dwarf;
-  pd.exe_filename = filename;
-  pd.exe_descriptor = ret < 0 ? descriptor : -1;
+  /* When using fdpic we must use dl_iterate_phdr for all modules, including
+     the main executable, so that we can get the right base address
+     mapping.  */
+  if (!libbacktrace_using_fdpic ())
+    {
+      struct libbacktrace_base_address zero_base_address;
 
-  assert (s_phdrData.empty());
-  dl_iterate_phdr (phdr_callback_mock, nullptr);
-  for (auto& v : s_phdrData)
-  {
-    phdr_callback (&v, (void *) &pd);
-    tracy_free (v.dlpi_name);
-  }
-  s_phdrData.clear();
+      memset (&zero_base_address, 0, sizeof zero_base_address);
+
+      /* For external files (not loaded in the current process), pass
+	 exe=0 so that elf_add does not bail out for ET_DYN files.
+	 This allows DWARF data and symbol tables to be loaded directly
+	 from PIE executables and shared libraries with base_address=0,
+	 letting the caller convert runtime addresses to ELF virtual
+	 addresses before lookup.  */
+      int exe = state->external_file ? 0 : 1;
+
+      ret = elf_add (state, filename, descriptor, NULL, 0, zero_base_address,
+		     NULL, error_callback, data, &elf_fileline_fn, &found_sym,
+		     &found_dwarf, NULL, exe, 0, NULL, 0);
+      if (!ret)
+	return 0;
+    }
+
+  /* For external files, skip dl_iterate_phdr -- the file is not loaded
+     in the current process, so enumerating the current process's shared
+     libraries would only add noise.  */
+  if (!state->external_file)
+    {
+      pd.state = state;
+      pd.error_callback = error_callback;
+      pd.data = data;
+      pd.fileline_fn = &elf_fileline_fn;
+      pd.found_sym = &found_sym;
+      pd.found_dwarf = &found_dwarf;
+      pd.exe_filename = filename;
+      pd.exe_descriptor = ret < 0 ? descriptor : -1;
+
+      elf_iterate_phdr_and_add_new_files(&pd);
+    }
 
   if (!state->threaded)
     {
@@ -7484,6 +7681,13 @@ backtrace_initialize (struct backtrace_state *state, const char *filename,
 
   if (*fileline_fn == NULL || *fileline_fn == elf_nodebug)
     *fileline_fn = elf_fileline_fn;
+
+  // install an address range refresh callback so we can cope with dynamically loaded elf files
+#ifdef TRACY_LIBBACKTRACE_ELF_DYNLOAD_SUPPORT
+  state->request_known_address_ranges_refresh_fn = elf_refresh_address_ranges_if_needed;
+#else
+  state->request_known_address_ranges_refresh_fn = NULL;
+#endif
 
   return 1;
 }
