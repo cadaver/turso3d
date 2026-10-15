@@ -14,7 +14,7 @@
 static const float DEFAULT_OCTREE_SIZE = 1000.0f;
 static const int DEFAULT_OCTREE_LEVELS = 8;
 static const int MAX_OCTREE_LEVELS = 255;
-static const int DRAWABLE_TASK_LIMIT = 16;
+static const int DRAWABLE_TASK_LIMIT = 4;
 
 static std::vector<unsigned> freeQueries;
 
@@ -214,7 +214,8 @@ void Octree::FinishUpdate()
 {
     ZoneScoped;
 
-    workQueue->Complete();
+    while (numPendingOctantTasks.load() > 0)
+        workQueue->TryComplete();
     inUpdate = false;
 
     // Now reinsert drawables that actually need reinsertion into a different octant, and clear the update queues for next frame
@@ -229,7 +230,9 @@ void Octree::FinishUpdate()
         std::sort(octant->drawables.begin(), octant->drawables.end(), CompareDrawables);
         octant->SetFlag(OF_DRAWABLES_SORT_DIRTY, false);
     }
+
     sortDirtyOctants.clear();
+
 }
 
 void Octree::Resize(const BoundingBox& boundingBox, int numLevels)
