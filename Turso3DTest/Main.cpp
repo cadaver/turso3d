@@ -39,12 +39,9 @@
 
 class TestApplication;
 
-struct AnimateObjectsTask : public MemberFunctionTask<TestApplication>
+struct AnimateObjectsTask : public Task
 {
-    AnimateObjectsTask(TestApplication* object_, MemberWorkFunctionPtr function_) :
-        MemberFunctionTask<TestApplication>(object_, function_)
-    {
-    }
+    void Complete(unsigned threadIndex) override;
 
     OctreeNode** start;
     OctreeNode** end;
@@ -499,7 +496,7 @@ void TestApplication::Update()
                 end = animatingObjects.size();
 
             if (animateTasks.size() <= taskIdx)
-                animateTasks.push_back(new AnimateObjectsTask(this, &TestApplication::AnimateObjectsWork));
+                animateTasks.push_back(new AnimateObjectsTask());
             animateTasks[taskIdx]->start = &animatingObjects[0] + start;
             animateTasks[taskIdx]->end = &animatingObjects[0] + end;
             animateTasks[taskIdx]->dt = dt;
@@ -510,40 +507,6 @@ void TestApplication::Update()
         workQueue->QueueTasks(taskIdx, reinterpret_cast<Task**>(&animateTasks[0]));
         // No other threaded work going on at this time, so simply complete
         workQueue->Complete();
-    }
-}
-
-void TestApplication::AnimateObjectsWork(Task* task_, unsigned /*threadIndex_*/)
-{
-    ZoneScoped;
-
-    AnimateObjectsTask* task = static_cast<AnimateObjectsTask*>(task_);
-    OctreeNode** start = task->start;
-    OctreeNode** end = task->end;
-    Quaternion rotQuat(task->angle, Vector3::ONE);
-
-    for (; start != end; ++start)
-    {
-        OctreeNode* node = *start;
-
-        if (node->Type() == AnimatedModel::TypeStatic())
-        {
-            // Scene preset 2 animated models: walk forward
-            AnimatedModel* object = static_cast<AnimatedModel*>(node);
-            AnimationState* state = object->AnimationStates()[0];
-            state->AddTime(task->dt);
-            object->Translate(Vector3::FORWARD * 2.0f * task->dt);
-
-            // Rotate to avoid going outside the plane
-            Vector3 pos = object->Position();
-            if (pos.x < -45.0f || pos.x > 45.0f || pos.z < -45.0f || pos.z > 45.0f)
-                object->Yaw(45.0f * task->dt);
-        }
-        else
-        {
-            // Scene preset 1 cubes: rotate
-            node->SetRotation(rotQuat);
-        }
     }
 }
 
@@ -721,6 +684,37 @@ void TestApplication::RenderAndPresent()
     {
         PROFILE(Present);
         graphics->Present();
+    }
+}
+
+void AnimateObjectsTask::Complete(unsigned /*threadIndex_*/)
+{
+    ZoneScoped;
+
+    Quaternion rotQuat(angle, Vector3::ONE);
+
+    for (; start != end; ++start)
+    {
+        OctreeNode* node = *start;
+
+        if (node->Type() == AnimatedModel::TypeStatic())
+        {
+            // Scene preset 2 animated models: walk forward
+            AnimatedModel* object = static_cast<AnimatedModel*>(node);
+            AnimationState* state = object->AnimationStates()[0];
+            state->AddTime(dt);
+            object->Translate(Vector3::FORWARD * 2.0f * dt);
+
+            // Rotate to avoid going outside the plane
+            Vector3 pos = object->Position();
+            if (pos.x < -45.0f || pos.x > 45.0f || pos.z < -45.0f || pos.z > 45.0f)
+                object->Yaw(45.0f * dt);
+        }
+        else
+        {
+            // Scene preset 1 cubes: rotate
+            node->SetRotation(rotQuat);
+        }
     }
 }
 

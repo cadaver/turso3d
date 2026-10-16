@@ -39,15 +39,26 @@ static inline bool CompareDrawables(Drawable* lhs, Drawable* rhs)
 }
 
 /// %Task for octant update.
-struct UpdateOctantTask : public MemberFunctionTask<Octree>
+struct UpdateOctantTask : public Task
 {
     /// Construct.
-    UpdateOctantTask(Octree* object_, MemberWorkFunctionPtr function_) :
-        MemberFunctionTask<Octree>(object_, function_)
+    UpdateOctantTask(Octree* octree_) :
+        octree(octree_)
     {
     }
 
-    /// Octant.
+    /// Perform the work. Thread index 0 is the main thread.
+    void Complete(unsigned threadIndex) override
+    {
+        ZoneScoped;
+
+        octree->UpdateOctant(octant, false, threadIndex);
+        octree->numPendingOctantTasks.fetch_sub(1);
+    }
+
+    /// Octree the task belongs to.
+    Octree* octree;
+    /// Octant to go through for drawables.
     Octant* octant;
 };
 
@@ -371,7 +382,7 @@ void Octree::UpdateOctant(Octant* octant, bool recursive, unsigned threadIndex)
         unsigned freeIdx = nextOctantTaskIdx++;
 
         if (freeIdx >= updateOctantTasks.size())
-            updateOctantTasks.push_back(new UpdateOctantTask(this, &Octree::UpdateOctantWork));
+            updateOctantTasks.push_back(new UpdateOctantTask(this));
 
         updateOctantTasks[freeIdx]->octant = octant;
         numPendingOctantTasks.fetch_add(1);
@@ -640,13 +651,4 @@ void Octree::CollectDrawables(std::vector<std::pair<Drawable*, float> >& result,
                 CollectDrawables(result, octant->children[i], ray, drawableFlags, maxDistance, layerMask);
         }
     }
-}
-
-void Octree::UpdateOctantWork(Task* task_, unsigned threadIndex)
-{
-    ZoneScoped;
-
-    UpdateOctantTask* task = static_cast<UpdateOctantTask*>(task_);
-    UpdateOctant(task->octant, false, threadIndex);
-    numPendingOctantTasks.fetch_sub(1);
 }

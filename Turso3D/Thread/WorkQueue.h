@@ -10,7 +10,7 @@
 #include <mutex>
 #include <thread>
 
-/// %Task for execution by worker threads.
+/// Base class for tasks to be executed by worker threads.
 struct Task
 {
     /// Default-construct.
@@ -18,58 +18,15 @@ struct Task
     /// Destruct.
     virtual ~Task();
 
-    /// Call the work function. Thread index 0 is the main thread.
-    virtual void Complete(unsigned threadIndex) = 0;
+    /// Perform the work. Thread index 0 is the main thread.
+    virtual void Complete(unsigned /*threadIndex*/)
+    {
+    }
 
     /// Dependent tasks.
     std::vector<Task*> dependentTasks;
-    /// Dependency counter. Once zero, this task will be automatically queue itself.
+    /// Dependency counter. Once zero, %WorkQueue will automatically this task (ie. do not QueueTask() it manually.)
     std::atomic<int> numDependencies;
-};
-
-/// Free function task.
-struct FunctionTask : public Task
-{
-    typedef void (*WorkFunctionPtr)(Task*, unsigned);
-
-    /// Construct.
-    FunctionTask(WorkFunctionPtr function_) :
-        function(function_)
-    {
-    }
-
-    /// Call the work function. Thread index 0 is the main thread.
-    void Complete(unsigned threadIndex) override
-    {
-        function(this, threadIndex);
-    }
-
-    /// Task function.
-    WorkFunctionPtr function;
-};
-
-/// Member function task.
-template<class T> struct MemberFunctionTask : public Task
-{
-    typedef void (T::* MemberWorkFunctionPtr)(Task*, unsigned);
-
-    /// Construct.
-    MemberFunctionTask(T* object_, MemberWorkFunctionPtr function_) :
-        object(object_),
-        function(function_)
-    {
-    }
-
-    /// Call the work function. Thread index 0 is the main thread.
-    void Complete(unsigned threadIndex) override
-    {
-        (object->*function)(this, threadIndex);
-    }
-
-    /// Object instance.
-    T* object;
-    /// Task member function.
-    MemberWorkFunctionPtr function;
 };
 
 /// Worker thread subsystem for dividing tasks between CPU cores.

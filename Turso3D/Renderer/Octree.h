@@ -206,6 +206,8 @@ private:
 /// Acceleration structure for rendering. Should be created as a child of the scene root.
 class Octree : public Node
 {
+    friend struct UpdateOctantTask;
+
     OBJECT(Octree);
 
 public:
@@ -312,8 +314,6 @@ private:
     void CollectDrawables(std::vector<RaycastResult>& result, Octant* octant, const Ray& ray, unsigned short drawableFlags, float maxDistance, unsigned layerMask) const;
     /// Return all visible drawables matching flags that could be potential raycast hits.
     void CollectDrawables(std::vector<std::pair<Drawable*, float> >& result, Octant* octant, const Ray& ray, unsigned short drawableFlags, float maxDistance, unsigned layerMask) const;
-    /// Work function to update an octree branch.
-    void UpdateOctantWork(Task* task, unsigned threadIndex);
 
     /// Collect nodes matching flags using a volume such as frustum or sphere.
     template <class T> void CollectDrawables(std::vector<Drawable*>& result, Octant* octant, const T& volume, unsigned short drawableFlags, unsigned layerMask) const
