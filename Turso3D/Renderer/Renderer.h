@@ -29,7 +29,14 @@ class Texture;
 class UniformBuffer;
 class VertexBuffer;
 struct CollectBatchesTask;
+struct CollectOctantsTask;
+struct CollectShadowBatchesTask;
+struct CollectShadowCastersTask;
+struct CullLightsTask;
+struct ProcessLightsTask;
+struct ProcessShadowCastersTask;
 struct ShadowView;
+struct SortOpaqueBatchesTask;
 struct ThreadOctantResult;
 
 static const size_t NUM_CLUSTER_X = 16;
