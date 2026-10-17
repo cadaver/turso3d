@@ -188,11 +188,11 @@ void WorkQueue::WorkerLoop(unsigned threadIndex_)
 
 void WorkQueue::CompleteTask(Task* task, unsigned threadIndex_)
 {
-    task->Complete(threadIndex_);
-
     if (task->dependentTasks.size())
     {
-        // Queue dependent tasks now if no more dependencies left
+        task->Complete(threadIndex_);
+
+         // Queue dependent tasks now if no more dependencies left
         for (auto it = task->dependentTasks.begin(); it != task->dependentTasks.end(); ++it)
         {
             Task* dependentTask = *it;
@@ -218,6 +218,13 @@ void WorkQueue::CompleteTask(Task* task, unsigned threadIndex_)
 
         task->dependentTasks.clear();
     }
+    else
+    {
+        // Jolt tasks track their dependencies separately via Jolt barrier system, but they may immediately release after execution,
+        // so for a task with no dependents, just complete and don't touch the task afterward
+        task->Complete(threadIndex_);
+    }
+
 
     // Decrement pending task counter last, so that WorkQueue::Complete() will also wait for the potentially added dependent tasks
     numPendingTasks.fetch_sub(1);

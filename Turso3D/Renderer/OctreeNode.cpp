@@ -16,7 +16,9 @@ Drawable::Drawable() :
     distance(0.0f),
     maxDistance(0.0f)
 {
-    SetFlag(DF_BOUNDING_BOX_DIRTY, true);
+    // Assume the world transform to always be dirty at first to be sure the dirty status is properly cleared on first update
+    // (for example with drawables parented to a rigid body)
+    SetFlag(DF_WORLD_TRANSFORM_DIRTY | DF_BOUNDING_BOX_DIRTY, true);
 }
 
 Drawable::~Drawable()

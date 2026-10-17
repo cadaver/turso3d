@@ -10,6 +10,8 @@
 #include "IO/StringUtils.h"
 #include "Math/Math.h"
 #include "Math/Random.h"
+#include "Physics/PhysicsWorld.h"
+#include "Physics/RigidBody.h"
 #include "Renderer/AnimatedModel.h"
 #include "Renderer/Animation.h"
 #include "Renderer/AnimationState.h"
@@ -60,7 +62,6 @@ public:
 private:
     void CreateScene(int preset);
     void Update();
-    void AnimateObjectsWork(Task* task_, unsigned threadIndex_);
     void PrepareRender();
     void RenderAndPresent();
 
@@ -88,6 +89,7 @@ private:
     AutoPtr<Texture> ssaoTexture;
 
     SharedPtr<Scene> scene;
+    WeakPtr<PhysicsWorld> physicsWorld;
     SharedPtr<Camera> camera;
 
     std::vector<OctreeNode*> animatingObjects;
@@ -104,7 +106,6 @@ private:
     bool animate = true;
     bool drawDebug = false;
     bool drawShadowDebug = false;
-    bool drawOcclusionDebug = false;
 
     std::string profilerOutput;
     Timer profilerTimer;
@@ -409,6 +410,66 @@ void TestApplication::CreateScene(int preset)
         light->SetShadowMapSize(2048);
         light->SetShadowMaxDistance(100.0f);
     }
+    // Preset 3: falling physics boxes
+    else if (preset == 3)
+    {
+        RegisterPhysicsLibrary();
+
+        physicsWorld = scene->CreateChild<PhysicsWorld>();
+
+        lightEnvironment->SetFogColor(Color(0.5f, 0.5f, 0.7f));
+        lightEnvironment->SetFogStart(100.0f);
+        lightEnvironment->SetFogEnd(300.0f);
+        camera->SetFarClip(300.0f);
+
+        {
+            RigidBody* rb = scene->CreateChild<RigidBody>();
+            rb->SetPosition(Vector3(0, -0.5f, 0));
+            rb->SetScale(Vector3(500.0f, 1.0f, 500.0f));
+            rb->SetBoxShape(Vector3::ONE);
+            StaticModel* object = rb->CreateChild<StaticModel>();
+            object->SetStatic(true);
+            object->SetModel(cache->LoadResource<Model>("Box.mdl"));
+            object->SetMaterial(cache->LoadResource<Material>("Stone.json"));
+        }
+
+        for (unsigned i = 0; i < 50; ++i)
+        {
+            RigidBody* rb = scene->CreateChild<RigidBody>();
+            rb->SetPosition(Vector3(Random() * 400.0f - 200.0f, 0.0f, Random() * 400.0f - 200.0f));
+            rb->SetRotation(Quaternion(0.0f, Random() * 360.0f, 0.0f));
+            rb->SetScale(5.0f + Random() * 5.0f);
+            rb->SetTriangleShape(cache->LoadResource<Model>("Mushroom.mdl"));
+            StaticModel* object = rb->CreateChild<StaticModel>();
+            object->SetStatic(true);
+            object->SetModel(cache->LoadResource<Model>("Mushroom.mdl"));
+            object->SetMaterial(cache->LoadResource<Material>("Mushroom.json"));
+            object->SetCastShadows(true);
+            object->SetLodBias(2.0f);
+        }
+
+        for (int i = 0; i < 1000; ++i)
+        {
+            RigidBody* rb = scene->CreateChild<RigidBody>();
+            rb->SetPosition(Vector3(0.0f, 2.0f * i + 100.0f, 0.0f));
+            rb->SetMass(1.0f);
+            rb->SetBoxShape(Vector3::ONE);
+            if (i < 10)
+                LOGINFOF("%s", rb->Scale().ToString().c_str());
+            StaticModel* object = rb->CreateChild<StaticModel>();
+            object->SetModel(cache->LoadResource<Model>("Box.mdl"));
+            object->SetMaterial(cache->LoadResource<Material>("Stone.json"));
+            object->SetCastShadows(true);
+        }
+
+        Light* light = scene->CreateChild<Light>();
+        light->SetLightType(LIGHT_DIRECTIONAL);
+        light->SetCastShadows(true);
+        light->SetColor(Color(1.0f, 1.0f, 1.0f, 0.5f));
+        light->SetDirection(Vector3(0.6f, -1.0f, 0.8f));
+        light->SetShadowMapSize(2048);
+        light->SetShadowMaxDistance(100.0f);
+    }
 }
 
 void TestApplication::Update()
@@ -424,6 +485,8 @@ void TestApplication::Update()
         CreateScene(1);
     if (input->KeyPressed(SDLK_F3))
         CreateScene(2);
+    if (input->KeyPressed(SDLK_F4))
+        CreateScene(3);
 
     if (input->KeyPressed(SDLK_1))
     {
@@ -444,8 +507,6 @@ void TestApplication::Update()
         drawDebug = !drawDebug;
     if (input->KeyPressed(SDLK_5))
         drawShadowDebug = !drawShadowDebug;
-    if (input->KeyPressed(SDLK_6))
-        drawOcclusionDebug = !drawOcclusionDebug;
     if (input->KeyPressed(SDLK_SPACE))
         animate = !animate;
 
@@ -507,6 +568,14 @@ void TestApplication::Update()
         workQueue->QueueTasks(taskIdx, reinterpret_cast<Task**>(&animateTasks[0]));
         // No other threaded work going on at this time, so simply complete
         workQueue->Complete();
+    }
+
+    if (animate && physicsWorld)
+    {
+        PROFILE(UpdatePhysics);
+
+        physicsWorld->Update(dt);
+        physicsWorld->ApplyTransforms();
     }
 }
 
@@ -648,7 +717,12 @@ void TestApplication::RenderAndPresent()
         
         // Optional render of debug geometry
         if (drawDebug)
+        {
             renderer->RenderDebug();
+
+            if (physicsWorld)
+                physicsWorld->OnRenderDebug(debugRenderer);
+        }
 
         debugRenderer->Render();
             

@@ -440,9 +440,14 @@ bool Model::EndLoad()
             }
             else
             {
-                unsigned* indexData = (unsigned*)&ibDesc.indexData[0];
+                // Note: the CPU-side index data must remain referring to the non-combined vertices
+                unsigned* oldIndexData = (unsigned*)&ibDesc.indexData[0];
+                SharedArrayPtr<unsigned char> newIndices(new unsigned char[sizeof(unsigned) * ibDesc.numIndices]);
+                unsigned* newIndexData = (unsigned*)newIndices.Get();
                 for (size_t j = 0; j < ibDescs[i].numIndices; ++j)
-                    indexData[j] += vertexStart;
+                    newIndexData[j] = oldIndexData[j] + vertexStart;
+
+                ibDesc.indexData = newIndices;
             }
         }
 
