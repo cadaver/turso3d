@@ -122,7 +122,7 @@ bool UniformBuffer::Create(const void* data)
 
     glBindBuffer(GL_UNIFORM_BUFFER, buffer);
     glBufferData(GL_UNIFORM_BUFFER, size, data, usage == USAGE_DYNAMIC ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
-    LOGDEBUGF("Created constant buffer size %u", (unsigned)size);
+    LOGDEBUGF("Created uniform buffer size %u", (unsigned)size);
 
     return true;
 }

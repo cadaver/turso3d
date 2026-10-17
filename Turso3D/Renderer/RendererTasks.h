@@ -2,11 +2,19 @@
 
 #pragma once
 
+#include "../Graphics/GLHeaders.h"
 #include "../Thread/WorkQueue.h"
 
 class LightDrawable;
 class Octant;
 class Renderer;
+
+#ifndef GL_ES_VERSION_3_0
+static const size_t MAX_LIGHTS_CLUSTER = 16;
+#else
+// On GLES3 use less bits for the light cluster texture and a simpler shader, due to bit shifts potentially failing on mobile GPUs
+static const size_t MAX_LIGHTS_CLUSTER = 4;
+#endif
 
 /// %Task for collecting octants.
 struct CollectOctantsTask : public Task

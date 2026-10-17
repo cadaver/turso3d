@@ -3,7 +3,6 @@
 #pragma once
 
 #include "../Graphics/GraphicsDefs.h"
-#include "../Graphics/GLHeaders.h"
 #include "../Math/Color.h"
 #include "../Math/Frustum.h"
 #include "../Object/AutoPtr.h"
@@ -47,12 +46,6 @@ static const size_t NUM_SHADOW_MAPS = 2; // One for directional lights and anoth
 static const size_t NUM_OPAQUE_Z_SPLITS = 8;
 
 static const size_t MAX_LIGHTS = 255;
-#ifndef GL_ES_VERSION_3_0
-static const size_t MAX_LIGHTS_CLUSTER = 16;
-#else
-// On GLES3 use less bits for the light cluster texture and a simpler shader, due to bit shifts potentially failing on mobile GPUs
-static const size_t MAX_LIGHTS_CLUSTER = 4;
-#endif
 
 // Texture units with built-in meanings.
 static const size_t TU_DIRLIGHTSHADOW = 8;
