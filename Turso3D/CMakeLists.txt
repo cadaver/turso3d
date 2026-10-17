@@ -2,6 +2,11 @@
 
 set (TARGET_NAME Turso3D)
 
+# Requires C++ 17
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 # Macro to add files from a directory grouped to the solution file
 macro (add_engine_directory DIRECTORY)
     file (GLOB DIR_FILES ${DIRECTORY}/*.h ${DIRECTORY}/*.c ${DIRECTORY}/*.cpp)
@@ -21,6 +26,7 @@ add_engine_directory (Input)
 add_engine_directory (IO)
 add_engine_directory (Math)
 add_engine_directory (Object)
+add_engine_directory (Physics)
 add_engine_directory (Renderer)
 add_engine_directory (Resource)
 add_engine_directory (Scene)
@@ -38,7 +44,7 @@ add_library (${TARGET_NAME} ${SOURCE_FILES})
 target_include_directories (${TARGET_NAME} PUBLIC .)
 
 if (NOT EMSCRIPTEN)
-    target_link_libraries (${TARGET_NAME} PUBLIC SDL3-static Tracy GLEW STB)
-else ()
-    target_link_libraries (${TARGET_NAME} PUBLIC SDL3-static Tracy STB)
+    target_link_libraries (${TARGET_NAME} PUBLIC GLEW)
 endif ()
+
+target_link_libraries (${TARGET_NAME} PUBLIC SDL3-static Jolt STB Tracy)
