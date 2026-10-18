@@ -20,7 +20,9 @@ For a web build, have the Emscripten SDK environment prepared before invoking CM
 
 - WSAD + mouse to move
 - SHIFT move faster
-- F1-F3 switch scene preset
+- F1-F4 switch scene preset (lights, many cubes, animated models, physics)
+- F5 save scene
+- F9 load scene
 - SPACE toggle scene animation
 - 1 toggle shadow modes
 - 2 toggle SSAO

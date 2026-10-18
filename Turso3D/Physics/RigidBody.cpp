@@ -1,8 +1,10 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
 #include "../IO/Log.h"
+#include "../IO/ResourceRef.h"
 #include "../Math/Matrix3x4.h"
 #include "../Renderer/Model.h"
+#include "../Resource/ResourceCache.h"
 #include "../Scene/Scene.h"
 #include "JoltUtils.h"
 #include "PhysicsWorld.h"
@@ -45,7 +47,13 @@ void RigidBody::RegisterObject()
     RegisterFactory<RigidBody>();
     RegisterDerivedType<RigidBody, SpatialNode>();
     CopyBaseAttributes<RigidBody, SpatialNode>();
-    // TODO: attributes
+    RegisterAttribute("kinematic", &RigidBody::IsKinematic, &RigidBody::SetKinematic);
+    RegisterAttribute("mass", &RigidBody::Mass, &RigidBody::SetMass);
+    // Reading this attribute sets all shape parameters at once and triggers the Jolt body creation, which is the heavy operation
+    RegisterMixedRefAttribute("shape", &RigidBody::ShapeAttr, &RigidBody::SetShapeAttr);
+    // These attributes are registered last because setting them needs the actual Jolt body to exist
+    RegisterMixedRefAttribute("linearVelocity", &RigidBody::LinearVelocity, &RigidBody::SetLinearVelocity);
+    RegisterMixedRefAttribute("angularVelocity", &RigidBody::AngularVelocity, &RigidBody::SetAngularVelocity);
 }
 
 void RigidBody::SetMass(float newMass)
@@ -390,4 +398,27 @@ void RigidBody::ApplyNodeTransform()
     // The body was teleported, so do not interpolate from the old position
     prevPosition = bodyPosition;
     prevRotation = bodyRotation;
+}
+
+void RigidBody::SetShapeAttr(const JSONValue& value)
+{
+    if (value.Size() < 6)
+        return;
+
+    ResourceCache* cache = Subsystem<ResourceCache>();
+    SetShape((CollisionShapeType)value[0].GetNumber(), Vector3((float)value[1].GetNumber(), (float)value[2].GetNumber(), (float)value[3].GetNumber()),
+        cache->LoadResource<Model>(ResourceRef(value[4].GetString()).name), value[5].GetNumber());
+}
+
+JSONValue RigidBody::ShapeAttr() const
+{
+    JSONValue shape;
+    shape.Push((int)shapeType);
+    shape.Push(shapeSize.x);
+    shape.Push(shapeSize.y);
+    shape.Push(shapeSize.z);
+    shape.Push(shapeModel ? MakeResourceRef(shapeModel, Model::TypeStatic()).ToString() : JSONValue::emptyString);
+    shape.Push(shapeModelLod);
+
+    return shape;
 }

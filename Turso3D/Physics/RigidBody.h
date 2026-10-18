@@ -118,6 +118,10 @@ private:
     void RecreateBody();
     /// Apply the scene node transform to the Jolt body. Called by PhysicsWorld.
     void ApplyNodeTransform();
+    /// Set shape attribute. Used in serialization.
+    void SetShapeAttr(const JSONValue& value);
+    /// Return shape attribute. Used in serialization.
+    JSONValue ShapeAttr() const;
 
     /// Physics world.
     PhysicsWorld* world;
@@ -141,8 +145,6 @@ private:
     CollisionShapeType shapeType;
     /// Kinematic flag.
     bool kinematic;
-    /// Flag for applying physics transform to the node transform. When true, do not reflect transform back to the Jolt body in OnTransformChanged();
-    bool inApplyTransforms;
     /// Queued for transform update flag.
     bool transformUpdateQueued;
     /// Queued for kinematic move flag.

@@ -5,6 +5,7 @@
 #include "Graphics/Texture.h"
 #include "Input/Input.h"
 #include "IO/Arguments.h"
+#include "IO/File.h"
 #include "IO/FileSystem.h"
 #include "IO/Log.h"
 #include "IO/StringUtils.h"
@@ -487,6 +488,19 @@ void TestApplication::Update()
         CreateScene(2);
     if (input->KeyPressed(SDLK_F4))
         CreateScene(3);
+
+    if (input->KeyPressed(SDLK_F5))
+        scene->SaveJSON(File("Scene.json", FILE_WRITE));
+
+    if (input->KeyPressed(SDLK_F9))
+    {
+        File file("Scene.json", FILE_READ);
+        if (file.IsOpen())
+            scene->LoadJSON(file);
+        // TODO: reacquire animatingObjects after scene load. Now we only reacquire the physics world
+        animatingObjects.clear();
+        physicsWorld = scene->FindChild<PhysicsWorld>();
+    }
 
     if (input->KeyPressed(SDLK_1))
     {
