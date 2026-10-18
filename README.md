@@ -8,6 +8,7 @@ Experimental 3D / game engine technology partially based on the Urho3D codebase.
 - Caching of static shadow maps
 - Hardware occlusion queries that work on the octree hierarchy
 - SSAO
+- Rudimentary Jolt physics integration
 
 ## Building
 
