@@ -68,6 +68,7 @@ public:
 
 private:
     void CreateScene(int preset);
+    void FindAnimatingObjects();
     void Update();
     void PrepareRender();
     void RenderAndPresent();
@@ -102,6 +103,7 @@ private:
     std::vector<OctreeNode*> animatingObjects;
     std::vector<AutoPtr<AnimateObjectsTask> > animateTasks;
 
+    int scenePreset = 0;
     float dt = 0.0f;
     float yaw = 0.0f;
     float pitch = 20.0f;
@@ -242,7 +244,7 @@ void TestApplication::Exit()
 
 void TestApplication::CreateScene(int preset)
 {
-    animatingObjects.clear();
+    scenePreset = preset;
 
     scene->Clear();
     scene->CreateChild<Octree>();
@@ -370,7 +372,6 @@ void TestApplication::CreateScene(int preset)
                 object->SetScale(0.25f);
                 object->SetModel(cache->LoadResource<Model>("Box.mdl"));
                 object->SetMaterial(customMat);
-                animatingObjects.push_back(object);
             }
         }
 
@@ -477,6 +478,24 @@ void TestApplication::CreateScene(int preset)
         light->SetShadowMapSize(2048);
         light->SetShadowMaxDistance(100.0f);
     }
+
+    FindAnimatingObjects();
+}
+
+void TestApplication::FindAnimatingObjects()
+{
+    physicsWorld = scene->FindChild<PhysicsWorld>();
+    animatingObjects.clear();
+
+    switch (scenePreset)
+    {
+    case 1:
+        scene->FindChildren<StaticModel>(reinterpret_cast<std::vector<StaticModel*>&>(animatingObjects), true);
+        break;
+    case 2:
+        scene->FindChildren<AnimatedModel>(reinterpret_cast<std::vector<AnimatedModel*>&>(animatingObjects), true);
+        break;
+    }
 }
 
 void TestApplication::Update()
@@ -503,9 +522,8 @@ void TestApplication::Update()
         File file("Scene.json", FILE_READ);
         if (file.IsOpen())
             scene->LoadJSON(file);
-        // TODO: reacquire animatingObjects after scene load. Now we only reacquire the physics world
-        animatingObjects.clear();
-        physicsWorld = scene->FindChild<PhysicsWorld>();
+        // Reacquire animating objects & physics world after scene load
+        FindAnimatingObjects();
     }
 
     if (input->KeyPressed(SDLK_1))

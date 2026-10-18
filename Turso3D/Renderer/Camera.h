@@ -45,7 +45,7 @@ class Camera : public SpatialNode
     void SetZoom(float level) { zoom = Max(level, M_EPSILON); }
     /// Set LOD bias. Values higher than 1 uses higher quality LOD (acts if distance is smaller.)
     void SetLodBias(float bias) { lodBias = Max(bias, M_EPSILON); }
-    /// Set view layer mask. Will be checked against scene objects' layers to see what to render.
+    /// Set view bitmask. Will be checked against drawable scene objects' view bitmasks to see what to render.
     void SetViewMask(unsigned mask) { viewMask = mask; }
     /// Set orthographic projection mode.
     void SetOrthographic(bool enable) { orthographic = enable; }
@@ -74,7 +74,7 @@ class Camera : public SpatialNode
     float Zoom() const { return zoom; }
     /// Return LOD bias.
     float LodBias() const { return lodBias; }
-    /// Return view layer mask.
+    /// Return view bitmask.
     unsigned ViewMask() const { return viewMask; }
     /// Return whether is orthographic.
     bool IsOrthographic() const { return orthographic; }

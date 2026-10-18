@@ -16,9 +16,6 @@ static const unsigned char NF_SPATIAL = 0x4;
 static const unsigned char NF_SPATIAL_PARENT = 0x8;
 static const unsigned char NF_WORLD_TRANSFORM_DIRTY = 0x10;
 
-static const unsigned char LAYER_DEFAULT = 0x0;
-static const unsigned LAYERMASK_ALL = 0xffffffff;
-
 /// Less time-critical implementation part to speed up linear processing of renderable nodes.
 struct NodeImpl
 {
@@ -100,10 +97,6 @@ public:
     const std::string& Name() const { return impl->name; }
     /// Return hash of name.
     const StringHash& NameHash() const { return impl->nameHash; }
-    /// Return layer.
-    unsigned char Layer() const { return layer; }
-    /// Return bitmask corresponding to layer.
-    unsigned LayerMask() const { return 1 << layer; }
     /// Return enabled status.
     bool IsEnabled() const { return TestFlag(NF_ENABLED); }
     /// Return whether is temporary.
@@ -136,12 +129,8 @@ public:
     Node* FindChildOfType(StringHash childType, const char* childName, bool recursive = false) const;
     /// Return first child node that matches type and name.
     Node* FindChildOfType(StringHash childType, StringHash childNameHash, bool recursive = false) const;
-    /// Return first child node that matches layer mask.
-    Node* FindChildByLayer(unsigned layerMask, bool recursive = false) const;
     /// Find child nodes of specified type.
     void FindChildren(std::vector<Node*>& result, StringHash childType, bool recursive = false) const;
-    /// Find child nodes that match layer mask.
-    void FindChildrenByLayer(std::vector<Node*>& result, unsigned layerMask, bool recursive = false) const;
     /// Return first child node of specified type, template version.
     template <class T> T* FindChild(bool recursive = false) const { return static_cast<T*>(FindChildOfType(T::TypeStatic(), recursive)); }
     /// Return first child node that matches type and name, template version.
@@ -174,8 +163,6 @@ protected:
     virtual void OnSceneSet(Scene* newScene, Scene* oldScene);
     /// Handle the enabled status changing.
     virtual void OnEnabledChanged(bool newEnabled);
-    /// Handle the layer changing.
-    virtual void OnLayerChanged(unsigned char newLayer);
 
 private:
     /// Node implementation.
@@ -184,8 +171,6 @@ private:
     Node* parent;
     /// %Node flags. Used to hold several boolean values to reduce memory use.
     mutable unsigned char flags;
-    /// Layer number.
-    unsigned char layer;
 
 protected:
     /// Child nodes.

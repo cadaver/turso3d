@@ -1,7 +1,8 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
-#include "../Math/Matrix3x4.h"
 #include "Camera.h"
+#include "OctreeNode.h"
+#include "../Math/Matrix3x4.h"
 
 static const float DEFAULT_NEAR_CLIP = 0.1f;
 static const float DEFAULT_FAR_CLIP = 1000.0f;
@@ -27,7 +28,7 @@ Camera::Camera() :
     aspectRatio(1.0f),
     zoom(1.0f),
     lodBias(1.0f),
-    viewMask(M_MAX_UNSIGNED),
+    viewMask(DEFAULT_VIEW_MASK),
     reflectionPlane(Plane::UP),
     clipPlane(Plane::UP),
     useReflection(false),
@@ -50,7 +51,7 @@ void Camera::RegisterObject()
     RegisterAttribute("orthoSize", &Camera::OrthoSize, &Camera::SetOrthoSize, DEFAULT_ORTHO_SIZE);
     RegisterAttribute("zoom", &Camera::Zoom, &Camera::SetZoom, 1.0f);
     RegisterAttribute("lodBias", &Camera::LodBias, &Camera::SetLodBias, 1.0f);
-    RegisterAttribute("viewMask", &Camera::ViewMask, &Camera::SetViewMask, M_MAX_UNSIGNED);
+    RegisterAttribute("viewMask", &Camera::ViewMask, &Camera::SetViewMask, DEFAULT_VIEW_MASK);
     RegisterMixedRefAttribute("reflectionPlane", &Camera::ReflectionPlaneAttr, &Camera::SetReflectionPlaneAttr, Vector4(0.0f, 1.0f, 0.0f, 0.0f));
     RegisterMixedRefAttribute("clipPlane", &Camera::ClipPlaneAttr, &Camera::SetClipPlaneAttr, Vector4(0.0f, 1.0f, 0.0f, 0.0f));
     RegisterAttribute("useReflection", &Camera::UseReflection, &Camera::SetUseReflection, false);

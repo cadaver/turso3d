@@ -550,7 +550,7 @@ void Renderer::CollectOctantsAndLights(Octant* octant, ThreadOctantResult& resul
         if (drawable->TestFlag(DF_LIGHT))
         {
             const BoundingBox& lightBox = drawable->WorldBoundingBox();
-            if ((drawable->LayerMask() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(lightBox, planeMask)))
+            if ((drawable->ViewLayer() & viewMask) && (!planeMask || frustum.IsInsideMaskedFast(lightBox, planeMask)))
                 result.lights.push_back(static_cast<LightDrawable*>(drawable));
         }
         // Lights are sorted first in octants, so break when first geometry encountered. Store the octant for batch collecting

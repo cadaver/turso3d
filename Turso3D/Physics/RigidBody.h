@@ -13,6 +13,9 @@ namespace JPH
     class Body;
 }
 
+static const unsigned DEFAULT_COLLISION_LAYER = 1;
+static const unsigned DEFAULT_COLLISION_MASK = M_MAX_UNSIGNED;
+
 /// Collision shape type of a rigid body.
 enum CollisionShapeType
 {

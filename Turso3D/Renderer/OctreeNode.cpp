@@ -9,8 +9,8 @@
 Drawable::Drawable() :
     owner(nullptr),
     octant(nullptr),
+    viewLayer(DEFAULT_VIEW_LAYER),
     flags(0),
-    layer(LAYER_DEFAULT),
     lastFrameNumber(0),
     lastUpdateFrameNumber(0),
     distance(0.0f),
@@ -72,11 +72,6 @@ void Drawable::SetOwner(OctreeNode* owner_)
     worldTransform = const_cast<Matrix3x4*>(&owner_->WorldTransform());
 }
 
-void Drawable::SetLayer(unsigned char newLayer)
-{
-    layer = newLayer;
-}
-
 OctreeNode::OctreeNode() :
     octree(nullptr),
     drawable(nullptr)
@@ -90,6 +85,7 @@ void OctreeNode::RegisterObject()
     RegisterAttribute("static", &OctreeNode::IsStatic, &OctreeNode::SetStatic, false);
     RegisterAttribute("castShadows", &OctreeNode::CastShadows, &OctreeNode::SetCastShadows, false);
     RegisterAttribute("updateInvisible", &OctreeNode::UpdateInvisible, &OctreeNode::SetUpdateInvisible, false);
+    RegisterAttribute("viewLayer", &OctreeNode::ViewLayer, &OctreeNode::SetViewLayer, DEFAULT_VIEW_LAYER);
     RegisterAttribute("maxDistance", &OctreeNode::MaxDistance, &OctreeNode::SetMaxDistance, 0.0f);
 }
 
@@ -121,6 +117,11 @@ void OctreeNode::SetUpdateInvisible(bool enable)
 void OctreeNode::SetMaxDistance(float distance_)
 {
     drawable->maxDistance = Max(distance_, 0.0f);
+}
+
+void OctreeNode::SetViewLayer(unsigned layer)
+{
+    drawable->viewLayer = layer;
 }
 
 void OctreeNode::OnSceneSet(Scene* newScene, Scene*)
@@ -174,10 +175,3 @@ void OctreeNode::OnEnabledChanged(bool newEnabled)
             octree->RemoveDrawable(drawable);
     }
 }
-
-void OctreeNode::OnLayerChanged(unsigned char newLayer)
-{
-    if (drawable)
-        drawable->SetLayer(newLayer);
-}
-

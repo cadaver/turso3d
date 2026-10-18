@@ -233,13 +233,13 @@ public:
     void OnRenderDebug(DebugRenderer* debug);
 
     /// Query for drawables with a raycast and return all results.
-    void Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance = M_MAX_FLOAT, unsigned layerMask = LAYERMASK_ALL) const;
+    void Raycast(std::vector<RaycastResult>& result, const Ray& ray, unsigned short nodeFlags, float maxDistance = M_MAX_FLOAT, unsigned layerMask = DEFAULT_VIEW_MASK) const;
     /// Query for drawables with a raycast and return the closest result.
-    RaycastResult RaycastSingle(const Ray& ray, unsigned short drawableFlags, float maxDistance = M_MAX_FLOAT, unsigned layerMask = LAYERMASK_ALL) const;
+    RaycastResult RaycastSingle(const Ray& ray, unsigned short drawableFlags, float maxDistance = M_MAX_FLOAT, unsigned layerMask = DEFAULT_VIEW_MASK) const;
     /// Query for drawables using a volume such as frustum or sphere.
-    template <class T> void FindDrawables(std::vector<Drawable*>& result, const T& volume, unsigned short drawableFlags, unsigned layerMask = LAYERMASK_ALL) const { CollectDrawables(result, const_cast<Octant*>(&root), volume, drawableFlags, layerMask); }
+    template <class T> void FindDrawables(std::vector<Drawable*>& result, const T& volume, unsigned short drawableFlags, unsigned layerMask = DEFAULT_VIEW_MASK) const { CollectDrawables(result, const_cast<Octant*>(&root), volume, drawableFlags, layerMask); }
     /// Query for drawables using a frustum and masked testing.
-    void FindDrawablesMasked(std::vector<Drawable*>& result, const Frustum& frustum, unsigned short drawableFlags, unsigned layerMask = LAYERMASK_ALL) const;
+    void FindDrawablesMasked(std::vector<Drawable*>& result, const Frustum& frustum, unsigned short drawableFlags, unsigned layerMask = DEFAULT_VIEW_MASK) const;
     /// Return the root octant.
     Octant* Root() const { return const_cast<Octant*>(&root); }
 
@@ -332,7 +332,7 @@ private:
             for (auto it = drawables.begin(); it != drawables.end(); ++it)
             {
                 Drawable* drawable = *it;
-                if ((drawable->Flags() & drawableFlags) == drawableFlags && (drawable->LayerMask() & layerMask) && volume.IsInsideFast(drawable->WorldBoundingBox()) != OUTSIDE)
+                if ((drawable->Flags() & drawableFlags) == drawableFlags && (drawable->ViewLayer() & layerMask) && volume.IsInsideFast(drawable->WorldBoundingBox()) != OUTSIDE)
                     result.push_back(drawable);
             }
             
@@ -363,7 +363,7 @@ private:
         for (auto it = drawables.begin(); it != drawables.end(); ++it)
         {
             Drawable* drawable = *it;
-            if ((drawable->Flags() & drawableFlags) == drawableFlags && (drawable->LayerMask() & layerMask) && (!planeMask || frustum.IsInsideMaskedFast(drawable->WorldBoundingBox(), planeMask) != OUTSIDE))
+            if ((drawable->Flags() & drawableFlags) == drawableFlags && (drawable->ViewLayer() & layerMask) && (!planeMask || frustum.IsInsideMaskedFast(drawable->WorldBoundingBox(), planeMask) != OUTSIDE))
                 result.push_back(drawable);
         }
 

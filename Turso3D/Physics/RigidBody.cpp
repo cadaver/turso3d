@@ -19,8 +19,6 @@
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 
 static const float MIN_SHAPE_SIZE = 0.001f;
-static const unsigned DEFAULT_COLLISION_LAYER = 1;
-static const unsigned DEFAULT_COLLISION_MASK = M_MAX_UNSIGNED;
 
 RigidBody::RigidBody() :
     world(nullptr),

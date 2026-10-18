@@ -30,6 +30,9 @@ static const unsigned short DF_WORLD_TRANSFORM_DIRTY = 0x200;
 static const unsigned short DF_BOUNDING_BOX_DIRTY = 0x400;
 static const unsigned short DF_OCTREE_REINSERT_QUEUED = 0x800;
 
+static const unsigned DEFAULT_VIEW_LAYER = 1;
+static const unsigned DEFAULT_VIEW_MASK = M_MAX_UNSIGNED;
+
 /// Base class for objects that are inserted to the octree for rendering. These are managed by their scene node. Inserting drawables instead of scene nodes helps to keep the rendering-critical information more tightly packed in memory.
 class Drawable
 {
@@ -55,13 +58,11 @@ public:
 
     /// Set the owner node.
     void SetOwner(OctreeNode* owner);
-    /// Set the layer.
-    void SetLayer(unsigned char newLayer);
 
+    /// Return view layer bits.
+    unsigned ViewLayer() const { return viewLayer; }
     /// Return flags.
     unsigned short Flags() const { return flags; }
-    /// Return bitmask corresponding to layer.
-    unsigned LayerMask() const { return 1 << layer; }
     /// Return the owner node.
     OctreeNode* Owner() const { return owner; }
     /// Return current octree octant this drawable resides in.
@@ -132,10 +133,10 @@ protected:
     Matrix3x4* worldTransform;
     /// Current octree octant.
     Octant* octant;
+    /// View layer bits.
+    unsigned viewLayer;
     /// %Drawable flags. Used to hold several boolean values to reduce memory use.
     mutable unsigned short flags;
-    /// Layer number. Copy of the node layer.
-    unsigned char layer;
     /// Last frame number when was visible.
     unsigned short lastFrameNumber;
     /// Last frame number when was reinserted to octree or other change (LOD etc.) happened.
@@ -168,6 +169,8 @@ public:
     void SetUpdateInvisible(bool enable);
     /// Set max distance for rendering. 0 is unlimited.
     void SetMaxDistance(float distance);
+    /// Set view layer bits. And operation with camera's view bitmask must be nonzero to render. Default 1.
+    void SetViewLayer(unsigned layer);
     
     /// Return drawable's world space bounding box. Update if necessary. 
     const BoundingBox& WorldBoundingBox() const { return drawable->WorldBoundingBox(); }
@@ -185,6 +188,9 @@ public:
     float Distance() const { return drawable->Distance(); }
     /// Return max distance for rendering, or 0 for unlimited.
     float MaxDistance() const { return drawable->MaxDistance(); }
+    /// Return view layer bits.
+    unsigned ViewLayer() const { return drawable->ViewLayer(); }
+
     /// Return last frame number when was visible. The frames are counted by Renderer internally and have no significance outside it.
     unsigned short LastFrameNumber() const { return drawable->LastFrameNumber(); }
     /// Return last frame number when was reinserted to octree (moved or animated.) The frames are counted by Renderer internally and have no significance outside it.
@@ -205,8 +211,6 @@ protected:
     void OnBoundingBoxChanged();
     /// Handle the enabled status changing.
     void OnEnabledChanged(bool newEnabled) override;
-    /// Handle the layer changing.
-    void OnLayerChanged(unsigned char newLayer) override;
 
     /// Current octree.
     Octree* octree;

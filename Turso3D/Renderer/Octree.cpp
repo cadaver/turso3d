@@ -585,7 +585,7 @@ void Octree::CollectDrawables(std::vector<Drawable*>& result, Octant* octant, un
     for (auto it = drawables.begin(); it != drawables.end(); ++it)
     {
         Drawable* drawable = *it;
-        if ((drawable->Flags() & drawableFlags) == drawableFlags && (drawable->LayerMask() & layerMask))
+        if ((drawable->Flags() & drawableFlags) == drawableFlags && (drawable->ViewLayer() & layerMask))
             result.push_back(drawable);
     }
 
@@ -610,7 +610,7 @@ void Octree::CollectDrawables(std::vector<RaycastResult>& result, Octant* octant
     for (auto it = drawables.begin(); it != drawables.end(); ++it)
     {
         Drawable* drawable = *it;
-        if ((drawable->Flags() & drawableFlags) == drawableFlags && (drawable->LayerMask() & layerMask))
+        if ((drawable->Flags() & drawableFlags) == drawableFlags && (drawable->ViewLayer() & layerMask))
             drawable->OnRaycast(result, ray, maxDistance);
     }
 
@@ -635,7 +635,7 @@ void Octree::CollectDrawables(std::vector<std::pair<Drawable*, float> >& result,
     for (auto it = drawables.begin(); it != drawables.end(); ++it)
     {
         Drawable* drawable = *it;
-        if ((drawable->Flags() & drawableFlags) == drawableFlags && (drawable->LayerMask() & layerMask))
+        if ((drawable->Flags() & drawableFlags) == drawableFlags && (drawable->ViewLayer() & layerMask))
         {
             float distance = ray.HitDistance(drawable->WorldBoundingBox());
             if (distance < maxDistance)

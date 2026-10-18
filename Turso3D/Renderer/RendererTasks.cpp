@@ -67,7 +67,7 @@ void CollectBatchesTask::Complete(unsigned threadIndex)
         {
             Drawable* drawable = *dIt;
 
-            if (drawable->TestFlag(DF_GEOMETRY) && (drawable->LayerMask() & renderer->viewMask))
+            if (drawable->TestFlag(DF_GEOMETRY) && (drawable->ViewLayer() & renderer->viewMask))
             {
                 const BoundingBox& geometryBox = drawable->WorldBoundingBox();
 

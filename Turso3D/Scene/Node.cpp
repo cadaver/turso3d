@@ -11,8 +11,7 @@ static Allocator<NodeImpl> nodeImplAllocator;
 Node::Node() :
     impl(nodeImplAllocator.Allocate()),
     parent(nullptr),
-    flags(NF_ENABLED),
-    layer(LAYER_DEFAULT)
+    flags(NF_ENABLED)
 {
     impl->scene = nullptr;
     impl->id = 0;
@@ -34,7 +33,6 @@ void Node::RegisterObject()
     RegisterRefAttribute("name", &Node::Name, &Node::SetName);
     RegisterAttribute("enabled", &Node::IsEnabled, &Node::SetEnabled, true);
     RegisterAttribute("temporary", &Node::IsTemporary, &Node::SetTemporary, false);
-    RegisterAttribute("layer", &Node::Layer, &Node::SetLayer, LAYER_DEFAULT);
 }
 
 void Node::Load(Stream& source, ObjectResolver& resolver)
@@ -143,17 +141,6 @@ void Node::SetName(const char* newName)
 {
     impl->name = newName;
     impl->nameHash = StringHash(newName);
-}
-
-void Node::SetLayer(unsigned char newLayer)
-{
-    if (layer < 32)
-    {
-        layer = newLayer;
-        OnLayerChanged(newLayer);
-    }
-    else
-        LOGERROR("Can not set layer 32 or higher");
 }
 
 void Node::SetEnabled(bool enable)
@@ -445,23 +432,6 @@ Node* Node::FindChildOfType(StringHash childType, StringHash childNameHash, bool
 
     return nullptr;
 }
-Node* Node::FindChildByLayer(unsigned layerMask, bool recursive) const
-{
-    for (auto it = children.begin(); it != children.end(); ++it)
-    {
-        Node* child = *it;
-        if (child->LayerMask() & layerMask)
-            return child;
-        else if (recursive && child->children.size())
-        {
-            Node* childResult = child->FindChildByLayer(layerMask, recursive);
-            if (childResult)
-                return childResult;
-        }
-    }
-
-    return nullptr;
-}
 
 void Node::FindChildren(std::vector<Node*>& result, StringHash childType, bool recursive) const
 {
@@ -472,18 +442,6 @@ void Node::FindChildren(std::vector<Node*>& result, StringHash childType, bool r
             result.push_back(child);
         if (recursive && child->children.size())
             child->FindChildren(result, childType, recursive);
-    }
-}
-
-void Node::FindChildrenByLayer(std::vector<Node*>& result, unsigned layerMask, bool recursive) const
-{
-    for (auto it = children.begin(); it != children.end(); ++it)
-    {
-        Node* child = *it;
-        if (child->LayerMask() & layerMask)
-            result.push_back(child);
-        if (recursive && child->children.size())
-            child->FindChildrenByLayer(result, layerMask, recursive);
     }
 }
 
@@ -521,9 +479,5 @@ void Node::OnSceneSet(Scene*, Scene*)
 }
 
 void Node::OnEnabledChanged(bool)
-{
-}
-
-void Node::OnLayerChanged(unsigned char)
 {
 }
