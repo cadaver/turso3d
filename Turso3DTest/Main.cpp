@@ -454,8 +454,6 @@ void TestApplication::CreateScene(int preset)
             rb->SetPosition(Vector3(0.0f, 2.0f * i + 100.0f, 0.0f));
             rb->SetMass(1.0f);
             rb->SetBoxShape(Vector3::ONE);
-            if (i < 10)
-                LOGINFOF("%s", rb->Scale().ToString().c_str());
             StaticModel* object = rb->CreateChild<StaticModel>();
             object->SetModel(cache->LoadResource<Model>("Box.mdl"));
             object->SetMaterial(cache->LoadResource<Material>("Stone.json"));

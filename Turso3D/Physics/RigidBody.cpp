@@ -45,6 +45,7 @@ void RigidBody::RegisterObject()
     RegisterFactory<RigidBody>();
     RegisterDerivedType<RigidBody, SpatialNode>();
     CopyBaseAttributes<RigidBody, SpatialNode>();
+    // TODO: attributes
 }
 
 void RigidBody::SetMass(float newMass)
@@ -205,8 +206,10 @@ void RigidBody::OnTransformChanged()
 {
     SpatialNode::OnTransformChanged();
 
-    // Defer applying the transform to the Jolt body, so that several transform changes per frame are cheap
-    if (body)
+    // Defer applying the transform to the Jolt body, so that several transform changes per frame are cheap.
+    // Also, if a hierarchical update causes this to be called during PhysicsWorld::ApplyTransforms(),
+    // do not signal back to the world
+    if (body && !world->inApplyTransforms)
         world->QueueTransformUpdate(this);
 }
 

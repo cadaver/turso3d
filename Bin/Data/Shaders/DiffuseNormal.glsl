@@ -11,7 +11,8 @@ in vec2 texCoord;
 
 out vec4 vWorldPos;
 out vec3 vNormal;
-out vec4 vTangent;
+out vec3 vTangent;
+out vec3 vBinormal;
 out vec3 vViewNormal;
 out vec2 vTexCoord;
 out vec2 vScreenPos;
@@ -22,7 +23,8 @@ out vec2 vScreenPos;
 
 in vec4 vWorldPos;
 in vec3 vNormal;
-in vec4 vTangent;
+in vec3 vTangent;
+in vec3 vBinormal;
 in vec3 vViewNormal;
 in vec2 vTexCoord;
 in vec2 vScreenPos;
@@ -52,8 +54,9 @@ void vert()
     mat3x4 world = GetWorldMatrix();
 
     vWorldPos.xyz = vec4(position, 1.0) * world;
-    vNormal = normalize((vec4(normal, 0.0) * world));
-    vTangent = vec4(normalize(vec4(tangent.xyz, 0.0) * world), tangent.w);
+    vNormal = normalize(vec4(normal, 0.0) * world);
+    vTangent = normalize(vec4(tangent.xyz, 0.0) * world);
+    vBinormal = cross(vTangent, vNormal) * tangent.w;
     vViewNormal = (vec4(vNormal, 0.0) * viewMatrix) * 0.5 + 0.5;
     vTexCoord = texCoord;
     gl_Position = vec4(vWorldPos.xyz, 1.0) * viewProjMatrix;
@@ -63,8 +66,8 @@ void vert()
 
 void frag()
 {
-    mat3 tbn = mat3(vTangent.xyz, cross(vTangent.xyz, vNormal) * vTangent.w, vNormal);
-    vec3 normal = normalize(DecodeNormal(texture(normalTex1, vTexCoord)) * tbn);
+    mat3 tbn = mat3(vTangent, vBinormal, vNormal);
+    vec3 normal = normalize(tbn * DecodeNormal(texture(normalTex1, vTexCoord)));
 
     vec3 diffuseLight;
     vec3 specularLight;

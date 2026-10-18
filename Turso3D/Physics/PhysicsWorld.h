@@ -84,6 +84,9 @@ public:
     /// Return maximum simulation steps per Update() call.
     int MaxSteps() const { return maxSteps; }
 
+    /// Applying transforms -flag. Set true to prevent hierarchical modifications signaling transform changes back to the simulation.
+    bool inApplyTransforms;
+
 private:
     /// Add a rigid body. Called by RigidBody.
     void AddRigidBody(RigidBody* body);
@@ -119,17 +122,17 @@ private:
     /// Bodies added since last broadphase optimization.
     unsigned numBodiesAddedSinceOptimize;
     /// Jolt physics system.
-    JPH::PhysicsSystem* physicsSystem;
+    AutoPtr<JPH::PhysicsSystem> physicsSystem;
     /// Job system for Jolt using the WorkQueue.
-    WorkQueueJobSystem* jobSystem;
+    AutoPtr<WorkQueueJobSystem> jobSystem;
     /// Jolt temporary allocator for the simulation step.
-    JPH::TempAllocator* tempAllocator;
+    AutoPtr<JPH::TempAllocator> tempAllocator;
     /// Mapping of object layers to broadphase layers.
-    JPH::BroadPhaseLayerInterfaceTable* broadPhaseLayerInterface;
+    AutoPtr<JPH::BroadPhaseLayerInterfaceTable> broadPhaseLayerInterface;
     /// Object layer pair collision filter.
-    JPH::ObjectLayerPairFilterTable* objectLayerPairFilter;
+    AutoPtr<JPH::ObjectLayerPairFilterTable> objectLayerPairFilter;
     /// Object vs. broadphase layer collision filter.
-    JPH::ObjectVsBroadPhaseLayerFilterTable* objectVsBroadPhaseLayerFilter;
+    AutoPtr<JPH::ObjectVsBroadPhaseLayerFilterTable> objectVsBroadPhaseLayerFilter;
     /// Cached Jolt shapes for models.
     AutoPtr<ModelShapeCache> modelShapes;
     /// All rigid bodies that have been added to the world.

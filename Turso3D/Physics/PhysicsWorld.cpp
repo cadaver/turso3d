@@ -56,6 +56,8 @@ struct ApplyTransformsTask : public Task
 
     void Complete(unsigned /*threadIndex*/)
     {
+        ZoneScopedN("ApplyTransforms");
+
         JPH::BodyInterface& bodyInterface = world->JoltBodyInterface();
         float t = Clamp(world->timeAccumulator / world->timeStep, 0.0f, 1.0f);
 
@@ -209,7 +211,8 @@ PhysicsWorld::PhysicsWorld() :
     timeAccumulator(0.0f),
     maxSteps(5),
     numBodiesAddedSinceOptimize(0),
-    modelShapes(new ModelShapeCache())
+    modelShapes(new ModelShapeCache()),
+    inApplyTransforms(false)
 {
     InitJolt();
 
@@ -240,13 +243,6 @@ PhysicsWorld::~PhysicsWorld()
     // Release cached shapes before the physics system and Jolt global state
     modelShapes.Reset();
 
-    delete physicsSystem;
-    delete objectVsBroadPhaseLayerFilter;
-    delete objectLayerPairFilter;
-    delete broadPhaseLayerInterface;
-    delete tempAllocator;
-    delete jobSystem;
-
     DeinitJolt();
 }
 
@@ -256,6 +252,7 @@ void PhysicsWorld::RegisterObject()
     RegisterFactory<PhysicsWorld>(1);
     RegisterDerivedType<PhysicsWorld, Node>();
     CopyBaseAttributes<PhysicsWorld, Node>();
+    // TODO: attributes
 }
 
 void PhysicsWorld::Update(float deltaTime)
@@ -299,6 +296,8 @@ void PhysicsWorld::ApplyTransforms()
 {
     ZoneScoped;
 
+    inApplyTransforms = true;
+
     size_t taskIdx = 0;
     size_t bodiesPerTask = Max((size_t)16, interpolatedBodies.size() / workQueue->NumThreads());
 
@@ -318,6 +317,9 @@ void PhysicsWorld::ApplyTransforms()
     workQueue->QueueTasks(taskIdx, reinterpret_cast<Task**>(&applyTransformsTasks[0]));
     workQueue->Complete();
 
+    inApplyTransforms = false;
+
+    // Single-threaded poststep: remove bodies which no longer need to interpolate
     for (size_t i = 0; i < interpolatedBodies.size();)
     {
         RigidBody* rigidBody = interpolatedBodies[i];
