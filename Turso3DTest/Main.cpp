@@ -104,7 +104,8 @@ private:
     bool drawSSAO = false;
     bool useOcclusion = true;
     bool animate = true;
-    bool drawDebug = false;
+    bool drawRendererDebug = false;
+    bool drawPhysicsDebug = false;
     bool drawShadowDebug = false;
 
     std::string profilerOutput;
@@ -502,8 +503,10 @@ void TestApplication::Update()
     if (input->KeyPressed(SDLK_3))
         useOcclusion = !useOcclusion;
     if (input->KeyPressed(SDLK_4))
-        drawDebug = !drawDebug;
+        drawRendererDebug = !drawRendererDebug;
     if (input->KeyPressed(SDLK_5))
+        drawPhysicsDebug = !drawPhysicsDebug;
+    if (input->KeyPressed(SDLK_6))
         drawShadowDebug = !drawShadowDebug;
     if (input->KeyPressed(SDLK_SPACE))
         animate = !animate;
@@ -714,13 +717,11 @@ void TestApplication::RenderAndPresent()
         renderer->RenderAlpha();
         
         // Optional render of debug geometry
-        if (drawDebug)
-        {
+        if (drawRendererDebug)
             renderer->RenderDebug();
 
-            if (physicsWorld)
-                physicsWorld->OnRenderDebug(debugRenderer);
-        }
+        if (drawPhysicsDebug && physicsWorld)
+            physicsWorld->OnRenderDebug(debugRenderer);
 
         debugRenderer->Render();
             

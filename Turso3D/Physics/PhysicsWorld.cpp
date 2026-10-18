@@ -46,6 +46,10 @@ static const unsigned TEMP_ALLOCATOR_SIZE = 16 * 1024 * 1024;
 static const unsigned OPTIMIZE_BROADPHASE_THRESHOLD = 256;
 static const float MAX_RAY_LENGTH_MARGIN = 1.0f;
 
+static const Vector3 DEFAULT_GRAVITY(0.0f, -9.81f, 0.0f);
+static const int DEFAULT_MAX_STEPS = 5;
+static const float DEFAULT_TIMESTEP = 1.0f / 60.0f;
+
 /// Task for applying simulation transforms back to the rigid body scene nodes.
 struct ApplyTransformsTask : public Task
 {
@@ -149,73 +153,20 @@ public:
 static JoltDebugRenderer* joltDebugRenderer = nullptr;
 #endif
 
-static unsigned numJoltUsers = 0;
-
-static void JoltTrace(const char* format, ...)
-{
-    char buffer[1024];
-    va_list args;
-    va_start(args, format);
-    vsnprintf(buffer, sizeof buffer, format, args);
-    va_end(args);
-
-    LOGINFO(std::string("Jolt: ") + buffer);
-}
-
-#ifdef JPH_ENABLE_ASSERTS
-static bool JoltAssertFailed(const char* expression, const char* message, const char* file, JPH::uint line)
-{
-    LOGERRORF("Jolt assert failed: %s:%u: (%s) %s", file, line, expression, message ? message : "");
-    // Break into the debugger
-    return true;
-}
-#endif
-
-/// Initialize Jolt global state if not initialized yet.
-static void InitJolt()
-{
-    if (numJoltUsers++ > 0)
-        return;
-
-    JPH::RegisterDefaultAllocator();
-    JPH::Trace = JoltTrace;
-    JPH_IF_ENABLE_ASSERTS(JPH::AssertFailed = JoltAssertFailed;)
-    JPH::Factory::sInstance = new JPH::Factory();
-    JPH::RegisterTypes();
-}
-
-/// Release Jolt global state when the last physics world is destroyed.
-static void DeinitJolt()
-{
-    if (--numJoltUsers > 0)
-        return;
-
-#ifdef JPH_DEBUG_RENDERER
-    delete joltDebugRenderer;
-    joltDebugRenderer = nullptr;
-#endif
-
-    JPH::UnregisterTypes();
-    delete JPH::Factory::sInstance;
-    JPH::Factory::sInstance = nullptr;
-}
-
 static inline unsigned ReadIndex(const unsigned char* indexData, size_t indexSize, size_t index)
 {
     return indexSize == sizeof(unsigned) ? reinterpret_cast<const unsigned*>(indexData)[index] : reinterpret_cast<const unsigned short*>(indexData)[index];
 }
 
 PhysicsWorld::PhysicsWorld() :
-    gravity(0.0f, -9.81f, 0.0f),
-    timeStep(1.0f / 60.0f),
+    gravity(DEFAULT_GRAVITY),
+    timeStep(DEFAULT_TIMESTEP),
+    maxSteps(DEFAULT_MAX_STEPS),
     timeAccumulator(0.0f),
-    maxSteps(5),
     numBodiesAddedSinceOptimize(0),
     modelShapes(new ModelShapeCache()),
     inApplyTransforms(false)
 {
-    InitJolt();
-
     jobSystem = new WorkQueueJobSystem();
     tempAllocator = new JPH::TempAllocatorImplWithMallocFallback(TEMP_ALLOCATOR_SIZE);
 
@@ -242,8 +193,6 @@ PhysicsWorld::~PhysicsWorld()
 
     // Release cached shapes before the physics system and Jolt global state
     modelShapes.Reset();
-
-    DeinitJolt();
 }
 
 void PhysicsWorld::RegisterObject()
@@ -252,7 +201,9 @@ void PhysicsWorld::RegisterObject()
     RegisterFactory<PhysicsWorld>(1);
     RegisterDerivedType<PhysicsWorld, Node>();
     CopyBaseAttributes<PhysicsWorld, Node>();
-    // TODO: attributes
+    RegisterRefAttribute("gravity", &PhysicsWorld::Gravity, &PhysicsWorld::SetGravity, DEFAULT_GRAVITY);
+    RegisterAttribute("timestep", &PhysicsWorld::TimeStep, &PhysicsWorld::SetTimeStep, DEFAULT_TIMESTEP);
+    RegisterAttribute("maxSteps", &PhysicsWorld::MaxSteps, &PhysicsWorld::SetMaxSteps, DEFAULT_MAX_STEPS);
 }
 
 void PhysicsWorld::Update(float deltaTime)
@@ -314,8 +265,11 @@ void PhysicsWorld::ApplyTransforms()
         ++taskIdx;
     }
     
-    workQueue->QueueTasks(taskIdx, reinterpret_cast<Task**>(&applyTransformsTasks[0]));
-    workQueue->Complete();
+    if (taskIdx > 0)
+    {
+        workQueue->QueueTasks(taskIdx, reinterpret_cast<Task**>(&applyTransformsTasks[0]));
+        workQueue->Complete();
+    }
 
     inApplyTransforms = false;
 
@@ -335,6 +289,12 @@ void PhysicsWorld::ApplyTransforms()
     }
 }
 
+void PhysicsWorld::SetGravity(const Vector3& gravity_)
+{
+    gravity = gravity_;
+    physicsSystem->SetGravity(ToJolt(gravity));
+}
+
 void PhysicsWorld::SetTimeStep(float timeStep_)
 {
     timeStep = Max(timeStep_, M_EPSILON);
@@ -343,12 +303,6 @@ void PhysicsWorld::SetTimeStep(float timeStep_)
 void PhysicsWorld::SetMaxSteps(int maxSteps_)
 {
     maxSteps = Max(maxSteps_, 1);
-}
-
-void PhysicsWorld::SetGravity(const Vector3& gravity_)
-{
-    gravity = gravity_;
-    physicsSystem->SetGravity(ToJolt(gravity));
 }
 
 void PhysicsWorld::Raycast(std::vector<PhysicsRaycastResult>& result, const Ray& ray, float maxDistance) const
@@ -777,6 +731,26 @@ JPH::BodyInterface& PhysicsWorld::JoltBodyInterface() const
     return physicsSystem->GetBodyInterfaceNoLock();
 }
 
+static void JoltTrace(const char* format, ...)
+{
+    char buffer[1024];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof buffer, format, args);
+    va_end(args);
+
+    LOGINFO(std::string("Jolt: ") + buffer);
+}
+
+#ifdef JPH_ENABLE_ASSERTS
+static bool JoltAssertFailed(const char* expression, const char* message, const char* file, JPH::uint line)
+{
+    LOGERRORF("Jolt assert failed: %s:%u: (%s) %s", file, line, expression, message ? message : "");
+    // Break into the debugger
+    return true;
+}
+#endif
+
 void RegisterPhysicsLibrary()
 {
     static bool registered = false;
@@ -785,6 +759,13 @@ void RegisterPhysicsLibrary()
 
     RigidBody::RegisterObject();
     PhysicsWorld::RegisterObject();
+
+    // Register Jolt globals
+    JPH::RegisterDefaultAllocator();
+    JPH::Trace = JoltTrace;
+    JPH_IF_ENABLE_ASSERTS(JPH::AssertFailed = JoltAssertFailed;)
+        JPH::Factory::sInstance = new JPH::Factory();
+    JPH::RegisterTypes();
 
     registered = true;
 }

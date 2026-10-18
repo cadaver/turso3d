@@ -25,8 +25,9 @@ For a web build, have the Emscripten SDK environment prepared before invoking CM
 - 1 toggle shadow modes
 - 2 toggle SSAO
 - 3 toggle occlusion culling
-- 4 toggle scene debug draw
-- 5 toggle shadow debug draw
+- 4 toggle renderer debug draw
+- 5 toggle physics debug draw
+- 6 toggle shadow debug draw
 - F toggle windowed, fullscreen and borderless fullscreen
 - M toggle between 4x MSAA and no MSAA
 - V toggle vsync

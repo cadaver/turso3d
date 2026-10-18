@@ -60,12 +60,12 @@ public:
     void Update(float deltaTime);
     /// Apply rigid body transforms to the scene nodes by interpolating according to the time accumulated so far. To be called after Update().
     void ApplyTransforms();
+    /// Set gravity.
+    void SetGravity(const Vector3& gravity);
     /// Set simulation timestep in seconds.
     void SetTimeStep(float timeStep);
     /// Set maximum simulation steps per Update() call. If exceeded, the simulation will slow down. Default 5.
     void SetMaxSteps(int maxSteps);
-    /// Set gravity.
-    void SetGravity(const Vector3& gravity);
 
     /// Raycast into the physics world and return all hit results within distance, sorted by distance.
     void Raycast(std::vector<PhysicsRaycastResult>& result, const Ray& ray, float maxDistance = M_MAX_FLOAT) const;
@@ -115,10 +115,10 @@ private:
     Vector3 gravity;
     /// Simulation timestep.
     float timeStep;
-    /// Simulation time accumulator.
-    float timeAccumulator;
     /// Maximum simulation steps per update.
     int maxSteps;
+    /// Simulation time accumulator.
+    float timeAccumulator;
     /// Bodies added since last broadphase optimization.
     unsigned numBodiesAddedSinceOptimize;
     /// Jolt physics system.

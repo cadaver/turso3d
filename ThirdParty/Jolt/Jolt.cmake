@@ -910,7 +910,8 @@ endif()
 if (DEBUG_RENDERER_IN_DISTRIBUTION)
 	target_compile_definitions(Jolt PUBLIC "JPH_DEBUG_RENDERER")
 elseif (DEBUG_RENDERER_IN_DEBUG_AND_RELEASE)
-	target_compile_definitions(Jolt PUBLIC "$<$<CONFIG:Debug,Release,ReleaseASAN,ReleaseUBSAN,ReleaseTSAN>:JPH_DEBUG_RENDERER>")
+    # Turso3D: include RelWithDebInfo
+	target_compile_definitions(Jolt PUBLIC "$<$<CONFIG:Debug,Release,RelWithDebInfo,ReleaseASAN,ReleaseUBSAN,ReleaseTSAN>:JPH_DEBUG_RENDERER>")
 endif()
 
 # Enable the profiler
