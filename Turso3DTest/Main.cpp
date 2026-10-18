@@ -1,5 +1,11 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
+#if defined(_DEBUG) && defined(_MSC_VER)
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+#endif
+
 #include "Graphics/FrameBuffer.h"
 #include "Graphics/Graphics.h"
 #include "Graphics/Texture.h"
@@ -817,6 +823,10 @@ void FrameCallback()
 
 int main(int argc, char** argv)
 {
+#if defined(_DEBUG) && defined(_MSC_VER)
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
+
     app = new TestApplication();
     if (!app->Init(ParseArguments(argc, argv)))
         return 1;

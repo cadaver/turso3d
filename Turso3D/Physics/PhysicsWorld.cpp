@@ -1,5 +1,9 @@
 // For conditions of distribution and use, see copyright notice in License.txt
 
+#include "JoltJobSystem.h"
+#include "JoltUtils.h"
+#include "PhysicsWorld.h"
+#include "RigidBody.h"
 #include "../IO/Log.h"
 #include "../Math/Ray.h"
 #include "../Math/Sphere.h"
@@ -7,10 +11,6 @@
 #include "../Renderer/GeometryNode.h"
 #include "../Renderer/Model.h"
 #include "../Scene/Scene.h"
-#include "JoltUtils.h"
-#include "PhysicsWorld.h"
-#include "RigidBody.h"
-#include "WorkQueueJobSystem.h"
 
 #include <Jolt/RegisterTypes.h>
 #include <Jolt/Core/Factory.h>
@@ -173,8 +173,6 @@ public:
     /// Turso3D debug renderer.
     ::DebugRenderer* debug;
 };
-
-static JoltDebugRenderer* joltDebugRenderer = nullptr;
 #endif
 
 static inline unsigned ReadIndex(const unsigned char* indexData, size_t indexSize, size_t index)
@@ -191,7 +189,7 @@ PhysicsWorld::PhysicsWorld() :
     modelShapes(new ModelShapeCache()),
     inApplyTransforms(false)
 {
-    jobSystem = new WorkQueueJobSystem();
+    jobSystem = new JoltJobSystem();
     tempAllocator = new JPH::TempAllocatorImplWithMallocFallback(TEMP_ALLOCATOR_SIZE);
 
     broadPhaseLayerInterface = new JPH::BroadPhaseLayerInterfaceTable(PhysicsLayers::NUM_LAYERS, PhysicsBroadPhaseLayers::NUM_LAYERS);
@@ -456,9 +454,7 @@ void PhysicsWorld::OnRenderDebug(DebugRenderer* debug)
     if (!debug)
         return;
 
-    if (!joltDebugRenderer)
-        joltDebugRenderer = new JoltDebugRenderer();
-
+    static AutoPtr<JoltDebugRenderer> joltDebugRenderer = new JoltDebugRenderer();
     joltDebugRenderer->debug = debug;
 
     JPH::BodyManager::DrawSettings settings;
@@ -775,21 +771,38 @@ static bool JoltAssertFailed(const char* expression, const char* message, const 
 }
 #endif
 
+/// \cond PRIVATE
+struct JoltInitializer
+{
+    JoltInitializer()
+    {
+        // Register Jolt globals
+        JPH::RegisterDefaultAllocator();
+        JPH::Trace = JoltTrace;
+        JPH_IF_ENABLE_ASSERTS(JPH::AssertFailed = JoltAssertFailed;)
+            JPH::Factory::sInstance = new JPH::Factory();
+        JPH::RegisterTypes();
+    }
+
+    ~JoltInitializer()
+    {
+        // Unregister Jolt globals
+        JPH::UnregisterTypes();
+        delete JPH::Factory::sInstance;
+        JPH::Factory::sInstance = nullptr;
+    }
+};
+/// \endcond
+
 void RegisterPhysicsLibrary()
 {
     static bool registered = false;
     if (registered)
         return;
 
+    static JoltInitializer initializer;
     RigidBody::RegisterObject();
     PhysicsWorld::RegisterObject();
-
-    // Register Jolt globals
-    JPH::RegisterDefaultAllocator();
-    JPH::Trace = JoltTrace;
-    JPH_IF_ENABLE_ASSERTS(JPH::AssertFailed = JoltAssertFailed;)
-        JPH::Factory::sInstance = new JPH::Factory();
-    JPH::RegisterTypes();
 
     registered = true;
 }

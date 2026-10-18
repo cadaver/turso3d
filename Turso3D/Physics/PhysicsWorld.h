@@ -6,12 +6,12 @@
 #include "../Scene/Node.h"
 
 class DebugRenderer;
+class JoltJobSystem;
 class Model;
 class Ray;
 class RigidBody;
 class Sphere;
 class WorkQueue;
-class WorkQueueJobSystem;
 struct ModelShapeCache;
 struct ApplyTransformsTask;
 
@@ -124,7 +124,7 @@ private:
     /// Jolt physics system.
     AutoPtr<JPH::PhysicsSystem> physicsSystem;
     /// Job system for Jolt using the WorkQueue.
-    AutoPtr<WorkQueueJobSystem> jobSystem;
+    AutoPtr<JoltJobSystem> jobSystem;
     /// Jolt temporary allocator for the simulation step.
     AutoPtr<JPH::TempAllocator> tempAllocator;
     /// Mapping of object layers to broadphase layers.

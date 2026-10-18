@@ -15,7 +15,7 @@
 #include <tracy/Tracy.hpp>
 
 /// WorkQueue based job system for Jolt.
-class WorkQueueJobSystem : public JPH::JobSystemWithBarrier
+class JoltJobSystem : public JPH::JobSystemWithBarrier
 {
     /// Jolt job executed within the WorkQueue.
     struct WorkQueueJob : public Task, public JPH::JobSystem::Job
@@ -27,8 +27,8 @@ class WorkQueueJobSystem : public JPH::JobSystemWithBarrier
         
         void Complete(unsigned /*threadIndex*/) override
         {
-            ZoneScoped;
-
+            ZoneScopedN("UpdatePhysics");
+            
             Job* job = static_cast<Job*>(this);
             job->Execute();
             job->Release();
@@ -37,7 +37,7 @@ class WorkQueueJobSystem : public JPH::JobSystemWithBarrier
 
 public:
     /// Construct with parameters.
-    WorkQueueJobSystem(JPH::uint maxJobs = JPH::cMaxPhysicsJobs, JPH::uint maxBarriers = JPH::cMaxPhysicsBarriers) : 
+    JoltJobSystem(JPH::uint maxJobs = JPH::cMaxPhysicsJobs, JPH::uint maxBarriers = JPH::cMaxPhysicsBarriers) :
         JPH::JobSystemWithBarrier(maxBarriers),
         workQueue(Object::Subsystem<WorkQueue>())
     {
@@ -45,7 +45,7 @@ public:
     }
 
     /// Destruct.
-    ~WorkQueueJobSystem() override
+    ~JoltJobSystem() override
     {
     }
 
@@ -65,7 +65,7 @@ public:
             index = jobs.ConstructObject(name, color, this, jobFunction, numDependencies);
             if (index != AvailableJobs::cInvalidObjectIndex)
                 break;
-            LOGWARNING("WorkQueueJobSystem: no jobs available, increase maxJobs!");
+            LOGWARNING("JoltJobSystem: no jobs available, increase maxJobs!");
             std::this_thread::sleep_for(std::chrono::microseconds(100));
         }
 
