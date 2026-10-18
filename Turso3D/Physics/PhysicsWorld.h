@@ -7,6 +7,7 @@
 
 class DebugRenderer;
 class JoltJobSystem;
+class PhysicsContactListener;
 class Model;
 class Ray;
 class RigidBody;
@@ -19,6 +20,7 @@ namespace JPH
 {
     class BodyInterface;
     class BroadPhaseLayerInterfaceTable;
+    class GroupFilter;
     class ObjectLayerPairFilterTable;
     class ObjectVsBroadPhaseLayerFilterTable;
     class PhysicsSystem;
@@ -67,12 +69,12 @@ public:
     /// Set maximum simulation steps per Update() call. If exceeded, the simulation will slow down. Default 5.
     void SetMaxSteps(int maxSteps);
 
-    /// Raycast into the physics world and return all hit results within distance, sorted by distance.
-    void Raycast(std::vector<PhysicsRaycastResult>& result, const Ray& ray, float maxDistance = M_MAX_FLOAT) const;
-    /// Raycast into the physics world and return the closest result. The rigidBody member of the result is null if there was no hit.
-    PhysicsRaycastResult RaycastSingle(const Ray& ray, float maxDistance = M_MAX_FLOAT) const;
-    /// Perform a sphere query into the physics world and return the rigid bodies within.
-    void SphereQuery(std::vector<RigidBody*>& result, const Sphere& sphere);
+    /// Raycast into the physics world and return all hit results within distance, sorted by distance. Only rigid bodies whose collision layer matches the mask are considered.
+    void Raycast(std::vector<PhysicsRaycastResult>& result, const Ray& ray, float maxDistance = M_MAX_FLOAT, unsigned collisionMask = M_MAX_UNSIGNED) const;
+    /// Raycast into the physics world and return the closest result. The rigidBody member of the result is null if there was no hit. Only rigid bodies whose collision layer matches the mask are considered.
+    PhysicsRaycastResult RaycastSingle(const Ray& ray, float maxDistance = M_MAX_FLOAT, unsigned collisionMask = M_MAX_UNSIGNED) const;
+    /// Perform a sphere query into the physics world and return the rigid bodies within. Only rigid bodies whose collision layer matches the mask are considered.
+    void SphereQuery(std::vector<RigidBody*>& result, const Sphere& sphere, unsigned collisionMask = M_MAX_UNSIGNED);
 
     /// Add debug geometry to be rendered. Visualize the physics world using Jolt debug draw functionality. No-op if Jolt was compiled without the debug renderer.
     void OnRenderDebug(DebugRenderer* debug);
@@ -83,6 +85,8 @@ public:
     float TimeStep() const { return timeStep; }
     /// Return maximum simulation steps per Update() call.
     int MaxSteps() const { return maxSteps; }
+    /// Return number of simulation steps taken during the last Update() call. Rigid body contacts are only refreshed when at least one step was taken.
+    int LastUpdateSteps() const { return lastUpdateSteps; }
 
     /// Applying transforms -flag. Set true to prevent hierarchical modifications signaling transform changes back to the simulation.
     bool inApplyTransforms;
@@ -106,6 +110,16 @@ private:
     void StorePreviousTransforms(bool storeTransforms);
     /// Move queued kinematic bodies before a simulation step.
     void MoveKinematicBodies();
+    /// Clear contacts which Jolt will report again before the first simulation step of an update.
+    void ClearContacts();
+    /// Collect contacts reported during a simulation step to the rigid bodies.
+    void ProcessContacts();
+    /// Add a contact to a rigid body, or merge with an existing contact to the same other body.
+    void AddContact(RigidBody* rigidBody, RigidBody* otherBody, const Vector3& position, const Vector3& normal, bool isNew);
+    /// Remove all contacts to and from a rigid body, when its Jolt body is being destroyed.
+    void RemoveContacts(RigidBody* rigidBody);
+    /// Return the Jolt group filter used for collision layer and mask filtering.
+    static const JPH::GroupFilter* CollisionFilter();
     /// Return a cached convex or triangle mesh shape created from a model, or null on failure.
     JPH::Shape* ModelShape(Model* model, int lodLevel, bool convex);
     /// Return the Jolt body interface. Bodies are only accessed from the main thread outside the simulation step, so the non-locking interface is used.
@@ -121,6 +135,8 @@ private:
     float timeAccumulator;
     /// Bodies added since last broadphase optimization.
     unsigned numBodiesAddedSinceOptimize;
+    /// Simulation steps taken during the last update.
+    int lastUpdateSteps;
     /// Jolt physics system.
     AutoPtr<JPH::PhysicsSystem> physicsSystem;
     /// Job system for Jolt using the WorkQueue.
@@ -133,6 +149,8 @@ private:
     AutoPtr<JPH::ObjectLayerPairFilterTable> objectLayerPairFilter;
     /// Object vs. broadphase layer collision filter.
     AutoPtr<JPH::ObjectVsBroadPhaseLayerFilterTable> objectVsBroadPhaseLayerFilter;
+    /// Contact listener that buffers contacts during the simulation step.
+    AutoPtr<PhysicsContactListener> contactListener;
     /// Cached Jolt shapes for models.
     AutoPtr<ModelShapeCache> modelShapes;
     /// All rigid bodies that have been added to the world.
@@ -143,6 +161,8 @@ private:
     std::vector<RigidBody*> kinematicMoves;
     /// Dynamic rigid bodies whose scene node transforms should be updated by interpolation.
     std::vector<RigidBody*> interpolatedBodies;
+    /// Rigid bodies that have contacts stored.
+    std::vector<RigidBody*> bodiesWithContacts;
     /// Cached %WorkQueue subsystem.
     WorkQueue* workQueue;
     /// Tasks for threaded rigid body transform updates.

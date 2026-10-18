@@ -6,6 +6,7 @@
 
 class Model;
 class PhysicsWorld;
+class RigidBody;
 
 namespace JPH
 {
@@ -22,6 +23,19 @@ enum CollisionShapeType
     SHAPE_CYLINDER,
     SHAPE_CONVEX,
     SHAPE_TRIANGLEMESH
+};
+
+/// Contact between two rigid bodies, reported after a physics world update.
+struct PhysicsContact
+{
+    /// The other rigid body.
+    RigidBody* otherBody;
+    /// World-space contact position.
+    Vector3 position;
+    /// World-space contact normal, pointing from the other body towards this body.
+    Vector3 normal;
+    /// Whether the bodies were not touching during the previous simulation step.
+    bool isNew;
 };
 
 /// Rigid body scene node. The Jolt body exists when the node is enabled, has a collision shape and is in a scene that contains a physics world. Body properties should only be accessed from the main thread.
@@ -59,6 +73,10 @@ public:
     void SetTriangleShape(Model* model, const Vector3& modelScale = Vector3::ONE, int lodLevel = M_MAX_INT);
     /// Remove the collision shape. This also removes the body from the simulation.
     void RemoveShape();
+    /// Set collision layer bits. Two bodies collide if each one's layer matches the other's mask. Default 1.
+    void SetCollisionLayer(unsigned layer);
+    /// Set collision mask bits. Default all bits set, which collides with all layers.
+    void SetCollisionMask(unsigned mask);
 
     /// Forcibly set the body's linear velocity.
     void SetLinearVelocity(const Vector3& linearVelocity);
@@ -93,6 +111,13 @@ public:
     const Vector3& ShapeSize() const { return shapeSize; }
     /// Return collision shape model.
     Model* ShapeModel() const;
+    /// Return collision layer bits.
+    unsigned CollisionLayer() const { return collisionLayer; }
+    /// Return collision mask bits.
+    unsigned CollisionMask() const { return collisionMask; }
+    /// Return contacts to other rigid bodies from the simulation steps of the last PhysicsWorld::Update() which stepped the simulation. There is one contact per other body.
+    /// Contacts between two inactive (sleeping or static) bodies are not reported by Jolt, so they are retained from the time the bodies were last active.
+    const std::vector<PhysicsContact>& Contacts() const { return contacts; }
     /// Return the physics world.
     PhysicsWorld* GetPhysicsWorld() const { return world; }
 
@@ -118,6 +143,8 @@ private:
     void RecreateBody();
     /// Apply the scene node transform to the Jolt body. Called by PhysicsWorld.
     void ApplyNodeTransform();
+    /// Apply collision layer and mask to the Jolt body.
+    void ApplyCollisionFilter();
     /// Set shape attribute. Used in serialization.
     void SetShapeAttr(const JSONValue& value);
     /// Return shape attribute. Used in serialization.
@@ -127,6 +154,8 @@ private:
     PhysicsWorld* world;
     /// Jolt body.
     JPH::Body* body;
+    /// Contacts from the last simulation update.
+    std::vector<PhysicsContact> contacts;
     /// Collision shape model.
     SharedPtr<Model> shapeModel;
     /// Collision shape model LOD level, 0 = most detailed.
@@ -141,6 +170,12 @@ private:
     Quaternion prevRotation;
     /// Mass.
     float mass;
+    /// Collision layer bits.
+    unsigned collisionLayer;
+    /// Collision mask bits.
+    unsigned collisionMask;
+    /// Index in the physics world's list of bodies with contacts, or -1 if not in the list.
+    int contactListIndex;
     /// Collision shape type.
     CollisionShapeType shapeType;
     /// Kinematic flag.

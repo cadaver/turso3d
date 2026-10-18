@@ -19,6 +19,8 @@
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 
 static const float MIN_SHAPE_SIZE = 0.001f;
+static const unsigned DEFAULT_COLLISION_LAYER = 1;
+static const unsigned DEFAULT_COLLISION_MASK = M_MAX_UNSIGNED;
 
 RigidBody::RigidBody() :
     world(nullptr),
@@ -28,6 +30,9 @@ RigidBody::RigidBody() :
     prevPosition(Vector3::ZERO),
     prevRotation(Quaternion::IDENTITY),
     mass(0.0f),
+    collisionLayer(DEFAULT_COLLISION_LAYER),
+    collisionMask(DEFAULT_COLLISION_MASK),
+    contactListIndex(-1),
     shapeType(SHAPE_NONE),
     kinematic(false),
     transformUpdateQueued(false),
@@ -47,13 +52,15 @@ void RigidBody::RegisterObject()
     RegisterFactory<RigidBody>();
     RegisterDerivedType<RigidBody, SpatialNode>();
     CopyBaseAttributes<RigidBody, SpatialNode>();
-    RegisterAttribute("kinematic", &RigidBody::IsKinematic, &RigidBody::SetKinematic);
-    RegisterAttribute("mass", &RigidBody::Mass, &RigidBody::SetMass);
+    RegisterAttribute("kinematic", &RigidBody::IsKinematic, &RigidBody::SetKinematic, false);
+    RegisterAttribute("mass", &RigidBody::Mass, &RigidBody::SetMass, 0.0f);
     // Reading this attribute sets all shape parameters at once and triggers the Jolt body creation, which is the heavy operation
     RegisterMixedRefAttribute("shape", &RigidBody::ShapeAttr, &RigidBody::SetShapeAttr);
-    // These attributes are registered last because setting them needs the actual Jolt body to exist
-    RegisterMixedRefAttribute("linearVelocity", &RigidBody::LinearVelocity, &RigidBody::SetLinearVelocity);
-    RegisterMixedRefAttribute("angularVelocity", &RigidBody::AngularVelocity, &RigidBody::SetAngularVelocity);
+    // These attributes are registered last because they are applied to the existing Jolt body without recreating it
+    RegisterAttribute("collisionLayer", &RigidBody::CollisionLayer, &RigidBody::SetCollisionLayer, DEFAULT_COLLISION_LAYER);
+    RegisterAttribute("collisionMask", &RigidBody::CollisionMask, &RigidBody::SetCollisionMask, DEFAULT_COLLISION_MASK);
+    RegisterMixedRefAttribute("linearVelocity", &RigidBody::LinearVelocity, &RigidBody::SetLinearVelocity, Vector3::ZERO);
+    RegisterMixedRefAttribute("angularVelocity", &RigidBody::AngularVelocity, &RigidBody::SetAngularVelocity, Vector3::ZERO);
 }
 
 void RigidBody::SetMass(float newMass)
@@ -114,6 +121,24 @@ void RigidBody::SetTriangleShape(Model* model, const Vector3& modelScale, int lo
 void RigidBody::RemoveShape()
 {
     SetShape(SHAPE_NONE, Vector3::ZERO, nullptr);
+}
+
+void RigidBody::SetCollisionLayer(unsigned layer)
+{
+    if (layer != collisionLayer)
+    {
+        collisionLayer = layer;
+        ApplyCollisionFilter();
+    }
+}
+
+void RigidBody::SetCollisionMask(unsigned mask)
+{
+    if (mask != collisionMask)
+    {
+        collisionMask = mask;
+        ApplyCollisionFilter();
+    }
 }
 
 void RigidBody::SetLinearVelocity(const Vector3& linearVelocity)
@@ -323,6 +348,7 @@ void RigidBody::CreateBody(const Vector3& linearVelocity, const Vector3& angular
 
     JPH::BodyCreationSettings settings(shapeResult.Get(), ToJoltR(bodyPosition), ToJolt(bodyRotation), motionType, objectLayer);
     settings.mUserData = (JPH::uint64)(uintptr_t)this;
+    settings.mCollisionGroup = JPH::CollisionGroup(PhysicsWorld::CollisionFilter(), collisionLayer, collisionMask);
     if (motionType == JPH::EMotionType::Dynamic)
     {
         settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
@@ -353,6 +379,7 @@ void RigidBody::ReleaseBody()
         return;
 
     world->RemoveFromQueues(this);
+    world->RemoveContacts(this);
 
     JPH::BodyInterface& bodyInterface = world->JoltBodyInterface();
     JPH::BodyID id = body->GetID();
@@ -398,6 +425,17 @@ void RigidBody::ApplyNodeTransform()
     // The body was teleported, so do not interpolate from the old position
     prevPosition = bodyPosition;
     prevRotation = bodyRotation;
+}
+
+void RigidBody::ApplyCollisionFilter()
+{
+    if (!body)
+        return;
+
+    body->SetCollisionGroup(JPH::CollisionGroup(PhysicsWorld::CollisionFilter(), collisionLayer, collisionMask));
+    // Wake up so that the new filtering takes effect, for example to fall through a body that is no longer collided with
+    if (!body->IsStatic())
+        world->JoltBodyInterface().ActivateBody(body->GetID());
 }
 
 void RigidBody::SetShapeAttr(const JSONValue& value)

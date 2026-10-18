@@ -17,10 +17,13 @@
 #include <Jolt/Core/IssueReporting.h>
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Physics/PhysicsSystem.h>
+#include <Jolt/Physics/Body/BodyFilter.h>
 #include <Jolt/Physics/Body/BodyLock.h>
 #include <Jolt/Physics/Collision/CastResult.h>
 #include <Jolt/Physics/Collision/CollideShape.h>
 #include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
+#include <Jolt/Physics/Collision/ContactListener.h>
+#include <Jolt/Physics/Collision/GroupFilter.h>
 #include <Jolt/Physics/Collision/ObjectLayerPairFilterTable.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayerInterfaceTable.h>
@@ -29,7 +32,6 @@
 #include <Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #ifdef JPH_DEBUG_RENDERER
-#include <Jolt/Physics/Body/BodyFilter.h>
 #include <Jolt/Renderer/DebugRendererSimple.h>
 #endif
 
@@ -91,6 +93,130 @@ struct ApplyTransformsTask : public Task
     PhysicsWorld* world;
     size_t start;
     size_t end;
+};
+
+/// Group filter that implements rigid body collision layer and mask filtering. The group ID holds the layer bits and the subgroup ID the mask bits.
+class CollisionLayerFilter : public JPH::GroupFilter
+{
+public:
+    /// Construct. The filter is a static object, so mark it as embedded to prevent deletion through refcounting.
+    CollisionLayerFilter()
+    {
+        SetEmbedded();
+    }
+
+    /// Return whether two bodies can collide.
+    bool CanCollide(const JPH::CollisionGroup& group1, const JPH::CollisionGroup& group2) const override
+    {
+        return (group1.GetGroupID() & group2.GetSubGroupID()) != 0 && (group2.GetGroupID() & group1.GetSubGroupID()) != 0;
+    }
+};
+
+static CollisionLayerFilter collisionLayerFilter;
+
+/// Body filter for queries that accepts rigid bodies whose collision layer matches the mask.
+class CollisionMaskBodyFilter : public JPH::BodyFilter
+{
+public:
+    /// Construct.
+    CollisionMaskBodyFilter(unsigned collisionMask_) :
+        collisionMask(collisionMask_)
+    {
+    }
+
+    /// Return whether to accept a body.
+    bool ShouldCollideLocked(const JPH::Body& body) const override
+    {
+        return (body.GetCollisionGroup().GetGroupID() & collisionMask) != 0;
+    }
+
+    /// Collision mask.
+    unsigned collisionMask;
+};
+
+/// Contact reported by Jolt during the simulation step.
+struct ContactRecord
+{
+    /// First rigid body.
+    RigidBody* body1;
+    /// Second rigid body.
+    RigidBody* body2;
+    /// World-space contact position.
+    Vector3 position;
+    /// World-space contact normal, pointing from the first body towards the second.
+    Vector3 normal;
+    /// Body pair key.
+    JPH::uint64 pairKey;
+    /// Whether the contact is new.
+    bool isNew;
+};
+
+/// Jolt contact listener which buffers contacts per WorkQueue thread during the simulation step, so that no locking is needed.
+class PhysicsContactListener : public JPH::ContactListener
+{
+public:
+    /// Construct with number of threads.
+    PhysicsContactListener(unsigned numThreads) :
+        threadRecords(numThreads)
+    {
+    }
+
+    /// Handle a new contact.
+    void OnContactAdded(const JPH::Body& body1, const JPH::Body& body2, const JPH::ContactManifold& manifold, JPH::ContactSettings&) override
+    {
+        AddRecord(body1, body2, manifold, true);
+    }
+
+    /// Handle a contact persisting from the previous step.
+    void OnContactPersisted(const JPH::Body& body1, const JPH::Body& body2, const JPH::ContactManifold& manifold, JPH::ContactSettings&) override
+    {
+        AddRecord(body1, body2, manifold, false);
+    }
+
+    /// Return a key for a body pair, independent of the order.
+    static JPH::uint64 PairKey(const JPH::BodyID& id1, const JPH::BodyID& id2)
+    {
+        JPH::uint64 a = id1.GetIndexAndSequenceNumber();
+        JPH::uint64 b = id2.GetIndexAndSequenceNumber();
+        return a < b ? (a << 32) | b : (b << 32) | a;
+    }
+
+    /// Contact records per thread.
+    std::vector<std::vector<ContactRecord> > threadRecords;
+    /// Sorted body pair keys that were in contact during the previous step. Read-only during the step.
+    std::vector<JPH::uint64> prevPairs;
+    /// Body pair keys collected during the current step.
+    std::vector<JPH::uint64> currentPairs;
+
+private:
+    /// Buffer a contact.
+    void AddRecord(const JPH::Body& body1, const JPH::Body& body2, const JPH::ContactManifold& manifold, bool added)
+    {
+        RigidBody* rigidBody1 = reinterpret_cast<RigidBody*>((uintptr_t)body1.GetUserData());
+        RigidBody* rigidBody2 = reinterpret_cast<RigidBody*>((uintptr_t)body2.GetUserData());
+        if (!rigidBody1 || !rigidBody2)
+            return;
+
+        unsigned threadIndex = WorkQueue::ThreadIndex();
+        assert(threadIndex < threadRecords.size());
+
+        ContactRecord record;
+        record.body1 = rigidBody1;
+        record.body2 = rigidBody2;
+        record.pairKey = PairKey(body1.GetID(), body2.GetID());
+        // Jolt reports contacts per sub-shape pair, for example per triangle of a mesh. Consider the contact new only if the body pair
+        // was not touching during the previous step at all
+        record.isNew = added && !std::binary_search(prevPairs.begin(), prevPairs.end(), record.pairKey);
+
+        Vector3 position = Vector3::ZERO;
+        JPH::uint numPoints = (JPH::uint)manifold.mRelativeContactPointsOn1.size();
+        for (JPH::uint i = 0; i < numPoints; ++i)
+            position += 0.5f * (ToVector3(manifold.GetWorldSpaceContactPointOn1(i)) + ToVector3(manifold.GetWorldSpaceContactPointOn2(i)));
+        record.position = numPoints ? position / (float)numPoints : ToVector3(manifold.mBaseOffset);
+        record.normal = ToVector3(manifold.mWorldSpaceNormal);
+
+        threadRecords[threadIndex].push_back(record);
+    }
 };
 
 /// Cached Jolt shapes created from models.
@@ -186,6 +312,7 @@ PhysicsWorld::PhysicsWorld() :
     maxSteps(DEFAULT_MAX_STEPS),
     timeAccumulator(0.0f),
     numBodiesAddedSinceOptimize(0),
+    lastUpdateSteps(0),
     modelShapes(new ModelShapeCache()),
     inApplyTransforms(false)
 {
@@ -207,6 +334,9 @@ PhysicsWorld::PhysicsWorld() :
     physicsSystem->SetGravity(ToJolt(gravity));
 
     workQueue = Subsystem<WorkQueue>();
+
+    contactListener = new PhysicsContactListener(workQueue->NumThreads());
+    physicsSystem->SetContactListener(contactListener);
 }
 
 PhysicsWorld::~PhysicsWorld()
@@ -240,9 +370,14 @@ void PhysicsWorld::Update(float deltaTime)
         timeAccumulator = timeStep * maxSteps;
 
     bool stepped = false;
+    lastUpdateSteps = 0;
 
     while (timeAccumulator >= timeStep)
     {
+        // Contacts accumulate over all steps of this update, so clear them only before the first step
+        if (!stepped)
+            ClearContacts();
+
         StorePreviousTransforms(true);
         MoveKinematicBodies();
 
@@ -256,8 +391,11 @@ void PhysicsWorld::Update(float deltaTime)
         if (error != JPH::EPhysicsUpdateError::None)
             LOGWARNINGF("Physics update error %u", (unsigned)error);
 
+        ProcessContacts();
+
         timeAccumulator -= timeStep;
         stepped = true;
+        ++lastUpdateSteps;
     }
 
     // Bodies may have been woken up during the step, mark them for interpolation without changing the previous transforms
@@ -327,7 +465,7 @@ void PhysicsWorld::SetMaxSteps(int maxSteps_)
     maxSteps = Max(maxSteps_, 1);
 }
 
-void PhysicsWorld::Raycast(std::vector<PhysicsRaycastResult>& result, const Ray& ray, float maxDistance) const
+void PhysicsWorld::Raycast(std::vector<PhysicsRaycastResult>& result, const Ray& ray, float maxDistance, unsigned collisionMask) const
 {
     ZoneScoped;
 
@@ -348,7 +486,8 @@ void PhysicsWorld::Raycast(std::vector<PhysicsRaycastResult>& result, const Ray&
 
     JPH::RRayCast joltRay(ToJoltR(ray.origin), ToJolt(ray.direction) * length);
     JPH::AllHitCollisionCollector<JPH::CastRayCollector> collector;
-    physicsSystem->GetNarrowPhaseQueryNoLock().CastRay(joltRay, JPH::RayCastSettings(), collector);
+    CollisionMaskBodyFilter bodyFilter(collisionMask);
+    physicsSystem->GetNarrowPhaseQueryNoLock().CastRay(joltRay, JPH::RayCastSettings(), collector, JPH::BroadPhaseLayerFilter(), JPH::ObjectLayerFilter(), bodyFilter);
     collector.Sort();
 
     const JPH::BodyLockInterfaceNoLock& lockInterface = physicsSystem->GetBodyLockInterfaceNoLock();
@@ -371,7 +510,7 @@ void PhysicsWorld::Raycast(std::vector<PhysicsRaycastResult>& result, const Ray&
     }
 }
 
-PhysicsRaycastResult PhysicsWorld::RaycastSingle(const Ray& ray, float maxDistance) const
+PhysicsRaycastResult PhysicsWorld::RaycastSingle(const Ray& ray, float maxDistance, unsigned collisionMask) const
 {
     ZoneScoped;
 
@@ -395,7 +534,8 @@ PhysicsRaycastResult PhysicsWorld::RaycastSingle(const Ray& ray, float maxDistan
 
     JPH::RRayCast joltRay(ToJoltR(ray.origin), ToJolt(ray.direction) * length);
     JPH::RayCastResult hit;
-    if (!physicsSystem->GetNarrowPhaseQueryNoLock().CastRay(joltRay, hit))
+    CollisionMaskBodyFilter bodyFilter(collisionMask);
+    if (!physicsSystem->GetNarrowPhaseQueryNoLock().CastRay(joltRay, hit, JPH::BroadPhaseLayerFilter(), JPH::ObjectLayerFilter(), bodyFilter))
         return res;
 
     JPH::BodyLockRead lock(physicsSystem->GetBodyLockInterfaceNoLock(), hit.mBodyID);
@@ -412,7 +552,7 @@ PhysicsRaycastResult PhysicsWorld::RaycastSingle(const Ray& ray, float maxDistan
     return res;
 }
 
-void PhysicsWorld::SphereQuery(std::vector<RigidBody*>& result, const Sphere& sphere)
+void PhysicsWorld::SphereQuery(std::vector<RigidBody*>& result, const Sphere& sphere, unsigned collisionMask)
 {
     ZoneScoped;
 
@@ -428,7 +568,7 @@ void PhysicsWorld::SphereQuery(std::vector<RigidBody*>& result, const Sphere& sp
 
     JPH::AllHitCollisionCollector<JPH::CollideShapeCollector> collector;
     physicsSystem->GetNarrowPhaseQueryNoLock().CollideShape(&sphereShape, JPH::Vec3::sOne(), JPH::RMat44::sTranslation(ToJoltR(sphere.center)),
-        JPH::CollideShapeSettings(), JPH::RVec3::sZero(), collector);
+        JPH::CollideShapeSettings(), JPH::RVec3::sZero(), collector, JPH::BroadPhaseLayerFilter(), JPH::ObjectLayerFilter(), CollisionMaskBodyFilter(collisionMask));
 
     // There may be several hits per body, so sort and remove duplicates
     std::vector<JPH::BodyID> hitBodies;
@@ -509,6 +649,8 @@ void PhysicsWorld::RemoveAllRigidBodies()
     transformUpdates.clear();
     kinematicMoves.clear();
     interpolatedBodies.clear();
+    bodiesWithContacts.clear();
+    contactListener->prevPairs.clear();
 }
 
 void PhysicsWorld::QueueTransformUpdate(RigidBody* rigidBody)
@@ -624,6 +766,128 @@ void PhysicsWorld::MoveKinematicBodies()
         else
             ++i;
     }
+}
+
+void PhysicsWorld::ClearContacts()
+{
+    // Jolt does not report contacts between two bodies that are both inactive (sleeping or static.) As they do not move, retain such contacts
+    // from the previous update, and clear the others, which will be reported again if they still exist
+    size_t numRetained = 0;
+
+    for (auto it = bodiesWithContacts.begin(); it != bodiesWithContacts.end(); ++it)
+    {
+        RigidBody* rigidBody = *it;
+        std::vector<PhysicsContact>& contacts = rigidBody->contacts;
+        bool active = rigidBody->body->IsActive();
+
+        for (auto cIt = contacts.begin(); cIt != contacts.end();)
+        {
+            if (active || cIt->otherBody->body->IsActive())
+                cIt = contacts.erase(cIt);
+            else
+            {
+                cIt->isNew = false;
+                ++cIt;
+            }
+        }
+
+        if (contacts.empty())
+            rigidBody->contactListIndex = -1;
+        else
+        {
+            rigidBody->contactListIndex = (int)numRetained;
+            bodiesWithContacts[numRetained++] = rigidBody;
+        }
+    }
+
+    bodiesWithContacts.resize(numRetained);
+}
+
+void PhysicsWorld::ProcessContacts()
+{
+    ZoneScoped;
+
+    std::vector<JPH::uint64>& currentPairs = contactListener->currentPairs;
+    currentPairs.clear();
+
+    for (auto tIt = contactListener->threadRecords.begin(); tIt != contactListener->threadRecords.end(); ++tIt)
+    {
+        std::vector<ContactRecord>& records = *tIt;
+        for (auto it = records.begin(); it != records.end(); ++it)
+        {
+            // The Jolt normal points from the first body towards the second, while the stored normal should point towards the receiving body
+            AddContact(it->body1, it->body2, it->position, -it->normal, it->isNew);
+            AddContact(it->body2, it->body1, it->position, it->normal, it->isNew);
+            currentPairs.push_back(it->pairKey);
+        }
+        records.clear();
+    }
+
+    std::sort(currentPairs.begin(), currentPairs.end());
+    currentPairs.erase(std::unique(currentPairs.begin(), currentPairs.end()), currentPairs.end());
+    contactListener->prevPairs.swap(currentPairs);
+}
+
+void PhysicsWorld::AddContact(RigidBody* rigidBody, RigidBody* otherBody, const Vector3& position, const Vector3& normal, bool isNew)
+{
+    std::vector<PhysicsContact>& contacts = rigidBody->contacts;
+    if (rigidBody->contactListIndex < 0)
+    {
+        rigidBody->contactListIndex = (int)bodiesWithContacts.size();
+        bodiesWithContacts.push_back(rigidBody);
+    }
+
+    // Contacts to the same body from several sub-shapes or simulation steps are merged, retaining the latest position and normal
+    for (auto it = contacts.begin(); it != contacts.end(); ++it)
+    {
+        if (it->otherBody == otherBody)
+        {
+            it->position = position;
+            it->normal = normal;
+            it->isNew |= isNew;
+            return;
+        }
+    }
+
+    PhysicsContact contact;
+    contact.otherBody = otherBody;
+    contact.position = position;
+    contact.normal = normal;
+    contact.isNew = isNew;
+    contacts.push_back(contact);
+}
+
+void PhysicsWorld::RemoveContacts(RigidBody* rigidBody)
+{
+    // Contacts are stored symmetrically, so only the bodies this body has contacts to need to be checked
+    for (auto it = rigidBody->contacts.begin(); it != rigidBody->contacts.end(); ++it)
+    {
+        std::vector<PhysicsContact>& otherContacts = it->otherBody->contacts;
+        for (auto oIt = otherContacts.begin(); oIt != otherContacts.end(); ++oIt)
+        {
+            if (oIt->otherBody == rigidBody)
+            {
+                otherContacts.erase(oIt);
+                break;
+            }
+        }
+    }
+
+    rigidBody->contacts.clear();
+
+    if (rigidBody->contactListIndex >= 0)
+    {
+        RigidBody* last = bodiesWithContacts.back();
+        bodiesWithContacts[rigidBody->contactListIndex] = last;
+        last->contactListIndex = rigidBody->contactListIndex;
+        bodiesWithContacts.pop_back();
+        rigidBody->contactListIndex = -1;
+    }
+}
+
+const JPH::GroupFilter* PhysicsWorld::CollisionFilter()
+{
+    return &collisionLayerFilter;
 }
 
 JPH::Shape* PhysicsWorld::ModelShape(Model* model, int lodLevel, bool convex)
