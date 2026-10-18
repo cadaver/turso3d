@@ -69,36 +69,36 @@ void RigidBody::SetKinematic(bool enable)
 
 void RigidBody::SetBoxShape(const Vector3& size)
 {
-    SetShape(SHAPE_BOX, size, nullptr);
+    SetShape(SHAPE_BOX, size);
 }
 
 void RigidBody::SetCapsuleShape(const Vector3& size)
 {
-    SetShape(SHAPE_CAPSULE, size, nullptr);
+    SetShape(SHAPE_CAPSULE, size);
 }
 
 void RigidBody::SetCylinderShape(const Vector3& size)
 {
-    SetShape(SHAPE_CYLINDER, size, nullptr);
+    SetShape(SHAPE_CYLINDER, size);
 }
 
 void RigidBody::SetSphereShape(float diameter)
 {
-    SetShape(SHAPE_SPHERE, Vector3(diameter, diameter, diameter), nullptr);
+    SetShape(SHAPE_SPHERE, Vector3(diameter, diameter, diameter));
 }
 
-void RigidBody::SetConvexShape(Model* model, const Vector3& modelScale)
+void RigidBody::SetConvexShape(Model* model, const Vector3& modelScale, int lodLevel)
 {
     if (model)
-        SetShape(SHAPE_CONVEX, modelScale, model);
+        SetShape(SHAPE_CONVEX, modelScale, model, lodLevel);
     else
         RemoveShape();
 }
 
-void RigidBody::SetTriangleShape(Model* model, const Vector3& modelScale)
+void RigidBody::SetTriangleShape(Model* model, const Vector3& modelScale, int lodLevel)
 {
     if (model)
-        SetShape(SHAPE_TRIANGLEMESH, modelScale, model);
+        SetShape(SHAPE_TRIANGLEMESH, modelScale, model, lodLevel);
     else
         RemoveShape();
 }
@@ -221,11 +221,12 @@ void RigidBody::OnEnabledChanged(bool newEnabled)
         ReleaseBody();
 }
 
-void RigidBody::SetShape(CollisionShapeType type, const Vector3& size, Model* model)
+void RigidBody::SetShape(CollisionShapeType type, const Vector3& size, Model* model, int lodLevel)
 {
     shapeType = type;
     shapeSize = size;
     shapeModel = model;
+    shapeModelLod = Clamp(lodLevel, 0, model ? (int)model->NumLodLevels(0) - 1 : 0);
     RecreateBody();
 }
 
@@ -280,7 +281,7 @@ void RigidBody::CreateBody(const Vector3& linearVelocity, const Vector3& angular
     case SHAPE_CONVEX:
     case SHAPE_TRIANGLEMESH:
         {
-            JPH::Shape* modelShape = world->ModelShape(shapeModel, shapeType == SHAPE_CONVEX);
+            JPH::Shape* modelShape = world->ModelShape(shapeModel, shapeModelLod, shapeType == SHAPE_CONVEX);
             if (!modelShape)
                 return;
 

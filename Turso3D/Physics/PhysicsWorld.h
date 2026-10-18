@@ -107,7 +107,7 @@ private:
     /// Move queued kinematic bodies before a simulation step.
     void MoveKinematicBodies();
     /// Return a cached convex or triangle mesh shape created from a model, or null on failure.
-    JPH::Shape* ModelShape(Model* model, bool convex);
+    JPH::Shape* ModelShape(Model* model, int lodLevel, bool convex);
     /// Return the Jolt body interface. Bodies are only accessed from the main thread outside the simulation step, so the non-locking interface is used.
     JPH::BodyInterface& JoltBodyInterface() const;
 

@@ -440,7 +440,8 @@ void TestApplication::CreateScene(int preset)
             rb->SetPosition(Vector3(Random() * 400.0f - 200.0f, 0.0f, Random() * 400.0f - 200.0f));
             rb->SetRotation(Quaternion(0.0f, Random() * 360.0f, 0.0f));
             rb->SetScale(5.0f + Random() * 5.0f);
-            rb->SetTriangleShape(cache->LoadResource<Model>("Mushroom.mdl"));
+            // Use most accurate LOD to prevent objects "sinking" into the model
+            rb->SetTriangleShape(cache->LoadResource<Model>("Mushroom.mdl"), Vector3::ONE, 0);
             StaticModel* object = rb->CreateChild<StaticModel>();
             object->SetStatic(true);
             object->SetModel(cache->LoadResource<Model>("Mushroom.mdl"));

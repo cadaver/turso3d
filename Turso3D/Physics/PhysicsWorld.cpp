@@ -96,6 +96,30 @@ struct ApplyTransformsTask : public Task
 /// Cached Jolt shapes created from models.
 struct ModelShapeCache
 {
+    /// Search key.
+    struct Key
+    {
+        /// Construct from values.
+        Key(Model* model_, int lodLevel_, bool convex_) :
+            model(model_),
+            lodLevel(lodLevel_),
+            convex(convex_)
+        {
+        }
+
+        /// Model resource.
+        Model* model;
+        /// Lod level, 0 being most accurate.
+        int lodLevel;
+        /// Whether to use a convex shape.
+        bool convex;
+
+        bool operator < (const Key& rhs) const
+        {
+            return model != rhs.model ? model < rhs.model : lodLevel != rhs.lodLevel ? lodLevel < rhs.lodLevel : convex < rhs.convex;
+        }
+    };
+
     /// Cache entry.
     struct Entry
     {
@@ -105,8 +129,8 @@ struct ModelShapeCache
         JPH::Ref<JPH::Shape> shape;
     };
 
-    /// Cached shapes by model and convex flag.
-    std::map<std::pair<Model*, bool>, Entry> entries;
+    /// Cached shapes by model, lod and convex flag.
+    std::map<Key, Entry> entries;
 };
 
 #ifdef JPH_DEBUG_RENDERER
@@ -606,12 +630,12 @@ void PhysicsWorld::MoveKinematicBodies()
     }
 }
 
-JPH::Shape* PhysicsWorld::ModelShape(Model* model, bool convex)
+JPH::Shape* PhysicsWorld::ModelShape(Model* model, int lodLevel, bool convex)
 {
     if (!model)
         return nullptr;
 
-    std::pair<Model*, bool> key(model, convex);
+    ModelShapeCache::Key key(model, lodLevel, convex);
     auto it = modelShapes->entries.find(key);
     if (it != modelShapes->entries.end())
     {
@@ -635,7 +659,7 @@ JPH::Shape* PhysicsWorld::ModelShape(Model* model, bool convex)
             if (lodGeometries.empty())
                 continue;
 
-            Geometry* geom = lodGeometries.back();
+            Geometry* geom = lodGeometries[Clamp(lodLevel, 0, (int)lodGeometries.size() - 1)];
             if (!geom || !geom->cpuPositionData || !geom->cpuIndexData)
                 continue;
 
@@ -671,7 +695,7 @@ JPH::Shape* PhysicsWorld::ModelShape(Model* model, bool convex)
             if (lodGeometries.empty())
                 continue;
 
-            Geometry* geom = lodGeometries.back();
+            Geometry* geom = lodGeometries[Clamp(lodLevel, 0, (int)lodGeometries.size() - 1)];
             if (!geom || !geom->cpuPositionData || !geom->cpuIndexData || geom->drawCount < 3)
                 continue;
 

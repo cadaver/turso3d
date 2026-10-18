@@ -53,12 +53,10 @@ public:
     void SetCylinderShape(const Vector3& size);
     /// Set a sphere collision shape.
     void SetSphereShape(float diameter);
-    /// Set a convex collision shape derived from a Model resource. Models can be assumed immutable so the Jolt representations can be cached.
-    /// Models use a structure std::vector<std::vector<SharedPtr<Geometry> > > to hold LODs (inner vector) for each submesh (outer vector). If multiple LODs exist, please use the last in the inner vector = coarsest LOD
-    /// The cpuPositionData and cpuIndexData can be assumed valid (non-null) for all models fed into the physics system
-    void SetConvexShape(Model* model, const Vector3& modelScale = Vector3::ONE);
-    /// Set a triangle mesh collision shape derived from a Model resource. Models can be assumed immutable so the Jolt representations can be cached. Should be used only with static or kinematic bodies.
-    void SetTriangleShape(Model* model, const Vector3& modelScale = Vector3::ONE);
+    /// Set a convex collision shape derived from a Model resource. Default LOD is the coarsest while 0 would be the most detailed.
+    void SetConvexShape(Model* model, const Vector3& modelScale = Vector3::ONE, int lodLevel = M_MAX_INT);
+    /// Set a triangle mesh collision shape derived from a Model resource. Default LOD is the coarsest while 0 would be the most detailed. Should be used only with static or kinematic bodies. 
+    void SetTriangleShape(Model* model, const Vector3& modelScale = Vector3::ONE, int lodLevel = M_MAX_INT);
     /// Remove the collision shape. This also removes the body from the simulation.
     void RemoveShape();
 
@@ -111,7 +109,7 @@ protected:
 
 private:
     /// Set the shape parameters and recreate the body.
-    void SetShape(CollisionShapeType type, const Vector3& size, Model* model);
+    void SetShape(CollisionShapeType type, const Vector3& size, Model* model = nullptr, int lodLevel = M_MAX_INT);
     /// Create the Jolt body if all requirements are fulfilled. Preserve the given velocities if dynamic.
     void CreateBody(const Vector3& linearVelocity = Vector3::ZERO, const Vector3& angularVelocity = Vector3::ZERO);
     /// Destroy the Jolt body if exists.
@@ -127,6 +125,8 @@ private:
     JPH::Body* body;
     /// Collision shape model.
     SharedPtr<Model> shapeModel;
+    /// Collision shape model LOD level, 0 = most detailed.
+    int shapeModelLod;
     /// Collision shape size or scale.
     Vector3 shapeSize;
     /// World scale that was used when creating the Jolt shape.
