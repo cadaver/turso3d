@@ -515,15 +515,20 @@ void TestApplication::Update()
         CreateScene(3);
 
     if (input->KeyPressed(SDLK_F5))
-        scene->SaveJSON(File("Scene.json", FILE_WRITE));
+    {
+        File saveFile("Scene.json", FILE_WRITE);
+        scene->SaveJSON(saveFile);
+    }
 
     if (input->KeyPressed(SDLK_F9))
     {
-        File file("Scene.json", FILE_READ);
-        if (file.IsOpen())
-            scene->LoadJSON(file);
-        // Reacquire animating objects & physics world after scene load
-        FindAnimatingObjects();
+        File loadFile("Scene.json", FILE_READ);
+        if (loadFile.IsOpen())
+        {
+            scene->LoadJSON(loadFile);
+            // Reacquire animating objects & physics world after scene load
+            FindAnimatingObjects();
+        }
     }
 
     if (input->KeyPressed(SDLK_1))
@@ -763,7 +768,7 @@ void TestApplication::RenderAndPresent()
             physicsWorld->OnRenderDebug(debugRenderer);
 
         debugRenderer->Render();
-            
+        
         // Optional debug render of shadowmap. Draw both dir light cascades and the shadow atlas
         if (drawShadowDebug)
         {

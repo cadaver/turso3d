@@ -88,9 +88,6 @@ public:
     /// Return number of simulation steps taken during the last Update() call. Rigid body contacts are only refreshed when at least one step was taken.
     int LastUpdateSteps() const { return lastUpdateSteps; }
 
-    /// Applying transforms -flag. Set true to prevent hierarchical modifications signaling transform changes back to the simulation.
-    bool inApplyTransforms;
-
 private:
     /// Add a rigid body. Called by RigidBody.
     void AddRigidBody(RigidBody* body);
@@ -137,6 +134,8 @@ private:
     unsigned numBodiesAddedSinceOptimize;
     /// Simulation steps taken during the last update.
     int lastUpdateSteps;
+    /// Applying transforms -flag. Set true to prevent hierarchical modifications signaling transform changes back to the simulation.
+    bool inApplyTransforms;
     /// Jolt physics system.
     AutoPtr<JPH::PhysicsSystem> physicsSystem;
     /// Job system for Jolt using the WorkQueue.

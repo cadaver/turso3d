@@ -62,23 +62,23 @@ std::string Color::ToString() const
 Color Color::FromHSV(float h, float s, float v, float a)
 {
     while (h < 0.0f)
-		h += 360.0f;
+        h += 360.0f;
     while (h >= 360.0f)
         h -= 360.0f;
 
     s = Clamp(s, 0.0f, 1.0f);
-	v = Clamp(v, 0.0f, 1.0f);
+    v = Clamp(v, 0.0f, 1.0f);
 
     if (s == 0.0f)
         return Color(v, v, v, a);
 
-	float sector = h / 60.0f;
-	int i = (int)sector;
+    float sector = h / 60.0f;
+    int i = (int)sector;
 
-	float f = sector - i;
+    float f = sector - i;
 
-	float p = v * (1.0f - s);
-	float q = v * (1.0f - s * f);
+    float p = v * (1.0f - s);
+    float q = v * (1.0f - s * f);
     float t = v * (1.0f - s * (1.0f - f));
 
     switch (i)

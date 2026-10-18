@@ -313,8 +313,8 @@ PhysicsWorld::PhysicsWorld() :
     timeAccumulator(0.0f),
     numBodiesAddedSinceOptimize(0),
     lastUpdateSteps(0),
-    modelShapes(new ModelShapeCache()),
-    inApplyTransforms(false)
+    inApplyTransforms(false),
+    modelShapes(new ModelShapeCache())
 {
     jobSystem = new JoltJobSystem();
     tempAllocator = new JPH::TempAllocatorImplWithMallocFallback(TEMP_ALLOCATOR_SIZE);
