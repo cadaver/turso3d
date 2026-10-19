@@ -150,6 +150,9 @@ bool TestApplication::Init(const std::vector<std::string>& arguments)
     renderer->SetupShadowMaps(1024, 2048, FMT_D16);
     debugRenderer = new DebugRenderer();
 
+    // Enable creation of physics objects
+    RegisterPhysicsLibrary();
+
     // Disable occlusion queries from web build for now due to performance loss
 #ifdef __EMSCRIPTEN__
     useOcclusion = false;
@@ -422,8 +425,6 @@ void TestApplication::CreateScene(int preset)
     // Preset 3: falling physics boxes
     else if (preset == 3)
     {
-        RegisterPhysicsLibrary();
-
         physicsWorld = scene->CreateChild<PhysicsWorld>();
 
         lightEnvironment->SetFogColor(Color(0.5f, 0.5f, 0.7f));

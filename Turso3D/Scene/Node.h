@@ -60,8 +60,6 @@ public:
     void SetName(const std::string& newName);
     /// Set name.
     void SetName(const char* newName);
-    /// Set node's layer. Usage is subclass specific, for example rendering nodes selectively. Default is 0.
-    void SetLayer(unsigned char newLayer);
     /// Set enabled status. Meaning is subclass specific.
     void SetEnabled(bool enable);
     /// Set enabled status recursively in the child hierarchy.
