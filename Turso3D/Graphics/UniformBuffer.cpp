@@ -30,8 +30,6 @@ bool UniformBuffer::Define(ResourceUsage usage_, size_t size_, const void* data)
 
     assert(Object::Subsystem<Graphics>()->IsInitialized());
 
-    Destroy();
-
     if (!size_)
     {
         LOGERROR("Can not define empty uniform buffer");
@@ -113,7 +111,9 @@ void UniformBuffer::Unbind(size_t index)
 
 bool UniformBuffer::Create(const void* data)
 {
-    glGenBuffers(1, &buffer);
+    if (!buffer)
+        glGenBuffers(1, &buffer);
+
     if (!buffer)
     {
         LOGERROR("Failed to create uniform buffer");

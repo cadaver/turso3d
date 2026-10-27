@@ -65,8 +65,6 @@ bool VertexBuffer::Define(ResourceUsage usage_, size_t numVertices_, const std::
 
     assert(Object::Subsystem<Graphics>()->IsInitialized());
 
-    Destroy();
-
     if (!numVertices_ || !elements_.size())
     {
         LOGERROR("Can not define vertex buffer with no vertices or no elements");
@@ -225,7 +223,9 @@ size_t VertexBuffer::VertexElementSize(const VertexElement& element)
 
 bool VertexBuffer::Create(const void* data)
 {
-    glGenBuffers(1, &buffer);
+    if (!buffer)
+        glGenBuffers(1, &buffer);
+
     if (!buffer)
     {
         LOGERROR("Failed to create vertex buffer");

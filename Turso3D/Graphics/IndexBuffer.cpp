@@ -32,8 +32,6 @@ bool IndexBuffer::Define(ResourceUsage usage_, size_t numIndices_, size_t indexS
 
     assert(Object::Subsystem<Graphics>()->IsInitialized());
 
-    Destroy();
-
     if (!numIndices_)
     {
         LOGERROR("Can not define index buffer with no indices");
@@ -118,7 +116,9 @@ size_t IndexBuffer::BoundIndexSize()
 
 bool IndexBuffer::Create(const void* data)
 {
-    glGenBuffers(1, &buffer);
+    if (!buffer)
+        glGenBuffers(1, &buffer);
+
     if (!buffer)
     {
         LOGERROR("Failed to create index buffer");
